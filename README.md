@@ -1,16 +1,27 @@
-# React + Vite
+# Sea Crew Guide
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Front-end project for sea-crew career preparation, built with React + Vite.
 
-Currently, two official plugins are available:
+## Environment
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Create `.env.local` with:
 
-## React Compiler
+```bash
+VITE_API_BASE_URL=http://localhost:3000
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Scripts
 
-## Expanding the ESLint configuration
+- `npm run dev` start dev server
+- `npm run build` build production assets
+- `npm run lint` run ESLint
+- `npm run preview` preview build output
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Migration Note
+
+Supabase direct client usage has been removed from the front end.
+The app now uses:
+
+- `src/lib/authClient.js` for authentication
+- `src/lib/apiClient.js` for HTTP API requests
+- `src/services/*` for domain-level data access

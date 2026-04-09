@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import { createElement } from 'react'
-import { supabase } from '../lib/supabase'
 import useAuthStore from '../store/useAuthStore'
 import {
   User, FileText, Target, Route, Award,
@@ -9,12 +8,10 @@ import {
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { profile, setUser, setProfile } = useAuthStore()
+  const { profile, signOut } = useAuthStore()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
+    await signOut()
   }
 
   const menuItems = [

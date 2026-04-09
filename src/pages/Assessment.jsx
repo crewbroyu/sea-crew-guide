@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import useAuthStore from '../store/useAuthStore'
+import { getLatestAssessment, saveAssessment } from '../services/assessmentService'
 import { ArrowLeft, ChevronRight, RotateCcw, AlertCircle } from 'lucide-react'
 
 const questions = [
@@ -74,19 +74,7 @@ export default function Assessment() {
       setLoading(true)
       setError(null)
 
-      const { data, error: queryError } = await supabase
-        .from('assessment_results')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (queryError) {
-        console.error('查询测评结果失败:', queryError)
-        // 表可能不存在，不阻塞，让用户重新测
-      }
-
+      const data = await getLatestAssessment()
       if (data) setResult(data)
     } catch (err) {
       console.error('fetchResult 异常:', err)
@@ -119,8 +107,8 @@ export default function Assessment() {
       setCurrentQ(0)
     } else {
       // 全部答完，计算结果
+      const scores = {}
       try {
-        const scores = {}
         let total = 0
         questions.forEach((d) => {
           const dimAnswers = newAnswers[d.key] || []
@@ -131,23 +119,11 @@ export default function Assessment() {
           total += dimScore
         })
         scores.total_score = Math.round(total / 5)
-        scores.user_id = user.id
-
-        const { data, error: upsertError } = await supabase
-          .from('assessment_results')
-          .upsert(scores, { onConflict: 'user_id' })
-          .select()
-          .single()
-
-        if (upsertError) {
-          console.error('保存测评结果失败:', upsertError)
-          // 即使保存失败也显示结果
-          setResult(scores)
-        } else {
-          setResult(data || scores)
-        }
+        const data = await saveAssessment(scores)
+        setResult(data || scores)
       } catch (err) {
         console.error('handleAnswer 异常:', err)
+        setResult(scores)
       }
     }
   }

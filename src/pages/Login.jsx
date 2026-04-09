@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { authClient } from '../lib/authClient'
+import { createInitialProfile } from '../services/profileService'
+import { getFirstTask, upsertMyTask } from '../services/taskService'
 import { Ship, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
@@ -30,7 +32,7 @@ export default function Login() {
     try {
       if (isRegister) {
         // 注册
-        const { data, error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await authClient.signUp({
           email,
           password,
         })
@@ -43,8 +45,7 @@ export default function Login() {
 
         // 创建 profile
         if (data.user) {
-          await supabase.from('profiles').upsert({
-            id: data.user.id,
+          await createInitialProfile({
             nickname: email.split('@')[0],
             level: 1,
             xp: 0,
@@ -52,19 +53,13 @@ export default function Login() {
           })
 
           // 初始化第一个任务
-          const { data: firstTask } = await supabase
-            .from('tasks')
-            .select('id')
-            .eq('stage', 1)
-            .eq('sort_order', 1)
-            .single()
+          const firstTask = await getFirstTask(1, 1)
 
           if (firstTask) {
-            await supabase.from('user_tasks').upsert({
-              user_id: data.user.id,
+            await upsertMyTask({
               task_id: firstTask.id,
               status: 'active',
-            }, { onConflict: 'user_id,task_id' })
+            })
           }
         }
 
@@ -77,7 +72,7 @@ export default function Login() {
         }
       } else {
         // 登录
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { error: signInError } = await authClient.signInWithPassword({
           email,
           password,
         })

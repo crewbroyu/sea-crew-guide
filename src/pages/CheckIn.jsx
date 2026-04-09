@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import useAuthStore from '../store/useAuthStore'
+import { updateMyProfile } from '../services/profileService'
+import { getTodayCheckin, getAllCheckins, createCheckin } from '../services/checkinService'
 import {
   ArrowLeft, Mic, Play, CheckCircle2, Flame, Calendar, Award
 } from 'lucide-react'
@@ -63,23 +64,14 @@ export default function CheckIn() {
 
       // 查今天是否已打卡
       const today = new Date().toISOString().split('T')[0]
-      const { data: todayCheckin } = await supabase
-        .from('checkins')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('checked_at', today)
-        .maybeSingle()
+      const todayCheckin = await getTodayCheckin(today)
 
       if (todayCheckin) {
         setCompleted(true)
       }
 
       // 查所有打卡记录算连续天数和总天数
-      const { data: allCheckins } = await supabase
-        .from('checkins')
-        .select('checked_at')
-        .eq('user_id', user.id)
-        .order('checked_at', { ascending: false })
+      const allCheckins = await getAllCheckins()
 
       if (allCheckins && allCheckins.length > 0) {
         setTotalDays(allCheckins.length)
@@ -146,30 +138,16 @@ export default function CheckIn() {
       setSubmitting(true)
       const today = new Date().toISOString().split('T')[0]
 
-      const { error } = await supabase.from('checkins').insert({
-        user_id: user.id,
+      await createCheckin({
         checked_at: today,
         sentence: todaySentence.en,
         xp_earned: 10,
       })
 
-      if (error) {
-        if (error.code === '23505') {
-          // 已经打过卡了
-          setCompleted(true)
-        } else {
-          console.error('打卡失败:', error)
-        }
-        return
-      }
-
       // 更新 XP
       const newXp = (profile?.xp || 0) + 10
       const newLevel = Math.floor(newXp / 100) + 1
-      await supabase
-        .from('profiles')
-        .update({ xp: newXp, level: newLevel })
-        .eq('id', user.id)
+      await updateMyProfile({ xp: newXp, level: newLevel })
 
       setProfile({ ...profile, xp: newXp, level: newLevel })
       setCompleted(true)

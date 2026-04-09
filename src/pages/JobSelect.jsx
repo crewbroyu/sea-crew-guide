@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import useAuthStore from '../store/useAuthStore'
+import { updateMyProfile } from '../services/profileService'
+import { findTaskByTitle, getMyTaskStatus, getTaskByStageAndOrder, upsertMyTask } from '../services/taskService'
 import { ArrowLeft, Check, Briefcase, Star, AlertCircle } from 'lucide-react'
 
 const allJobs = [
@@ -81,7 +82,7 @@ const allJobs = [
 
 export default function JobSelect() {
   const navigate = useNavigate()
-  const { user, profile } = useAuthStore()
+  const { profile } = useAuthStore()
   const [selected, setSelected] = useState(profile?.selected_job || null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -114,51 +115,30 @@ export default function JobSelect() {
     if (!selected) return
     setSaving(true)
 
-    await supabase
-      .from('profiles')
-      .update({ selected_job: selected })
-      .eq('id', user.id)
+    await updateMyProfile({ selected_job: selected })
 
     // 如果是从任务地图来的，完成任务2
-    const { data: tasks } = await supabase
-      .from('tasks')
-      .select('id')
-      .eq('title', '选择目标岗位')
-      .single()
+    const tasks = await findTaskByTitle('选择目标岗位')
 
     if (tasks) {
-      const { data: userTask } = await supabase
-        .from('user_tasks')
-        .select('status')
-        .eq('user_id', user.id)
-        .eq('task_id', tasks.id)
-        .single()
+      const userTask = await getMyTaskStatus(tasks.id)
 
       if (userTask?.status === 'active') {
         // 完成当前任务
-        await supabase
-          .from('user_tasks')
-          .upsert({
-            user_id: user.id,
-            task_id: tasks.id,
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          }, { onConflict: 'user_id,task_id' })
+        await upsertMyTask({
+          task_id: tasks.id,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
 
         // 解锁下一个任务
-        const { data: nextTask } = await supabase
-          .from('tasks')
-          .select('id')
-          .eq('stage', 1)
-          .eq('sort_order', 3)
-          .single()
+        const nextTask = await getTaskByStageAndOrder(1, 3)
 
         if (nextTask) {
-          await supabase.from('user_tasks').upsert({
-            user_id: user.id,
+          await upsertMyTask({
             task_id: nextTask.id,
             status: 'active',
-          }, { onConflict: 'user_id,task_id' })
+          })
         }
 
         // 更新经验值
@@ -166,10 +146,7 @@ export default function JobSelect() {
         const newLevel = Math.floor(newXp / 100) + 1
         const newTaskCount = (profile?.current_task || 0) + 1
 
-        await supabase
-          .from('profiles')
-          .update({ xp: newXp, level: newLevel, current_task: newTaskCount })
-          .eq('id', user.id)
+        await updateMyProfile({ xp: newXp, level: newLevel, current_task: newTaskCount })
 
         useAuthStore.getState().setProfile({
           ...profile,

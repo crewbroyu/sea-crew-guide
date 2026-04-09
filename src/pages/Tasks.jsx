@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, createElement } from 'react'
-import { supabase } from '../lib/supabase'
+import { useState, useEffect, useCallback, useRef, createElement } from 'react'
 import useAuthStore from '../store/useAuthStore'
 import { useNavigate } from 'react-router-dom'
+import { completeTask as completeTaskRequest, getMyTasks, getTasks, initMyTasks } from '../services/taskService'
 import {
   ChevronLeft, ChevronRight, Check, Lock, Play,
   X, Zap, Sparkles, ClipboardCheck, BookOpen, Target, Upload
@@ -29,19 +29,27 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState(null)
   const [completing, setCompleting] = useState(false)
+  const initializingRef = useRef(false)
   const [showReward, setShowReward] = useState(null)
 
   const initUserTasks = useCallback(async (tasksData) => {
-    const records = tasksData.map((t, i) => ({
-      user_id: user.id,
-      task_id: t.id,
-      status: i === 0 ? 'active' : 'locked'
-    }))
-    const { data, error } = await supabase.from('user_tasks').insert(records).select()
-    if (!error && data) {
-      const map = {}
-      data.forEach(ut => map[ut.task_id] = ut.status)
-      setUserTasks(map)
+    if (initializingRef.current) return null
+    initializingRef.current = true
+    try {
+      const records = tasksData.map((t, i) => ({
+        user_id: user.id,
+        task_id: t.id,
+        status: i === 0 ? 'active' : 'locked'
+      }))
+      const data = await initMyTasks(records)
+      if (data) {
+        const map = {}
+        data.forEach(ut => map[ut.task_id] = ut.status)
+        setUserTasks(map)
+      }
+      return data
+    } finally {
+      initializingRef.current = false
     }
   }, [user?.id])
 
@@ -49,18 +57,17 @@ export default function Tasks() {
     if (!user?.id) return
     try {
       const [tasksRes, utRes] = await Promise.all([
-        supabase.from('tasks').select('*').order('stage').order('sort_order'),
-        supabase.from('user_tasks').select('*').eq('user_id', user.id)
+        getTasks(),
+        getMyTasks(),
       ])
 
-      if (tasksRes.error) throw tasksRes.error
-      const tasksData = tasksRes.data || []
+      const tasksData = tasksRes || []
       setTasks(tasksData)
 
-      const utData = utRes.data || []
+      const utData = utRes || []
       if (utData.length === 0 && tasksData.length > 0) {
         await initUserTasks(tasksData)
-      } else {
+      } else if (utData.length > 0) {
         const map = {}
         utData.forEach(ut => map[ut.task_id] = ut.status)
         setUserTasks(map)
@@ -82,18 +89,7 @@ export default function Tasks() {
     if (completing) return
     setCompleting(true)
     try {
-      await supabase.from('user_tasks')
-        .update({ status: 'completed' })
-        .eq('user_id', user.id)
-        .eq('task_id', task.id)
-
-      const idx = tasks.findIndex(t => t.id === task.id)
-      if (idx < tasks.length - 1) {
-        await supabase.from('user_tasks')
-          .update({ status: 'active' })
-          .eq('user_id', user.id)
-          .eq('task_id', tasks[idx + 1].id)
-      }
+      await completeTaskRequest(task.id)
 
       setSelectedTask(null)
       setShowReward({ xp: task.xp_reward, title: task.title })

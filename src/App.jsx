@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { supabase } from './lib/supabase'
 import useAuthStore from './store/useAuthStore'
 import BottomNav from './components/BottomNav'
 import Login from './pages/Login'
@@ -57,39 +56,11 @@ function AppLayout() {
 }
 
 export default function App() {
-  const { setUser, setProfile } = useAuthStore()
+  const initialize = useAuthStore((state) => state.initialize)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data }) => setProfile(data))
-      }
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          setProfile(data)
-        } else {
-          setProfile(null)
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [setProfile, setUser])
+    initialize()
+  }, [initialize])
 
   return (
     <BrowserRouter>

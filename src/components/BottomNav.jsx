@@ -1,12 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { createElement } from 'react'
-import { Home, Map, GraduationCap, Mic, User } from 'lucide-react'
+import { Home, Map, GraduationCap, Briefcase, User } from 'lucide-react'
 
 const tabs = [
   { icon: Home, label: '首页', to: '/' },
-  { icon: Map, label: '求职中心', to: '/tasks' },
+  { icon: Map, label: '登船路径', to: '/tasks' },
   { icon: GraduationCap, label: '海乘学院', to: '/academy' },
-  { icon: Mic, label: '每日打卡', to: '/checkin' },
+  { icon: Briefcase, label: '求职中心', to: '/jobs' },
   { icon: User, label: '我的', to: '/profile' },
 ]
 

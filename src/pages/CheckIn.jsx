@@ -1,305 +1,270 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import useAuthStore from '../store/useAuthStore'
-import { updateMyProfile } from '../services/profileService'
-import { getTodayCheckin, getAllCheckins, createCheckin } from '../services/checkinService'
-import {
-  ArrowLeft, Mic, Play, CheckCircle2, Flame, Calendar, Award
-} from 'lucide-react'
+import { Volume2, Mic, Square, Play, Trash2, CheckCircle, ArrowLeft } from 'lucide-react'
 
-const sentences = [
-  {
-    en: "Good morning! Welcome aboard. How may I assist you today?",
-    zh: "早上好！欢迎登船。今天有什么可以帮您的吗？",
-  },
-  {
-    en: "Excuse me, dinner will be served in the main dining room at 7 PM.",
-    zh: "打扰一下，晚餐将在主餐厅7点供应。",
-  },
-  {
-    en: "Would you like me to arrange a shore excursion for you?",
-    zh: "您需要我为您安排一次岸上观光吗？",
-  },
-  {
-    en: "Please let me know if you need extra towels or pillows.",
-    zh: "如果您需要额外的毛巾或枕头，请告诉我。",
-  },
-  {
-    en: "The swimming pool is located on Deck 9, open from 8 AM to 10 PM.",
-    zh: "游泳池位于9层甲板，开放时间为早8点至晚10点。",
-  },
-  {
-    en: "I apologize for the inconvenience. Let me resolve this for you right away.",
-    zh: "很抱歉给您带来不便，我马上为您解决。",
-  },
-  {
-    en: "Your cabin has been prepared. Here is your key card.",
-    zh: "您的舱房已准备好，这是您的房卡。",
-  },
+const dailySentences = [
+  "Welcome aboard! My name is... How may I help you?",
+  "Good morning, sir. Breakfast is served from 7 to 10.",
+  "May I take your order, please?",
+  "The lifeboat drill will begin in 30 minutes.",
+  "Please fasten your life jacket like this.",
+  "The swimming pool is on Deck 9, open from 8am to 10pm.",
+  "Would you like still water or sparkling water?",
+  "I'll have your cabin cleaned right away.",
+  "We will arrive at the next port tomorrow morning.",
+  "Is there anything else I can do for you?",
+  "The theater show starts at 8 o'clock tonight.",
+  "Please let me know if you have any allergies.",
+  "The captain's welcome dinner is on the second night.",
+  "You can exchange currency at the guest services desk.",
+  "Excuse me, your table is ready. Please follow me.",
+  "The spa is offering a special promotion today.",
+  "We hope you enjoyed your cruise. See you next time!",
+  "The weather forecast shows clear skies for today.",
+  "Room service is available 24 hours a day.",
+  "Could you please tell me your cabin number?",
+  "The fitness center is located on Deck 12.",
+  "Tonight's dress code is formal attire.",
+  "I apologize for the inconvenience. Let me fix that for you.",
+  "Would you prefer a window seat or an aisle seat?",
+  "The shore excursion departs at 9 AM from Deck 3.",
+  "Please make sure to bring your cruise card with you.",
+  "The buffet restaurant offers a variety of international cuisines.",
+  "How was your day on shore? Did you enjoy it?",
+  "I'll arrange a wake-up call for you at 6 AM.",
+  "Thank you for your patience. Your order will be ready shortly.",
 ]
 
 function getTodaySentence() {
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000
-  )
-  return sentences[dayOfYear % sentences.length]
+  const now = new Date()
+  const start = new Date(now.getFullYear(), 0, 0)
+  const diff = now - start
+  const oneDay = 1000 * 60 * 60 * 24
+  const dayOfYear = Math.floor(diff / oneDay)
+  return dailySentences[dayOfYear % dailySentences.length]
 }
 
 export default function CheckIn() {
   const navigate = useNavigate()
-  const { user, profile, setProfile } = useAuthStore()
-  const [completed, setCompleted] = useState(false)
-  const [streak, setStreak] = useState(0)
-  const [totalDays, setTotalDays] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [weekDays, setWeekDays] = useState([])
+  const [sentence] = useState(getTodaySentence())
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [audioURL, setAudioURL] = useState(null)
+  const [submitted, setSubmitted] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
 
-  const todaySentence = getTodaySentence()
-
-  const fetchCheckinData = useCallback(async () => {
-    if (!user?.id) return
-    try {
-      setLoading(true)
-
-      // 查今天是否已打卡
-      const today = new Date().toISOString().split('T')[0]
-      const todayCheckin = await getTodayCheckin(today)
-
-      if (todayCheckin) {
-        setCompleted(true)
-      }
-
-      // 查所有打卡记录算连续天数和总天数
-      const allCheckins = await getAllCheckins()
-
-      if (allCheckins && allCheckins.length > 0) {
-        setTotalDays(allCheckins.length)
-
-        // 算连续打卡天数
-        let s = 0
-        const dates = allCheckins.map((c) => c.checked_at)
-        const todayDate = new Date(today)
-
-        for (let i = 0; i < dates.length; i++) {
-          const expected = new Date(todayDate)
-          expected.setDate(expected.getDate() - i)
-          const expectedStr = expected.toISOString().split('T')[0]
-          if (dates.includes(expectedStr)) {
-            s++
-          } else {
-            break
-          }
-        }
-        setStreak(s)
-      }
-
-      // 算本周打卡情况
-      const now = new Date()
-      const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
-      const monday = new Date(now)
-      monday.setDate(now.getDate() - dayOfWeek + 1)
-
-      const week = []
-      const checkedDates = allCheckins ? allCheckins.map((c) => c.checked_at) : []
-
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(monday)
-        d.setDate(monday.getDate() + i)
-        const dateStr = d.toISOString().split('T')[0]
-        const dayNames = ['一', '二', '三', '四', '五', '六', '日']
-        week.push({
-          label: dayNames[i],
-          date: dateStr,
-          checked: checkedDates.includes(dateStr),
-          isToday: dateStr === today,
-          isFuture: d > now,
-        })
-      }
-      setWeekDays(week)
-    } catch (err) {
-      console.error('fetchCheckinData error:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [user?.id])
+  const mediaRecorderRef = useRef(null)
+  const chunksRef = useRef([])
+  const timerRef = useRef(null)
+  const audioRef = useRef(null)
 
   useEffect(() => {
-    if (user?.id) {
-      fetchCheckinData()
-    } else {
-      setLoading(false)
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (audioURL) URL.revokeObjectURL(audioURL)
     }
-  }, [fetchCheckinData, user?.id])
+  }, [audioURL])
 
-  const handleCheckIn = async () => {
-    if (submitting || completed) return
-    try {
-      setSubmitting(true)
-      const today = new Date().toISOString().split('T')[0]
-
-      await createCheckin({
-        checked_at: today,
-        sentence: todaySentence.en,
-        xp_earned: 10,
-      })
-
-      // 更新 XP
-      const newXp = (profile?.xp || 0) + 10
-      const newLevel = Math.floor(newXp / 100) + 1
-      await updateMyProfile({ xp: newXp, level: newLevel })
-
-      setProfile({ ...profile, xp: newXp, level: newLevel })
-      setCompleted(true)
-      setStreak((s) => s + 1)
-      setTotalDays((t) => t + 1)
-
-      // 更新本周状态
-      setWeekDays((prev) =>
-        prev.map((d) =>
-          d.isToday ? { ...d, checked: true } : d
-        )
-      )
-    } catch (err) {
-      console.error('handleCheckIn error:', err)
-    } finally {
-      setSubmitting(false)
+  const speakSentence = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(sentence)
+      utterance.lang = 'en-US'
+      utterance.rate = 0.85
+      utterance.onstart = () => setIsPlaying(true)
+      utterance.onend = () => setIsPlaying(false)
+      utterance.onerror = () => setIsPlaying(false)
+      window.speechSynthesis.speak(utterance)
     }
   }
 
-  if (loading) {
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      chunksRef.current = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const url = URL.createObjectURL(blob)
+        if (audioURL) URL.revokeObjectURL(audioURL)
+        setAudioURL(url)
+        stream.getTracks().forEach(track => track.stop())
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+      setRecordingTime(0)
+      timerRef.current = setInterval(() => {
+        setRecordingTime(t => t + 1)
+      }, 1000)
+    } catch (err) {
+      console.error('无法访问麦克风:', err)
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+    setIsRecording(false)
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  const deleteRecording = () => {
+    if (audioURL) URL.revokeObjectURL(audioURL)
+    setAudioURL(null)
+    setRecordingTime(0)
+  }
+
+  const playRecording = () => {
+    if (audioRef.current) {
+      audioRef.current.play()
+    }
+  }
+
+  const handleSubmit = () => {
+    setSubmitted(true)
+  }
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+
+  if (submitted) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 border-t-transparent" />
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="bg-gradient-to-r from-purple-600 to-purple-800 px-6 pt-12 pb-6 flex items-center gap-3">
+          <button onClick={() => navigate('/academy')} className="text-white">
+            <ArrowLeft size={22} />
+          </button>
+          <h1 className="text-white text-lg font-bold">打卡成功</h1>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <CheckCircle size={40} className="text-green-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">今日打卡完成！</h2>
+          <p className="text-gray-500 text-sm text-center mb-8">坚持每天练习，你的英语会越来越好 🎉</p>
+          <button
+            onClick={() => navigate('/academy')}
+            className="bg-purple-600 text-white px-8 py-3 rounded-xl font-medium"
+          >
+            返回学院
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* 顶部 */}
-      <div className="bg-gradient-to-r from-orange-500 to-orange-700 px-6 pt-12 pb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate('/')} className="text-white">
-            <ArrowLeft size={22} />
+      <div className="bg-gradient-to-r from-purple-600 to-purple-800 px-6 pt-12 pb-6 flex items-center gap-3">
+        <button onClick={() => navigate('/academy')} className="text-white">
+          <ArrowLeft size={22} />
+        </button>
+        <div>
+          <h1 className="text-white text-lg font-bold">每日英语打卡</h1>
+          <p className="text-purple-200 text-xs mt-0.5">跟读练习，提升口语</p>
+        </div>
+      </div>
+
+      <div className="px-6 py-4 space-y-4">
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-purple-600 font-medium bg-purple-50 px-3 py-1 rounded-full">今日句子</span>
+            <span className="text-xs text-gray-400">{new Date().toLocaleDateString('zh-CN')}</span>
+          </div>
+          <p className="text-lg font-semibold text-gray-800 leading-relaxed">{sentence}</p>
+          <button
+            onClick={speakSentence}
+            disabled={isPlaying}
+            className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition ${
+              isPlaying
+                ? 'bg-purple-100 text-purple-400'
+                : 'bg-purple-600 text-white active:scale-95'
+            }`}
+          >
+            <Volume2 size={18} />
+            {isPlaying ? '正在朗读...' : '听发音'}
           </button>
-          <h1 className="text-white text-lg font-bold">每日打卡</h1>
         </div>
-        <p className="text-orange-200 text-sm">坚持练习，日积月累</p>
 
-        {/* 统计 */}
-        <div className="flex gap-4 mt-4">
-          <div className="flex-1 bg-white/10 rounded-xl p-3 text-center">
-            <div className="flex items-center justify-center gap-1">
-              <Flame size={18} className="text-yellow-300" />
-              <span className="text-white text-xl font-bold">{streak}</span>
-            </div>
-            <p className="text-orange-200 text-xs mt-1">连续打卡</p>
-          </div>
-          <div className="flex-1 bg-white/10 rounded-xl p-3 text-center">
-            <div className="flex items-center justify-center gap-1">
-              <Calendar size={18} className="text-yellow-300" />
-              <span className="text-white text-xl font-bold">{totalDays}</span>
-            </div>
-            <p className="text-orange-200 text-xs mt-1">累计打卡</p>
-          </div>
-          <div className="flex-1 bg-white/10 rounded-xl p-3 text-center">
-            <div className="flex items-center justify-center gap-1">
-              <Award size={18} className="text-yellow-300" />
-              <span className="text-white text-xl font-bold">{totalDays * 10}</span>
-            </div>
-            <p className="text-orange-200 text-xs mt-1">获得XP</p>
-          </div>
-        </div>
-      </div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <p className="text-sm font-medium text-gray-800 mb-4">跟读录音</p>
 
-      {/* 本周打卡日历 */}
-      <div className="px-6 mt-4">
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm font-medium text-gray-700 mb-3">本周打卡</p>
-          <div className="flex justify-between">
-            {weekDays.map((d) => (
-              <div key={d.date} className="flex flex-col items-center gap-1.5">
-                <span className={`text-xs ${d.isToday ? 'text-orange-600 font-bold' : 'text-gray-400'}`}>
-                  {d.label}
-                </span>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  d.checked
-                    ? 'bg-orange-500'
-                    : d.isToday
-                    ? 'bg-orange-100 border-2 border-orange-400'
-                    : d.isFuture
-                    ? 'bg-gray-50'
-                    : 'bg-gray-100'
-                }`}>
-                  {d.checked ? (
-                    <CheckCircle2 size={16} className="text-white" />
-                  ) : d.isToday ? (
-                    <div className="w-2 h-2 rounded-full bg-orange-400" />
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 今日练习 */}
-      <div className="px-6 mt-4">
-        <div className="bg-white rounded-2xl p-6 shadow-sm text-center">
-          <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            {completed ? (
-              <CheckCircle2 size={40} className="text-green-500" />
-            ) : (
-              <Mic size={40} className="text-orange-500" />
-            )}
-          </div>
-
-          <h2 className="font-bold text-gray-800 text-lg mb-2">
-            {completed ? '今日已打卡 ✅' : '今日口语练习'}
-          </h2>
-
-          <p className="text-sm text-gray-500 mb-6">
-            {completed
-              ? '太棒了！明天继续保持 🎉'
-              : '跟读以下句子，练习口语发音'}
-          </p>
-
-          <div className="bg-gray-50 rounded-xl p-4 mb-4 text-left">
-            <p className="text-sm text-gray-800 font-medium">
-              "{todaySentence.en}"
-            </p>
-            <p className="text-xs text-gray-500 mt-2">
-              {todaySentence.zh}
-            </p>
-          </div>
-
-          {!completed && (
-            <>
-              <button className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium flex items-center justify-center gap-2 mb-3">
-                <Play size={16} />
-                播放示范
-              </button>
-
+          {!audioURL && !isRecording && (
+            <div className="flex flex-col items-center py-6">
               <button
-                onClick={handleCheckIn}
-                disabled={submitting}
-                className="w-full py-3 bg-orange-500 text-white rounded-xl text-sm font-bold disabled:opacity-50"
+                onClick={startRecording}
+                className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition"
               >
-                {submitting ? '提交中...' : '完成打卡 +10XP'}
+                <Mic size={32} className="text-white" />
               </button>
-            </>
+              <p className="text-xs text-gray-400 mt-3">点击开始录音</p>
+            </div>
           )}
 
-          {completed && (
-            <button
-              onClick={() => navigate('/tasks')}
-              className="w-full py-3 bg-orange-50 text-orange-600 rounded-xl text-sm font-medium mt-2"
-            >
-              继续做任务 →
-            </button>
+          {isRecording && (
+            <div className="flex flex-col items-center py-6">
+              <div className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
+                <Mic size={32} className="text-white" />
+              </div>
+              <p className="text-red-500 font-mono text-lg mt-3">{formatTime(recordingTime)}</p>
+              <button
+                onClick={stopRecording}
+                className="mt-3 flex items-center gap-2 bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm font-medium active:scale-95 transition"
+              >
+                <Square size={16} />
+                停止录音
+              </button>
+            </div>
+          )}
+
+          {audioURL && !isRecording && (
+            <div className="space-y-3">
+              <audio ref={audioRef} src={audioURL} />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={playRecording}
+                  className="flex-1 flex items-center justify-center gap-2 bg-purple-50 text-purple-600 py-3 rounded-xl text-sm font-medium active:scale-95 transition"
+                >
+                  <Play size={18} />
+                  播放录音
+                </button>
+                <button
+                  onClick={deleteRecording}
+                  className="flex items-center justify-center gap-2 bg-red-50 text-red-500 py-3 px-4 rounded-xl text-sm font-medium active:scale-95 transition"
+                >
+                  <Trash2 size={18} />
+                  删除
+                </button>
+              </div>
+            </div>
           )}
         </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={!audioURL}
+          className={`w-full py-3.5 rounded-xl text-base font-medium transition ${
+            audioURL
+              ? 'bg-purple-600 text-white active:scale-95'
+              : 'bg-gray-200 text-gray-400'
+          }`}
+        >
+          提交打卡
+        </button>
       </div>
     </div>
   )

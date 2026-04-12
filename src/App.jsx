@@ -1,70 +1,96 @@
-import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import useAuthStore from './store/useAuthStore'
-import BottomNav from './components/BottomNav'
-import Login from './pages/Login'
+// src/App.jsx
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Home from './pages/Home'
-import Assessment from './pages/Assessment'
 import Tasks from './pages/Tasks'
-import JobSelect from './pages/JobSelect'
+import Task1 from './pages/tasks/Task1'
+import Task2 from './pages/tasks/Task2'
+import Task3 from './pages/tasks/Task3'
+import Task4ResumeBuilder from './pages/tasks/phase2/Task4ResumeBuilder'
+import Task8MockInterview from './pages/tasks/phase2/Task8MockInterview'
+import Task9MyOffer from './pages/MyOffer'
 import Academy from './pages/Academy'
-import CheckIn from './pages/CheckIn'
+import ListeningSpeaking from './pages/academy/ListeningSpeaking'
+import ListeningSpeakingCategory from './pages/academy/ListeningSpeakingCategory'
+import ListeningSpeakingCourse from './pages/academy/ListeningSpeakingCourse'
+import Boarding from './pages/academy/Boarding'
+import BoardingDetail from './pages/academy/BoardingDetail'
+import Wiki from './pages/academy/Wiki'
+import WikiArticle from './pages/academy/WikiArticle'
+import Checkin from './pages/academy/Checkin'
+import PositionEnglish from './pages/academy/PositionEnglish'
+import InterviewQuestions from './pages/academy/InterviewQuestions'
+import JobsCenter from './pages/JobsCenter'
+import JobPreparation from './pages/JobPreparation'
+import JobChannels from './pages/JobChannels'
+import CruiseCompanyJobs from './pages/CruiseCompanyJobs'
+import CruiseJobPlatforms from './pages/CruiseJobPlatforms'
+import LatestRecruitment from './pages/LatestRecruitment'
+import YugeReferral from './pages/YugeReferral'
+import MyApplications from './pages/MyApplications'
 import Profile from './pages/Profile'
+import Messages from './pages/Messages'
+import AssessmentContainer from './components/assessment/AssessmentContainer'
+import BoardingMaterials from './pages/BoardingMaterials'
+import BottomNav from './components/BottomNav'
 
-// 不显示底部导航的页面
-const hideNavPages = ['/login', '/assessment', '/job-select']
+function App() {
+  const hideNavPages = [
+    '/tasks/*',
+    '/academy/*',
+    '/jobs/preparation',
+    '/jobs/channels',
+    '/jobs/company-jobs',
+    '/jobs/platforms',
+    '/jobs/latest',
+    '/jobs/yuge',
+    '/jobs/applications',
+    '/my-offer',
+    '/messages',
+    '/assessment',
+    '/boarding-materials'
+  ]
 
-function PlaceholderPage({ title }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-xl shadow-sm px-6 py-5 text-center">
-        <h1 className="text-lg font-bold text-gray-800">{title}</h1>
-        <p className="text-sm text-gray-500 mt-2">页面建设中</p>
+    <Router>
+      <div className="min-h-screen bg-gray-50">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/tasks/Task1" element={<Task1 />} />
+          <Route path="/tasks/Task2" element={<Task2 />} />
+          <Route path="/tasks/Task3" element={<Task3 />} />
+          <Route path="/tasks/phase2/Task4" element={<Task4ResumeBuilder />} />
+          <Route path="/tasks/phase2/Task8" element={<Task8MockInterview />} />
+          <Route path="/my-offer" element={<Task9MyOffer />} />
+          <Route path="/academy" element={<Academy />} />
+          <Route path="/academy/listening-speaking" element={<ListeningSpeaking />} />
+          <Route path="/academy/listening-speaking/:category" element={<ListeningSpeakingCategory />} />
+          <Route path="/academy/listening-speaking/:category/:course" element={<ListeningSpeakingCourse />} />
+          <Route path="/academy/boarding" element={<Boarding />} />
+          <Route path="/academy/boarding/:id" element={<BoardingDetail />} />
+          <Route path="/academy/wiki" element={<Wiki />} />
+          <Route path="/academy/wiki/:id" element={<WikiArticle />} />
+          <Route path="/academy/checkin" element={<Checkin />} />
+          <Route path="/academy/position-english" element={<PositionEnglish />} />
+          <Route path="/academy/interview-questions" element={<InterviewQuestions />} />
+          <Route path="/jobs" element={<JobsCenter />} />
+          <Route path="/jobs/preparation" element={<JobPreparation />} />
+          <Route path="/jobs/channels" element={<JobChannels />} />
+          <Route path="/jobs/company-jobs" element={<CruiseCompanyJobs />} />
+          <Route path="/jobs/platforms" element={<CruiseJobPlatforms />} />
+          <Route path="/jobs/latest" element={<LatestRecruitment />} />
+          <Route path="/jobs/yuge" element={<YugeReferral />} />
+          <Route path="/jobs/applications" element={<MyApplications />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/assessment" element={<AssessmentContainer />} />
+          <Route path="/boarding-materials" element={<BoardingMaterials />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <BottomNav hideNavPages={hideNavPages} />
       </div>
-    </div>
+    </Router>
   )
 }
 
-function AppLayout() {
-  const { user } = useAuthStore()
-  const location = useLocation()
-  const showNav = user && !hideNavPages.includes(location.pathname)
-
-  return (
-    <div className={showNav ? 'pb-16' : ''}>
-      <Routes>
-        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-        <Route path="/" element={user ? <Home /> : <Navigate to="/login" />} />
-        <Route path="/assessment" element={user ? <Assessment /> : <Navigate to="/login" />} />
-        <Route path="/tasks" element={user ? <Tasks /> : <Navigate to="/login" />} />
-        <Route path="/job-select" element={user ? <JobSelect /> : <Navigate to="/login" />} />
-        <Route path="/academy" element={user ? <Academy /> : <Navigate to="/login" />} />
-        <Route path="/academy/job-english" element={user ? <PlaceholderPage title="岗位英语" /> : <Navigate to="/login" />} />
-        <Route path="/academy/interview" element={user ? <PlaceholderPage title="面试训练" /> : <Navigate to="/login" />} />
-        <Route path="/academy/boarding" element={user ? <PlaceholderPage title="登船手续" /> : <Navigate to="/login" />} />
-        <Route path="/academy/wiki" element={user ? <PlaceholderPage title="邮轮百科" /> : <Navigate to="/login" />} />
-        <Route path="/checkin" element={user ? <CheckIn /> : <Navigate to="/login" />} />
-        <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
-        <Route path="/route-select" element={user ? <PlaceholderPage title="确定申请路线" /> : <Navigate to="/login" />} />
-        <Route path="/resume" element={user ? <PlaceholderPage title="我的简历" /> : <Navigate to="/login" />} />
-        <Route path="/my-offer" element={user ? <PlaceholderPage title="我的 Offer" /> : <Navigate to="/login" />} />
-        <Route path="/settings" element={user ? <PlaceholderPage title="设置" /> : <Navigate to="/login" />} />
-      </Routes>
-      {showNav && <BottomNav />}
-    </div>
-  )
-}
-
-export default function App() {
-  const initialize = useAuthStore((state) => state.initialize)
-
-  useEffect(() => {
-    initialize()
-  }, [initialize])
-
-  return (
-    <BrowserRouter>
-      <AppLayout />
-    </BrowserRouter>
-  )
-}
+export default App

@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom'
 import { createElement } from 'react'
-import { Home, Map, GraduationCap, Mic, User } from 'lucide-react'
+import { Home, Map, GraduationCap, Briefcase, User } from 'lucide-react'
 
 const tabs = [
   { to: '/', icon: Home, label: '首页' },
-  { to: '/tasks', icon: Map, label: '任务' },
+  { to: '/tasks', icon: Map, label: '登船路径' },
   { to: '/academy', icon: GraduationCap, label: '学院' },
-  { to: '/checkin', icon: Mic, label: '打卡' },
+  { to: '/jobs', icon: Briefcase, label: '求职' },
   { to: '/profile', icon: User, label: '我的' },
 ]
 

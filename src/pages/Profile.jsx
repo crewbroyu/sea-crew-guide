@@ -1,24 +1,50 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createElement } from 'react'
 import useAuthStore from '../store/useAuthStore'
 import {
   User, FileText, Target, Route, Award,
-  Settings, LogOut, ChevronRight
+  Settings, LogOut, ChevronRight, Bell
 } from 'lucide-react'
 
 export default function Profile() {
   const navigate = useNavigate()
   const { profile, signOut } = useAuthStore()
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [assessmentResult, setAssessmentResult] = useState(null)
+
+  // 加载未读消息数量和测评结果
+  useEffect(() => {
+    // 加载未读消息
+    const messages = JSON.parse(localStorage.getItem('messages') || '[]')
+    const count = messages.filter(msg => !msg.isRead).length
+    setUnreadCount(count)
+    
+    // 加载测评结果
+    const savedResult = localStorage.getItem('assessment_result')
+    if (savedResult) {
+      const result = JSON.parse(savedResult)
+      if (result.completed) {
+        setAssessmentResult(result)
+      }
+    }
+  }, [])
 
   const handleLogout = async () => {
     await signOut()
   }
 
   const menuItems = [
-    { icon: Target, label: '海乘适配评估', to: '/assessment' },
+    {
+      icon: Target, 
+      label: assessmentResult ? `适配度${assessmentResult.level} · ${assessmentResult.overallScore}分` : '海乘适配评估', 
+      to: '/assessment',
+      suffix: !assessmentResult && '去测评'
+    },
     { icon: Route, label: '确定申请路线', to: '/route-select' },
     { icon: FileText, label: '我的简历', to: '/resume' },
     { icon: Award, label: '我的Offer', to: '/my-offer' },
+    { icon: Bell, label: '站内消息', to: '/messages', hasBadge: unreadCount > 0, badgeCount: unreadCount },
     { icon: Settings, label: '设置', to: '/settings' },
   ]
 
@@ -51,15 +77,31 @@ export default function Profile() {
 
       {/* 菜单列表 */}
       <div className="px-6 py-4 space-y-2">
-        {menuItems.map(({ icon, label, to }) => (
+        {menuItems.map(({ icon, label, to, hasBadge, badgeCount, suffix }) => (
           <button
             key={to}
             onClick={() => navigate(to)}
             className="w-full bg-white rounded-xl p-4 flex items-center gap-3 shadow-sm"
           >
-            {createElement(icon, { size: 20, className: 'text-gray-500' })}
-            <span className="flex-1 text-left text-sm text-gray-800">{label}</span>
-            <ChevronRight size={18} className="text-gray-300" />
+            <div className="relative">
+              {createElement(icon, { size: 20, className: 'text-gray-500' })}
+              {hasBadge && (
+                <div className="absolute -top-1 -right-1">
+                  <div className="bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
+                    {badgeCount}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 text-left">
+              <span className="text-sm text-gray-800">{label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {suffix && (
+                <span className="text-xs text-blue-600 font-medium">{suffix}</span>
+              )}
+              <ChevronRight size={18} className="text-gray-300" />
+            </div>
           </button>
         ))}
 

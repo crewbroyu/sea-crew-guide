@@ -46,9 +46,9 @@ export default function ResultPage({ dimensionScores, overallScore, onRestart })
     return colors[color] || 'text-gray-600 bg-gray-100'
   }
 
-  // 处理分享结果
-  const handleShareResult = () => {
-    alert('功能开发中')
+  // 处理进入下一任务
+  const handleNextTask = () => {
+    navigate('/tasks/Task2')
   }
 
   // 处理查看提升计划
@@ -255,10 +255,10 @@ export default function ResultPage({ dimensionScores, overallScore, onRestart })
               重新测评
             </button>
             <button
-              onClick={handleShareResult}
+              onClick={handleNextTask}
               className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
             >
-              分享结果
+              进入下一任务
             </button>
             <button
               onClick={handleViewImprovementPlan}

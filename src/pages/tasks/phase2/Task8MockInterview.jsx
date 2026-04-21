@@ -1,15 +1,26 @@
 // src/pages/tasks/phase2/Task8MockInterview.jsx
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Mic, MicOff, Clock, AlertTriangle, RefreshCw, Home,
-  Volume2, Info, Edit3, CheckCircle
+  Volume2, Info, Edit3, CheckCircle, ArrowLeft
 } from 'lucide-react';
 import { positionConfig } from '../../../data/interviewQuestions';
 import interviewQuestions from '../../../data/interviewQuestions';
 
 function Task8MockInterview() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ===== 判断来源 =====
+  const fromAcademy = location.state?.from === 'academy';
+
+  // 如果从学院进入，清除之前选择的职位，强制显示职位选择页面
+  useEffect(() => {
+    if (fromAcademy) {
+      localStorage.removeItem('interviewSelectedPosition');
+    }
+  }, [fromAcademy]);
 
   // ==================== 常量 ====================
   const interviewers = [
@@ -22,9 +33,14 @@ function Task8MockInterview() {
   ];
 
   const positionNames = {
-    restaurant_server: '餐厅服务员',
-    duty_free_sales: '免税店销售',
-    bar_server: '酒吧服务员'
+    bar_server: '酒吧服务员',
+    restaurant: '餐厅服务员',
+    housekeeping: '客房服务员',
+    front_office: '前台接待',
+    retail: '免税店销售',
+    youth_staff: '儿童看护',
+    kitchen: '厨房帮厨',
+    utility: '后勤清洁'
   };
 
   const restaurantServerQuestions = [
@@ -55,6 +71,10 @@ function Task8MockInterview() {
   const [browserSupported, setBrowserSupported] = useState(true);
   const [currentStatus, setCurrentStatus] = useState('');
   const [recognitionStatus, setRecognitionStatus] = useState('idle');
+  const [task2Position, setTask2Position] = useState(null);
+  const [positionMismatch, setPositionMismatch] = useState(false);
+  const [showMismatchModal, setShowMismatchModal] = useState(false);
+  const [initialPositionLoaded, setInitialPositionLoaded] = useState(false);
 
   // ==================== Refs ====================
   const recognizedTextRef = useRef('');
@@ -75,6 +95,41 @@ function Task8MockInterview() {
   useEffect(() => { manualAnswerRef.current = manualAnswer; }, [manualAnswer]);
   useEffect(() => { recognizedTextRef.current = recognizedText; }, [recognizedText]);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+
+  // ==================== 任务2职位绑定 ====================
+  useEffect(() => {
+    if (initialPositionLoaded) return;
+    
+    const task2Result = localStorage.getItem('task2_result');
+    if (task2Result) {
+      const task2Data = JSON.parse(task2Result);
+      if (task2Data.selectedTargetJob) {
+        setTask2Position(task2Data.selectedTargetJob);
+        if (!selectedPosition) {
+          setSelectedPosition(task2Data.selectedTargetJob);
+          localStorage.setItem('interviewSelectedPosition', task2Data.selectedTargetJob);
+          setInitialPositionLoaded(true);
+        } else if (selectedPosition !== task2Data.selectedTargetJob) {
+          setPositionMismatch(true);
+          setShowMismatchModal(true);
+        }
+      }
+    }
+  }, [selectedPosition, initialPositionLoaded]);
+
+  const getTask2PositionName = () => {
+    const position = positionConfig.find(p => p.key === task2Position);
+    return position ? `${position.icon} ${position.nameZh}` : '';
+  };
+
+  const handleUseTask2Position = () => {
+    if (task2Position) {
+      setSelectedPosition(task2Position);
+      localStorage.setItem('interviewSelectedPosition', task2Position);
+      setShowMismatchModal(false);
+      setPositionMismatch(false);
+    }
+  };
 
   // ==================== 关键词提取（修复核心） ====================
   const getKeywordsForQuestion = (question) => {
@@ -527,10 +582,10 @@ function Task8MockInterview() {
   const backToTasks = () => {
     stopListening();
     window.speechSynthesis && window.speechSynthesis.cancel();
-    navigate('/tasks');
+    navigate(fromAcademy ? '/academy' : '/tasks');
   };
 
-  const goToTask7 = () => navigate('/tasks/interview-practice');
+  const goToTask7 = () => navigate('/tasks/phase2/Task7');
 
   // ==================== Effects ====================
   useEffect(() => {
@@ -545,6 +600,12 @@ function Task8MockInterview() {
   }, [stage]);
 
   useEffect(() => {
+    // 如果从学院进入，不自动加载职位，显示职位选择页面
+    if (fromAcademy) {
+      return;
+    }
+    
+    // 从任务进入时，加载之前选择的职位
     const task7Data = JSON.parse(localStorage.getItem('task7_data') || '{}');
     if (task7Data.progress?.position) {
       setSelectedPosition(task7Data.progress.position);
@@ -552,7 +613,7 @@ function Task8MockInterview() {
       const pos = localStorage.getItem('interviewSelectedPosition');
       if (pos) setSelectedPosition(pos);
     }
-  }, []);
+  }, [fromAcademy]);
 
   useEffect(() => {
     if (selectedPosition) {
@@ -563,11 +624,17 @@ function Task8MockInterview() {
   }, [selectedPosition]);
 
   useEffect(() => {
-    const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}');
-    if (!progress.task7?.completed) {
-      navigate('/tasks');
+    if (!fromAcademy) {
+      // 检查是否在测试模式下
+      const isTestMode = localStorage.getItem('testMode') === 'true';
+      if (!isTestMode) {
+        const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}');
+        if (!progress.task7?.completed) {
+          navigate('/tasks');
+        }
+      }
     }
-  }, [navigate]);
+  }, [navigate, fromAcademy]);
 
   useEffect(() => {
     return () => {
@@ -582,16 +649,47 @@ function Task8MockInterview() {
   // ==================== 渲染 ====================
 
   if (!selectedPosition) {
+    // 从学院进来且没有选择职位，显示职位选择器
+    // 从任务进来且没有选择职位，提示完成任务7
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
+          {task2Position && fromAcademy && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={18} className="text-amber-600 mt-0.5" />
+                <p className="text-amber-800 text-sm font-medium">
+                  任务2已选择：{getTask2PositionName()}
+                </p>
+              </div>
+            </div>
+          )}
           <div className="text-center space-y-6">
-            <AlertTriangle size={48} className="text-amber-500 mx-auto" />
-            <h2 className="text-xl font-bold text-gray-800">请先完成任务7</h2>
-            <p className="text-gray-600">请先完成任务7并选择目标职位后，才能开始AI模拟面试</p>
-            <button onClick={goToTask7} className="w-full py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700">
-              前往任务7
-            </button>
+            <h2 className="text-xl font-bold text-gray-800">选择目标职位</h2>
+            <p className="text-gray-600">请选择你要练习的职位方向</p>
+            <div className="space-y-3">
+              {positionConfig.map((position) => (
+                <button
+                  key={position.key}
+                  onClick={() => {
+                    setSelectedPosition(position.key);
+                    localStorage.setItem('interviewSelectedPosition', position.key);
+                  }}
+                  className="w-full py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <span>{position.icon}</span>
+                  <span>{position.nameZh} ({position.nameEn})</span>
+                </button>
+              ))}
+            </div>
+            {task2Position && (
+              <button
+                onClick={handleUseTask2Position}
+                className="w-full py-3 rounded-lg font-medium bg-amber-600 text-white hover:bg-amber-700"
+              >
+                使用任务2所选职位
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -600,6 +698,37 @@ function Task8MockInterview() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
+      {showMismatchModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-6">
+            <div className="text-center mb-4">
+              <AlertTriangle size={48} className="text-amber-500 mx-auto mb-3" />
+              <h3 className="text-xl font-bold text-gray-800 mb-2">职位不一致</h3>
+              <p className="text-gray-600">
+                你当前选择的职位与任务2所选职位不一致。
+              </p>
+              <p className="text-gray-600 mt-2">
+                任务2选择：<span className="font-medium">{getTask2PositionName()}</span>
+              </p>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={handleUseTask2Position}
+                className="w-full py-3 rounded-lg font-medium bg-amber-600 text-white hover:bg-amber-700"
+              >
+                使用任务2所选职位
+              </button>
+              <button
+                onClick={() => setShowMismatchModal(false)}
+                className="w-full py-3 rounded-lg font-medium bg-gray-200 text-gray-800 hover:bg-gray-300"
+              >
+                继续使用当前职位
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 头部 */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 pt-16 pb-6">
         <div className="flex items-center justify-between">
@@ -957,7 +1086,7 @@ function Task8MockInterview() {
               </button>
               <button onClick={backToTasks}
                 className="flex-1 py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-2">
-                <Home size={18} /> 返回任务列表
+                <Home size={18} /> {fromAcademy ? '返回学院' : '返回任务列表'}
               </button>
             </div>
           </div>

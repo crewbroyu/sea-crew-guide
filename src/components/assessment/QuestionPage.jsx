@@ -14,7 +14,7 @@ export default function QuestionPage({
   onNext,
   onPrev
 }) {
-  const selectedAnswer = answers[question.id]
+  const selectedAnswers = question.type === 'multiple' ? (answers[question.id] || []) : answers[question.id]
   const [played, setPlayed] = useState(false)
 
   // 生成提示音
@@ -84,16 +84,33 @@ export default function QuestionPage({
             {question.options.map((option) => (
               <button
                 key={option.id}
-                onClick={() => onSelectAnswer(question.id, option.id)}
-                className={`w-full py-3 px-4 rounded-lg text-left transition-all ${selectedAnswer === option.id
-                  ? 'bg-blue-50 border-2 border-blue-500'
-                  : 'bg-white border border-gray-200 hover:border-blue-300'}`}
+                onClick={() => {
+                  if (question.type === 'multiple') {
+                    const newSelected = selectedAnswers.includes(option.id)
+                      ? selectedAnswers.filter(id => id !== option.id)
+                      : [...selectedAnswers, option.id]
+                    onSelectAnswer(question.id, newSelected)
+                  } else {
+                    onSelectAnswer(question.id, option.id)
+                  }
+                }}
+                className={`w-full py-3 px-4 rounded-lg text-left transition-all ${question.type === 'multiple' 
+                  ? selectedAnswers.includes(option.id)
+                    ? 'bg-blue-50 border-2 border-blue-500'
+                    : 'bg-white border border-gray-200 hover:border-blue-300'
+                  : selectedAnswers === option.id
+                    ? 'bg-blue-50 border-2 border-blue-500'
+                    : 'bg-white border border-gray-200 hover:border-blue-300'}`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center mt-0.5 ${selectedAnswer === option.id
-                    ? 'bg-blue-500 text-white border-2 border-blue-500'
-                    : 'border-2 border-gray-300'}`}>
-                    {selectedAnswer === option.id && (
+                  <div className={`w-5 h-5 flex items-center justify-center mt-0.5 ${question.type === 'multiple' 
+                    ? selectedAnswers.includes(option.id)
+                      ? 'bg-blue-500 text-white border-2 border-blue-500'
+                      : 'border-2 border-gray-300'
+                    : selectedAnswers === option.id
+                      ? 'bg-blue-500 text-white border-2 border-blue-500'
+                      : 'border-2 border-gray-300'}`}>
+                    {(question.type === 'multiple' ? selectedAnswers.includes(option.id) : selectedAnswers === option.id) && (
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
@@ -121,10 +138,14 @@ export default function QuestionPage({
             </button>
             <button
               onClick={onNext}
-              disabled={!selectedAnswer}
-              className={`flex-1 py-3 rounded-lg font-medium transition-colors ${!selectedAnswer
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-green-600 text-white hover:bg-green-700'}`}
+              disabled={question.type === 'multiple' ? selectedAnswers.length === 0 : !selectedAnswers}
+              className={`flex-1 py-3 rounded-lg font-medium transition-colors ${question.type === 'multiple' 
+                ? selectedAnswers.length === 0
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+                : !selectedAnswers
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 text-white hover:bg-green-700'}`}
             >
               <div className="flex items-center justify-center gap-1">
                 {currentQuestion === totalQuestions - 1 ? '完成本维度' : '下一题'}

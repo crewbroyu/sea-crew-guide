@@ -99,7 +99,7 @@ const TaskLayout = ({ taskId, taskTitle, canComplete, children }) => {
       </div>
 
       {/* 底部固定栏 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4">
+      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-10">
         <button
           onClick={handleCompleteTask}
           disabled={!canComplete}
@@ -119,6 +119,7 @@ const TaskLayout = ({ taskId, taskTitle, canComplete, children }) => {
         onClose={handleTaskCompleteModalClose}
         taskName={taskTitle}
         totalTasksCompleted={getTaskNumber()}
+        taskId={taskId}
       />
 
       {/* 阶段通关弹窗 */}

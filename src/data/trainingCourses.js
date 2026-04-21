@@ -194,7 +194,7 @@ const trainingCourses = {
         level: '入门',
         duration: '数小时',
         description: '零基础入门，重点学习吧台工具、基础酒类知识、经典鸡尾酒配方和岗位英语表达。',
-        url: 'https://www.udemy.com/',
+        url: 'https://www.udemy.com/course/the-working-bartender-best-beginner-bartending-course-online/',
         tags: ['调酒入门', '零基础'],
         recommended: true,
         note: '在Udemy搜索课程名',
@@ -226,6 +226,247 @@ const trainingCourses = {
         description: '行业认可度高的调酒培训，适合有一定基础后进阶学习，业内普遍认为很值得。',
         url: 'https://barsmarts.com/',
         tags: ['行业认证', '进阶'],
+        order: 3
+      }
+    ]
+  },
+  housekeeping: {
+    title: '客房服务员 Housekeeping',
+    icon: '🛏️',
+    description: '学习客房清洁、整理和客户服务技能，提升客房服务专业水平。',
+    courses: [
+      {
+        id: 'h1',
+        name: 'Housekeeping Fundamentals',
+        nameZh: '客房服务基础',
+        platform: 'Alison',
+        platformColor: 'purple',
+        level: '入门',
+        duration: '3-4小时',
+        description: '学习客房清洁标准、整理技巧、布草更换和客房检查等基础知识。',
+        url: 'https://alison.com/course/housekeeping-fundamentals',
+        tags: ['客房服务', '基础培训'],
+        recommended: true,
+        order: 1
+      },
+      {
+        id: 'h2',
+        name: 'Customer Service for Housekeeping',
+        nameZh: '客房服务客户沟通',
+        platform: 'Alison',
+        platformColor: 'purple',
+        level: '初级',
+        duration: '2-3小时',
+        description: '学习客房服务中的客户沟通技巧，包括入住欢迎、需求处理和投诉应对。',
+        url: 'https://alison.com/course/customer-service-for-housekeeping',
+        tags: ['客户服务', '沟通技巧'],
+        recommended: true,
+        order: 2
+      },
+      {
+        id: 'h3',
+        name: 'Hotel Housekeeping Management',
+        nameZh: '酒店客房管理',
+        platform: 'Coursera',
+        platformColor: 'indigo',
+        level: '中级',
+        duration: '约4小时',
+        description: '学习客房管理的最佳实践，包括时间管理、团队协作和质量控制。',
+        url: 'https://www.coursera.org/learn/hotel-housekeeping-management',
+        tags: ['管理技能', '进阶'],
+        order: 3
+      }
+    ]
+  },
+  frontOffice: {
+    title: '前台接待 Front Office',
+    icon: '💼',
+    description: '掌握前台接待、入住登记和客户服务技能，提升前台服务专业水平。',
+    courses: [
+      {
+        id: 'f1',
+        name: 'Front Office Operations',
+        nameZh: '前台运营基础',
+        platform: 'Alison',
+        platformColor: 'purple',
+        level: '入门',
+        duration: '3-4小时',
+        description: '学习前台接待流程、入住登记、退房手续和客户咨询处理等基础知识。',
+        url: 'https://alison.com/course/front-office-operations',
+        tags: ['前台服务', '基础培训'],
+        recommended: true,
+        order: 1
+      },
+      {
+        id: 'f2',
+        name: 'Customer Service in Hospitality',
+        nameZh: ' hospitality 客户服务',
+        platform: 'Coursera',
+        platformColor: 'indigo',
+        level: '初级',
+        duration: '约3小时',
+        description: '学习酒店行业的客户服务最佳实践，提升客户满意度和服务质量。',
+        url: 'https://www.coursera.org/learn/customer-service-hospitality',
+        tags: ['客户服务', '专业技能'],
+        recommended: true,
+        order: 2
+      },
+      {
+        id: 'f3',
+        name: 'Front Desk English',
+        nameZh: '前台英语会话',
+        platform: 'YouTube',
+        platformColor: 'red',
+        level: '实战练习',
+        duration: '自主练习',
+        description: '搜索 "Front Desk English Conversation"，通过真实前台场景视频练习英语。推荐频道：English with Lucy、Business English Pod。',
+        url: 'https://www.youtube.com/results?search_query=front+desk+english+conversation',
+        tags: ['口语练习', '最重要'],
+        recommended: true,
+        order: 3
+      }
+    ]
+  },
+  youthStaff: {
+    title: '儿童看护 Youth Staff',
+    icon: '🧒',
+    description: '学习儿童看护、活动组织和安全管理技能，提升儿童服务专业水平。',
+    courses: [
+      {
+        id: 'y1',
+        name: 'Childcare Basics',
+        nameZh: '儿童看护基础',
+        platform: 'Alison',
+        platformColor: 'purple',
+        level: '入门',
+        duration: '3-4小时',
+        description: '学习儿童发展、安全管理、活动组织和应急处理等基础知识。',
+        url: 'https://alison.com/course/childcare-basics',
+        tags: ['儿童看护', '基础培训'],
+        recommended: true,
+        order: 1
+      },
+      {
+        id: 'y2',
+        name: 'Child Safety and First Aid',
+        nameZh: '儿童安全与急救',
+        platform: 'Alison',
+        platformColor: 'purple',
+        level: '初级',
+        duration: '2-3小时',
+        description: '学习儿童安全管理、急救知识和应急处理技能，确保儿童在邮轮上的安全。',
+        url: 'https://alison.com/course/child-safety-and-first-aid',
+        tags: ['安全管理', '急救知识'],
+        recommended: true,
+        order: 2
+      },
+      {
+        id: 'y3',
+        name: 'Children\'s Activities Planning',
+        nameZh: '儿童活动策划',
+        platform: 'Coursera',
+        platformColor: 'indigo',
+        level: '中级',
+        duration: '约3小时',
+        description: '学习如何策划和组织适合不同年龄段儿童的活动，提升儿童服务质量。',
+        url: 'https://www.coursera.org/learn/childrens-activities-planning',
+        tags: ['活动策划', '专业技能'],
+        order: 3
+      }
+    ]
+  },
+  kitchen: {
+    title: '厨房工作 Kitchen',
+    icon: '🍳',
+    description: '学习厨房操作、食品安全和烹饪技能，提升厨房工作专业水平。',
+    courses: [
+      {
+        id: 'k1',
+        name: 'Food Safety and Hygiene',
+        nameZh: '食品安全与卫生',
+        platform: 'Alison',
+        platformColor: 'purple',
+        level: '入门',
+        duration: '3-4小时',
+        description: '学习食品安全标准、卫生管理和食物处理等基础知识。',
+        url: 'https://alison.com/course/food-safety-and-hygiene',
+        tags: ['食品安全', '卫生管理'],
+        recommended: true,
+        order: 1
+      },
+      {
+        id: 'k2',
+        name: 'Basic Cooking Skills',
+        nameZh: '基础烹饪技能',
+        platform: 'Alison',
+        platformColor: 'purple',
+        level: '初级',
+        duration: '4-5小时',
+        description: '学习基础烹饪技巧、食材处理和厨房设备使用等技能。',
+        url: 'https://alison.com/course/basic-cooking-skills',
+        tags: ['烹饪技能', '基础培训'],
+        recommended: true,
+        order: 2
+      },
+      {
+        id: 'k3',
+        name: 'Kitchen Operations Management',
+        nameZh: '厨房运营管理',
+        platform: 'Coursera',
+        platformColor: 'indigo',
+        level: '中级',
+        duration: '约4小时',
+        description: '学习厨房工作流程、团队协作和质量控制等管理技能。',
+        url: 'https://www.coursera.org/learn/kitchen-operations-management',
+        tags: ['运营管理', '进阶'],
+        order: 3
+      }
+    ]
+  },
+  utility: {
+    title: '后勤清洁 Utility',
+    icon: '🧹',
+    description: '学习清洁管理、设备操作和安全规范，提升后勤服务专业水平。',
+    courses: [
+      {
+        id: 'u1',
+        name: 'Cleaning Techniques and Management',
+        nameZh: '清洁技术与管理',
+        platform: 'Alison',
+        platformColor: 'purple',
+        level: '入门',
+        duration: '3-4小时',
+        description: '学习专业清洁技术、设备使用和清洁管理等基础知识。',
+        url: 'https://alison.com/course/cleaning-techniques-and-management',
+        tags: ['清洁技术', '基础培训'],
+        recommended: true,
+        order: 1
+      },
+      {
+        id: 'u2',
+        name: 'Health and Safety in Cleaning',
+        nameZh: '清洁工作健康与安全',
+        platform: 'Alison',
+        platformColor: 'purple',
+        level: '初级',
+        duration: '2-3小时',
+        description: '学习清洁工作中的健康与安全规范，确保工作环境安全。',
+        url: 'https://alison.com/course/health-and-safety-in-cleaning',
+        tags: ['健康安全', '规范'],
+        recommended: true,
+        order: 2
+      },
+      {
+        id: 'u3',
+        name: 'Facility Maintenance Basics',
+        nameZh: '设施维护基础',
+        platform: 'Coursera',
+        platformColor: 'indigo',
+        level: '中级',
+        duration: '约3小时',
+        description: '学习基本设施维护技能，包括设备保养和简单维修。',
+        url: 'https://www.coursera.org/learn/facility-maintenance-basics',
+        tags: ['设施维护', '专业技能'],
         order: 3
       }
     ]

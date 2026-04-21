@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>清空任务完成状态</title>
+</head>
+<body>
+    <h1>清空任务完成状态</h1>
+    <p>点击按钮清空所有任务的完成状态：</p>
+    <button onclick="clearAllStorage()">清空所有任务状态</button>
+    <div id="message"></div>
+
+    <script>
+        function clearAllStorage() {
+            // 清空所有与任务相关的localStorage数据
+            localStorage.removeItem('boarding_progress');
+            localStorage.removeItem('task5_data');
+            localStorage.removeItem('task6_data');
+            localStorage.removeItem('task7_data');
+            localStorage.removeItem('task8_data');
+            localStorage.removeItem('checkin_data');
+            localStorage.removeItem('my_applications');
+            localStorage.removeItem('port_daily_data');
+            localStorage.removeItem('resume_data');
+            
+            document.getElementById('message').innerHTML = '<p style="color: green;">所有任务状态已清空！</p>';
+        }
+
+        // 显示当前存储状态
+        window.onload = function() {
+            const message = document.getElementById('message');
+            const storageKeys = Object.keys(localStorage);
+            let statusHTML = '<h3>当前存储状态：</h3><ul>';
+            
+            storageKeys.forEach(key => {
+                statusHTML += `<li>${key}: ${localStorage.getItem(key) ? '已存在' : '不存在'}</li>`;
+            });
+            
+            statusHTML += '</ul>';
+            message.innerHTML = statusHTML;
+        };
+    </script>
+</body>
+</html>

@@ -34,7 +34,7 @@ export default function StepSkillsCerts() {
   };
 
   return (
-    <div className="pb-4">
+    <div className="pb-24">
       <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
         {/* Skills */}
         <div className="mb-6">

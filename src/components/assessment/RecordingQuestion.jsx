@@ -95,21 +95,36 @@ export default function RecordingQuestion({
       recognition.lang = 'en-US'
       recognition.continuous = true
       recognition.interimResults = true
+      recognition.maxAlternatives = 1
+      recognition.start()
       
       recognition.onresult = (event) => {
         let finalTranscript = ''
+        let interimTranscript = ''
         for (let i = event.resultIndex; i < event.results.length; i++) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript + ' '
+          } else {
+            interimTranscript += event.results[i][0].transcript + ' '
           }
         }
-        if (finalTranscript) {
-          setTranscript(finalTranscript)
-          setWordCount(finalTranscript.trim().split(/\s+/).filter(word => word.length > 0).length)
+        // 优先显示最终结果，如果没有则显示中间结果
+        const displayTranscript = finalTranscript || interimTranscript
+        if (displayTranscript) {
+          setTranscript(displayTranscript)
+          setWordCount(displayTranscript.trim().split(/\s+/).filter(word => word.length > 0).length)
         }
       }
       
-      recognition.start()
+      // 错误处理
+      recognition.onerror = (event) => {
+        console.error('语音识别错误:', event.error)
+      }
+      
+      // 结束处理
+      recognition.onend = () => {
+        console.log('语音识别结束')
+      }
     } catch (error) {
       console.error('录音失败:', error)
       setShowFallback(true)

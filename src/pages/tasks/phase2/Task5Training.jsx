@@ -1,5 +1,5 @@
 // src/pages/tasks/phase2/Task5Training.jsx
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronUp } from 'lucide-react';
@@ -10,13 +10,29 @@ const STORAGE_KEY = 'task5_data';
 
 const saveToLocalStorage = (data) => {
   try {
+    // 保存前先排除 image 数据计算大小，避免超限
     const serializedData = JSON.stringify(data);
     localStorage.setItem(STORAGE_KEY, serializedData);
     return true;
   } catch (error) {
     console.error('Error saving to localStorage:', error);
     if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-      alert('存储空间不足，请清理浏览器缓存后重试');
+      console.warn('存储空间不足，尝试清理图片数据...');
+      // 尝试移除图片后重新保存
+      try {
+        const cleanData = { ...data };
+        if (cleanData.completedCourseDetails) {
+          const cleanDetails = {};
+          Object.entries(cleanData.completedCourseDetails).forEach(([key, val]) => {
+            cleanDetails[key] = { ...val, image: null };
+          });
+          cleanData.completedCourseDetails = cleanDetails;
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanData));
+        return true;
+      } catch (e2) {
+        console.error('即使清理图片后仍然无法保存:', e2);
+      }
     }
     return false;
   }
@@ -63,8 +79,14 @@ export default function Task5Training() {
 
   // 学习计时相关状态
   const [activeTimer, setActiveTimer] = useState(null); // { courseId, startTime, elapsedTime, courseName }
-  const [timerInterval, setTimerInterval] = useState(null);
+  const timerIntervalRef = useRef(null);
   const [showTimerBar, setShowTimerBar] = useState(false);
+  
+  // 用 ref 追踪 activeTimer，供 visibilitychange 使用
+  const activeTimerRef = useRef(null);
+  useEffect(() => {
+    activeTimerRef.current = activeTimer;
+  }, [activeTimer]);
   
   // 学习笔记相关状态
   const [learningRecords, setLearningRecords] = useState(() => {
@@ -101,8 +123,8 @@ export default function Task5Training() {
   // 启动计时器
   const startTimer = (course) => {
     // 停止当前计时器
-    if (timerInterval) {
-      clearInterval(timerInterval);
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
     }
 
     // 打开外部链接
@@ -113,36 +135,37 @@ export default function Task5Training() {
     const newTimer = {
       courseId: course.id,
       startTime,
-      courseName: course.nameZh
+      courseName: course.nameZh,
+      elapsedTime: 0
     };
     setActiveTimer(newTimer);
     setShowTimerBar(true);
 
-    // 设置计时器间隔（仅用于UI刷新）
+    // 设置计时器间隔
     const interval = setInterval(() => {
       setActiveTimer(prev => {
         if (!prev) return prev;
-        // 每次都重新计算已用时间，不依赖累加
         return {
           ...prev,
           elapsedTime: Date.now() - prev.startTime
         };
       });
     }, 1000);
-    setTimerInterval(interval);
+    timerIntervalRef.current = interval;
   };
 
   // 停止计时器
-  const stopTimer = () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      setTimerInterval(null);
+  const stopTimer = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
     }
     setShowTimerBar(false);
-  };
+  }, []);
 
   // 格式化时间
   const formatTime = (milliseconds) => {
+    if (!milliseconds || milliseconds < 0) return '00:00:00';
     const totalSeconds = Math.floor(milliseconds / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -201,10 +224,29 @@ export default function Task5Training() {
     setCompletionImage(null);
   };
 
-  // 处理图片上传
+  // 处理图片上传 - 限制大小
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (!file) return;
+    
+    // 限制文件大小为 500KB
+    if (file.size > 500 * 1024) {
+      // 压缩图片
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => {
+        // 缩放到最大 600px 宽
+        const maxWidth = 600;
+        const scale = Math.min(1, maxWidth / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        setCompletionImage(compressedDataUrl);
+      };
+      img.src = URL.createObjectURL(file);
+    } else {
       const reader = new FileReader();
       reader.onloadend = () => {
         setCompletionImage(reader.result);
@@ -254,10 +296,10 @@ export default function Task5Training() {
     navigate('/tasks?justCompleted=5');
   };
 
-  // 监听页面可见性变化
+  // 监听页面可见性变化 - 用 ref 避免每秒重建
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && activeTimer) {
+      if (document.visibilityState === 'visible' && activeTimerRef.current) {
         setShowLearningEndModal(true);
       }
     };
@@ -265,11 +307,11 @@ export default function Task5Training() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (timerInterval) {
-        clearInterval(timerInterval);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
       }
     };
-  }, [activeTimer, timerInterval]);
+  }, []); // 空依赖，只注册一次
 
   const roles = Object.entries(trainingCourses);
   const currentRole = selectedRole ? trainingCourses[selectedRole] : null;
@@ -290,14 +332,14 @@ export default function Task5Training() {
       <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white pb-20">
         <div className="bg-white shadow-sm sticky top-0 z-10">
           <div className="max-w-lg mx-auto px-4 py-4 flex items-center">
-            <button onClick={() => navigate('/academy')} className="text-gray-500 mr-3">
+            <button onClick={() => navigate('/tasks')} className="text-gray-500 mr-3">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <div>
               <h1 className="text-lg font-bold text-gray-900">岗位英语课程</h1>
-              <p className="text-sm text-gray-500">海乘学院 {'>'} 岗位英语课程</p>
+              <p className="text-sm text-gray-500">任务列表 {'>'} 岗位英语课程</p>
             </div>
           </div>
         </div>
@@ -378,7 +420,7 @@ export default function Task5Training() {
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white pb-20">
       <div className="bg-white shadow-sm sticky top-0 z-10">
           <div className="max-w-lg mx-auto px-4 py-4 flex items-center">
-            <button onClick={() => navigate('/academy')} className="text-gray-500 mr-3">
+            <button onClick={() => setSelectedRole(null)} className="text-gray-500 mr-3">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
@@ -701,6 +743,9 @@ export default function Task5Training() {
                     <div>
                       <Upload size={32} className="text-gray-400 mx-auto mb-2" />
                       <p className="text-sm text-gray-500 mb-2">点击或拖拽文件到此处上传</p>
+                      <p className="text-amber-600 text-xs mb-3">
+                        上传文件只是为了解锁任务，请打码重要信息（姓名、证件编号）后上传
+                      </p>
                       <input 
                         type="file" 
                         accept="image/*" 

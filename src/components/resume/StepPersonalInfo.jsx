@@ -33,7 +33,7 @@ export default function StepPersonalInfo() {
   };
 
   return (
-    <div className="pb-4">
+    <div className="pb-24">
       <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
         {/* Photo upload */}
         <div className="flex items-center gap-4 mb-6 p-3 bg-gray-50 rounded-lg">

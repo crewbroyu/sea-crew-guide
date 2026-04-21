@@ -1,109 +1,227 @@
 // src/pages/academy/ListeningSpeakingCourse.jsx
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Headphones, PlayCircle } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { ChevronLeft, Play, Pause, Mic, Check, AlertCircle } from 'lucide-react'
+import { callCloudFunction } from '../../services/cloudService'
 
 export default function ListeningSpeakingCourse() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { category, course } = location.state || {};
+  const navigate = useNavigate()
+  const { category, course } = useParams()
+  const [courseData, setCourseData] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [mediaRecorder, setMediaRecorder] = useState(null)
+  const [audioChunks, setAudioChunks] = useState([])
+  const [checkinSuccess, setCheckinSuccess] = useState(false)
+  const [error, setError] = useState('')
+  const [timer, setTimer] = useState(null)
 
-  if (!category || !course) {
-    navigate('/academy/listening-speaking');
-    return null;
+  // 模拟课程数据
+  useEffect(() => {
+    const mockCourseData = {
+      id: course,
+      title: course === 'eslpod-1' ? 'Daily English' : 'Business English',
+      mediaUrl: 'https://example.com/audio/eslpod1.mp3',
+      transcript: 'Welcome to ESLPod! Today we\'re going to learn about daily English conversations.',
+      translation: '欢迎来到ESLPod！今天我们将学习日常英语对话。'
+    }
+    setCourseData(mockCourseData)
+  }, [course])
+
+  // 播放原音
+  const handlePlay = () => {
+    // 实际项目中，这里会播放真实的音频文件
+    setIsPlaying(true)
+    setTimeout(() => {
+      setIsPlaying(false)
+    }, 3000) // 模拟播放3秒
+  }
+
+  // 开始录音
+  const startRecording = async () => {
+    try {
+      setError('')
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      
+      // 获取浏览器支持的音频格式
+      let mimeType = 'audio/webm'
+      let fileExtension = 'webm'
+      
+      if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4'
+        fileExtension = 'mp4'
+      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+        mimeType = 'audio/ogg'
+        fileExtension = 'ogg'
+      }
+      
+      const recorder = new MediaRecorder(stream, { mimeType })
+      setMediaRecorder(recorder)
+      
+      const chunks = []
+      recorder.ondataavailable = (e) => chunks.push(e.data)
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: mimeType })
+        const reader = new FileReader()
+        reader.onloadend = async () => {
+          const base64Audio = reader.result.split(',')[1]
+          await uploadAudio(base64Audio, fileExtension)
+        }
+        reader.readAsDataURL(blob)
+      }
+      
+      recorder.start()
+      setIsRecording(true)
+      setAudioChunks(chunks)
+      
+      // 开始计时
+      const interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1)
+      }, 1000)
+      setTimer(interval)
+    } catch (err) {
+      setError('无法访问麦克风，请检查权限设置')
+      console.error('录音失败:', err)
+    }
+  }
+
+  // 停止录音
+  const stopRecording = () => {
+    if (mediaRecorder) {
+      mediaRecorder.stop()
+      setIsRecording(false)
+      if (timer) {
+        clearInterval(timer)
+      }
+      setRecordingTime(0)
+    }
+  }
+
+  // 上传音频
+  const uploadAudio = async (base64Audio, fileExtension) => {
+    try {
+      const result = await callCloudFunction('uploadAudio', {
+        audioData: base64Audio,
+        userId: 'user123', // 实际项目中从用户登录信息获取
+        userName: '测试用户', // 实际项目中从用户登录信息获取
+        courseId: course,
+        fileExtension: fileExtension
+      })
+      
+      if (result.code === 0) {
+        setCheckinSuccess(true)
+        setTimeout(() => {
+          setCheckinSuccess(false)
+        }, 3000)
+      } else {
+        setError(result.message)
+      }
+    } catch (err) {
+      setError('上传失败，请重试')
+      console.error('上传失败:', err)
+    }
+  }
+
+  if (!courseData) {
+    return <div className="loading">加载中...</div>
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* 顶部头部区域 */}
-      <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 px-6 pt-16 pb-6">
-        {/* 面包屑导航 */}
-        <div className="flex items-center gap-2 text-indigo-200 text-sm mb-4">
-          <span onClick={() => navigate('/academy')} className="cursor-pointer hover:text-white">海乘学院</span>
-          <span className="breadcrumb-separator">›</span>
-          <span onClick={() => navigate('/academy/listening-speaking')} className="cursor-pointer hover:text-white">听说训练</span>
-          <span className="breadcrumb-separator">›</span>
-          <span onClick={() => navigate('/academy/listening-speaking/category', { state: { category } })} className="cursor-pointer hover:text-white">{category.name}</span>
-          <span className="breadcrumb-separator">›</span>
-          <span className="text-white font-medium">课程详情</span>
-        </div>
-        
+    <div className="min-h-screen bg-gray-50">
+      {/* 顶部头部 */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 pt-16 pb-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/academy/listening-speaking/category', { state: { category } })}
-            className="text-white hover:text-indigo-200"
+            onClick={() => navigate(`/academy/listening-speaking/${category}`)}
+            className="text-white hover:text-blue-200"
           >
             <ChevronLeft size={24} />
           </button>
-          <h1 className="text-white text-2xl font-bold">{course.title}</h1>
+          <h1 className="text-white text-2xl font-bold">{courseData.title}</h1>
         </div>
         <p className="text-white/80 text-sm mt-2">
-          {category.name} · {course.mediaType === 'audio' ? '音频' : '视频'}课程
+          {category === 'eslpod' ? 'ESLPod' : 'EnglishPod'}
         </p>
       </div>
-      
-      {/* 课程内容 */}
+
       <div className="px-6 py-6 space-y-6">
-        {/* 媒体播放器 */}
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">{course.mediaType === 'audio' ? '音频播放' : '视频播放'}</h2>
-          
-          {course.mediaType === 'audio' ? (
-            <audio
-              src={course.mediaUrl}
-              controls
-              className="w-full"
+        {/* 原音播放 */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="font-bold text-gray-800 mb-4">原音播放</h3>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handlePlay}
+              disabled={isPlaying}
+              className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 transition"
             >
-              您的浏览器不支持音频播放。
-            </audio>
-          ) : (
-            <video
-              src={course.mediaUrl}
-              controls
-              className="w-full aspect-video"
-            >
-              您的浏览器不支持视频播放。
-            </video>
-          )}
-          
-          <div className="mt-4 flex items-center gap-2">
-            {course.mediaType === 'audio' ? (
-              <Headphones size={20} className="text-indigo-600" />
+              {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+            </button>
+            <div>
+              <p className="text-gray-600">点击播放原音</p>
+              {isPlaying && <p className="text-sm text-blue-600">正在播放...</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* 文本内容 */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="font-bold text-gray-800 mb-3">文本内容</h3>
+          <div className="space-y-3">
+            <div>
+              <p className="text-gray-500 text-sm mb-1">英文</p>
+              <p className="text-gray-800">{courseData.transcript}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 text-sm mb-1">中文</p>
+              <p className="text-gray-800">{courseData.translation}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 跟读打卡 */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="font-bold text-gray-800 mb-4">跟读打卡</h3>
+          <div className="space-y-4">
+            {isRecording ? (
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={stopRecording}
+                  className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white hover:bg-red-700 transition"
+                >
+                  <Pause size={24} />
+                </button>
+                <div>
+                  <p className="text-gray-600">正在录音</p>
+                  <p className="text-sm text-red-600">已录制 {recordingTime} 秒</p>
+                </div>
+              </div>
             ) : (
-              <PlayCircle size={20} className="text-indigo-600" />
+              <button
+                onClick={startRecording}
+                className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-2"
+              >
+                <Mic size={20} />
+                <span>开始跟读</span>
+              </button>
             )}
-            <span className="text-gray-600 text-sm">
-              {course.mediaType === 'audio' ? '音频文件' : '视频文件'}
-            </span>
+
+            {error && (
+              <div className="flex items-center gap-2 text-red-600 text-sm">
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {checkinSuccess && (
+              <div className="flex items-center gap-2 text-green-600 text-sm">
+                <Check size={16} />
+                <span>打卡成功！</span>
+              </div>
+            )}
           </div>
-        </div>
-        
-        {/* 英文原文 */}
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <h2 className="text-lg font-bold text-gray-800 mb-3">英文原文</h2>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-gray-800">{course.transcript}</p>
-          </div>
-        </div>
-        
-        {/* 中文翻译 */}
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <h2 className="text-lg font-bold text-gray-800 mb-3">中文翻译</h2>
-          <div className="bg-indigo-50 p-4 rounded-lg">
-            <p className="text-indigo-800">{course.translation}</p>
-          </div>
-        </div>
-        
-        {/* 练习提示 */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <h3 className="font-medium text-amber-800 mb-2">练习提示</h3>
-          <ul className="list-disc list-inside space-y-1 text-amber-700 text-sm">
-            <li>仔细听音频/视频内容，注意发音和语调</li>
-            <li>尝试跟读，模仿 native speaker 的发音</li>
-            <li>理解对话场景，掌握常用表达</li>
-            <li>反复练习，提高听力和口语能力</li>
-          </ul>
         </div>
       </div>
     </div>
-  );
+  )
 }

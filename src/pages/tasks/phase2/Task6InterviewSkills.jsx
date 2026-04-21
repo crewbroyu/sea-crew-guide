@@ -423,15 +423,15 @@ const module5Content = {
 function Task6InterviewSkills() {
   const navigate = useNavigate();
   
-  // 检查任务5是否已完成
-  useEffect(() => {
-    const progressKey = 'boarding_progress';
-    const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-    if (!progress.task5 || !progress.task5.completed) {
-      // 任务5未完成，重定向到任务列表
-      navigate('/tasks');
-    }
-  }, [navigate]);
+  // 检查任务5是否已完成（注释掉，允许用户直接访问）
+  // useEffect(() => {
+  //   const progressKey = 'boarding_progress';
+  //   const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
+  //   if (!progress.task5 || !progress.task5.completed) {
+  //     // 任务5未完成，重定向到任务列表
+  //     navigate('/tasks');
+  //   }
+  // }, [navigate]);
   
   // 从 localStorage 加载初始数据
   const [progress, setProgress] = useState(() => {
@@ -555,12 +555,12 @@ function Task6InterviewSkills() {
         if (moduleId === 5 && newCompletedModules.length === 5) {
           // 标记任务6为已完成
           const progressKey = 'boarding_progress';
-          const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-          progress.task6 = {
+          const boardingProgress = JSON.parse(localStorage.getItem(progressKey) || '{}');
+          boardingProgress.task6 = {
             completed: true,
             completedAt: new Date().toISOString()
           };
-          localStorage.setItem(progressKey, JSON.stringify(progress));
+          localStorage.setItem(progressKey, JSON.stringify(boardingProgress));
         }
         
         return {
@@ -633,14 +633,14 @@ function Task6InterviewSkills() {
         <div className="mt-8">
           <button
             onClick={() => handleCompleteModule(1)}
-            disabled={timeSpent[1] < modules[0].minDuration}
-            className={`w-full py-3 rounded-lg font-medium transition-colors ${timeSpent[1] < modules[0].minDuration ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+            disabled={(timeSpent[1] || 0) < modules[0].minDuration}
+            className={`w-full py-3 rounded-lg font-medium transition-colors ${(timeSpent[1] || 0) < modules[0].minDuration ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
           >
             完成本模块
           </button>
-          {timeSpent[1] < modules[0].minDuration && (
+          {(timeSpent[1] || 0) < modules[0].minDuration && (
             <p className="text-xs text-gray-500 mt-2 text-center">
-              请认真学习，还需 {Math.ceil((modules[0].minDuration - timeSpent[1]) / 60000)} 分钟
+              请认真学习，还需 {Math.ceil((modules[0].minDuration - (timeSpent[1] || 0)) / 60000)} 分钟
             </p>
           )}
         </div>
@@ -737,14 +737,14 @@ function Task6InterviewSkills() {
         <div className="mt-8">
           <button
             onClick={() => handleCompleteModule(2)}
-            disabled={timeSpent[2] < modules[1].minDuration || !isModule2Completed()}
-            className={`w-full py-3 rounded-lg font-medium transition-colors ${timeSpent[2] < modules[1].minDuration || !isModule2Completed() ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+            disabled={(timeSpent[2] || 0) < modules[1].minDuration || !isModule2Completed()}
+            className={`w-full py-3 rounded-lg font-medium transition-colors ${(timeSpent[2] || 0) < modules[1].minDuration || !isModule2Completed() ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
           >
             完成本模块
           </button>
-          {timeSpent[2] < modules[1].minDuration && (
+          {(timeSpent[2] || 0) < modules[1].minDuration && (
             <p className="text-xs text-gray-500 mt-2 text-center">
-              请认真学习，还需 {Math.ceil((modules[1].minDuration - timeSpent[2]) / 60000)} 分钟
+              请认真学习，还需 {Math.ceil((modules[1].minDuration - (timeSpent[2] || 0)) / 60000)} 分钟
             </p>
           )}
           {timeSpent[2] >= modules[1].minDuration && !isModule2Completed() && (
@@ -791,14 +791,14 @@ function Task6InterviewSkills() {
         <div className="mt-8">
           <button
             onClick={() => handleCompleteModule(3)}
-            disabled={timeSpent[3] < modules[2].minDuration}
-            className={`w-full py-3 rounded-lg font-medium transition-colors ${timeSpent[3] < modules[2].minDuration ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+            disabled={(timeSpent[3] || 0) < modules[2].minDuration}
+            className={`w-full py-3 rounded-lg font-medium transition-colors ${(timeSpent[3] || 0) < modules[2].minDuration ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
           >
             完成本模块
           </button>
-          {timeSpent[3] < modules[2].minDuration && (
+          {(timeSpent[3] || 0) < modules[2].minDuration && (
             <p className="text-xs text-gray-500 mt-2 text-center">
-              请认真学习，还需 {Math.ceil((modules[2].minDuration - timeSpent[3]) / 60000)} 分钟
+              请认真学习，还需 {Math.ceil((modules[2].minDuration - (timeSpent[3] || 0)) / 60000)} 分钟
             </p>
           )}
         </div>
@@ -869,14 +869,14 @@ function Task6InterviewSkills() {
         <div className="mt-8">
           <button
             onClick={() => handleCompleteModule(4)}
-            disabled={timeSpent[4] < modules[3].minDuration}
-            className={`w-full py-3 rounded-lg font-medium transition-colors ${timeSpent[4] < modules[3].minDuration ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+            disabled={(timeSpent[4] || 0) < modules[3].minDuration}
+            className={`w-full py-3 rounded-lg font-medium transition-colors ${(timeSpent[4] || 0) < modules[3].minDuration ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
           >
             完成本模块
           </button>
-          {timeSpent[4] < modules[3].minDuration && (
+          {(timeSpent[4] || 0) < modules[3].minDuration && (
             <p className="text-xs text-gray-500 mt-2 text-center">
-              请认真学习，还需 {Math.ceil((modules[3].minDuration - timeSpent[4]) / 60000)} 分钟
+              请认真学习，还需 {Math.ceil((modules[3].minDuration - (timeSpent[4] || 0)) / 60000)} 分钟
             </p>
           )}
         </div>
@@ -1128,6 +1128,32 @@ function Task6InterviewSkills() {
           {currentModule === 4 && renderModule4()}
           {currentModule === 5 && renderModule5()}
         </div>
+        
+        {/* 参考答案弹窗 */}
+        {showAnswerModal && currentScenario && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-5 max-w-md w-full mx-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-3">参考答案</h3>
+              <p className="text-gray-600 mb-4">场景：{currentScenario.scenario}</p>
+              
+              <div className="space-y-3 mb-4">
+                {Object.entries(currentScenario.answer).map(([step, answer]) => (
+                  <div key={step}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{step}</label>
+                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">{answer}</p>
+                  </div>
+                ))}
+              </div>
+              
+              <button
+                onClick={() => setShowAnswerModal(false)}
+                className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };

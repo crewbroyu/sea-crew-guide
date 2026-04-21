@@ -13,7 +13,7 @@ export default function ResumePreview() {
   } = useResumeStore();
 
   return (
-    <div className="pb-4">
+    <div className="pb-24">
       <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
         <h3 className="text-base font-semibold mb-4">Resume Preview 简历预览</h3>
         

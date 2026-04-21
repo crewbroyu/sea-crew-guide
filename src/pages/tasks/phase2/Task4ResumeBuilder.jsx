@@ -38,7 +38,7 @@ export default function Task4ResumeBuilder() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-48">
       {/* ===== Header ===== */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 pt-4 pb-5">
         <div className="flex items-center mb-3">
@@ -89,10 +89,10 @@ export default function Task4ResumeBuilder() {
       </div>
 
       {/* ===== Step Content ===== */}
-      <div className="px-4 py-4">{renderStep()}</div>
+      <div className="px-4 py-4 pb-40">{renderStep()}</div>
 
       {/* ===== Bottom Navigation ===== */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-3 flex gap-3 z-50">
+      <div className="fixed bottom-16 left-0 right-0 bg-white border-t px-4 py-4 flex gap-3 z-40 shadow-lg">
         {currentStep > 1 && (
           <button
             onClick={prevStep}

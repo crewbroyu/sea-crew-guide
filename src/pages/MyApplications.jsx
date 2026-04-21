@@ -1,328 +1,315 @@
 // src/pages/MyApplications.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Plus, Search, Briefcase, Calendar, Globe, FileText, X, CheckCircle, AlertCircle, XCircle, Mail } from 'lucide-react';
+import { ChevronLeft, Briefcase, Clock, CheckCircle, AlertCircle, Calendar, Edit, Upload, Trash2 } from 'lucide-react';
 
-// 邮轮公司列表（用于下拉选择）
-const cruiseCompanies = [
-  'Royal Caribbean', 'MSC Cruises', 'Carnival Cruise Line',
-  'Norwegian Cruise Line', 'Celebrity Cruises', 'Disney Cruise Line',
-  'Princess Cruises', 'Viking Cruises'
+// 申请状态选项
+const statusOptions = [
+  '未完成',
+  '已申请',
+  '等待回复',
+  '面试中',
+  'Offer',
+  '拒信'
 ];
 
-// 投递渠道选项
-const channels = ['官网', '招聘平台', '代理', '宇哥内推', '其他'];
+// 获取申请记录从本地存储
+const getApplications = () => {
+  return JSON.parse(localStorage.getItem('job_applications') || '[]');
+};
 
-// 申请状态
-const statuses = [
-  { id: 'submitted', name: '已投递', color: 'bg-blue-100 text-blue-700' },
-  { id: 'replied', name: '已回复', color: 'bg-amber-100 text-amber-700' },
-  { id: 'interview', name: '面试中', color: 'bg-purple-100 text-purple-700' },
-  { id: 'approved', name: '已通过', color: 'bg-green-100 text-green-700' },
-  { id: 'rejected', name: '未通过', color: 'bg-gray-100 text-gray-700' }
-];
+// 保存申请记录到本地存储
+const saveApplications = (applications) => {
+  localStorage.setItem('job_applications', JSON.stringify(applications));
+};
+
+// 格式化日期
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 
 export default function MyApplications() {
   const navigate = useNavigate();
-  const [applications, setApplications] = useState([
-    {
-      id: 1, company: 'Royal Caribbean', position: 'Bar Server', date: '2025-04-01', channel: '官网', status: 'interview', notes: '视频面试已预约'
-    },
-    {
-      id: 2, company: 'MSC Cruises', position: 'Restaurant Server', date: '2025-03-28', channel: '招聘平台', status: 'submitted', notes: ''
-    },
-    {
-      id: 3, company: 'Disney Cruise Line', position: 'Retail Associate', date: '2025-03-25', channel: '宇哥内推', status: 'approved', notes: 'Offer已收到！'
-    }
-  ]);
-  
-  const [showModal, setShowModal] = useState(false);
-  const [showStatusMenu, setShowStatusMenu] = useState<number | null>(null);
-  const [formData, setFormData] = useState({
-    company: '',
-    position: '',
-    date: new Date().toISOString().split('T')[0],
-    channel: '官网',
-    notes: ''
-  });
+  const [applications, setApplications] = useState([]);
+  const [editingApplication, setEditingApplication] = useState(null);
+  const [editForm, setEditForm] = useState({});
 
-  // 统计数据
+  // 加载申请记录
+  useEffect(() => {
+    const apps = getApplications();
+    setApplications(apps);
+
+    // 检查未完成的申请，添加提醒
+    const incompleteApps = apps.filter(app => app.status === '未完成');
+    if (incompleteApps.length > 0) {
+      // 简单的提醒机制（实际项目中可以使用更复杂的通知系统）
+      setTimeout(() => {
+        if (window.confirm('你有未完成的申请，是否现在去更新状态？')) {
+          // 可以跳转到具体的申请详情
+        }
+      }, 3000);
+    }
+  }, []);
+
+  // 计算申请统计
   const stats = {
-    submitted: applications.filter(a => a.status === 'submitted').length,
-    replied: applications.filter(a => a.status === 'replied').length,
-    interview: applications.filter(a => a.status === 'interview').length,
-    approved: applications.filter(a => a.status === 'approved').length,
-    rejected: applications.filter(a => a.status === 'rejected').length
+    total: applications.length,
+    pending: applications.filter(app => app.status === '等待回复').length,
+    offers: applications.filter(app => app.status === 'Offer').length
   };
 
-  // 打开添加弹窗
-  const handleOpenModal = () => {
-    setFormData({
-      company: '',
-      position: '',
-      date: new Date().toISOString().split('T')[0],
-      channel: '官网',
-      notes: ''
+  // 处理状态变更
+  const handleStatusChange = (id, newStatus) => {
+    const updatedApplications = applications.map(app => {
+      if (app.id === id) {
+        return {
+          ...app,
+          status: newStatus,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return app;
     });
-    setShowModal(true);
+    setApplications(updatedApplications);
+    saveApplications(updatedApplications);
   };
 
-  // 提交添加申请
-  const handleAddApplication = () => {
-    if (!formData.company || !formData.position) return;
-    const newApp = {
-      id: Date.now(),
-      ...formData,
-      status: 'submitted'
-    };
-    setApplications([newApp, ...applications]);
-    setShowModal(false);
+  // 开始编辑
+  const handleEdit = (application) => {
+    setEditingApplication(application.id);
+    setEditForm({
+      notes: application.notes || ''
+    });
   };
 
-  // 更改状态
-  const handleChangeStatus = (id, newStatus) => {
-    setApplications(applications.map(app => 
-      app.id === id ? { ...app, status: newStatus } : app
-    ));
-    setShowStatusMenu(null);
+  // 保存编辑
+  const handleSaveEdit = (id) => {
+    const updatedApplications = applications.map(app => {
+      if (app.id === id) {
+        return {
+          ...app,
+          notes: editForm.notes,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return app;
+    });
+    setApplications(updatedApplications);
+    saveApplications(updatedApplications);
+    setEditingApplication(null);
   };
 
-  // 获取状态信息
-  const getStatusInfo = (statusId) => {
-    return statuses.find(s => s.id === statusId) || statuses[0];
-  };
-
-  // 获取状态图标
-  const getStatusIcon = (statusId) => {
-    switch (statusId) {
-      case 'approved': return <CheckCircle size={16} />;
-      case 'rejected': return <XCircle size={16} />;
-      case 'interview': return <AlertCircle size={16} />;
-      default: return <Mail size={16} />;
+  // 删除申请记录
+  const handleDelete = (id) => {
+    if (window.confirm('确定要删除这条申请记录吗？')) {
+      const updatedApplications = applications.filter(app => app.id !== id);
+      setApplications(updatedApplications);
+      saveApplications(updatedApplications);
     }
+  };
+
+  // 上传截图（模拟）
+  const handleUploadScreenshot = (id) => {
+    alert('功能开发中：请上传申请成功页面或邮件确认的截图');
+    // 实际项目中这里会实现文件上传功能
+  };
+
+  // 标记为已申请
+  const handleMarkAsApplied = (id) => {
+    handleStatusChange(id, '已申请');
   };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-gradient-to-r from-purple-600 to-purple-800 px-6 pt-16 pb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/jobs')}
-              className="text-white hover:text-purple-200"
-            >
-              <ChevronLeft size={24} />
-            </button>
-            <h1 className="text-white text-2xl font-bold">我的申请</h1>
-          </div>
+      {/* 顶部头部 */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 pt-16 pb-6">
+        <div className="flex items-center gap-3">
           <button
-            onClick={handleOpenModal}
-            className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white hover:bg-white/30"
+            onClick={() => navigate('/jobs')}
+            className="text-white hover:text-blue-200"
           >
-            <Plus size={20} />
+            <ChevronLeft size={24} />
           </button>
+          <h1 className="text-white text-2xl font-bold">我的申请</h1>
         </div>
         <p className="text-white/80 text-sm mt-2">
-          跟踪投递进度，管理申请记录
+          管理和跟踪你的海乘申请进度
         </p>
       </div>
 
       <div className="px-6 py-4">
-        {/* 顶部统计 */}
-        <div className="flex overflow-x-auto gap-3 pb-3">
-          <div className="flex-shrink-0 bg-white rounded-xl shadow-sm p-3 min-w-[80px]">
-            <div className="text-lg font-bold text-blue-600">{stats.submitted}</div>
-            <div className="text-xs text-gray-500">已投递</div>
+        {/* 申请统计 */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-xl shadow-sm p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600 mb-1">{stats.total}</div>
+            <div className="text-sm text-gray-600">总申请数</div>
           </div>
-          <div className="flex-shrink-0 bg-white rounded-xl shadow-sm p-3 min-w-[80px]">
-            <div className="text-lg font-bold text-amber-600">{stats.replied}</div>
-            <div className="text-xs text-gray-500">已回复</div>
+          <div className="bg-white rounded-xl shadow-sm p-4 text-center">
+            <div className="text-2xl font-bold text-amber-600 mb-1">{stats.pending}</div>
+            <div className="text-sm text-gray-600">等待回复</div>
           </div>
-          <div className="flex-shrink-0 bg-white rounded-xl shadow-sm p-3 min-w-[80px]">
-            <div className="text-lg font-bold text-purple-600">{stats.interview}</div>
-            <div className="text-xs text-gray-500">面试中</div>
+          <div className="bg-white rounded-xl shadow-sm p-4 text-center">
+            <div className="text-2xl font-bold text-green-600 mb-1">{stats.offers}</div>
+            <div className="text-sm text-gray-600">Offer数</div>
           </div>
-          <div className="flex-shrink-0 bg-white rounded-xl shadow-sm p-3 min-w-[80px]">
-            <div className="text-lg font-bold text-green-600">{stats.approved}</div>
-            <div className="text-xs text-gray-500">已通过</div>
-          </div>
-        </div>
-
-        {/* 提示 */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-          <p className="text-amber-700 text-xs">
-            提示：数据仅存储在本地，刷新页面会丢失。建议截图保存重要信息。
-          </p>
         </div>
 
         {/* 申请列表 */}
         {applications.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm p-8 text-center">
             <Briefcase size={48} className="text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-800 mb-2">还没有申请记录</h3>
-            <p className="text-gray-500 mb-4">去招聘渠道看看有没有心仪的岗位吧</p>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">暂无申请记录</h3>
+            <p className="text-gray-500 mb-4">
+              去「招聘渠道」浏览邮轮公司官网并申请职位
+            </p>
             <button
               onClick={() => navigate('/jobs/channels')}
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
+              className="px-6 py-3 rounded-lg font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
             >
-              去招聘渠道
+              浏览招聘渠道
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {applications.map((app) => {
-              const statusInfo = getStatusInfo(app.status);
-              return (
-                <div key={app.id} className="bg-white rounded-xl shadow-sm p-4">
+          <div className="space-y-4">
+            {applications.map((application) => (
+              <div key={application.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                {/* 申请基本信息 */}
+                <div className="p-5 border-b">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-gray-800">{app.position}</h3>
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1 ${statusInfo.color}`}>
-                          {getStatusIcon(app.status)}
-                          {statusInfo.name}
-                        </span>
+                    <div>
+                      <h3 className="font-bold text-gray-800 text-lg">{application.companyName}</h3>
+                      <p className="text-gray-600 mt-1">{application.jobTitle}</p>
+                      <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                        <Calendar size={14} />
+                        <span>更新于：{formatDate(application.updatedAt)}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                        <div className="flex items-center gap-1">
-                          <Briefcase size={14} />
-                          {app.company}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar size={14} />
-                          {app.date}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Globe size={14} />
-                          {app.channel}
-                        </div>
-                      </div>
-                      {app.notes && (
-                        <p className="text-gray-600 text-xs">{app.notes}</p>
-                      )}
                     </div>
-                    
-                    {/* 状态选择菜单 */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowStatusMenu(showStatusMenu === app.id ? null : app.id)}
-                        className="p-2 text-gray-400 hover:text-gray-600"
-                      >
-                        <FileText size={16} />
-                      </button>
-                      {showStatusMenu === app.id && (
-                        <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10 min-w-[120px]">
-                          {statuses.map((status) => (
-                            <button
-                              key={status.id}
-                              onClick={() => handleChangeStatus(app.id, status.id)}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                            >
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>
-                                {status.name}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      application.status === '未完成' ? 'bg-gray-100 text-gray-800' :
+                      application.status === '已申请' ? 'bg-blue-100 text-blue-800' :
+                      application.status === '等待回复' ? 'bg-amber-100 text-amber-800' :
+                      application.status === '面试中' ? 'bg-purple-100 text-purple-800' :
+                      application.status === 'Offer' ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {application.status}
                     </div>
                   </div>
                 </div>
-              );
-            })}
+
+                {/* 状态管理和操作 */}
+                <div className="p-5">
+                  {/* 状态选择 */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      状态更新
+                    </label>
+                    <select
+                      value={application.status}
+                      onChange={(e) => handleStatusChange(application.id, e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 备注 */}
+                  {editingApplication === application.id ? (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        备注
+                      </label>
+                      <textarea
+                        value={editForm.notes}
+                        onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                        placeholder="面试时间、HR信息等"
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleSaveEdit(application.id)}
+                          className="px-4 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700"
+                        >
+                          保存
+                        </button>
+                        <button
+                          onClick={() => setEditingApplication(null)}
+                          className="px-4 py-2 rounded-lg font-medium bg-gray-200 text-gray-800 hover:bg-gray-300"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          备注
+                        </label>
+                        <button
+                          onClick={() => handleEdit(application)}
+                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          <Edit size={14} />
+                          编辑
+                        </button>
+                      </div>
+                      <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                        {application.notes || '暂无备注'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 操作按钮 */}
+                  <div className="flex flex-wrap gap-2">
+                    {application.status === '未完成' && (
+                      <button
+                        onClick={() => handleMarkAsApplied(application.id)}
+                        className="flex-1 px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-1"
+                      >
+                        <CheckCircle size={16} />
+                        我已申请
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleUploadScreenshot(application.id)}
+                      className="flex-1 px-4 py-2 rounded-lg font-medium bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-1"
+                    >
+                      <Upload size={16} />
+                      上传截图
+                    </button>
+                    <button
+                      onClick={() => handleDelete(application.id)}
+                      className="px-4 py-2 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 flex items-center justify-center gap-1"
+                    >
+                      <Trash2 size={16} />
+                      删除
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </div>
 
-      {/* 添加申请弹窗 */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
-          <div className="bg-white rounded-t-xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800">添加申请记录</h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">邮轮公司</label>
-                <select
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="">请选择公司</option>
-                  {cruiseCompanies.map((company) => (
-                    <option key={company} value={company}>{company}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">申请岗位</label>
-                <input
-                  type="text"
-                  value={formData.position}
-                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                  placeholder="例如：Bar Server"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">投递日期</label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">投递渠道</label>
-                <select
-                  value={formData.channel}
-                  onChange={(e) => setFormData({ ...formData, channel: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  {channels.map((channel) => (
-                    <option key={channel} value={channel}>{channel}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">备注（可选）</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="添加备注..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none"
-                  rows={3}
-                />
-              </div>
-            </div>
-            
-            <button
-              onClick={handleAddApplication}
-              disabled={!formData.company || !formData.position}
-              className={`w-full py-3 rounded-lg font-medium mt-6 ${
-                formData.company && formData.position
-                  ? 'bg-purple-600 text-white hover:bg-purple-700'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              添加记录
-            </button>
-          </div>
+        {/* 底部提示 */}
+        <div className="mt-6 text-center text-sm text-gray-500">
+          <p>点击状态下拉菜单更新申请进度</p>
+          <p className="mt-1">申请完成后请及时更新状态，以便更好地管理</p>
         </div>
-      )}
+      </div>
     </div>
   );
 }

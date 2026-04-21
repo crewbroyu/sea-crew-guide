@@ -1,0 +1,9 @@
+{
+  "name": "getCheckinRecords",
+  "version": "1.0.0",
+  "description": "Get checkin records from TCB database",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^2.11.0"
+  }
+}

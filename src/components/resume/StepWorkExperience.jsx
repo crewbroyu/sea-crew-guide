@@ -13,7 +13,7 @@ export default function StepWorkExperience() {
   } = useResumeStore();
 
   return (
-    <div className="pb-4">
+    <div className="pb-24">
       <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold">Work Experience 工作经验</h3>

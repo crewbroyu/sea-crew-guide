@@ -3,14 +3,78 @@ import useAuthStore from '../store/useAuthStore'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft, ChevronDown, ChevronUp, CheckCircle, Lock, Clock, AlertCircle,
-  ArrowRight
+  ArrowRight, RefreshCw
 } from 'lucide-react'
 import pathData, { TASK_STATUS } from '../data/pathData'
+
+// 简易 Toast 组件
+function Toast({ message, visible, onClose }) {
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(onClose, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [visible, onClose])
+
+  if (!visible) return null
+
+  return (
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 text-white px-6 py-3 rounded-xl shadow-lg text-sm animate-fade-in">
+      {message}
+    </div>
+  )
+}
+
+// 确认对话框组件
+function ConfirmModal({ visible, title, message, onConfirm, onCancel, confirmText, cancelText, isDangerous }) {
+  if (!visible) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl w-full max-w-md p-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-2">{title}</h3>
+        <p className="text-gray-600 mb-6">{message}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-lg bg-gray-200 text-gray-800 font-medium hover:bg-gray-300"
+          >
+            {cancelText || '取消'}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`flex-1 py-2.5 rounded-lg font-medium ${
+              isDangerous ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-purple-600 text-white hover:bg-purple-700'
+            }`}
+          >
+            {confirmText || '确认'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Tasks() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  
+  // Toast 状态
+  const [toast, setToast] = useState({ visible: false, message: '' })
+  const showToast = (message) => setToast({ visible: true, message })
+  const hideToast = () => setToast({ visible: false, message: '' })
+  
+  // 确认对话框状态
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    cancelText: '',
+    onConfirm: null,
+    isDangerous: false
+  })
   
   // 从 localStorage 读取已完成任务列表
   const [completedTasks, setCompletedTasks] = useState(() => {
@@ -33,6 +97,8 @@ export default function Tasks() {
   const [rejectedTasks, setRejectedTasks] = useState([])
   // 当前展开的阶段ID
   const [expandedStage, setExpandedStage] = useState(null)
+  // 测试模式状态
+  const [testMode, setTestMode] = useState(() => localStorage.getItem('testMode') === 'true')
 
   // 处理 justCompleted 参数 - 必须在 useEffect 中
   useEffect(() => {
@@ -66,6 +132,12 @@ export default function Tasks() {
     localStorage.setItem(progressKey, JSON.stringify(progress));
     console.log('任务完成状态已持久化到 localStorage:', progress);
   }, [completedTasks]);
+
+  // 当 testMode 变化时，持久化到 localStorage
+  useEffect(() => {
+    localStorage.setItem('testMode', testMode.toString());
+    console.log('测试模式状态已持久化到 localStorage:', testMode);
+  }, [testMode]);
 
   // 组件加载时打印当前进度状态
   useEffect(() => {
@@ -123,6 +195,10 @@ export default function Tasks() {
 
   // 检查阶段是否已解锁
   const isStageUnlocked = (stageId) => {
+    // 测试模式下所有阶段都解锁
+    if (testMode) return true
+    
+    // 原逻辑：
     if (stageId === 1) return true
     
     // 前一阶段是否全部完成
@@ -139,6 +215,10 @@ export default function Tasks() {
     if (rejectedTasks.includes(taskId)) return TASK_STATUS.REJECTED
     if (taskId === currentTaskId) return TASK_STATUS.CURRENT
     
+    // 测试模式下所有任务都显示为进行中状态
+    if (testMode) return TASK_STATUS.IN_PROGRESS
+    
+    // 原逻辑：
     // 检查任务是否在当前任务之前
     const taskIndex = allTasks.findIndex(task => task.id === taskId)
     const currentTaskIndex = allTasks.findIndex(task => task.id === currentTaskId)
@@ -157,47 +237,53 @@ export default function Tasks() {
   const handleTaskClick = (task) => {
     const status = getTaskStatus(task.id)
     
-    // 定义任务路由映射
     const taskRoutes = {
-      1: '/assessment', // 五维测评
-      2: '/tasks/Task2', // 选择目标岗位
-      3: '/tasks/Task3', // 确定申请路线
-      4: '/tasks/phase2/Task4', // 制作英文简历
-      5: '/tasks/job-course', // 学习岗位知识
-      6: '/tasks/interview-skills', // 面试技巧学习
-      7: '/tasks/interview-practice', // 面试问题演练
-      8: '/tasks/phase2/Task8', // AI模拟面试
-      9: '/my-offer', // 我的Offer
-      10: '/tasks/certificates', // 考取证件
-      11: '/tasks/luggage', // 准备行李
-      12: '/tasks/boarding' // 登船准备
+      1: '/assessment',
+      2: '/tasks/Task2',
+      3: '/tasks/Task3',
+      4: '/tasks/phase2/Task4',
+      5: '/tasks/phase2/Task5',
+      6: '/tasks/phase2/Task6',
+      7: '/tasks/phase2/Task7',
+      8: '/tasks/phase2/Task8',
+      9: '/tasks/phase2/Task9',
+      10: '/tasks/Task10',
+      11: '/tasks/Task11',
+      12: '/tasks/Task12'
     }
     
-    // 获取当前任务的路由
-    const targetRoute = taskRoutes[task.id] || task.route
+    const targetRoute = taskRoutes[task.id]
     
     switch(status) {
       case TASK_STATUS.COMPLETED:
-        // 所有已完成任务都只弹出提示，不跳转
-        alert('该任务已完成 ✅')
+        showToast('该任务已完成 ✅')
+        // 已完成的任务也可以点击查看
+        if (targetRoute) {
+          navigate(targetRoute)
+        }
         break
         
       case TASK_STATUS.CURRENT:
       case TASK_STATUS.IN_PROGRESS:
       case TASK_STATUS.REVIEWING:
       case TASK_STATUS.REJECTED:
-        // 进行中任务，跳转到对应页面
         if (targetRoute) {
           navigate(targetRoute)
         } else {
-          alert('该任务页面暂未开发')
+          showToast('该功能即将上线，敬请期待 🚀')
         }
         break
         
       case TASK_STATUS.LOCKED:
       default:
-        // 未解锁任务，提示
-        alert('请先完成前置任务')
+        // 测试模式下即使是锁定的任务也可以点击
+        if (testMode && targetRoute) {
+          navigate(targetRoute)
+        } else if (!targetRoute) {
+          showToast('该功能即将上线，敬请期待 🚀')
+        } else {
+          showToast('请先完成前面的任务 🔒')
+        }
         break
     }
   }
@@ -209,6 +295,21 @@ export default function Tasks() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Toast 提示 */}
+      <Toast message={toast.message} visible={toast.visible} onClose={hideToast} />
+
+      {/* 确认对话框 */}
+      <ConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        isDangerous={confirmModal.isDangerous}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+      />
+
       {/* 顶部头部区域 */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-700 px-6 pt-16 pb-6">
         <div className="flex justify-between items-start">
@@ -216,8 +317,16 @@ export default function Tasks() {
             <h1 className="text-white text-xl font-bold">登船路径</h1>
             <p className="text-white/80 text-sm mt-1">完成12个任务，开启你的海乘之旅</p>
           </div>
-          <div className="bg-white/20 rounded-full px-3 py-1.5">
-            <span className="text-white text-sm font-medium">{totalCompleted}/{totalTasks} 已完成</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTestMode(!testMode)}
+              className={`rounded-full px-3 py-1.5 flex items-center gap-1.5 ${testMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-white/20 hover:bg-white/30'}`}
+            >
+              <span className="text-white text-sm font-medium">{testMode ? '关闭测试模式' : '开启测试模式'}</span>
+            </button>
+            <div className="bg-white/20 rounded-full px-3 py-1.5">
+              <span className="text-white text-sm font-medium">{totalCompleted}/{totalTasks} 已完成</span>
+            </div>
           </div>
         </div>
         

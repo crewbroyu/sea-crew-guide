@@ -103,6 +103,16 @@ export default function MyOffer() {
         createdAt: new Date().toISOString()
       });
       localStorage.setItem('messages', JSON.stringify(messages));
+      
+      // 标记任务9为已完成
+      const progressKey = 'boarding_progress';
+      const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
+      progress.task9 = {
+        completed: true,
+        completedAt: new Date().toISOString()
+      };
+      localStorage.setItem(progressKey, JSON.stringify(progress));
+      console.log('Task9 完成状态已写入:', progress);
     } else {
       setStatus(OFFER_STATUS.NOT_SUBMITTED);
       setSelectedFile(null);
@@ -146,7 +156,7 @@ export default function MyOffer() {
       <div className="bg-gradient-to-r from-green-600 to-green-800 px-6 pt-16 pb-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate('/tasks')}
             className="text-white hover:text-green-200"
           >
             <ChevronLeft size={24} />
@@ -185,6 +195,9 @@ export default function MyOffer() {
                   <Upload size={48} className="text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600 font-medium">点击或拖拽上传文件</p>
                   <p className="text-gray-400 text-sm mt-2">支持图片和PDF格式</p>
+                  <p className="text-amber-600 text-xs mt-3">
+                    上传文件只是为了解锁任务，请打码重要信息（姓名、证件编号）后上传
+                  </p>
                 </div>
               ) : (
                 <div className="bg-gray-50 rounded-xl p-4">

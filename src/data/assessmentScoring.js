@@ -10,7 +10,19 @@ export function calculateDimensionScore(answers, questions) {
       // 词汇题特殊评分
       const count = answer ? answer.length : 0;
       totalScore += count >= 6 ? 3 : count >= 3 ? 2 : 1;
-    } else if (answer) {
+    } else if (q.type === 'multiple') {
+      // 多选题评分
+      if (answer && Array.isArray(answer) && q.options) {
+        const score = answer.reduce((sum, optionId) => {
+          const option = q.options.find(o => o.id === optionId);
+          return sum + (option ? option.score : 0);
+        }, 0);
+        totalScore += score;
+      }
+    } else if (q.type === 'recording' && answer) {
+      // 录音题直接使用答案作为分数
+      totalScore += answer;
+    } else if (answer && q.options) {
       const selectedOption = q.options.find(o => o.id === answer);
       totalScore += selectedOption ? selectedOption.score : 0;
     }

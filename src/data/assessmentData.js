@@ -1,9 +1,14 @@
 // src/data/assessmentData.js
 
 export const SERVICE_BACKGROUNDS = [
-  { id: 'food', label: '餐饮服务（餐厅/宴会）' },
-  { id: 'bar', label: '酒吧服务' },
-  { id: 'housekeeping', label: '客房服务' },
+  { id: 'bar_server', label: '酒吧服务（Bar Server）' },
+  { id: 'restaurant', label: '餐厅服务（Restaurant）' },
+  { id: 'housekeeping', label: '客房服务（Housekeeping）' },
+  { id: 'front_office', label: '前台服务（Front Office）' },
+  { id: 'retail', label: '免税店服务（Retail）' },
+  { id: 'youth_staff', label: '儿童看护（Youth Staff）' },
+  { id: 'kitchen', label: '厨房工作（Kitchen）' },
+  { id: 'utility', label: '后勤清洁（Utility）' },
   { id: 'none', label: '暂无服务行业经验' },
 ];
 
@@ -47,40 +52,7 @@ export const DIMENSIONS = [
 
 // 维度一的题目按服务背景分组
 export const PROFESSIONAL_QUESTIONS = {
-  food: [
-    {
-      id: 'p-food-1',
-      scenario: '主管突然抽检你负责的自助餐台，用温度探针测了一道热菜，问你 USPH 标准要求热食内部温度保持在多少以上？',
-      options: [
-        { id: 'a', text: '60°C（140°F）以上', score: 3 },
-        { id: 'b', text: '50°C 以上', score: 1 },
-        { id: 'c', text: '只要客人没投诉应该就没问题', score: 0 },
-      ],
-      maxScore: 3,
-    },
-    {
-      id: 'p-food-2',
-      scenario: '你正在给一桌客人上主菜，余光看到旁边桌的一位老人碰翻了玻璃杯，碎片散落在过道上。',
-      options: [
-        { id: 'a', text: '先把手里的主菜稳稳放好，然后立刻去处理碎片', score: 2 },
-        { id: 'b', text: '立刻放下手中的菜，先用身体或椅子挡住碎片区域防止其他客人踩到，同时呼叫同事协助清理', score: 3 },
-        { id: 'c', text: '先把这桌菜上完，再通知 busboy 去清理', score: 1 },
-        { id: 'd', text: '大声提醒附近客人小心碎片', score: 1 },
-      ],
-      maxScore: 3,
-    },
-    {
-      id: 'p-food-3',
-      scenario: '正式晚宴上，你需要为客人进行分餐式上菜（plated service），同时提供饮品。正确的操作方式是？',
-      options: [
-        { id: 'a', text: '左侧上菜，右侧撤盘，饮品从右侧服务', score: 3 },
-        { id: 'b', text: '右侧统一上菜和撤盘', score: 1 },
-        { id: 'c', text: '看哪边空间大就从哪边', score: 0 },
-      ],
-      maxScore: 3,
-    },
-  ],
-  bar: [
+  bar_server: [
     {
       id: 'p-bar-1',
       scenario: '一位客人点了一杯 Dry Martini，然后跟你说 "make it dirty"。他的意思是？',
@@ -115,6 +87,39 @@ export const PROFESSIONAL_QUESTIONS = {
       maxScore: 3,
     },
   ],
+  restaurant: [
+    {
+      id: 'p-food-1',
+      scenario: '主管突然抽检你负责的自助餐台，用温度探针测了一道热菜，问你 USPH 标准要求热食内部温度保持在多少以上？',
+      options: [
+        { id: 'a', text: '60°C（140°F）以上', score: 3 },
+        { id: 'b', text: '50°C 以上', score: 1 },
+        { id: 'c', text: '只要客人没投诉应该就没问题', score: 0 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-food-2',
+      scenario: '你正在给一桌客人上主菜，余光看到旁边桌的一位老人碰翻了玻璃杯，碎片散落在过道上。',
+      options: [
+        { id: 'a', text: '先把手里的主菜稳稳放好，然后立刻去处理碎片', score: 2 },
+        { id: 'b', text: '立刻放下手中的菜，先用身体或椅子挡住碎片区域防止其他客人踩到，同时呼叫同事协助清理', score: 3 },
+        { id: 'c', text: '先把这桌菜上完，再通知 busboy 去清理', score: 1 },
+        { id: 'd', text: '大声提醒附近客人小心碎片', score: 1 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-food-3',
+      scenario: '正式晚宴上，你需要为客人进行分餐式上菜（plated service），同时提供饮品。正确的操作方式是？',
+      options: [
+        { id: 'a', text: '左侧上菜，右侧撤盘，饮品从右侧服务', score: 3 },
+        { id: 'b', text: '右侧统一上菜和撤盘', score: 1 },
+        { id: 'c', text: '看哪边空间大就从哪边', score: 0 },
+      ],
+      maxScore: 3,
+    },
+  ],
   housekeeping: [
     {
       id: 'p-hk-1',
@@ -144,6 +149,181 @@ export const PROFESSIONAL_QUESTIONS = {
         { id: 'a', text: '先把手上这间房做完再去处理', score: 0 },
         { id: 'b', text: '立刻去查看漏水情况，严重的话先做紧急处理并联系维修部门，再回来继续打扫', score: 3 },
         { id: 'c', text: '通知前台让他们安排人去处理，自己继续打扫', score: 2 },
+      ],
+      maxScore: 3,
+    },
+  ],
+  front_office: [
+    {
+      id: 'p-fo-1',
+      scenario: '一位客人办理入住时，信用卡被拒绝，他说卡里有钱，情绪开始激动。你会怎么做？',
+      options: [
+        { id: 'a', text: '微笑安抚客人，建议换一张卡或使用其他支付方式，同时悄悄联系主管协助', score: 3 },
+        { id: 'b', text: '直接告诉客人"您的卡有问题，换一张吧"', score: 1 },
+        { id: 'c', text: '让客人稍等，自己去后台查原因', score: 2 },
+        { id: 'd', text: '建议客人去ATM取钱支付现金', score: 1 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-fo-2',
+      scenario: '凌晨3点，一位客人从岸上回来，说房间钥匙卡丢了，要你帮忙开门。',
+      options: [
+        { id: 'a', text: '核对客人身份信息，确认无误后陪客人回房间开门，提醒他第二天去前台补办', score: 3 },
+        { id: 'b', text: '直接给客人一张新的钥匙卡', score: 1 },
+        { id: 'c', text: '让客人自己想办法，明天再处理', score: 0 },
+        { id: 'd', text: '打电话给客房部让他们处理', score: 2 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-fo-3',
+      scenario: '一位VIP客人预订了海景房，但到店后发现房间朝向不好，强烈要求换房，而所有海景房都已满。',
+      options: [
+        { id: 'a', text: '道歉并解释情况，主动提出免费升级到更高等级的房间或提供其他补偿', score: 3 },
+        { id: 'b', text: '说"房间已经订满了，没办法"', score: 0 },
+        { id: 'c', text: '让客人等一下，看看有没有取消的房间', score: 1 },
+        { id: 'd', text: '建议客人接受现有房间，下次优先安排', score: 2 },
+      ],
+      maxScore: 3,
+    },
+  ],
+  retail: [
+    {
+      id: 'p-retail-1',
+      scenario: '一位客人在免税店看中一款手表，犹豫是否购买，担心价格不是最低。你会如何处理？',
+      options: [
+        { id: 'a', text: '介绍产品的品质和船上免税价格的优势，提供专业建议但不强迫购买', score: 3 },
+        { id: 'b', text: '说"这已经是最低价了，过了这个村就没这个店"', score: 1 },
+        { id: 'c', text: '让客人自己考虑，去忙别的客人', score: 0 },
+        { id: 'd', text: '承诺如果发现更便宜的可以退款', score: 1 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-retail-2',
+      scenario: '一位客人购买了一瓶香水，离开10分钟后回来要求退货，说不喜欢味道。',
+      options: [
+        { id: 'a', text: '查看商品是否完好，按退换货政策处理，同时推荐其他适合的产品', score: 3 },
+        { id: 'b', text: '说"香水开封后不能退"', score: 0 },
+        { id: 'c', text: '直接给客人退款，不管规定', score: 1 },
+        { id: 'd', text: '让客人去找经理', score: 1 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-retail-3',
+      scenario: '船上促销活动期间，多位客人同时询问不同商品，你一个人忙不过来。',
+      options: [
+        { id: 'a', text: '微笑致意，按顺序服务，对等待的客人说"Ill be with you shortly"', score: 3 },
+        { id: 'b', text: '优先服务看起来购买意向强的客人', score: 1 },
+        { id: 'c', text: '大声说"大家排队，一个一个来"', score: 0 },
+        { id: 'd', text: '呼叫同事过来帮忙', score: 2 },
+      ],
+      maxScore: 3,
+    },
+  ],
+  youth_staff: [
+    {
+      id: 'p-ys-1',
+      scenario: '你在儿童俱乐部带5-7岁的孩子做手工，一个孩子突然开始哭闹，说想妈妈。',
+      options: [
+        { id: 'a', text: '蹲下来安抚孩子，用温和的语气转移注意力，同时联系家长', score: 3 },
+        { id: 'b', text: '让其他孩子继续玩，带这个孩子去安静的地方', score: 2 },
+        { id: 'c', text: '说"别哭了，妈妈一会儿就来了"', score: 1 },
+        { id: 'd', text: '直接给家长打电话让他们来接', score: 0 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-ys-2',
+      scenario: '两个孩子在玩游戏时发生争执，其中一个动手推了另一个。',
+      options: [
+        { id: 'a', text: '立即分开两个孩子，了解情况后公平处理，教他们正确的解决方式', score: 3 },
+        { id: 'b', text: '批评动手的孩子', score: 1 },
+        { id: 'c', text: '让他们自己解决', score: 0 },
+        { id: 'd', text: '把两个孩子分开，不让他们一起玩', score: 1 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-ys-3',
+      scenario: '一个孩子对花生过敏，家长特别交代过。但你发现另一个孩子带了花生酱三明治。',
+      options: [
+        { id: 'a', text: '立即让带花生酱的孩子去其他区域吃，清理周围环境，提醒所有孩子不要分享食物', score: 3 },
+        { id: 'b', text: '让带花生酱的孩子把三明治收起来', score: 1 },
+        { id: 'c', text: '告诉过敏孩子的家长', score: 2 },
+        { id: 'd', text: '觉得应该没事，继续活动', score: 0 },
+      ],
+      maxScore: 3,
+    },
+  ],
+  kitchen: [
+    {
+      id: 'p-kitchen-1',
+      scenario: '厨师长让你准备10份牛排，其中3份要 medium rare，4份 medium，3份 well done。你会如何确保不会弄错？',
+      options: [
+        { id: 'a', text: '用不同颜色的餐碟标记，每煎好一份就记录，最后再核对一遍', score: 3 },
+        { id: 'b', text: '凭记忆做，应该不会错', score: 0 },
+        { id: 'c', text: '让同事帮忙记', score: 1 },
+        { id: 'd', text: '先做一种熟度，再做另一种', score: 2 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-kitchen-2',
+      scenario: '你发现冰箱里的三文鱼闻起来有点不对，但还没到保质期。',
+      options: [
+        { id: 'a', text: '立即报告给厨师长，按食品安全规定处理', score: 3 },
+        { id: 'b', text: '再闻闻看，可能是冰的味道', score: 1 },
+        { id: 'c', text: '切一点尝尝，没坏就用', score: 0 },
+        { id: 'd', text: '把它放到另一边，不用它', score: 1 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-kitchen-3',
+      scenario: '高峰时段，传菜员催菜很急，你负责的菜还没完全做好。',
+      options: [
+        { id: 'a', text: '按标准完成烹饪，同时告知传菜员预计时间', score: 3 },
+        { id: 'b', text: '加快速度，可能会影响一点质量', score: 1 },
+        { id: 'c', text: '让传菜员先上其他菜', score: 2 },
+        { id: 'd', text: '不管催，按自己的节奏做', score: 0 },
+      ],
+      maxScore: 3,
+    },
+  ],
+  utility: [
+    {
+      id: 'p-utility-1',
+      scenario: '你负责清洁餐厅，发现地面有大片油污，用普通清洁剂擦不掉。',
+      options: [
+        { id: 'a', text: '使用专门的油污清洁剂，按比例稀释后彻底清洁', score: 3 },
+        { id: 'b', text: '用更多的普通清洁剂用力擦', score: 1 },
+        { id: 'c', text: '先不管，等明天再说', score: 0 },
+        { id: 'd', text: '找同事帮忙一起擦', score: 2 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-utility-2',
+      scenario: '你在清理垃圾时，发现一个垃圾桶里有客人丢弃的贵重物品。',
+      options: [
+        { id: 'a', text: '立即报告给主管，按失物招领流程处理', score: 3 },
+        { id: 'b', text: '自己收起来，看看能不能找到失主', score: 0 },
+        { id: 'c', text: '交给前台处理', score: 2 },
+        { id: 'd', text: '当作没看见，继续工作', score: 0 },
+      ],
+      maxScore: 3,
+    },
+    {
+      id: 'p-utility-3',
+      scenario: '你的清洁区域包括厨房和餐厅，两个区域同时需要紧急清洁。',
+      options: [
+        { id: 'a', text: '先清洁厨房（食品安全优先），再清洁餐厅，同时告知相关部门预计完成时间', score: 3 },
+        { id: 'b', text: '先清洁餐厅，因为客人看得见', score: 1 },
+        { id: 'c', text: '同时做两个区域，可能两边都做不完', score: 0 },
+        { id: 'd', text: '找主管安排其他人帮忙', score: 2 },
       ],
       maxScore: 3,
     },
@@ -187,8 +367,10 @@ export const PROFESSIONAL_QUESTIONS = {
 export const ENGLISH_QUESTIONS = [
   {
     id: 'e-1',
-    type: 'single',
-    scenario: '以下是一段船上广播的文字内容（后期将替换为真实音频）：\n\n"Attention all crew members. This is a Bravo Bravo call. A fire has been reported on Deck 7, Section C, near the Windjammer Café. All designated fire team members report to your stations immediately. All other crew members, stand by for further instructions. Passengers should remain calm and stay in their current locations."\n\n这段广播的核心信息是什么？',
+    type: 'listening',
+    scenario: 'Attention all crew members. This is a Bravo Bravo call. A fire has been reported on Deck 7, Section C, near the Windjammer Café. All designated fire team members report to your stations immediately. All other crew members, stand by for further instructions. Passengers should remain calm and stay in their current locations.',
+    audioUrl: '', // 后期将替换为真实音频
+    showText: false, // 纯听力模式，隐藏文字
     options: [
       { id: 'a', text: 'Deck 7 附近有火情，消防组成员立即到岗，其他船员原地待命', score: 3 },
       { id: 'b', text: '所有人都要去 Deck 7 帮忙灭火', score: 0 },
@@ -199,19 +381,18 @@ export const ENGLISH_QUESTIONS = [
   },
   {
     id: 'e-2',
-    type: 'multi',
-    scenario: '以下邮轮专业词汇，请勾选你能准确说出中文含义的（诚实作答）：',
+    type: 'multiple',
+    scenario: '以下邮轮专业词汇，请选出你知道含义的：',
     options: [
-      { id: 'v1', text: 'Muster Station / Muster Drill' },
-      { id: 'v2', text: 'Embarkation / Disembarkation' },
-      { id: 'v3', text: 'Galley' },
-      { id: 'v4', text: "Purser's Desk" },
-      { id: 'v5', text: 'Linen' },
-      { id: 'v6', text: 'Turndown Service' },
-      { id: 'v7', text: 'SeaPass' },
-      { id: 'v8', text: 'Shore Excursion' },
+      { id: 'v1', text: 'Muster Station / Muster Drill', score: 0.5 },
+      { id: 'v2', text: 'Embarkation / Disembarkation', score: 0.5 },
+      { id: 'v3', text: 'Galley', score: 0.5 },
+      { id: 'v4', text: "Purser's Desk", score: 0.5 },
+      { id: 'v5', text: 'Linen', score: 0.5 },
+      { id: 'v6', text: 'Turndown Service', score: 0.5 },
+      { id: 'v7', text: 'SeaPass', score: 0.5 },
+      { id: 'v8', text: 'Shore Excursion', score: 0.5 },
     ],
-    scoringRule: 'vocab',
     maxScore: 3,
   },
   {
@@ -220,22 +401,18 @@ export const ENGLISH_QUESTIONS = [
     scenario: '一位客人走到你面前说："Excuse me, I lost my SeaPass card and I can\'t get into my cabin. What should I do?"\n\n以下哪个最接近你的真实回答能力？',
     options: [
       { id: 'a', text: '"I\'m sorry to hear that. Please don\'t worry — I\'ll escort you to Guest Services on Deck 5. They can verify your identity and issue a replacement card right away. May I have your cabin number?"', score: 3 },
-      { id: 'b', text: '"Oh, you go to the front desk, they can help you. Deck 5."', score: 2 },
-      { id: 'c', text: '"Sorry... I don\'t know. Maybe ask someone?"', score: 1 },
-      { id: 'd', text: '我可能听不太懂客人说的话', score: 0 },
+      { id: 'b', text: '"Oh, you go to the front desk, they can help you. Deck 5. Ask them for a new card."', score: 2 },
+      { id: 'c', text: '"No problem! First, can you tell me your name and cabin number? Wait, maybe you should go to Guest Services. They can help you better."', score: 2 },
+      { id: 'd', text: '"Sorry, I don\'t know. Maybe ask someone else?"', score: 1 },
+      { id: 'e', text: '我可能听不太懂客人说的话', score: 0 },
     ],
     maxScore: 3,
   },
   {
     id: 'e-4',
-    type: 'single',
-    scenario: '如果面试官用英语问你："Tell me about yourself and why you want to work on a cruise ship." 你觉得自己能说多久？',
-    options: [
-      { id: 'a', text: '能流畅说 1-2 分钟，有逻辑、有具体内容', score: 3 },
-      { id: 'b', text: '能说 30 秒到 1 分钟，有些磕巴但能表达主要意思', score: 2 },
-      { id: 'c', text: '只能说几句简单的，比如 "I like travel"', score: 1 },
-      { id: 'd', text: '很难用英语完整回答这个问题', score: 0 },
-    ],
+    type: 'recording',
+    scenario: '请用英语回答："Tell me about yourself and why you want to work on a cruise ship."',
+    recordingTime: 120, // 2分钟录音时间
     maxScore: 3,
   },
 ];
@@ -244,31 +421,31 @@ export const ENGLISH_QUESTIONS = [
 export const INTERVIEW_QUESTIONS = [
   {
     id: 'i-1',
-    scenario: '面试官让你做自我介绍。以下三种风格，哪个最接近你的真实表达？',
+    scenario: 'The interviewer asks you to introduce yourself. Which of the following styles is closest to your actual expression?',
     options: [
-      { id: 'c', text: '"Hi, I\'m [name] from Shenzhen. For the past two years, I\'ve been working as a guest relations officer at a five-star hotel, handling VIP guests and resolving service issues daily. Working on a cruise ship feels like the natural next step for me — I\'m genuinely excited to bring my hospitality experience to a diverse, international environment."', score: 3 },
-      { id: 'a', text: '"Hello. My name is [name]. I am from China. I am 25 years old. I studied tourism in university. I like to travel and I like to meet new people very much. I think cruise ship is very interesting job. I am a hard worker and I am very friendly person. I want to join your company. Thank you very much for this chance."', score: 0 },
-      { id: 'b', text: '"Hi, my name is [name], and I\'m from China. I\'ve been working in the hospitality industry for about two years now. I\'ve always wanted to work on a cruise ship because I enjoy meeting people from different cultures. I\'m a team player, I\'m responsible, and I believe I could be a great fit for your team. Thank you."', score: 1 },
+      { id: 'c', text: 'Hi, I\'m [name] from Shenzhen. For the past two years, I\'ve been working as a guest relations officer at a five-star hotel, handling VIP guests and resolving service issues daily. Working on a cruise ship feels like the natural next step for me — I\'m genuinely excited to bring my hospitality experience to a diverse, international environment.', score: 3 },
+      { id: 'a', text: 'Hello. My name is [name]. I am from China. I am 25 years old. I studied tourism in university. I like to travel and I like to meet new people very much. I think cruise ship is very interesting job. I am a hard worker and I am very friendly person. I want to join your company. Thank you very much for this chance.', score: 0 },
+      { id: 'b', text: 'Hi, my name is [name], and I\'m from China. I\'ve been working in the hospitality industry for about two years now. I\'ve always wanted to work on a cruise ship because I enjoy meeting people from different cultures. I\'m a team player, I\'m responsible, and I believe I could be a great fit for your team. Thank you.', score: 1 },
     ],
     maxScore: 3,
   },
   {
     id: 'i-2',
-    scenario: '面试官问你："Tell me about a time you dealt with a difficult customer." 哪个最接近你会给出的回答？',
+    scenario: 'The interviewer asks you: "Tell me about a time you dealt with a difficult customer." Which of the following is closest to your answer?',
     options: [
-      { id: 'c', text: '"At my hotel job, a guest was furious because his room wasn\'t ready at check-in after a long flight. I acknowledged his frustration, immediately arranged access to our lounge with complimentary drinks, and personally ensured his room was prioritized. I also upgraded him at no charge. He ended up leaving a five-star review and specifically mentioned how we turned his bad experience around."', score: 3 },
-      { id: 'a', text: '"Yes, I have dealt with many difficult customers before. When a customer is angry, I always try to be patient and listen to them carefully. I think the most important thing is to stay calm and be polite. I never argue with customers because the customer is always right. I always try my best to make them happy and solve their problems quickly."', score: 0 },
-      { id: 'b', text: '"Once at my previous job, a customer complained about the service and was quite upset. I listened to what they had to say and apologized for the inconvenience. Then I offered a solution to fix the problem. The customer calmed down eventually and thanked me for my help. I learned that staying professional and showing empathy can really make a difference in difficult situations."', score: 1 },
+      { id: 'c', text: 'At my hotel job, a guest was furious because his room wasn\'t ready at check-in after a long flight. I acknowledged his frustration, immediately arranged access to our lounge with complimentary drinks, and personally ensured his room was prioritized. I also upgraded him at no charge. He ended up leaving a five-star review and specifically mentioned how we turned his bad experience around.', score: 3 },
+      { id: 'a', text: 'Yes, I have dealt with many difficult customers before. When a customer is angry, I always try to be patient and listen to them carefully. I think the most important thing is to stay calm and be polite. I never argue with customers because the customer is always right. I always try my best to make them happy and solve their problems quickly.', score: 0 },
+      { id: 'b', text: 'Once at my previous job, a customer complained about the service and was quite upset. I listened to what they had to say and apologized for the inconvenience. Then I offered a solution to fix the problem. The customer calmed down eventually and thanked me for my help. I learned that staying professional and showing empathy can really make a difference in difficult situations.', score: 1 },
     ],
     maxScore: 3,
   },
   {
     id: 'i-3',
-    scenario: '面试官问你："How do you handle pressure at work?" 你最可能的回答方式是？',
+    scenario: 'The interviewer asks you: "How do you handle pressure at work?" Which of the following is your most likely way of answering?',
     options: [
-      { id: 'c', text: '"During peak season at my hotel, we were fully booked and two colleagues called in sick on the same day. I quickly reorganized the front desk schedule, covered the evening check-ins myself, and coordinated with housekeeping to avoid delays. It was intense, but I actually enjoy that kind of fast-paced problem-solving. By the end of the shift, every guest was checked in on time with zero complaints."', score: 3 },
-      { id: 'a', text: '"I think I am good at handling pressure. I always stay calm and try to do my best. I believe pressure can make people stronger, so I think it is a good thing. When I feel stressed, I just tell myself to keep going and not give up. I am a very positive person and I always have a good attitude at work no matter what happens."', score: 0 },
-      { id: 'b', text: '"When things get busy or stressful, I try to stay organized and focus on one task at a time. I make a list of priorities so I know what needs to be done first. I also think communication is important, so I always keep my team updated if I need support. Taking a deep breath and staying focused usually helps me get through high-pressure moments at work."', score: 1 },
+      { id: 'c', text: 'During peak season at my hotel, we were fully booked and two colleagues called in sick on the same day. I quickly reorganized the front desk schedule, covered the evening check-ins myself, and coordinated with housekeeping to avoid delays. It was intense, but I actually enjoy that kind of fast-paced problem-solving. By the end of the shift, every guest was checked in on time with zero complaints.', score: 3 },
+      { id: 'a', text: 'I think I am good at handling pressure. I always stay calm and try to do my best. I believe pressure can make people stronger, so I think it is a good thing. When I feel stressed, I just tell myself to keep going and not give up. I am a very positive person and I always have a good attitude at work no matter what happens.', score: 0 },
+      { id: 'b', text: 'When things get busy or stressful, I try to stay organized and focus on one task at a time. I make a list of priorities so I know what needs to be done first. I also think communication is important, so I always keep my team updated if I need support. Taking a deep breath and staying focused usually helps me get through high-pressure moments at work.', score: 1 },
     ],
     maxScore: 3,
   },
@@ -340,9 +517,9 @@ export const ADAPTABILITY_QUESTIONS = [
     scenario: '一位客人因行李延误在服务台大声辱骂你，十几位客人在旁边看着。',
     options: [
       { id: 'a', text: '保持冷静，降低音量说"I completely understand your frustration."，引导他去旁边私密区域解决', score: 3 },
-      { id: 'b', text: '保持沉默，等他发泄完再回应', score: 1 },
+      { id: 'b', text: '保持沉默，等他发泄完情绪后再温和地询问具体情况', score: 2 },
       { id: 'c', text: '严肃告知"Sir, I need you to lower your voice. Otherwise I\'ll call security."', score: 1 },
-      { id: 'd', text: '立刻道歉并承诺升舱或免单', score: 0 },
+      { id: 'd', text: '立刻道歉并承诺升舱或免单来快速平息他的情绪', score: 0 },
     ],
     maxScore: 3,
   },
@@ -351,9 +528,9 @@ export const ADAPTABILITY_QUESTIONS = [
     scenario: '吧台值班，三位客人等着点单，内线电话响了，同时旁边同事打碎了一个玻璃杯、碎片散在地上。',
     options: [
       { id: 'a', text: '先快速隔离碎片区域防止客人踩到，跟客人说"I\'ll be right with you"，快速接电话记录，再点单，最后彻底清理', score: 3 },
-      { id: 'b', text: '先接电话，碎玻璃让同事自己处理', score: 1 },
-      { id: 'c', text: '先给三位客人点完单，再处理其他事', score: 1 },
-      { id: 'd', text: '呼叫领班来支援，自己等指示', score: 0 },
+      { id: 'b', text: '先接电话了解情况，同时让同事先清理碎玻璃，等电话结束后再点单', score: 2 },
+      { id: 'c', text: '先给三位客人点完单，再依次处理电话和碎玻璃的问题', score: 1 },
+      { id: 'd', text: '呼叫领班来支援，自己先维持现场秩序等待指示', score: 0 },
     ],
     maxScore: 3,
   },
@@ -361,10 +538,10 @@ export const ADAPTABILITY_QUESTIONS = [
     id: 'ad-3',
     scenario: '餐厅21:00关门，你已开始收台。21:05一位疲惫的母亲带着哭闹的孩子进来，说孩子饿了。',
     options: [
-      { id: 'a', text: '告诉她餐厅已关闭，指引她去24小时自助餐区', score: 1 },
+      { id: 'a', text: '告诉她餐厅已关闭，指引她去24小时自助餐区解决问题', score: 2 },
       { id: 'b', text: '礼貌解释餐厅已关门，但主动帮她打包一份三明治、水果和牛奶让她带走', score: 3 },
-      { id: 'c', text: '让她进来随便拿，反正马上要收掉', score: 1 },
-      { id: 'd', text: '说"关门了，不好意思"', score: 0 },
+      { id: 'c', text: '让她进来随便拿些剩下的食物，反正马上要收掉了', score: 1 },
+      { id: 'd', text: '说"关门了，不好意思"然后继续收台工作', score: 0 },
     ],
     maxScore: 3,
   },
@@ -373,9 +550,9 @@ export const ADAPTABILITY_QUESTIONS = [
     scenario: '凌晨两点，你在船员舱休息，突然响起全船紧急集合警报（7短1长）。你被惊醒，心跳加速。',
     options: [
       { id: 'a', text: '按训练流程：穿好衣服→拿救生衣→前往指定集合站→等待指令', score: 3 },
-      { id: 'b', text: '先看手机或问室友是不是演习', score: 1 },
-      { id: 'c', text: '穿好衣服直接冲向最近的救生艇', score: 0 },
-      { id: 'd', text: '先打电话问上级确认情况再行动', score: 1 },
+      { id: 'b', text: '先看手机确认是否是演习，然后再决定是否行动', score: 2 },
+      { id: 'c', text: '穿好衣服直接冲向最近的救生艇准备逃生', score: 0 },
+      { id: 'd', text: '先打电话问上级确认情况，得到指示后再行动', score: 1 },
     ],
     maxScore: 3,
   },
@@ -383,10 +560,10 @@ export const ADAPTABILITY_QUESTIONS = [
     id: 'ad-5',
     scenario: '部门全船评比倒数第二，原因是另一个班组拖后腿，你的班组一直表现很好。部门会议上你会怎么做？',
     options: [
-      { id: 'a', text: '明确指出是那个班组的问题，要求他们改进', score: 0 },
-      { id: 'b', text: '不说话，觉得跟自己这组没关系', score: 0 },
-      { id: 'c', text: '主动分享自己班组的做法和经验，提议一起优化流程', score: 3 },
-      { id: 'd', text: '会后跟自己组说"做好自己的就行，别管他们"', score: 1 },
+      { id: 'a', text: '明确指出是那个班组的问题，要求他们立即改进工作方式', score: 1 },
+      { id: 'b', text: '不说话，觉得跟自己这组没关系，做好自己就行', score: 0 },
+      { id: 'c', text: '主动分享自己班组的做法和经验，提议一起优化工作流程', score: 3 },
+      { id: 'd', text: '会后跟自己组说"做好自己的就行，别管他们"', score: 2 },
     ],
     maxScore: 3,
   },

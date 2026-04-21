@@ -1,0 +1,9 @@
+{
+  "name": "uploadAudio",
+  "version": "1.0.0",
+  "description": "Upload audio file to TCB storage and record checkin",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^2.11.0"
+  }
+}

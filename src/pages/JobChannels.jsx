@@ -1,9 +1,46 @@
 // src/pages/JobChannels.jsx
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Globe, Users, Newspaper, User, ArrowRight, Search, Zap, Sparkles, Star } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronLeft, Globe, Users, Newspaper, User, ArrowRight, Search, Zap, Sparkles, Star, ChevronDown, ChevronUp } from 'lucide-react'
+import JobApplicationCard from '../components/JobApplicationCard'
 
 export default function JobChannels() {
   const navigate = useNavigate()
+  const [showApplicationCard, setShowApplicationCard] = useState(false)
+  const [currentBrand, setCurrentBrand] = useState(null)
+
+  const saveApplication = (applicationData) => {
+    const applicationsKey = 'job_applications'
+    const applications = JSON.parse(localStorage.getItem(applicationsKey) || '[]')
+    
+    applications.push({
+      ...applicationData,
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      status: 'pending'
+    })
+    
+    localStorage.setItem(applicationsKey, JSON.stringify(applications))
+    
+    // 跳转到官网
+    window.open(applicationData.companyUrl, '_blank')
+    setShowApplicationCard(false)
+  }
+
+  const handleApply = (brand) => {
+    setCurrentBrand(brand)
+    setShowApplicationCard(true)
+  }
+
+  const handleCancel = () => {
+    setShowApplicationCard(false)
+    setCurrentBrand(null)
+  }
+
+  const handleJustLooking = () => {
+    setShowApplicationCard(false)
+    setCurrentBrand(null)
+  }
 
   const channels = [
     {
@@ -12,9 +49,19 @@ export default function JobChannels() {
       title: '邮轮公司官网合辑',
       description: '多家邮轮公司职位，支持多维度筛选',
       color: 'bg-blue-500',
-      to: '/jobs/channels/cruise-companies',
+      to: '/jobs/company-jobs',
       tag: '核心功能',
       tagColor: 'bg-blue-100 text-blue-700'
+    },
+    {
+      id: 'brand-partners',
+      icon: Star,
+      title: '邮轮公司品牌合作运营',
+      description: '免税店、Art Gallery、Spa等部门',
+      color: 'bg-indigo-500',
+      to: '/jobs/brand-partners',
+      tag: '',
+      tagColor: ''
     },
     {
       id: 'job-platforms',
@@ -22,7 +69,7 @@ export default function JobChannels() {
       title: '海乘招聘平台',
       description: '专业海乘招聘平台，岗位多更新快',
       color: 'bg-green-500',
-      to: '/jobs/channels/platforms',
+      to: '/jobs/platforms',
       tag: '',
       tagColor: ''
     },
@@ -32,7 +79,7 @@ export default function JobChannels() {
       title: '最新招聘动态',
       description: '实时跟踪各大邮轮公司招聘信息',
       color: 'bg-purple-500',
-      to: '/jobs/channels/news',
+      to: '/jobs/latest',
       tag: '',
       tagColor: ''
     },
@@ -42,7 +89,7 @@ export default function JobChannels() {
       title: '宇哥内推',
       description: '一对一求职指导，内推渠道直达',
       color: 'bg-amber-500',
-      to: '/jobs/channels/yuge',
+      to: '/jobs/yuge',
       tag: '',
       tagColor: ''
     }
@@ -70,28 +117,39 @@ export default function JobChannels() {
         {/* 渠道列表 */}
         {channels.map((channel) => {
           const Icon = channel.icon
+          
           return (
-            <button
-              key={channel.id}
-              onClick={() => navigate(channel.to)}
-              className="w-full bg-white rounded-xl shadow-sm p-5 flex items-center gap-4 active:scale-[0.98] transition"
-            >
-              <div className={`w-14 h-14 ${channel.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                <Icon size={28} className="text-white" />
-              </div>
-              <div className="flex-1 text-left">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-gray-800 text-lg">{channel.title}</h3>
-                  {channel.tag && (
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${channel.tagColor}`}>
-                      {channel.tag}
-                    </span>
-                  )}
+            <div key={channel.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+              {/* 模块头部 */}
+              <div className="p-5">
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 ${channel.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                    <Icon size={28} className="text-white" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-gray-800 text-lg">{channel.title}</h3>
+                      {channel.tag && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${channel.tagColor}`}>
+                          {channel.tag}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-500 text-sm mt-1">{channel.description}</p>
+                  </div>
                 </div>
-                <p className="text-gray-500 text-sm mt-1">{channel.description}</p>
               </div>
-              <ArrowRight size={20} className="text-gray-400" />
-            </button>
+              
+              {/* 操作按钮 */}
+              <div className="px-5 pb-5 border-t border-gray-100">
+                <button
+                  onClick={() => navigate(channel.to)}
+                  className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
+                  查看详情
+                </button>
+              </div>
+            </div>
           )
         })}
 
@@ -124,6 +182,16 @@ export default function JobChannels() {
           </div>
         </div>
       </div>
+      
+      {/* 申请记录卡片 */}
+      {showApplicationCard && currentBrand && (
+        <JobApplicationCard
+          company={currentBrand}
+          onApply={saveApplication}
+          onCancel={handleCancel}
+          onJustLooking={handleJustLooking}
+        />
+      )}
     </div>
   )
 }

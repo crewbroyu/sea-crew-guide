@@ -179,6 +179,9 @@ const Task1 = () => {
             )}
           </div>
         </motion.div>
+
+        {/* 底部空间，防止内容被固定按钮遮挡 */}
+        <div className="h-24"></div>
       </div>
     </TaskLayout>
   )

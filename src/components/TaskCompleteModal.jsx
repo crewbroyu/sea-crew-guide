@@ -1,7 +1,12 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, Award } from 'lucide-react'
+import { recordTaskComplete } from '../store/scoreStore'
 
-const TaskCompleteModal = ({ isOpen, onClose, taskName, totalTasksCompleted }) => {
+const TaskCompleteModal = ({ isOpen, onClose, taskName, totalTasksCompleted, taskId }) => {
+  // 记录任务完成并获取积分奖励
+  if (isOpen && taskId) {
+    recordTaskComplete(taskId, taskName)
+  }
   return (
     <AnimatePresence>
       {isOpen && (
@@ -34,15 +39,16 @@ const TaskCompleteModal = ({ isOpen, onClose, taskName, totalTasksCompleted }) =
             <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">任务完成！</h2>
             <p className="text-gray-500 text-center mb-6">{taskName}</p>
 
-            {/* XP 动画 */}
+            {/* 奖励动画 */}
             <div className="flex justify-center mb-6">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: 'spring', damping: 15, stiffness: 200, delay: 0.2 }}
-                className="bg-purple-100 rounded-full px-6 py-3"
+                className="bg-yellow-100 rounded-full px-4 py-2 flex items-center gap-1"
               >
-                <span className="text-xl font-bold text-purple-700">+30 XP</span>
+                <Award size={16} className="text-yellow-600" />
+                <span className="text-lg font-bold text-yellow-700">+50 积分</span>
               </motion.div>
             </div>
 

@@ -1,126 +1,54 @@
 // src/pages/academy/ListeningSpeaking.jsx
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Ship, Home, Utensils, Building, MessageSquare, Headphones } from 'lucide-react';
+import { ChevronRight, Headphones } from 'lucide-react';
 
 // 模拟数据：听说训练分类
 const categories = [
   {
-    id: 'boarding',
-    name: '登船接待',
-    icon: <Ship size={24} className="text-blue-600" />,
-    description: '学习登船、办理手续相关的英语对话',
+    id: 'eslpod',
+    name: 'ESLPod',
+    icon: <Headphones size={24} className="text-blue-600" />,
+    description: '慢速英语播客，适合英语学习者',
     courses: [
       {
-        id: 'boarding-1',
-        title: '登船手续办理',
+        id: 'eslpod-1',
+        title: 'Daily English',
         mediaType: 'audio',
-        mediaUrl: 'https://example.com/audio/boarding1.mp3',
-        transcript: 'Welcome aboard! May I see your boarding pass and passport, please?',
-        translation: '欢迎登船！请出示您的登机牌和护照好吗？'
+        mediaUrl: 'https://example.com/audio/eslpod1.mp3',
+        transcript: 'Welcome to ESLPod! Today we\'re going to learn about daily English conversations.',
+        translation: '欢迎来到ESLPod！今天我们将学习日常英语对话。'
       },
       {
-        id: 'boarding-2',
-        title: '房间介绍',
-        mediaType: 'video',
-        mediaUrl: 'https://example.com/video/boarding2.mp4',
-        transcript: 'This is your cabin. The bathroom is on the left, and the wardrobe is on the right.',
-        translation: '这是您的客舱。浴室在左边，衣柜在右边。'
+        id: 'eslpod-2',
+        title: 'Business English',
+        mediaType: 'audio',
+        mediaUrl: 'https://example.com/audio/eslpod2.mp3',
+        transcript: 'In today\'s lesson, we\'ll cover business English vocabulary and expressions.',
+        translation: '在今天的课程中，我们将涵盖商务英语词汇和表达。'
       }
     ]
   },
   {
-    id: 'cabin',
-    name: '客舱服务',
-    icon: <Home size={24} className="text-green-600" />,
-    description: '学习客舱服务相关的英语对话',
+    id: 'englishpod',
+    name: 'EnglishPod',
+    icon: <Headphones size={24} className="text-green-600" />,
+    description: '标准语速英语播客，适合中高级学习者',
     courses: [
       {
-        id: 'cabin-1',
-        title: '客房清洁服务',
+        id: 'englishpod-1',
+        title: 'Casual English',
         mediaType: 'audio',
-        mediaUrl: 'https://example.com/audio/cabin1.mp3',
-        transcript: 'Housekeeping! May I clean your cabin now?',
-        translation: '客房服务！我现在可以打扫您的客舱吗？'
+        mediaUrl: 'https://example.com/audio/englishpod1.mp3',
+        transcript: 'Hey there! Welcome to EnglishPod. Today we\'re talking about casual English phrases.',
+        translation: '嘿！欢迎来到EnglishPod。今天我们谈论的是日常英语短语。'
       },
       {
-        id: 'cabin-2',
-        title: '设施使用说明',
-        mediaType: 'video',
-        mediaUrl: 'https://example.com/video/cabin2.mp4',
-        transcript: 'To adjust the temperature, use the controls on the wall.',
-        translation: '要调节温度，请使用墙上的控制按钮。'
-      }
-    ]
-  },
-  {
-    id: 'restaurant',
-    name: '餐厅服务',
-    icon: <Utensils size={24} className="text-amber-600" />,
-    description: '学习餐厅服务相关的英语对话',
-    courses: [
-      {
-        id: 'restaurant-1',
-        title: '点餐服务',
+        id: 'englishpod-2',
+        title: 'Travel English',
         mediaType: 'audio',
-        mediaUrl: 'https://example.com/audio/restaurant1.mp3',
-        transcript: 'Good evening! Would you like to see our menu?',
-        translation: '晚上好！您想看看我们的菜单吗？'
-      },
-      {
-        id: 'restaurant-2',
-        title: '特殊饮食需求',
-        mediaType: 'video',
-        mediaUrl: 'https://example.com/video/restaurant2.mp4',
-        transcript: 'Do you have any dietary restrictions?',
-        translation: '您有任何饮食限制吗？'
-      }
-    ]
-  },
-  {
-    id: 'public',
-    name: '公共区域',
-    icon: <Building size={24} className="text-purple-600" />,
-    description: '学习公共区域服务相关的英语对话',
-    courses: [
-      {
-        id: 'public-1',
-        title: '信息咨询',
-        mediaType: 'audio',
-        mediaUrl: 'https://example.com/audio/public1.mp3',
-        transcript: 'How can I help you today?',
-        translation: '今天我能帮您什么？'
-      },
-      {
-        id: 'public-2',
-        title: '活动介绍',
-        mediaType: 'video',
-        mediaUrl: 'https://example.com/video/public2.mp4',
-        transcript: 'We have a variety of activities planned for today.',
-        translation: '我们今天安排了各种各样的活动。'
-      }
-    ]
-  },
-  {
-    id: 'emergency',
-    name: '应急情况',
-    icon: <MessageSquare size={24} className="text-red-600" />,
-    description: '学习应急情况相关的英语对话',
-    courses: [
-      {
-        id: 'emergency-1',
-        title: '紧急疏散',
-        mediaType: 'audio',
-        mediaUrl: 'https://example.com/audio/emergency1.mp3',
-        transcript: 'Please proceed to your assigned muster station.',
-        translation: '请前往您指定的集合点。'
-      },
-      {
-        id: 'emergency-2',
-        title: '医疗救助',
-        mediaType: 'video',
-        mediaUrl: 'https://example.com/video/emergency2.mp4',
-        transcript: 'We need to call the ships doctor immediately.',
-        translation: '我们需要立即呼叫船上的医生。'
+        mediaUrl: 'https://example.com/audio/englishpod2.mp3',
+        transcript: 'In this episode, we\'ll learn essential travel English for cruise ship workers.',
+        translation: '在这一集中，我们将学习邮轮工作人员必备的旅行英语。'
       }
     ]
   }
@@ -130,8 +58,13 @@ export default function ListeningSpeaking() {
   const navigate = useNavigate();
 
   const handleCategoryClick = (category) => {
-    navigate('/academy/listening-speaking/category', {
-      state: { category }
+    navigate(`/academy/listening-speaking/${category.id}`, {
+      state: {
+        id: category.id,
+        name: category.name,
+        description: category.description,
+        courses: category.courses
+      }
     });
   };
 
@@ -148,7 +81,7 @@ export default function ListeningSpeaking() {
         
         <h1 className="text-white text-2xl font-bold">听说训练</h1>
         <p className="text-white/80 text-sm mt-2">
-          按场景分类的英语听说练习，提升你的实际交流能力
+          通过ESLPod和EnglishPod提升你的英语听说能力
         </p>
       </div>
       

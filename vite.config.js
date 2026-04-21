@@ -7,4 +7,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://cloud1-3glovk2z550b79f4.service.tcloudbase.com',
+        changeOrigin: true,
+        secure: true
+      }
+    }
+  }
 })

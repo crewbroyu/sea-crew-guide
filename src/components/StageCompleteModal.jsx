@@ -1,10 +1,16 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import pathData from '../data/pathData'
+import { recordStageComplete } from '../store/scoreStore'
 
 const StageCompleteModal = ({ isOpen, onClose, stageId, totalXP }) => {
   const stage = pathData.find(s => s.id === stageId)
   const isLastStage = stageId === pathData.length
   const nextStage = pathData.find(s => s.id === stageId + 1)
+  
+  // 记录阶段完成并获取积分奖励
+  if (isOpen && stageId && stage) {
+    recordStageComplete(stageId, stage.name)
+  }
 
   return (
     <AnimatePresence>
@@ -38,15 +44,15 @@ const StageCompleteModal = ({ isOpen, onClose, stageId, totalXP }) => {
             <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">恭喜！阶段通关！</h2>
             <p className="text-gray-500 text-center mb-6">「{stage?.name}」阶段已完成</p>
 
-            {/* 总 XP */}
+            {/* 总奖励 */}
             <div className="flex justify-center mb-6">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: 'spring', damping: 15, stiffness: 200, delay: 0.2 }}
-                className="bg-yellow-100 rounded-full px-6 py-3"
+                className="bg-purple-100 rounded-full px-4 py-2"
               >
-                <span className="text-xl font-bold text-yellow-700">+{totalXP} XP</span>
+                <span className="text-lg font-bold text-purple-700">+200 积分</span>
               </motion.div>
             </div>
 

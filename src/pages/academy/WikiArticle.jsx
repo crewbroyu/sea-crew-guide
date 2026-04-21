@@ -1,26 +1,45 @@
 // src/pages/academy/WikiArticle.jsx
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, BookOpen, Clock } from 'lucide-react';
+import { getEncyclopediaArticle } from '../../services/encyclopediaService';
 
 export default function WikiArticle() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { article } = location.state || {};
+  const [article, setArticle] = useState(location.state?.article || null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!article && location.state?.articleId) {
+      loadArticle();
+    }
+  }, [location.state?.articleId]);
+
+  const loadArticle = async () => {
+    try {
+      setLoading(true);
+      const articleData = await getEncyclopediaArticle(location.state?.articleId);
+      setArticle(articleData);
+    } catch (error) {
+      console.error('加载文章失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">加载中...</div>
+      </div>
+    );
+  }
 
   if (!article) {
     navigate('/academy/wiki');
     return null;
   }
-
-  // 获取分类名称
-  const categoryNames = {
-    cognition: '入行认知',
-    diy: '低成本DIY上船',
-    position: '岗位选择',
-    english: '英语提升',
-    interview: '面试与上船流程',
-    experience: '真实经历'
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -32,7 +51,7 @@ export default function WikiArticle() {
           <span className="breadcrumb-separator">›</span>
           <span onClick={() => navigate('/academy/wiki')} className="cursor-pointer hover:text-white">海乘百科</span>
           <span className="breadcrumb-separator">›</span>
-          <span className="text-white font-medium">{categoryNames[article.category]}</span>
+          <span className="text-white font-medium">{article.categoryName || '百科文章'}</span>
         </div>
         
         <div className="flex items-center gap-3">
@@ -46,21 +65,17 @@ export default function WikiArticle() {
         </div>
         <div className="flex items-center gap-2 text-white/80 text-sm mt-2">
           <BookOpen size={14} />
-          <span>{categoryNames[article.category]}</span>
+          <span>{article.categoryName || '百科文章'}</span>
           <span className="mx-2">·</span>
           <Clock size={14} />
-          <span>{article.createdAt}</span>
+          <span>{article.createdAt ? new Date(article.createdAt).toLocaleDateString() : '未知'}</span>
         </div>
       </div>
       
       {/* 文章内容 */}
       <div className="px-6 py-6">
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="prose max-w-none">
-            {article.content.split('\n\n').map((paragraph, index) => (
-              <p key={index} className="mb-4">{paragraph}</p>
-            ))}
-          </div>
+          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: article.content }} />
           
           {/* 文章底部 */}
           <div className="mt-8 pt-4 border-t border-gray-200">

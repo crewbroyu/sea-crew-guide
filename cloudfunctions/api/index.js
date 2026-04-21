@@ -309,6 +309,48 @@ async function login(req, res) {
   }
 }
 
+// 百科相关 API
+async function getEncyclopediaCategories(req, res) {
+  try {
+    const categories = await db.collection('encyclopedia_categories')
+      .orderBy('sortOrder', 'asc')
+      .get()
+    res.status(200).json(categories.data)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+async function getEncyclopediaArticles(req, res) {
+  try {
+    const { categoryId } = req.query
+    let query = db.collection('encyclopedia_articles')
+    
+    if (categoryId) {
+      query = query.where({ categoryId })
+    }
+    
+    const articles = await query
+      .orderBy('createdAt', 'desc')
+      .get()
+    res.status(200).json(articles.data)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+async function getEncyclopediaArticle(req, res) {
+  try {
+    const { id } = req.params
+    const article = await db.collection('encyclopedia_articles')
+      .doc(id)
+      .get()
+    res.status(200).json(article.data)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
 // 主函数
 exports.main = async (event, context) => {
   // 解析请求
@@ -510,6 +552,22 @@ exports.main = async (event, context) => {
     }
     if ((req.path === '/me/tasks/upsert' || req.path === '/api/me/tasks/upsert') && req.method === 'POST') {
       return await upsertMyTask(req, res)
+    }
+
+    // 百科相关 API
+    if ((req.path === '/api/encyclopedia/categories' || req.path === '/encyclopedia/categories') && req.method === 'GET') {
+      return await getEncyclopediaCategories(req, res)
+    }
+    if ((req.path === '/api/encyclopedia/articles' || req.path === '/encyclopedia/articles') && req.method === 'GET') {
+      return await getEncyclopediaArticles(req, res)
+    }
+    if (req.path.startsWith('/api/encyclopedia/articles/') || req.path.startsWith('/encyclopedia/articles/')) {
+      if (req.method === 'GET') {
+        const parts = req.path.split('/')
+        const id = parts[parts.length - 1]
+        req.params = { id }
+        return await getEncyclopediaArticle(req, res)
+      }
     }
 
     // 未找到路由

@@ -1,11 +1,12 @@
 // src/pages/academy/ListeningSpeakingCategory.jsx
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Headphones, PlayCircle } from 'lucide-react';
 
 export default function ListeningSpeakingCategory() {
   const navigate = useNavigate();
+  const { category: categoryId } = useParams();
   const location = useLocation();
-  const { category } = location.state || {};
+  const category = location.state || {};
 
   if (!category) {
     navigate('/academy/listening-speaking');
@@ -13,9 +14,7 @@ export default function ListeningSpeakingCategory() {
   }
 
   const handleCourseClick = (course) => {
-    navigate('/academy/listening-speaking/course', {
-      state: { category, course }
-    });
+    navigate(`/academy/listening-speaking/${category.id}/${course.id}`);
   };
 
   return (

@@ -20,7 +20,7 @@ export default function StepSummary() {
   ];
 
   return (
-    <div className="pb-4">
+    <div className="pb-24">
       <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
         <h3 className="text-base font-semibold mb-3">Professional Summary 职业摘要</h3>
         <p className="text-sm text-gray-500 mb-4">

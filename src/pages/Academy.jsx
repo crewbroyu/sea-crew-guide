@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { createElement } from 'react'
-import { BookOpen, Mic2, FileText, Ship, ArrowRight, Clock, MessageSquare } from 'lucide-react'
+import { BookOpen, Mic2, FileText, Ship, ArrowRight, Clock, MessageSquare, Video } from 'lucide-react'
 
 export default function Academy() {
   const navigate = useNavigate()
@@ -46,23 +46,6 @@ export default function Academy() {
             <h2 className="text-lg font-bold text-gray-800">英语学习</h2>
           </div>
           <div className="space-y-3">
-            {/* 每日英语打卡入口 */}
-            <button
-              onClick={() => navigate('/academy/checkin')}
-              className="w-full bg-white rounded-xl p-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Mic2 size={24} className="text-blue-600" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-gray-800">每日英语打卡</p>
-                  <p className="text-xs text-gray-500">坚持跟读，提升口语</p>
-                </div>
-              </div>
-              <ArrowRight size={20} className="text-gray-400" />
-            </button>
-
             {/* 岗位英语课程入口 */}
             <button
               onClick={() => navigate('/academy/position-english')}
@@ -108,7 +91,7 @@ export default function Academy() {
           <div className="space-y-3">
             {/* 常见面试问题入口 */}
             <button
-              onClick={() => navigate('/tasks/phase2/Task8')}
+              onClick={() => navigate('/academy/interview-questions')}
               className="w-full bg-white rounded-xl p-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition"
             >
               <div className="flex items-center gap-4">
@@ -117,7 +100,24 @@ export default function Academy() {
                 </div>
                 <div className="text-left">
                   <p className="font-medium text-gray-800">常见面试问题</p>
-                  <p className="text-xs text-gray-500">三大岗位25道高频面试题，录音模拟练习</p>
+                  <p className="text-xs text-gray-500">8大岗位25道高频面试题，录音模拟练习</p>
+                </div>
+              </div>
+              <ArrowRight size={20} className="text-gray-400" />
+            </button>
+
+            {/* 岗位场景训练入口 */}
+            <button
+              onClick={() => navigate('/academy/scenarios')}
+              className="w-full bg-white rounded-xl p-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Video size={24} className="text-blue-600" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium text-gray-800">岗位场景训练</p>
+                  <p className="text-xs text-gray-500">10天沉浸式工作场景，听力口语训练</p>
                 </div>
               </div>
               <ArrowRight size={20} className="text-gray-400" />
@@ -125,7 +125,7 @@ export default function Academy() {
 
             {/* AI 模拟面试 */}
             <button
-              onClick={() => navigate('/tasks/phase2/Task8')}
+              onClick={() => navigate('/tasks/phase2/Task8', { state: { from: 'academy' } })}
               className="w-full bg-white rounded-xl p-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition"
             >
               <div className="flex items-center gap-4">
@@ -139,22 +139,6 @@ export default function Academy() {
               </div>
               <ArrowRight size={20} className="text-gray-400" />
             </button>
-
-            {/* 情景对话练习 */}
-            <div className="w-full bg-white rounded-xl p-4 flex items-center justify-between shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <FileText size={24} className="text-gray-400" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-gray-800">情景对话练习</p>
-                  <p className="text-xs text-gray-500">模拟船上工作场景对话</p>
-                </div>
-              </div>
-              <div className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">
-                即将开放
-              </div>
-            </div>
           </div>
         </div>
 
@@ -165,18 +149,35 @@ export default function Academy() {
             <h2 className="text-lg font-bold text-gray-800">登船准备</h2>
           </div>
           <div className="space-y-3">
-            {/* 登船手续入口 */}
+            {/* 海乘职业资质入口 */}
             <button
-              onClick={() => navigate('/academy/boarding')}
+              onClick={() => navigate('/academy/boarding/detail', { state: { module: { id: 'seaman-qualification', title: '海乘职业资质', description: '包含海员证、海员体检、国际旅行体检、无犯罪记录证明' } } })}
               className="w-full bg-white rounded-xl p-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                  <Ship size={24} className="text-green-600" />
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <FileText size={24} className="text-blue-600" />
                 </div>
                 <div className="text-left">
-                  <p className="font-medium text-gray-800">登船手续</p>
-                  <p className="text-xs text-gray-500">海员证、体检、签证等办理指南</p>
+                  <p className="font-medium text-gray-800">海乘职业资质</p>
+                  <p className="text-xs text-gray-500">海员证、海员体检、国际旅行体检、无犯罪记录证明</p>
+                </div>
+              </div>
+              <ArrowRight size={20} className="text-gray-400" />
+            </button>
+            
+            {/* 申请C1D签证入口 */}
+            <button
+              onClick={() => navigate('/academy/boarding/detail', { state: { module: { id: 'c1d-visa', title: '申请C1D签证', description: '包含预约面谈、材料准备、面签攻略、出签等待' } } })}
+              className="w-full bg-white rounded-xl p-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                  <Ship size={24} className="text-amber-600" />
+                </div>
+                <div className="text-left">
+                  <p className="font-medium text-gray-800">申请C1D签证</p>
+                  <p className="text-xs text-gray-500">预约面谈、材料准备、面签攻略、出签等待</p>
                 </div>
               </div>
               <ArrowRight size={20} className="text-gray-400" />
@@ -184,31 +185,36 @@ export default function Academy() {
           </div>
         </div>
 
-        {/* 板块五：能力测评 */}
+        {/* 板块五：海乘生活 */}
         <div>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-1 h-6 bg-indigo-500 rounded-full"></div>
-            <h2 className="text-lg font-bold text-gray-800">能力测评</h2>
+            <h2 className="text-lg font-bold text-gray-800">海乘生活</h2>
           </div>
           <div className="space-y-3">
-            {/* 五维测评入口 */}
+            {/* 海乘到港日常入口 */}
             <button
-              onClick={() => navigate('/assessment')}
+              onClick={() => navigate('/academy/port-daily')}
               className="w-full bg-white rounded-xl p-4 flex items-center justify-between shadow-sm active:scale-[0.98] transition"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-                  <MessageSquare size={24} className="text-indigo-600" />
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600">
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                  </svg>
                 </div>
                 <div className="text-left">
-                  <p className="font-medium text-gray-800">五维测评</p>
-                  <p className="text-xs text-gray-500">全面评估你的海乘适配度</p>
+                  <p className="font-medium text-gray-800">海乘到港日常</p>
+                  <p className="text-xs text-gray-500">分享到港经历和图片</p>
                 </div>
               </div>
               <ArrowRight size={20} className="text-gray-400" />
             </button>
           </div>
         </div>
+
+
       </div>
     </div>
   )

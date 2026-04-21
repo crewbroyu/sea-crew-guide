@@ -1,551 +1,357 @@
 export const positionConfig = [
-  { key: 'restaurant_server', nameZh: '餐厅服务员', nameEn: 'Restaurant Server', icon: '🍽️' },
-  { key: 'duty_free_sales', nameZh: '免税店销售', nameEn: 'Duty-Free Shop Sales', icon: '🛍️' },
-  { key: 'bar_server', nameZh: '酒吧服务员', nameEn: 'Bar Server / Bartender', icon: '🍸' },
+  { key: 'bar_server', nameZh: '酒吧服务员', nameEn: 'Bar Server', icon: '🍸' },
+  { key: 'restaurant', nameZh: '餐厅服务员', nameEn: 'Restaurant Server', icon: '🍽️' },
+  { key: 'housekeeping', nameZh: '客房服务员', nameEn: 'Housekeeping', icon: '🧹' },
+  { key: 'front_office', nameZh: '前台接待', nameEn: 'Front Office', icon: '🛎️' },
+  { key: 'retail', nameZh: '免税店销售', nameEn: 'Retail Sales', icon: '🛍️' },
+  { key: 'youth_staff', nameZh: '儿童看护', nameEn: 'Youth Staff', icon: '🧸' },
+  { key: 'kitchen', nameZh: '厨房帮厨', nameEn: 'Kitchen Steward', icon: '👨‍🍳' },
+  { key: 'utility', nameZh: '后勤清洁', nameEn: 'Utility', icon: '🧤' },
 ];
 
 const interviewQuestions = {
-  restaurant_server: {
-    positionName: '餐厅服务员',
-    positionNameEn: 'Restaurant Server',
-    questions: [
-      {
-        id: 'rs_01',
-        order: 1,
-        question: 'Tell me about yourself and why you want to work as a restaurant server on a cruise ship.',
-        category: 'personal',
-        tip: '简要介绍背景，重点说明对邮轮餐饮服务的热情和相关经验'
-      },
-      {
-        id: 'rs_02',
-        order: 2,
-        question: 'What experience do you have in food and beverage service?',
-        category: 'experience',
-        tip: '用具体例子说明你的餐饮服务经历，包括工作场所、职责、时长'
-      },
-      {
-        id: 'rs_03',
-        order: 3,
-        question: 'How would you handle a guest who complains about the food?',
-        category: 'scenario',
-        tip: '展示你的同理心和解决问题的能力，按照道歉-倾听-解决-跟进的步骤回答'
-      },
-      {
-        id: 'rs_04',
-        order: 4,
-        question: 'Describe a time when you provided excellent customer service.',
-        category: 'behavioral',
-        tip: '用 STAR 结构回答：情境-任务-行动-结果'
-      },
-      {
-        id: 'rs_05',
-        order: 5,
-        question: 'How do you handle working long hours in a fast-paced environment?',
-        category: 'personal',
-        tip: '强调你的体力、抗压能力和积极心态，举一个实际例子'
-      },
-      {
-        id: 'rs_06',
-        order: 6,
-        question: 'What do you know about different types of cuisine and dietary restrictions?',
-        category: 'knowledge',
-        tip: '展示你对不同菜系、常见过敏原和饮食限制的了解'
-      },
-      {
-        id: 'rs_07',
-        order: 7,
-        question: 'How would you deal with a difficult or rude guest?',
-        category: 'scenario',
-        tip: '保持专业和冷静，展示你不会把情绪带入工作的能力'
-      },
-      {
-        id: 'rs_08',
-        order: 8,
-        question: 'Can you describe the proper way to serve a formal dinner?',
-        category: 'knowledge',
-        tip: '展示你对正式西餐服务流程的了解，包括上菜顺序、餐具摆放等'
-      },
-      {
-        id: 'rs_09',
-        order: 9,
-        question: 'What would you do if you accidentally spilled something on a guest?',
-        category: 'scenario',
-        tip: '立即道歉，帮助清理，通知经理，提供补偿方案'
-      },
-      {
-        id: 'rs_10',
-        order: 10,
-        question: 'How do you prioritize tasks when the restaurant is extremely busy?',
-        category: 'behavioral',
-        tip: '展示你的时间管理和多任务处理能力'
-      },
-      {
-        id: 'rs_11',
-        order: 11,
-        question: 'Tell me about a time you worked as part of a team to achieve a goal.',
-        category: 'behavioral',
-        tip: '用 STAR 结构，强调团队协作和你的具体贡献'
-      },
-      {
-        id: 'rs_12',
-        order: 12,
-        question: 'How would you handle a situation where a guest has a food allergy?',
-        category: 'scenario',
-        tip: '展示你对食物过敏的严肃态度，立即通知厨房，确认安全替代方案'
-      },
-      {
-        id: 'rs_13',
-        order: 13,
-        question: 'What do you know about wine service and pairing?',
-        category: 'knowledge',
-        tip: '展示基本的葡萄酒知识，包括主要品种、服务温度、基本搭配原则'
-      },
-      {
-        id: 'rs_14',
-        order: 14,
-        question: 'How would you upsell menu items to guests?',
-        category: 'skill',
-        tip: '用自然的方式推荐，基于客人的喜好，而不是强行推销'
-      },
-      {
-        id: 'rs_15',
-        order: 15,
-        question: 'Describe a time you had to deal with a conflict with a coworker.',
-        category: 'behavioral',
-        tip: '展示你的沟通能力和成熟度，重点在如何解决而不是指责'
-      },
-      {
-        id: 'rs_16',
-        order: 16,
-        question: 'What would you do if a guest asked you a question you didn\'t know the answer to?',
-        category: 'scenario',
-        tip: '诚实承认不知道，但立即帮客人找到答案，展示积极解决问题的态度'
-      },
-      {
-        id: 'rs_17',
-        order: 17,
-        question: 'How do you feel about living and working on a ship for several months?',
-        category: 'personal',
-        tip: '展示你已经做好了充分的心理准备，理解船上生活的特点'
-      },
-      {
-        id: 'rs_18',
-        order: 18,
-        question: 'What makes you a good fit for the cruise ship lifestyle?',
-        category: 'personal',
-        tip: '强调适应能力、开放心态、喜欢多元文化环境'
-      },
-      {
-        id: 'rs_19',
-        order: 19,
-        question: 'How would you handle homesickness while working on a ship?',
-        category: 'personal',
-        tip: '展示你有应对策略，比如保持联系、建立船上友谊、专注工作目标'
-      },
-      {
-        id: 'rs_20',
-        order: 20,
-        question: 'Describe your experience with POS systems or order management.',
-        category: 'experience',
-        tip: '说明你使用过的系统，如果没有经验就强调你的学习能力'
-      },
-      {
-        id: 'rs_21',
-        order: 21,
-        question: 'How do you ensure cleanliness and hygiene standards in your work area?',
-        category: 'knowledge',
-        tip: '展示你对卫生标准的重视，提到具体的清洁流程和习惯'
-      },
-      {
-        id: 'rs_22',
-        order: 22,
-        question: 'What would you do if you noticed a coworker not following safety procedures?',
-        category: 'scenario',
-        tip: '先友善提醒同事，如果问题持续则报告上级，强调安全第一'
-      },
-      {
-        id: 'rs_23',
-        order: 23,
-        question: 'How do you handle multiple tables with different needs at the same time?',
-        category: 'skill',
-        tip: '展示你的组织能力和优先级判断能力'
-      },
-      {
-        id: 'rs_24',
-        order: 24,
-        question: 'Tell me about a time you went above and beyond for a customer.',
-        category: 'behavioral',
-        tip: '用 STAR 结构讲一个让客人感动的真实故事'
-      },
-      {
-        id: 'rs_25',
-        order: 25,
-        question: 'Why should we hire you over other candidates?',
-        category: 'personal',
-        tip: '总结你最大的优势，结合具体经验，展示你的热情和决心'
-      }
-    ]
-  },
-  duty_free_sales: {
-    positionName: '免税店销售',
-    positionNameEn: 'Duty-Free Shop Sales',
-    questions: [
-      {
-        id: 'df_01',
-        order: 1,
-        question: 'Tell me about yourself and why you\'re interested in working in duty-free retail on a cruise ship.',
-        category: 'personal',
-        tip: '简要介绍背景，突出对零售和邮轮工作的兴趣'
-      },
-      {
-        id: 'df_02',
-        order: 2,
-        question: 'What sales experience do you have?',
-        category: 'experience',
-        tip: '具体说明销售经历、业绩数据、工作环境'
-      },
-      {
-        id: 'df_03',
-        order: 3,
-        question: 'How would you approach a customer who is just browsing?',
-        category: 'skill',
-        tip: '先给空间，友善问候，观察兴趣点再自然地开启对话'
-      },
-      {
-        id: 'df_04',
-        order: 4,
-        question: 'Describe a time you successfully closed a difficult sale.',
-        category: 'behavioral',
-        tip: '用 STAR 结构，展示你的说服力和耐心'
-      },
-      {
-        id: 'df_05',
-        order: 5,
-        question: 'How do you handle rejection from customers?',
-        category: 'personal',
-        tip: '展示积极心态，不会因为被拒绝而气馁'
-      },
-      {
-        id: 'df_06',
-        order: 6,
-        question: 'What do you know about luxury brands and products?',
-        category: 'knowledge',
-        tip: '展示你对主流奢侈品牌的了解，提几个具体品牌和产品线'
-      },
-      {
-        id: 'df_07',
-        order: 7,
-        question: 'How would you deal with a customer who wants a refund?',
-        category: 'scenario',
-        tip: '先了解原因，按公司政策处理，保持专业和同理心'
-      },
-      {
-        id: 'df_08',
-        order: 8,
-        question: 'Describe your experience with meeting sales targets.',
-        category: 'experience',
-        tip: '用具体数据说明你达成或超额完成销售目标的经历'
-      },
-      {
-        id: 'df_09',
-        order: 9,
-        question: 'How would you upsell or cross-sell products to customers?',
-        category: 'skill',
-        tip: '基于客人需求推荐相关产品，而不是强行推销'
-      },
-      {
-        id: 'df_10',
-        order: 10,
-        question: 'What would you do if a customer complained about a product?',
-        category: 'scenario',
-        tip: '倾听、道歉、提供解决方案、跟进'
-      },
-      {
-        id: 'df_11',
-        order: 11,
-        question: 'How do you stay motivated during slow sales periods?',
-        category: 'personal',
-        tip: '利用空闲时间整理陈列、学习产品知识、准备促销策略'
-      },
-      {
-        id: 'df_12',
-        order: 12,
-        question: 'Tell me about a time you provided exceptional customer service in a retail setting.',
-        category: 'behavioral',
-        tip: '用 STAR 结构讲述一个让顾客满意的具体经历'
-      },
-      {
-        id: 'df_13',
-        order: 13,
-        question: 'How do you handle working with sales targets or commission?',
-        category: 'personal',
-        tip: '展示你把目标当作动力而不是压力'
-      },
-      {
-        id: 'df_14',
-        order: 14,
-        question: 'What do you know about duty-free regulations and tax exemptions?',
-        category: 'knowledge',
-        tip: '展示你对免税购物基本规则的了解'
-      },
-      {
-        id: 'df_15',
-        order: 15,
-        question: 'How would you handle a situation where a product is out of stock?',
-        category: 'scenario',
-        tip: '向客人道歉，推荐替代产品，记录需求以便后续跟进'
-      },
-      {
-        id: 'df_16',
-        order: 16,
-        question: 'Describe a time you worked as part of a team in a retail environment.',
-        category: 'behavioral',
-        tip: '强调团队合作和你的具体贡献'
-      },
-      {
-        id: 'df_17',
-        order: 17,
-        question: 'How do you keep yourself updated on product knowledge?',
-        category: 'skill',
-        tip: '说明你的学习习惯，主动了解新品、关注品牌动态'
-      },
-      {
-        id: 'df_18',
-        order: 18,
-        question: 'What would you do if you suspected a customer of shoplifting?',
-        category: 'scenario',
-        tip: '不要直接指控，通知安保或经理，遵循公司流程'
-      },
-      {
-        id: 'df_19',
-        order: 19,
-        question: 'How do you feel about living and working on a ship for extended periods?',
-        category: 'personal',
-        tip: '展示你已做好充分准备，理解船上生活的挑战和乐趣'
-      },
-      {
-        id: 'df_20',
-        order: 20,
-        question: 'How would you handle a language barrier with an international customer?',
-        category: 'scenario',
-        tip: '用简单英语、肢体语言、翻译工具，保持耐心和微笑'
-      },
-      {
-        id: 'df_21',
-        order: 21,
-        question: 'Describe your experience with inventory management or stock counting.',
-        category: 'experience',
-        tip: '说明你参与过的库存管理工作，展示你的细心和准确性'
-      },
-      {
-        id: 'df_22',
-        order: 22,
-        question: 'How do you build rapport with customers quickly?',
-        category: 'skill',
-        tip: '微笑、眼神交流、真诚赞美、找共同话题'
-      },
-      {
-        id: 'df_23',
-        order: 23,
-        question: 'What strategies do you use to remember product details and prices?',
-        category: 'skill',
-        tip: '展示你的学习方法，比如每天复习、制作笔记、实际操练'
-      },
-      {
-        id: 'df_24',
-        order: 24,
-        question: 'Tell me about a time you exceeded your sales targets and how you did it.',
-        category: 'behavioral',
-        tip: '用具体数据和 STAR 结构说明你的销售策略和成果'
-      },
-      {
-        id: 'df_25',
-        order: 25,
-        question: 'Why should we hire you for this position?',
-        category: 'personal',
-        tip: '总结核心优势，结合销售能力和对邮轮工作的热情'
-      }
-    ]
-  },
   bar_server: {
     positionName: '酒吧服务员',
     positionNameEn: 'Bar Server',
     questions: [
-      {
-        id: 'bs_01',
-        order: 1,
-        question: 'Tell me about yourself and why you want to work as a bar server on a cruise ship.',
-        category: 'personal',
-        tip: '简要介绍背景，重点说明对调酒和邮轮服务的热情'
-      },
-      {
-        id: 'bs_02',
-        order: 2,
-        question: 'What experience do you have in bartending or mixology?',
-        category: 'experience',
-        tip: '具体说明你的调酒经验、熟悉的饮品、工作环境'
-      },
-      {
-        id: 'bs_03',
-        order: 3,
-        question: 'How would you handle a guest who has had too much to drink?',
-        category: 'scenario',
-        tip: '展示你如何专业、礼貌地处理，同时确保安全'
-      },
-      {
-        id: 'bs_04',
-        order: 4,
-        question: 'Describe a time you provided excellent customer service in a bar setting.',
-        category: 'behavioral',
-        tip: '用 STAR 结构讲述一个让客人满意的具体经历'
-      },
-      {
-        id: 'bs_05',
-        order: 5,
-        question: 'What do you know about different types of alcohol and cocktails?',
-        category: 'knowledge',
-        tip: '展示你对烈酒、葡萄酒、鸡尾酒的了解，提到一些经典配方'
-      },
-      {
-        id: 'bs_06',
-        order: 6,
-        question: 'How do you handle working in a fast-paced bar environment?',
-        category: 'personal',
-        tip: '强调你的速度、准确性和压力管理能力'
-      },
-      {
-        id: 'bs_07',
-        order: 7,
-        question: 'How would you deal with a difficult or rude guest?',
-        category: 'scenario',
-        tip: '保持专业和冷静，展示你不会把情绪带入工作的能力'
-      },
-      {
-        id: 'bs_08',
-        order: 8,
-        question: 'Can you make a classic cocktail? Describe the process.',
-        category: 'skill',
-        tip: '选择一个经典鸡尾酒，详细说明制作步骤和注意事项'
-      },
-      {
-        id: 'bs_09',
-        order: 9,
-        question: 'What would you do if you ran out of a key ingredient for a cocktail?',
-        category: 'scenario',
-        tip: '展示你的应变能力，提供替代方案，保持客人满意'
-      },
-      {
-        id: 'bs_10',
-        order: 10,
-        question: 'How do you ensure responsible alcohol service?',
-        category: 'knowledge',
-        tip: '展示你对酒精服务法规的了解，包括年龄验证、识别醉酒迹象等'
-      },
-      {
-        id: 'bs_11',
-        order: 11,
-        question: 'Tell me about a time you worked as part of a team in a bar setting.',
-        category: 'behavioral',
-        tip: '强调团队合作和你的具体贡献'
-      },
-      {
-        id: 'bs_12',
-        order: 12,
-        question: 'How do you handle cash and credit card transactions in a bar?',
-        category: 'skill',
-        tip: '展示你的准确性和对收银系统的熟悉程度'
-      },
-      {
-        id: 'bs_13',
-        order: 13,
-        question: 'What do you know about wine service and pairing?',
-        category: 'knowledge',
-        tip: '展示基本的葡萄酒知识，包括服务温度、酒杯选择、基本搭配原则'
-      },
-      {
-        id: 'bs_14',
-        order: 14,
-        question: 'How would you upsell drinks to guests?',
-        category: 'skill',
-        tip: '用自然的方式推荐，基于客人的喜好，而不是强行推销'
-      },
-      {
-        id: 'bs_15',
-        order: 15,
-        question: 'Describe a time you had to deal with a conflict with a coworker.',
-        category: 'behavioral',
-        tip: '展示你的沟通能力和成熟度，重点在如何解决而不是指责'
-      },
-      {
-        id: 'bs_16',
-        order: 16,
-        question: 'What would you do if a guest asked for a custom cocktail you\'ve never made before?',
-        category: 'scenario',
-        tip: '展示你的学习能力和创造力，愿意尝试新配方'
-      },
-      {
-        id: 'bs_17',
-        order: 17,
-        question: 'How do you feel about living and working on a ship for several months?',
-        category: 'personal',
-        tip: '展示你已经做好了充分的心理准备，理解船上生活的特点'
-      },
-      {
-        id: 'bs_18',
-        order: 18,
-        question: 'What makes you a good fit for the cruise ship lifestyle?',
-        category: 'personal',
-        tip: '强调适应能力、开放心态、喜欢多元文化环境'
-      },
-      {
-        id: 'bs_19',
-        order: 19,
-        question: 'How would you handle homesickness while working on a ship?',
-        category: 'personal',
-        tip: '展示你有应对策略，比如保持联系、建立船上友谊、专注工作目标'
-      },
-      {
-        id: 'bs_20',
-        order: 20,
-        question: 'Describe your experience with inventory management for a bar.',
-        category: 'experience',
-        tip: '说明你参与过的库存管理工作，展示你的细心和准确性'
-      },
-      {
-        id: 'bs_21',
-        order: 21,
-        question: 'How do you ensure cleanliness and hygiene in the bar area?',
-        category: 'knowledge',
-        tip: '展示你对卫生标准的重视，提到具体的清洁流程和习惯'
-      },
-      {
-        id: 'bs_22',
-        order: 22,
-        question: 'What would you do if you noticed a coworker not following safety procedures?',
-        category: 'scenario',
-        tip: '先友善提醒同事，如果问题持续则报告上级，强调安全第一'
-      },
-      {
-        id: 'bs_23',
-        order: 23,
-        question: 'How do you handle multiple drink orders at the same time?',
-        category: 'skill',
-        tip: '展示你的组织能力和优先级判断能力'
-      },
-      {
-        id: 'bs_24',
-        order: 24,
-        question: 'Tell me about a time you went above and beyond for a customer in a bar setting.',
-        category: 'behavioral',
-        tip: '用 STAR 结构讲一个让客人感动的真实故事'
-      },
-      {
-        id: 'bs_25',
-        order: 25,
-        question: 'Why should we hire you over other candidates?',
-        category: 'personal',
-        tip: '总结你最大的优势，结合调酒技能和对邮轮工作的热情'
-      }
+      { id: 'bs_01', order: 1, question: "How would you recommend a cocktail to a guest?", difficulty: "easy", tip: "Based on the guest's preferences, suggest a suitable cocktail with a brief description" },
+      { id: 'bs_02', order: 2, question: "What basic spirits do you know?", difficulty: "easy", tip: "Vodka, Rum, Whiskey, Gin, Tequila are the five basic spirits" },
+      { id: 'bs_03', order: 3, question: "How do you greet a guest at the bar?", difficulty: "easy", tip: "Smile, make eye contact, and offer a warm welcome" },
+      { id: 'bs_04', order: 4, question: "Can you describe how to make a Mojito?", difficulty: "easy", tip: "White rum, lime, mint, sugar, soda water" },
+      { id: 'bs_05', order: 5, question: "What's the difference between on the rocks and neat?", difficulty: "easy", tip: "On the rocks means over ice, neat means straight with no ice" },
+      { id: 'bs_06', order: 6, question: "How would you handle a guest who has had too much to drink?", difficulty: "medium", tip: "Stop serving alcohol, offer water and food, alert supervisor if needed" },
+      { id: 'bs_07', order: 7, question: "Describe your experience with POS systems.", difficulty: "medium", tip: "Share your specific experience with ordering and payment systems" },
+      { id: 'bs_08', order: 8, question: "How do you keep track of multiple drink orders?", difficulty: "medium", tip: "Prioritize by order time, use memory techniques, communicate with team" },
+      { id: 'bs_09', order: 9, question: "What would you do if a guest complains about a drink?", difficulty: "medium", tip: "Listen carefully, apologize, offer to remake or replace the drink" },
+      { id: 'bs_10', order: 10, question: "How do you ensure responsible alcohol service?", difficulty: "medium", tip: "Check IDs, watch for signs of intoxication, know when to stop serving" },
+      { id: 'bs_11', order: 11, question: "Tell me about a time you went above and beyond for a guest.", difficulty: "medium", tip: "Use STAR method: describe the situation, task, action, and result" },
+      { id: 'bs_12', order: 12, question: "How would you create a welcoming bar atmosphere?", difficulty: "medium", tip: "Good music, proper lighting, friendly service, clean environment" },
+      { id: 'bs_13', order: 13, question: "What's your favorite cocktail and why?", difficulty: "medium", tip: "Be honest, explain what you like about the taste and presentation" },
+      { id: 'bs_14', order: 14, question: "How do you handle a disagreement with a coworker?", difficulty: "medium", tip: "Stay professional, communicate calmly, seek supervisor help if needed" },
+      { id: 'bs_15', order: 15, question: "Why do you want to work on a cruise ship bar?", difficulty: "medium", tip: "Emphasize adventure, international experience, and passion for the industry" },
+      { id: 'bs_16', order: 16, question: "How would you handle a guest who refuses to pay?", difficulty: "hard", tip: "Stay calm, explain the situation, involve supervisor and security if necessary" },
+      { id: 'bs_17', order: 17, question: "What would you do if you witnessed a fight at the bar?", difficulty: "hard", tip: "Alert security immediately, don't intervene directly, ensure other guests' safety" },
+      { id: 'bs_18', order: 18, question: "How do you manage stress during peak hours?", difficulty: "hard", tip: "Stay organized, prioritize tasks, communicate with team, stay calm" },
+      { id: 'bs_19', order: 19, question: "A guest is celebrating a birthday. How would you make it special?", difficulty: "hard", tip: "Prepare a special drink or dessert, gather team for singing, create memorable experience" },
+      { id: 'bs_20', order: 20, question: "How would you upsell premium drinks without being pushy?", difficulty: "hard", tip: "Know the products well, describe flavors and qualities, make genuine recommendations" },
+      { id: 'bs_21', order: 21, question: "What would you do if you ran out of a popular ingredient?", difficulty: "hard", tip: "Suggest alternatives, apologize sincerely, offer a comparable substitute" },
+      { id: 'bs_22', order: 22, question: "How do you handle constructive criticism from a supervisor?", difficulty: "hard", tip: "Listen carefully, thank them, implement feedback, show improvement" },
+      { id: 'bs_23', order: 23, question: "Describe your ideal bar team.", difficulty: "hard", tip: "Communication, teamwork, mutual respect, supporting each other" },
+      { id: 'bs_24', order: 24, question: "How would you train a new bar colleague?", difficulty: "hard", tip: "Be patient, demonstrate techniques, provide feedback, answer questions" },
+      { id: 'bs_25', order: 25, question: "Where do you see yourself in five years?", difficulty: "hard", tip: "Show ambition, relate to cruise industry growth, mention specific goals" }
+    ],
+    knowledge: [
+      { id: 'bs_k01', content: "Vodka, Rum, Whiskey, Gin, and Tequila are the five basic spirits" },
+      { id: 'bs_k02', content: "Always check guest's ID before serving alcohol" },
+      { id: 'bs_k03', content: "Common signs of intoxication include slurred speech and unsteady movement" },
+      { id: 'bs_k04', content: "Classic cocktails include Martini, Old Fashioned, and Margarita" },
+      { id: 'bs_k05', content: "Wine should be opened and poured properly for service" },
+      { id: 'bs_k06', content: "Keep the bar area clean and well-stocked at all times" },
+      { id: 'bs_k07', content: "Use fresh fruits and garnishes for better drink presentation" },
+      { id: 'bs_k08', content: "Know how to use the POS system efficiently" },
+      { id: 'bs_k09', content: "Maintain good communication with kitchen and service staff" },
+      { id: 'bs_k10', content: "Always prioritize guest safety over sales targets" }
+    ]
+  },
+  restaurant: {
+    positionName: '餐厅服务员',
+    positionNameEn: 'Restaurant Server',
+    questions: [
+      { id: 'rs_01', order: 1, question: "How would you welcome a guest to the restaurant?", difficulty: "easy", tip: "Smile warmly, greet them, ask if they have a reservation" },
+      { id: 'rs_02', order: 2, question: "What does POS mean in restaurant service?", difficulty: "easy", tip: "Point of Sale - the system used for taking orders and payments" },
+      { id: 'rs_03', order: 3, question: "Can you carry multiple plates at once?", difficulty: "easy", tip: "Yes, using proper tray and hand techniques" },
+      { id: 'rs_04', order: 4, question: "What is a typical breakfast service item?", difficulty: "easy", tip: "Eggs, toast, bacon, pancakes, fresh fruit" },
+      { id: 'rs_05', order: 5, question: "How do you take a drink order?", difficulty: "easy", tip: "Present menu, ask about preferences, write down clearly" },
+      { id: 'rs_06', order: 6, question: "How would you handle a food allergy situation?", difficulty: "medium", tip: "Ask clearly about allergies, inform kitchen, confirm with guest before serving" },
+      { id: 'rs_07', order: 7, question: "Describe the proper way to serve wine.", difficulty: "medium", tip: "Present label, open bottle, pour small taste, pour for guest first" },
+      { id: 'rs_08', order: 8, question: "What would you do if a guest complains about cold food?", difficulty: "medium", tip: "Apologize, take food back, have kitchen reheat or replace immediately" },
+      { id: 'rs_09', order: 9, question: "How do you handle busy dinner service?", difficulty: "medium", tip: "Stay organized, prioritize tasks, communicate with team, keep calm" },
+      { id: 'rs_10', order: 10, question: "Tell me about your experience with room service.", difficulty: "medium", tip: "Share specific examples of your room service experience" },
+      { id: 'rs_11', order: 11, question: "How would you handle a difficult guest?", difficulty: "medium", tip: "Stay professional, listen actively, find solutions, involve supervisor if needed" },
+      { id: 'rs_12', order: 12, question: "What is your favorite cuisine and why?", difficulty: "medium", tip: "Be honest, explain your preferences and any relevant experience" },
+      { id: 'rs_13', order: 13, question: "How do you set up a table for service?", difficulty: "medium", tip: "Plates, utensils, glasses, napkins, condiments in proper positions" },
+      { id: 'rs_14', order: 14, question: "Why do you want to work in the cruise industry?", difficulty: "medium", tip: "Emphasize adventure, multicultural experience, career growth" },
+      { id: 'rs_15', order: 15, question: "How do you remember multiple table orders?", difficulty: "medium", tip: "Write clearly, repeat orders back, use table numbers, mental notes" },
+      { id: 'rs_16', order: 16, question: "A guest wants to send food back. How would you react?", difficulty: "hard", tip: "Stay calm, ask courteously why, offer alternatives, ensure quick replacement" },
+      { id: 'rs_17', order: 17, question: "How would you handle a no-show for a large party?", difficulty: "hard", tip: "Follow reservation procedures, attempt contact, document properly, move on" },
+      { id: 'rs_18', order: 18, question: "What would you do if you spilled something on a guest?", difficulty: "hard", tip: "Apologize sincerely, help clean up, offer compensation, get manager" },
+      { id: 'rs_19', order: 19, question: "Describe a time you worked as a team to handle a crisis.", difficulty: "hard", tip: "STAR method: describe situation, task, action taken, results" },
+      { id: 'rs_20', order: 20, question: "How do you maintain energy during a 10-hour shift?", difficulty: "hard", tip: "Stay hydrated, take short breaks, eat properly, stay positive" },
+      { id: 'rs_21', order: 21, question: "What would you do if you saw a coworker stealing?", difficulty: "hard", tip: "Report to supervisor immediately, document what you saw" },
+      { id: 'rs_22', order: 22, question: "How would you handle guests who are in a hurry?", difficulty: "hard", tip: "Prioritize their order, communicate with kitchen, ensure timely service" },
+      { id: 'rs_23', order: 23, question: "Describe your ideal restaurant team environment.", difficulty: "hard", tip: "Communication, mutual support, respect, positive attitude" },
+      { id: 'rs_24', order: 24, question: "How do you upsell without being pushy?", difficulty: "hard", tip: "Know menu well, describe dishes appetizingly, respect guest choices" },
+      { id: 'rs_25', order: 25, question: "Where do you see yourself in five years?", difficulty: "hard", tip: "Show ambition in hospitality industry, mention specific growth goals" }
+    ],
+    knowledge: [
+      { id: 'rs_k01', content: "Use the phrase 'May I take your order' when approaching tables" },
+      { id: 'rs_k02', content: "Always serve women first, then men, from the left side" },
+      { id: 'rs_k03', content: "Clear plates from the right side after guests finish" },
+      { id: 'rs_k04', content: "Know common food allergies: nuts, shellfish, dairy, gluten" },
+      { id: 'rs_k05', content: "Wine glasses go above water glasses on the table" },
+      { id: 'rs_k06', content: "Always check guest satisfaction before clearing dessert plates" },
+      { id: 'rs_k07', content: "Know the menu items, ingredients, and preparation methods" },
+      { id: 'rs_k08', content: "Keep water glasses filled throughout the meal" },
+      { id: 'rs_k09', content: "Present the bill face down on a tray when guest asks" },
+      { id: 'rs_k10', content: "Thank guests and invite them to return" }
+    ]
+  },
+  housekeeping: {
+    positionName: '客房服务员',
+    positionNameEn: 'Housekeeping',
+    questions: [
+      { id: 'hk_01', order: 1, question: "How do you make a bed properly?", difficulty: "easy", tip: "Strip old linens, put on fitted sheet, top sheet, blanket, pillows" },
+      { id: 'hk_02', order: 2, question: "What cleaning supplies have you used?", difficulty: "easy", tip: "Mops, brooms, vacuums, cleaning solutions, microfiber cloths" },
+      { id: 'hk_03', order: 3, question: "How long does a typical room turn-over take?", difficulty: "easy", tip: "Usually 30-45 minutes depending on room size and condition" },
+      { id: 'hk_04', order: 4, question: "What does tidying up mean?", difficulty: "easy", tip: "Making bed, emptying trash, straightening items, quick surface clean" },
+      { id: 'hk_05', order: 5, question: "Have you worked in hospitality before?", difficulty: "easy", tip: "Share any hotel, cruise, or cleaning service experience" },
+      { id: 'hk_06', order: 6, question: "How do you handle lost and found items?", difficulty: "medium", tip: "Turn in to supervisor, document properly, follow security procedures" },
+      { id: 'hk_07', order: 7, question: "What would you do if a guest requests extra towels?", difficulty: "medium", tip: "Provide promptly, smile, ask if they need anything else" },
+      { id: 'hk_08', order: 8, question: "How do you prioritize multiple room requests?", difficulty: "medium", tip: "Check-outs first, then stay-overs, handle VIP requests优先" },
+      { id: 'hk_09', order: 9, question: "Describe your cleaning routine for a bathroom.", difficulty: "medium", tip: "Toilet, sink, tub/shower, mirror, floor, restock supplies" },
+      { id: 'hk_10', order: 10, question: "How do you handle a guest complaint about cleanliness?", difficulty: "medium", tip: "Apologize, address immediately, offer compensation, report to supervisor" },
+      { id: 'hk_11', order: 11, question: "What safety precautions do you take in rooms?", difficulty: "medium", tip: "Check for hazards, secure cleaning cart, watch for wet floors" },
+      { id: 'hk_12', order: 12, question: "How do you maintain guest privacy?", difficulty: "medium", tip: "Knock first, announce housekeeping, never enter if DO NOT DISTURB" },
+      { id: 'hk_13', order: 13, question: "Tell me about your attention to detail.", difficulty: "medium", tip: "Share specific examples of thorough cleaning and inspection" },
+      { id: 'hk_14', order: 14, question: "How do you work efficiently under time pressure?", difficulty: "medium", tip: "Stay organized, follow routine, minimize distractions" },
+      { id: 'hk_15', order: 15, question: "Why do you want to work on a cruise ship?", difficulty: "medium", tip: "Adventure, unique experience, career opportunity, international environment" },
+      { id: 'hk_16', order: 16, question: "A guest reports something broken. What do you do?", difficulty: "hard", tip: "Document damage, report to maintenance, inform supervisor, follow up" },
+      { id: 'hk_17', order: 17, question: "How would you handle finding a guest's personal items?", difficulty: "hard", tip: "Respect privacy, secure items properly, follow lost and found protocol" },
+      { id: 'hk_18', order: 18, question: "What would you do if you suspect a room has been tampered with?", difficulty: "hard", tip: "Do not touch anything, report to security immediately" },
+      { id: 'hk_19', order: 19, question: "How do you handle the physical demands of the job?", difficulty: "hard", tip: "Stay fit, use proper lifting techniques, take breaks when needed" },
+      { id: 'hk_20', order: 20, question: "Describe a time you went above for a guest.", difficulty: "hard", tip: "STAR method: describe the situation, task, your action, result" },
+      { id: 'hk_21', order: 21, question: "How would you deal with a rude or demanding guest?", difficulty: "hard", tip: "Stay professional, listen, do what you can, involve supervisor" },
+      { id: 'hk_22', order: 22, question: "What would you do in an emergency situation?", difficulty: "hard", tip: "Follow safety procedures, evacuate guests, contact emergency services" },
+      { id: 'hk_23', order: 23, question: "How do you feel about working nights or weekends?", difficulty: "hard", tip: "Be flexible, show willingness, adjust to ship schedule" },
+      { id: 'hk_24', order: 24, question: "How do you handle homesickness on a long contract?", difficulty: "hard", tip: "Keep busy, stay connected with family, make ship friends" },
+      { id: 'hk_25', order: 25, question: "Where do you see yourself in five years?", difficulty: "hard", tip: "Show ambition, career growth in hospitality, specific goals" }
+    ],
+    knowledge: [
+      { id: 'hk_k01', content: "Always knock and announce yourself before entering a room" },
+      { id: 'hk_k02', content: "Use color-coded cloths to prevent cross-contamination" },
+      { id: 'hk_k03', content: "Check and restock mini bar for each room" },
+      { id: 'hk_k04', content: "Turn down service includes turning down beds and setting evening amenities" },
+      { id: 'hk_k05', content: "Report any maintenance issues immediately" },
+      { id: 'hk_k06', content: "Lost and found items must be turned in within 24 hours" },
+      { id: 'hk_k07', content: "Use proper lifting techniques to avoid injury" },
+      { id: 'hk_k08', content: "Know the location of all emergency equipment" },
+      { id: 'hk_k09', content: "Respect guest privacy and personal space" },
+      { id: 'hk_k10', content: "Maintain a positive attitude throughout your shift" }
+    ]
+  },
+  front_office: {
+    positionName: '前台接待',
+    positionNameEn: 'Front Office',
+    questions: [
+      { id: 'fo_01', order: 1, question: "How do you greet a guest when they arrive?", difficulty: "easy", tip: "Smile, make eye contact, say 'Welcome to [ship name]'" },
+      { id: 'fo_02', order: 2, question: "What does check-in mean?", difficulty: "easy", tip: "Registering guests, verifying booking, assigning rooms" },
+      { id: 'fo_03', order: 3, question: "Can you type quickly?", difficulty: "easy", tip: "Share your typing speed and computer skills" },
+      { id: 'fo_04', order: 4, question: "Do you know any foreign languages?", difficulty: "easy", tip: "Be honest about languages you speak, even basic ones" },
+      { id: 'fo_05', order: 5, question: "What is a reservation?", difficulty: "easy", tip: "A pre-booking for accommodation and services" },
+      { id: 'fo_06', order: 6, question: "How would you handle a booking error?", difficulty: "medium", tip: "Apologize, find solutions, upgrade if needed, compensate appropriately" },
+      { id: 'fo_07', order: 7, question: "Describe your experience with PMS systems.", difficulty: "medium", tip: "Property Management System experience, how you used it" },
+      { id: 'fo_08', order: 8, question: "What would you do if a guest has a complaint?", difficulty: "medium", tip: "Listen carefully, empathize, find solution, follow up" },
+      { id: 'fo_09', order: 9, question: "How do you handle money and credit cards?", difficulty: "medium", tip: "Follow procedures, ensure security, accurate transactions" },
+      { id: 'fo_10', order: 10, question: "Tell me about a time you helped a frustrated guest.", difficulty: "medium", tip: "Use STAR method to describe your problem-solving" },
+      { id: 'fo_11', order: 11, question: "How do you prioritize tasks during peak hours?", difficulty: "medium", tip: "Queue management, urgent first, communicate wait times" },
+      { id: 'fo_12', order: 12, question: "What is your experience with concierge services?", difficulty: "medium", tip: "Share any guest services or concierge experience" },
+      { id: 'fo_13', order: 13, question: "How would you handle a guest asking for directions?", difficulty: "medium", tip: "Be helpful, know ship layout, offer to escort if needed" },
+      { id: 'fo_14', order: 14, question: "Why do you want to work in front office?", difficulty: "medium", tip: "Enjoy guest interaction, organizational skills, first impressions matter" },
+      { id: 'fo_15', order: 15, question: "How do you stay calm under pressure?", difficulty: "medium", tip: "Breathe, focus, prioritize, ask for help when needed" },
+      { id: 'fo_16', order: 16, question: "A guest's card is declined. What do you do?", difficulty: "hard", tip: "Handle discreetly, suggest alternatives, protect guest dignity" },
+      { id: 'fo_17', order: 17, question: "How would you handle an emergency evacuation?", difficulty: "hard", tip: "Follow emergency procedures, assist guests, remain calm" },
+      { id: 'fo_18', order: 18, question: "What would you do if a guest is lost and upset?", difficulty: "hard", tip: "Comfort them, get details, contact security, help find way" },
+      { id: 'fo_19', order: 19, question: "Describe how you would handle a VIP guest.", difficulty: "hard", tip: "Personalized service, anticipate needs, extra attention to detail" },
+      { id: 'fo_20', order: 20, question: "How do you handle confidential guest information?", difficulty: "hard", tip: "Protect privacy, follow data protection policies, secure records" },
+      { id: 'fo_21', order: 21, question: "A guest wants to change rooms. How would you respond?", difficulty: "hard", tip: "Check availability, accommodate if possible, explain any differences" },
+      { id: 'fo_22', order: 22, question: "What would you do if you witnessed theft?", difficulty: "hard", tip: "Report to security immediately, don't confront, document observations" },
+      { id: 'fo_23', order: 23, question: "How do you feel about working the night shift?", difficulty: "hard", tip: "Be flexible, can adjust sleep schedule, stay alert" },
+      { id: 'fo_24', order: 24, question: "Describe a conflict with a coworker and how you resolved it.", difficulty: "hard", tip: "STAR method, focus on resolution not conflict" },
+      { id: 'fo_25', order: 25, question: "Where do you see yourself in five years?", difficulty: "hard", tip: "Show ambition in hospitality, leadership goals, specific plans" }
+    ],
+    knowledge: [
+      { id: 'fo_k01', content: "Always greet guests with a warm smile" },
+      { id: 'fo_k02', content: "Know the daily activities and schedules on the ship" },
+      { id: 'fo_k03', content: "Keep guest information confidential at all times" },
+      { id: 'fo_k04', content: "Know emergency procedures and evacuation routes" },
+      { id: 'fo_k05', content: "Take clear and accurate messages for guests" },
+      { id: 'fo_k06', content: "Know the ship layout and directional information" },
+      { id: 'fo_k07', content: "Process payments accurately and securely" },
+      { id: 'fo_k08', content: "Handle guest complaints professionally and empathetically" },
+      { id: 'fo_k09', content: "Maintain a clean and organized front desk area" },
+      { id: 'fo_k10', content: "Work collaboratively with all departments" }
+    ]
+  },
+  retail: {
+    positionName: '免税店销售',
+    positionNameEn: 'Retail Sales',
+    questions: [
+      { id: 'rt_01', order: 1, question: "What does duty-free mean?", difficulty: "easy", tip: "Products sold without taxes and duties" },
+      { id: 'rt_02', order: 2, question: "Have you worked in retail before?", difficulty: "easy", tip: "Share any sales or customer service experience" },
+      { id: 'rt_03', order: 3, question: "How do you greet a customer?", difficulty: "easy", tip: "Smile, make eye contact, offer assistance" },
+      { id: 'rt_04', order: 4, question: "What luxury brands do you know?", difficulty: "easy", tip: "Mention well-known brands like Chanel, Gucci, Rolex, etc." },
+      { id: 'rt_05', order: 5, question: "Can you operate a cash register?", difficulty: "easy", tip: "Yes, share your POS or register experience" },
+      { id: 'rt_06', order: 6, question: "How would you help a browsing customer?", difficulty: "medium", tip: "Give space first, offer help when they seem interested" },
+      { id: 'rt_07', order: 7, question: "Describe a time you met a sales target.", difficulty: "medium", tip: "Use numbers, explain your strategies and results" },
+      { id: 'rt_08', order: 8, question: "How do you handle a refund request?", difficulty: "medium", tip: "Follow store policy, be understanding, process efficiently" },
+      { id: 'rt_09', order: 9, question: "What would you do if a product is out of stock?", difficulty: "medium", tip: "Apologize, offer alternatives, note the request" },
+      { id: 'rt_10', order: 10, question: "How do you stay motivated during slow periods?", difficulty: "medium", tip: "Organize displays, learn product knowledge, prepare for busy times" },
+      { id: 'rt_11', order: 11, question: "Tell me about your product knowledge skills.", difficulty: "medium", tip: "Share how you learn and remember product details" },
+      { id: 'rt_12', order: 12, question: "How would you upsell to a customer?", difficulty: "medium", tip: "Suggest related items based on their needs, not pushy" },
+      { id: 'rt_13', order: 13, question: "Describe your experience with inventory.", difficulty: "medium", tip: "Stock counting, replenishment, reporting shortages" },
+      { id: 'rt_14', order: 14, question: "How do you handle international customers?", difficulty: "medium", tip: "Be patient, use simple language, be culturally aware" },
+      { id: 'rt_15', order: 15, question: "Why do you want to work in duty-free retail?", difficulty: "medium", tip: "Interest in luxury products, international environment, commission opportunities" },
+      { id: 'rt_16', order: 16, question: "A customer is hagling for a lower price. What do you do?", difficulty: "hard", tip: "Politely explain fixed pricing, offer alternatives, stay firm" },
+      { id: 'rt_17', order: 17, question: "What would you do if you suspected shoplifting?", difficulty: "hard", tip: "Alert security, don't confront directly, observe and report" },
+      { id: 'rt_18', order: 18, question: "How would you handle a dissatisfied VIP customer?", difficulty: "hard", tip: "Give extra attention, resolve quickly, involve manager if needed" },
+      { id: 'rt_19', order: 19, question: "Describe a time you turned a complaint into a sale.", difficulty: "hard", tip: "STAR method, focus on solution and positive outcome" },
+      { id: 'rt_20', order: 20, question: "How do you manage commission-based targets?", difficulty: "hard", tip: "Stay motivated but ethical, focus on customer needs first" },
+      { id: 'rt_21', order: 21, question: "What would you do if a credit card was declined?", difficulty: "hard", tip: "Handle discreetly, suggest trying another card, be respectful" },
+      { id: 'rt_22', order: 22, question: "How would you train a new colleague?", difficulty: "hard", tip: "Be patient, demonstrate, answer questions, provide feedback" },
+      { id: 'rt_23', order: 23, question: "How do you feel about working on weekends and holidays?", difficulty: "hard", tip: "Be flexible, understand cruise ship schedule requirements" },
+      { id: 'rt_24', order: 24, question: "Describe your ideal retail team environment.", difficulty: "hard", tip: "Teamwork, mutual support, positive attitude, shared goals" },
+      { id: 'rt_25', order: 25, question: "Where do you see yourself in five years?", difficulty: "hard", tip: "Show ambition, retail management interest, specific goals" }
+    ],
+    knowledge: [
+      { id: 'rt_k01', content: "Duty-free means products are exempt from local taxes" },
+      { id: 'rt_k02', content: "Always verify guest age before selling alcohol or tobacco" },
+      { id: 'rt_k03', content: "Know the major luxury brands and their popular products" },
+      { id: 'rt_k04', content: "Keep the store clean and displays attractive" },
+      { id: 'rt_k05', content: "Accurately process payments and handle cash" },
+      { id: 'rt_k06', content: "Know the return and refund policy" },
+      { id: 'rt_k07', content: "Report any security concerns immediately" },
+      { id: 'rt_k08', content: "Build rapport with repeat customers" },
+      { id: 'rt_k09', content: "Stay updated on new products and promotions" },
+      { id: 'rt_k10', content: "Work as a team to meet sales targets" }
+    ]
+  },
+  youth_staff: {
+    positionName: '儿童看护',
+    positionNameEn: 'Youth Staff',
+    questions: [
+      { id: 'ys_01', order: 1, question: "How would you introduce yourself to a child?", difficulty: "easy", tip: "Get down to their eye level, smile, use friendly tone" },
+      { id: 'ys_02', order: 2, question: "What age groups have you worked with?", difficulty: "easy", tip: "Share specific experience with different ages" },
+      { id: 'ys_03', order: 3, question: "Do you like playing with children?", difficulty: "easy", tip: "Show genuine enthusiasm for working with kids" },
+      { id: 'ys_04', order: 4, question: "What games do you know for kids?", difficulty: "easy", tip: "Simon Says, Duck Duck Goose, arts and crafts, etc." },
+      { id: 'ys_05', order: 5, question: "How do you keep children safe?", difficulty: "easy", tip: "Supervise constantly, childproof area, follow safety rules" },
+      { id: 'ys_06', order: 6, question: "How would you calm a crying child?", difficulty: "medium", tip: "Comfort gently, find out why, distract with activities" },
+      { id: 'ys_07', order: 7, question: "Describe your experience with children's activities.", difficulty: "medium", tip: "Share specific programs or activities you've organized" },
+      { id: 'ys_08', order: 8, question: "What would you do if a child is injured?", difficulty: "medium", tip: "Provide first aid, notify parents, document incident" },
+      { id: 'ys_09', order: 9, question: "How do you handle a shy child?", difficulty: "medium", tip: "Give space, gentle encouragement, pair with friendly kids" },
+      { id: 'ys_10', order: 10, question: "How would you organize a group activity?", difficulty: "medium", tip: "Plan ahead, age-appropriate activities, manage group dynamics" },
+      { id: 'ys_11', order: 11, question: "What would you do if a child is being bullied?", difficulty: "medium", tip: "Intervene immediately, separate children, notify supervisor" },
+      { id: 'ys_12', order: 12, question: "How do you communicate with parents?", difficulty: "medium", tip: "Be professional, give updates, listen to concerns" },
+      { id: 'ys_13', order: 13, question: "Tell me about a successful activity you planned.", difficulty: "medium", tip: "Use STAR method, show creativity and planning skills" },
+      { id: 'ys_14', order: 14, question: "How do you handle hyperactive children?", difficulty: "medium", tip: "Channel energy positively, structured activities, calm approach" },
+      { id: 'ys_15', order: 15, question: "Why do you want to work in youth programs on a cruise?", difficulty: "medium", tip: "Love working with kids, unique opportunity, diverse activities" },
+      { id: 'ys_16', order: 16, question: "A child has a medical emergency. What do you do?", difficulty: "hard", tip: "Call for help, administer first aid if trained, notify parents" },
+      { id: 'ys_17', order: 17, question: "How would you handle a homesick child?", difficulty: "hard", tip: "Comfort them, distract with activities, contact parents if needed" },
+      { id: 'ys_18', order: 18, question: "What would you do if a child won't listen?", difficulty: "hard", tip: "Use positive reinforcement, clear rules, involve parents" },
+      { id: 'ys_19', order: 19, question: "Describe how you would plan a themed party.", difficulty: "hard", tip: "Choose theme, plan activities, decorations, refreshments" },
+      { id: 'ys_20', order: 20, question: "How do you handle a child with special needs?", difficulty: "hard", tip: "Individual attention, work with parents, inclusive activities" },
+      { id: 'ys_21', order: 21, question: "What would you do if you suspect a child is being abused?", difficulty: "hard", tip: "Report to supervisor immediately, follow mandatory reporting" },
+      { id: 'ys_22', order: 22, question: "How would you create an inclusive environment?", difficulty: "hard", tip: "Age-appropriate, cultural sensitivity, all abilities welcome" },
+      { id: 'ys_23', order: 23, question: "How do you feel about working evenings and weekends?", difficulty: "hard", tip: "Be flexible, understand family-oriented schedule" },
+      { id: 'ys_24', order: 24, question: "Describe your conflict with a coworker and resolution.", difficulty: "hard", tip: "Focus on professional resolution, team harmony" },
+      { id: 'ys_25', order: 25, question: "Where do you see yourself in five years?", difficulty: "hard", tip: "Youth education, childcare management, specific goals" }
+    ],
+    knowledge: [
+      { id: 'ys_k01', content: "Always supervise children - never leave them alone" },
+      { id: 'ys_k02', content: "Know each child's name, age, and any allergies" },
+      { id: 'ys_k03', content: "Keep emergency contact information for each child" },
+      { id: 'ys_k04', content: "Age-appropriate activities prevent accidents" },
+      { id: 'ys_k05', content: "Wash hands frequently, maintain hygiene standards" },
+      { id: 'ys_k06', content: "Report any incidents to parents and supervisor" },
+      { id: 'ys_k07', content: "First aid training is essential for youth staff" },
+      { id: 'ys_k08', content: "Create inclusive activities for all abilities" },
+      { id: 'ys_k09', content: "Positive reinforcement works better than punishment" },
+      { id: 'ys_k10', content: "Cultural sensitivity in all interactions" }
+    ]
+  },
+  kitchen: {
+    positionName: '厨房帮厨',
+    positionNameEn: 'Kitchen Steward',
+    questions: [
+      { id: 'kt_01', order: 1, question: "Have you worked in a kitchen before?", difficulty: "easy", tip: "Share any food service or kitchen experience" },
+      { id: 'kt_02', order: 2, question: "Can you wash dishes properly?", difficulty: "easy", tip: "Pre-rinse, use hot water, sanitize, air dry" },
+      { id: 'kt_03', order: 3, question: "Do you know what food safety means?", difficulty: "easy", tip: "Keeping food clean, not contaminating, proper storage" },
+      { id: 'kt_04', order: 4, question: "Are you comfortable with hot water?", difficulty: "easy", tip: "Yes, can handle hot water with protective equipment" },
+      { id: 'kt_05', order: 5, question: "Can you lift heavy pots?", difficulty: "easy", tip: "Yes, use proper lifting technique, ask for help if needed" },
+      { id: 'kt_06', order: 6, question: "How do you sanitize surfaces?", difficulty: "medium", tip: "Clean first, then sanitize with proper solution" },
+      { id: 'kt_07', order: 7, question: "What would you do if you cut yourself?", difficulty: "medium", tip: "Stop work immediately, clean wound, bandaging, report" },
+      { id: 'kt_08', order: 8, question: "How do you organize a busy workstation?", difficulty: "medium", tip: "Clean as you go, proper storage, efficient workflow" },
+      { id: 'kt_09', order: 9, question: "Describe your experience with kitchen equipment.", difficulty: "medium", tip: "Dishwasher, industrial oven, slicer, mixer experience" },
+      { id: 'kt_10', order: 10, question: "How do you handle food allergies in the kitchen?", difficulty: "medium", tip: "Separate preparation, avoid cross-contamination, label clearly" },
+      { id: 'kt_11', order: 11, question: "What would you do if you see a safety hazard?", difficulty: "medium", tip: "Report immediately, fix if possible, warn others" },
+      { id: 'kt_12', order: 12, question: "How do you feel about working nights and weekends?", difficulty: "medium", tip: "Be flexible, understand kitchen operates long hours" },
+      { id: 'kt_13', order: 13, question: "Tell me about working in a team in the kitchen.", difficulty: "medium", tip: "Communication, coordination, supporting chefs" },
+      { id: 'kt_14', order: 14, question: "How do you handle constructive criticism?", difficulty: "medium", tip: "Accept feedback, improve, show willingness to learn" },
+      { id: 'kt_15', order: 15, question: "Why do you want to work on a cruise ship kitchen?", difficulty: "medium", tip: "Unique experience, professional growth, international kitchen" },
+      { id: 'kt_16', order: 16, question: "A pot of hot soup spills. What do you do?", difficulty: "hard", tip: "Ensure safety first, clean up carefully, report incident" },
+      { id: 'kt_17', order: 17, question: "How would you handle a disagreement with a chef?", difficulty: "hard", tip: "Stay professional, listen, follow their direction, discuss later" },
+      { id: 'kt_18', order: 18, question: "What would you do if food is left out overnight?", difficulty: "hard", tip: "Discard immediately, report to supervisor, document" },
+      { id: 'kt_19', order: 19, question: "How do you manage time during peak meal service?", difficulty: "hard", tip: "Prioritize tasks, work efficiently, communicate with team" },
+      { id: 'kt_20', order: 20, question: "Describe your ideal kitchen team environment.", difficulty: "hard", tip: "Communication, respect, safety-focused, efficient" },
+      { id: 'kt_21', order: 21, question: "How do you feel about repetitive tasks?", difficulty: "hard", tip: "Stay focused, maintain quality, understand importance" },
+      { id: 'kt_22', order: 22, question: "What would you do if you noticed a coworker stealing food?", difficulty: "hard", tip: "Report to supervisor immediately, protect yourself" },
+      { id: 'kt_23', order: 23, question: "How do you handle homesickness on long contracts?", difficulty: "hard", tip: "Stay busy, make friends, stay connected with family" },
+      { id: 'kt_24', order: 24, question: "Describe a conflict resolution in the kitchen.", difficulty: "hard", tip: "STAR method, focus on professional resolution" },
+      { id: 'kt_25', order: 25, question: "Where do you see yourself in five years?", difficulty: "hard", tip: "Culinary career, kitchen management, specific goals" }
+    ],
+    knowledge: [
+      { id: 'kt_k01', content: "Wash hands before handling any food items" },
+      { id: 'kt_k02', content: "Separate raw and cooked foods to prevent contamination" },
+      { id: 'kt_k03', content: "Store food at proper temperatures - refrigerated below 40°F" },
+      { id: 'kt_k04', content: "Use protective equipment like gloves and aprons" },
+      { id: 'kt_k05', content: "Report any illness symptoms to supervisor immediately" },
+      { id: 'kt_k06', content: "Clean workstations before and after each use" },
+      { id: 'kt_k07', content: "Know the location of fire extinguishers" },
+      { id: 'kt_k08', content: "Never taste food with a used utensil" },
+      { id: 'kt_k09', content: "Label and date all food items in storage" },
+      { id: 'kt_k10', content: "Walk carefully in wet areas to prevent slips" }
+    ]
+  },
+  utility: {
+    positionName: '后勤清洁',
+    positionNameEn: 'Utility',
+    questions: [
+      { id: 'ut_01', order: 1, question: "Have you done cleaning work before?", difficulty: "easy", tip: "Share any housekeeping or cleaning experience" },
+      { id: 'ut_02', order: 2, question: "Are you comfortable with cleaning chemicals?", difficulty: "easy", tip: "Yes, follow safety instructions, use protective gear" },
+      { id: 'ut_03', order: 3, question: "Can you work early mornings?", difficulty: "easy", tip: "Yes, be flexible with schedule" },
+      { id: 'ut_04', order: 4, question: "Do you mind repetitive tasks?", difficulty: "easy", tip: "Stay focused, take pride in clean results" },
+      { id: 'ut_05', order: 5, question: "What cleaning supplies have you used?", difficulty: "easy", tip: "Mops, brooms, vacuums, cleaning solutions" },
+      { id: 'ut_06', order: 6, question: "How do you prioritize cleaning tasks?", difficulty: "medium", tip: "High traffic areas first, sanitize regularly, work systematically" },
+      { id: 'ut_07', order: 7, question: "What would you do if a cleaning machine breaks?", difficulty: "medium", tip: "Report to supervisor, use backup equipment, document" },
+      { id: 'ut_08', order: 8, question: "How do you ensure safety while cleaning?", difficulty: "medium", tip: "Use wet floor signs, wear protective gear, be aware of surroundings" },
+      { id: 'ut_09', order: 9, question: "Describe your experience with industrial equipment.", difficulty: "medium", tip: "Floor scrubbers, carpet cleaners, pressure washers" },
+      { id: 'ut_10', order: 10, question: "How do you handle criticism about your work?", difficulty: "medium", tip: "Accept feedback, improve, take pride in quality" },
+      { id: 'ut_11', order: 11, question: "What would you do if you find something valuable?", difficulty: "medium", tip: "Turn in to supervisor immediately, follow lost and found procedure" },
+      { id: 'ut_12', order: 12, question: "How do you feel about working nights or weekends?", difficulty: "medium", tip: "Be flexible, understand ship operations require flexibility" },
+      { id: 'ut_13', order: 13, question: "Tell me about working in a team.", difficulty: "medium", tip: "Coordinate with colleagues, support each other, communicate" },
+      { id: 'ut_14', order: 14, question: "How do you stay motivated in demanding work?", difficulty: "medium", tip: "Set goals, take breaks, stay positive, see results" },
+      { id: 'ut_15', order: 15, question: "Why do you want to work on a cruise ship?", difficulty: "medium", tip: "Adventure, unique opportunity, professional experience" },
+      { id: 'ut_16', order: 16, question: "A guest comments on an area being dirty. What do you do?", difficulty: "hard", tip: "Apologize, clean immediately, report to supervisor" },
+      { id: 'ut_17', order: 17, question: "What would you do if you see an unsafe situation?", difficulty: "hard", tip: "Address immediately if safe, report to supervisor" },
+      { id: 'ut_18', order: 18, question: "How would you handle conflict with a coworker?", difficulty: "hard", tip: "Stay professional, communicate calmly, seek supervisor help" },
+      { id: 'ut_19', order: 19, question: "Describe a time you went above and beyond.", difficulty: "hard", tip: "STAR method, show initiative and dedication" },
+      { id: 'ut_20', order: 20, question: "How do you manage physical demands of the job?", difficulty: "hard", tip: "Stay fit, use proper techniques, take care of health" },
+      { id: 'ut_21', order: 21, question: "What would you do if you suspect theft?", difficulty: "hard", tip: "Report to security immediately, don't confront" },
+      { id: 'ut_22', order: 22, question: "How do you handle homesickness?", difficulty: "hard", tip: "Stay busy, connect with colleagues, maintain family contact" },
+      { id: 'ut_23', order: 23, question: "Describe your ideal workplace environment.", difficulty: "hard", tip: "Teamwork, respect, safety, mutual support" },
+      { id: 'ut_24', order: 24, question: "How do you feel about long contracts away from home?", difficulty: "hard", tip: "Be honest about adjustment, show commitment" },
+      { id: 'ut_25', order: 25, question: "Where do you see yourself in five years?", difficulty: "hard", tip: "Career growth, housekeeping management, specific goals" }
+    ],
+    knowledge: [
+      { id: 'ut_k01', content: "Always use wet floor signs to prevent accidents" },
+      { id: 'ut_k02', content: "Wear protective gloves when using cleaning chemicals" },
+      { id: 'ut_k03', content: "Know the location of all safety equipment" },
+      { id: 'ut_k04', content: "Report any maintenance issues immediately" },
+      { id: 'ut_k05', content: "Keep cleaning carts organized and secure" },
+      { id: 'ut_k06', content: "Follow proper mixing ratios for cleaning solutions" },
+      { id: 'ut_k07', content: "Turn in lost and found items within 24 hours" },
+      { id: 'ut_k08', content: "Maintain confidentiality about guest areas" },
+      { id: 'ut_k09', content: "Work quietly in guest areas to avoid disturbance" },
+      { id: 'ut_k10', content: "Take pride in maintaining a clean environment" }
     ]
   }
 };

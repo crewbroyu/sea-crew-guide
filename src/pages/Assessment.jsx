@@ -75,10 +75,30 @@ export default function Assessment() {
       setError(null)
 
       const data = await getLatestAssessment()
-      if (data) setResult(data)
+      if (data) {
+        setResult(data)
+      } else {
+        // 如果API没有返回数据，尝试从localStorage加载
+        const savedResult = localStorage.getItem('assessment_result')
+        if (savedResult) {
+          const result = JSON.parse(savedResult)
+          if (result.completed) {
+            setResult(result)
+          }
+        }
+      }
     } catch (err) {
       console.error('fetchResult 异常:', err)
-      setError(err.message)
+      setError(null) // 不显示错误，尝试从localStorage加载
+      
+      // API调用失败时，尝试从localStorage加载
+      const savedResult = localStorage.getItem('assessment_result')
+      if (savedResult) {
+        const result = JSON.parse(savedResult)
+        if (result.completed) {
+          setResult(result)
+        }
+      }
     } finally {
       setLoading(false)
     }
@@ -120,10 +140,47 @@ export default function Assessment() {
         })
         scores.total_score = Math.round(total / 5)
         const data = await saveAssessment(scores)
-        setResult(data || scores)
+        const finalResult = data || scores
+        setResult(finalResult)
+        
+        // 保存到 localStorage 以便在 Profile 页面显示
+        const assessmentResult = {
+          completed: true,
+          overallScore: finalResult.total_score,
+          level: finalResult.total_score >= 80 ? { label: '优秀', color: 'bg-green-500' } : finalResult.total_score >= 60 ? { label: '良好', color: 'bg-blue-500' } : { label: '待提升', color: 'bg-yellow-500' },
+          ...finalResult
+        }
+        localStorage.setItem('assessment_result', JSON.stringify(assessmentResult))
+        
+        // 更新任务1（海乘适配评估）的完成状态
+        const progressKey = 'boarding_progress';
+        const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
+        progress['task1'] = {
+          completed: true,
+          completedAt: new Date().toISOString()
+        };
+        localStorage.setItem(progressKey, JSON.stringify(progress))
       } catch (err) {
         console.error('handleAnswer 异常:', err)
         setResult(scores)
+        
+        // 即使 API 调用失败，也要保存到 localStorage
+        const assessmentResult = {
+          completed: true,
+          overallScore: scores.total_score,
+          level: scores.total_score >= 80 ? { label: '优秀', color: 'bg-green-500' } : scores.total_score >= 60 ? { label: '良好', color: 'bg-blue-500' } : { label: '待提升', color: 'bg-yellow-500' },
+          ...scores
+        }
+        localStorage.setItem('assessment_result', JSON.stringify(assessmentResult))
+        
+        // 更新任务1（海乘适配评估）的完成状态
+        const progressKey = 'boarding_progress';
+        const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
+        progress['task1'] = {
+          completed: true,
+          completedAt: new Date().toISOString()
+        };
+        localStorage.setItem(progressKey, JSON.stringify(progress))
       }
     }
   }
@@ -184,7 +241,7 @@ export default function Assessment() {
           </div>
         </div>
 
-        <div className="px-6 py-6 space-y-4">
+        <div className="px-6 py-6 space-y-4 pb-20">
           {dims.map(({ label, key, color }) => (
             <div key={key} className="bg-white rounded-xl p-4 shadow-sm">
               <div className="flex justify-between items-center mb-2">

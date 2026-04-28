@@ -1,9 +1,32 @@
 // src/pages/JobPreparation.jsx
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Check, Briefcase, FileText, BookOpen, ClipboardList } from 'lucide-react'
 
 export default function JobPreparation() {
   const navigate = useNavigate()
+  const [selectedJob, setSelectedJob] = useState('')
+  const [isResumeCompleted, setIsResumeCompleted] = useState(false)
+
+  useEffect(() => {
+    // 从localStorage获取任务2的结果
+    const task2Result = localStorage.getItem('task2_result')
+    if (task2Result) {
+      const result = JSON.parse(task2Result)
+      if (result.selectedTargetJob) {
+        setSelectedJob(result.selectedTargetJob)
+      }
+    }
+
+    // 从localStorage获取任务4的完成状态
+    const boardingProgress = localStorage.getItem('boarding_progress')
+    if (boardingProgress) {
+      const progress = JSON.parse(boardingProgress)
+      if (progress.task4 && progress.task4.completed) {
+        setIsResumeCompleted(true)
+      }
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -36,8 +59,10 @@ export default function JobPreparation() {
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-sm text-gray-500">已选岗位：</span>
-                <span className="text-sm font-medium text-gray-800">餐厅服务员</span>
-                <Check size={16} className="text-green-500" />
+                <span className="text-sm font-medium text-gray-800">
+                  {selectedJob || '未选择'}
+                </span>
+                {selectedJob && <Check size={16} className="text-green-500" />}
               </div>
             </div>
           </div>
@@ -61,8 +86,10 @@ export default function JobPreparation() {
                 邮轮行业标准格式，支持AI一键生成
               </p>
               <div className="flex items-center gap-2 mt-2">
-                <span className="text-sm font-medium text-green-600">已完成</span>
-                <Check size={16} className="text-green-500" />
+                <span className={`text-sm font-medium ${isResumeCompleted ? 'text-green-600' : 'text-gray-500'}`}>
+                  {isResumeCompleted ? '已完成' : '未完成'}
+                </span>
+                {isResumeCompleted && <Check size={16} className="text-green-500" />}
               </div>
             </div>
           </div>

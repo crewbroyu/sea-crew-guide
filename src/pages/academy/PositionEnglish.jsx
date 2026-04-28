@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, BookOpen, DollarSign, GraduationCap, Clock, ChevronDown, ChevronUp, ExternalLink, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, ExternalLink, AlertTriangle } from 'lucide-react'
 import { positionConfig } from '../../data/interviewQuestions'
 
 export default function PositionEnglish() {
@@ -36,36 +36,65 @@ export default function PositionEnglish() {
       resources: [
         {
           id: 1,
-          title: 'The Working Bartender: Best Beginner Bartending Course',
+          title: 'The Working Bartender',
           platform: 'Udemy',
           url: 'https://www.udemy.com/course/the-working-bartender-best-beginner-bartending-course-online/',
           rating: '★★★★★',
-          description: '最适合零基础入门\n\n专门给零经验新手设计\n从 bar tools、基本酒类、经典鸡尾酒开始教\n包含 "如何快速找到 bartender 工作" 内容，很适合面试前准备\n\n官方介绍明确写着：\n"适合 little to no experience 的 aspiring bartenders。"',
-          suitable: '零基础入门，重点练 bar tools、基础酒类、经典鸡尾酒、岗位英语表达。'
+          description: '✅ 知道干啥（岗位认知）\n\n为什么选它：\n- 能看到吧台真实工作流程（点单 / 出单 / 配合）\n- 知道 bartender 在干嘛（你要配合）\n- 学基础酒类 + 常见鸡尾酒名字\n\n重点不是学调酒\n是：知道整个酒吧是怎么运作的',
+          suitable: '零基础入门，重点了解整个酒吧运作流程，不是学调酒技术。'
         },
         {
           id: 2,
-          title: 'Bartending Skills Training – Learn to Bartend',
-          platform: 'LIQUORexam',
-          url: 'https://liquorexam.com/courses/bartending-skills-training/',
+          title: 'Food and Beverage Service Training',
+          platform: 'Alison',
+          url: 'https://alison.com/course/food-and-beverage-service',
           rating: '★★★★★',
-          description: '补酒水知识最快\n\n适合：\n零基础建立酒类知识体系\n面试前快速补全专业术语\n\n优势：\n专门讲：\nspirits 分类\nbeer / wine basics\ncocktail recipes\n官方明确提到适合 cruise ship bartending 入门。',
-          suitable: '快速建立 spirits / beer / wine / cocktail 专业知识体系，适合面试前补术语。'
+          description: '✅ 学怎么干（Bar Server真实工作）\n\n为什么必须加这个：\n- 点单流程（order taking）\n- 服务流程（serve / clear / follow-up）\n- 客户服务基础\n\n这才是你每天80%在干的事',
+          suitable: '掌握点单流程和服务流程，这是你每天80%在干的事。'
         },
         {
           id: 3,
-          title: 'BarSmarts Beginner',
+          title: 'BarSmarts Beginner（补充）',
           platform: 'BarSmarts',
           url: 'https://barsmarts.com/',
           rating: '★★★★☆',
-          description: '如果预算允许\n\n行业认可度高。\n\nReddit bartenders 普遍反馈：\n"BarSmarts 是真正有价值的初学课程之一。"',
-          suitable: '行业认可度高，适合预算允许时进阶学习；业内普遍认为很值得学。'
+          description: '（补充）酒水基础（轻量）\n\n用法（很关键）：\n- 不需要全学\n- 重点看：酒的分类、基本风味、常见搭配\n\n目标：\n客人问你，你能说两句像样的话',
+          suitable: '轻量补充酒水基础知识，重点学习酒的分类和基本风味，让你能与客人进行基础酒水对话。'
+        },
+        {
+          id: 4,
+          title: 'Customer Service Skills',
+          platform: 'Alison',
+          url: 'https://alison.com/course/customer-service-skills',
+          rating: '★★★★★',
+          description: '✅ 干得像样（专业感）\n\n为什么要这个：\n- 如何显得专业（态度 / 表情 / 反应）\n- 如何处理投诉\n- 如何让客人舒服\n\n邮轮很看这个\n比你会不会调酒更重要',
+          suitable: '学习专业服务态度和客户投诉处理，这比调酒技术更重要，直接影响客人体验。'
+        },
+        {
+          id: 5,
+          title: 'Hospitality English Language Course',
+          platform: 'Alison',
+          url: 'https://alison.com/course/english-for-tourism',
+          rating: '★★★★★',
+          description: '✅ 会说话（核心模块 💥）\n\n解决什么问题：\n- 点单英语\n- 推荐酒\n- small talk\n- 常见服务对话\n\n这是 Bar Server 的核心能力\n不会这个，基本干不下去',
+          suitable: '掌握点单英语、推荐酒、small talk 等服务对话，这是 Bar Server 的核心能力。'
+        },
+        {
+          id: 6,
+          title: '销售技巧课程（Upselling & Sales for Hospitality）',
+          platform: 'Udemy',
+          url: 'https://www.udemy.com/course/the-working-bartender-best-beginner-bartending-course-online/',
+          rating: '★★★★☆',
+          description: '🔥 赚钱能力（加分但强烈建议）\n\n你要学的是：\n- 怎么推荐更贵的酒\n- 怎么自然让客人多点一杯\n- 怎么提高小费\n\n在 Udemy 上搜索：\nupselling / sales for hospitality\n挑评分高的课程',
+          suitable: '学习销售技巧，提高推荐更贵酒品的能力，自然让客人多点一杯，提高小费收入。'
         }
       ],
       learningPlan: [
-        '第1周：The Working Bartender（基础入门）',
-        '第2周：LIQUORexam Bartending Skills Training（补酒水知识）',
-        '第3周：BarSmarts Beginner（进阶学习，预算允许时）'
+        '第1周：The Working Bartender（了解酒吧运作）',
+        '第2周：Food and Beverage Service Training（核心服务流程）',
+        '第3周：Customer Service Skills（专业感）',
+        '第4周：Hospitality English（核心英语）',
+        '第5周：BarSmarts + 销售技巧（加分项）'
       ]
     },
 
@@ -77,24 +106,50 @@ export default function PositionEnglish() {
       textClass: 'text-orange-800',
       accentClass: 'bg-orange-600',
       lightClass: 'bg-orange-100 text-orange-600',
-      resources: [],
-      learningPlan: [
-        '第1周：餐饮服务基础',
-        '第2周：餐厅英语会话',
-        '第3周：客户服务技巧',
-        '第4周：模拟对话练习'
+      resources: [
+        {
+          id: 1,
+          title: 'Food & Beverage Restaurant Service – Basic Waiter\'s Training',
+          platform: 'Alison',
+          url: 'https://alison.com/course/food-and-beverage-restaurant-service-basic-waiter-s-training',
+          rating: '★★★★☆',
+          description: '最适合零基础入门\n\n专门给零经验新手设计\n从餐桌布置、餐具摆放到客人迎接开始教\n包含服务流程、点餐技巧、基础酒水知识\n\n官方介绍明确写着：\n"适合 little to no experience 的 aspiring waiters。"',
+          suitable: '零基础入门，重点练餐桌布置、基础服务流程、点餐技巧、岗位英语表达。'
+        },
+        {
+          id: 2,
+          title: 'Food & Beverage – Advanced Waiter\'s Training',
+          platform: 'Alison',
+          url: 'https://alison.com/course/food-and-beverage-restaurant-service-advanced-waiter-s-training',
+          rating: '★★★★☆',
+          description: '进阶服务技巧\n\n适合：\n有基础想提升服务技能\n面试前快速补全专业术语\n\n优势：\n专门讲：\n高级餐桌服务技巧\n客户期望管理\nupselling 和 suggestive selling\n账单处理和反馈收集',
+          suitable: '提升服务技能，学习高级服务技巧和客户沟通，适合面试前补全专业知识。'
+        },
+        {
+          id: 3,
+          title: 'Skills for a Successful Waiter',
+          platform: 'Alison',
+          url: 'https://alison.com/course/skills-for-a-successful-waiter',
+          rating: '★★★★☆',
+          description: '成为优秀服务员\n\n适合：\n想提升竞争力\n了解行业全面要求\n\n优势：\n专门讲：\n优秀服务员的核心技能\n服务 sequencing\n客户体验管理\n卫生标准和设备使用',
+          suitable: '全面提升服务员技能，了解行业标准和工作要求，提高职场竞争力。'
+        },
+        {
+          id: 4,
+          title: 'English for Tourism – Restaurant Service',
+          platform: 'Alison',
+          url: 'https://alison.com/courses/english-for-tourism-restaurant-service-revised/content',
+          rating: '★★★★☆',
+          description: '餐厅服务英语\n\n适合：\n需要用英语服务的岗位\n面试前快速补全专业术语\n\n优势：\n专门讲：\n餐厅英语语法\n菜单描述（被动语态）\n推荐和比较菜品\n处理客户问题和投诉\n餐厅常见法语表达',
+          suitable: '快速建立餐厅服务英语专业知识体系，适合面试前补术语和实际工作应用。'
+        }
       ],
-      placeholder: {
-        title: '🍽️ 餐厅服务员课程筹备中',
-        message: '餐厅服务员岗位的学习课程正在准备中...',
-        details: [
-          '餐厅服务英语会话',
-          '西餐服务礼仪',
-          '点餐和推荐技巧',
-          '处理客户投诉',
-          '团队协作要点'
-        ]
-      }
+      learningPlan: [
+        '第1周：Food & Beverage Restaurant Service – Basic Waiter\'s Training（基础入门）',
+        '第2周：Food & Beverage – Advanced Waiter\'s Training（进阶服务技巧）',
+        '第3周：Skills for a Successful Waiter（全面提升）',
+        '第4周：English for Tourism – Restaurant Service（餐厅英语）'
+      ]
     },
 
     housekeeping: {
@@ -105,24 +160,59 @@ export default function PositionEnglish() {
       textClass: 'text-teal-800',
       accentClass: 'bg-teal-600',
       lightClass: 'bg-teal-100 text-teal-600',
-      resources: [],
-      learningPlan: [
-        '第1周：客房清洁基础',
-        '第2周：客房服务英语',
-        '第3周：房间管理技巧',
-        '第4周：特殊清洁要求'
+      resources: [
+        {
+          id: 1,
+          title: 'Basics of Housekeeping',
+          platform: 'Alison',
+          url: 'https://alison.com/course/basics-of-housekeeping',
+          rating: '★★★★☆',
+          description: '第一阶段：岗位认知\n\n学什么：\n- 客房岗位职责\n- 清洁基本流程\n- 酒店行业结构\n\n适合零基础入门，了解客房服务的基本概念和职责。',
+          suitable: '零基础入门，了解客房服务的基本概念和职责，建立岗位认知。'
+        },
+        {
+          id: 2,
+          title: 'Housekeeping Tasks and Procedures',
+          platform: 'Alison',
+          url: 'https://alison.com/course/housekeeping-tasks-and-procedures',
+          rating: '★★★★☆',
+          description: '第一阶段：岗位认知\n\n学什么：\n- 房间清洁步骤（重点）\n- 布草处理\n- 标准操作流程（SOP）\n\n重点学习房间清洁的具体步骤和标准操作流程，为实际工作打下基础。',
+          suitable: '学习房间清洁的具体步骤和标准操作流程，掌握基本的客房清洁技能。'
+        },
+        {
+          id: 3,
+          title: 'Housekeeping for Hospitality Professional Skills',
+          platform: 'Alison',
+          url: 'https://alison.com/course/housekeeping-for-hospitality-professional-skills',
+          rating: '★★★★☆',
+          description: '第二阶段：职业标准（面试关键）\n\n学什么：\n- 服务标准（五星级逻辑）\n- 卫生规范\n- 团队协作\n\n这一门直接影响你面试表现，学习五星级酒店的服务标准和卫生规范。',
+          suitable: '学习五星级酒店的服务标准和卫生规范，直接影响面试表现。'
+        },
+        {
+          id: 4,
+          title: 'Principles of Housekeeping',
+          platform: 'Alison',
+          url: 'https://alison.com/course/principles-of-housekeeping',
+          rating: '★★★★☆',
+          description: '第三阶段：效率 + 专业感\n\n学什么：\n- 清洁逻辑（为什么这么做）\n- 时间管理\n- 工作效率\n\n学习清洁的底层逻辑和时间管理技巧，提高工作效率和专业感。',
+          suitable: '学习清洁的底层逻辑和时间管理技巧，提高工作效率和专业感。'
+        },
+        {
+          id: 5,
+          title: 'Introduction to Hospitality Management',
+          platform: 'Coursera',
+          url: 'https://www.coursera.org/learn/hospitality-management',
+          rating: '★★★★★',
+          description: '补充课程（可选，但加分）\n\n作用：\n- 提升整体行业理解\n- 面试回答更有“高度”\n\n提升对酒店行业的整体理解，让面试回答更有深度和高度。',
+          suitable: '提升对酒店行业的整体理解，让面试回答更有深度和高度，加分项。'
+        }
       ],
-      placeholder: {
-        title: '🧹 客房服务员课程筹备中',
-        message: '客房服务员岗位的学习课程正在准备中...',
-        details: [
-          '客房清洁标准流程',
-          '房间布置和整理',
-          '客房服务英语',
-          '客房安全管理',
-          '设备使用和维护'
-        ]
-      }
+      learningPlan: [
+        '第1周：Basics of Housekeeping + Housekeeping Tasks and Procedures（岗位认知）',
+        '第2周：Housekeeping for Hospitality Professional Skills（职业标准）',
+        '第3周：Principles of Housekeeping（效率 + 专业感）',
+        '第4周：Introduction to Hospitality Management（可选，加分）'
+      ]
     },
 
     front_office: {

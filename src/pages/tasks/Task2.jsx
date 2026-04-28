@@ -748,14 +748,22 @@ const Task2 = () => {
           <h3 className="font-bold text-gray-800 mb-3">🎯 当前最匹配岗位</h3>
           <div className="space-y-3">
             {currentJob.map((job, index) => (
-              <div key={index} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                  {index + 1}
+              <div key={index} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-800">{job.name}</h4>
+                    <p className="text-sm text-gray-600">{job.description}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-medium text-gray-800">{job.name}</h4>
-                  <p className="text-sm text-gray-600">{job.description}</p>
-                </div>
+                <button
+                  onClick={() => setSelectedTargetJob(job.name)}
+                  className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  选择职位
+                </button>
               </div>
             ))}
           </div>
@@ -766,14 +774,22 @@ const Task2 = () => {
             <h3 className="font-bold text-gray-800 mb-3">🚀 可冲岗位</h3>
             <div className="space-y-3">
               {potentialJob.map((job, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold">
-                    {index + 1}
+                <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-800">{job.name}</h4>
+                      <p className="text-sm text-gray-600">{job.description}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-medium text-gray-800">{job.name}</h4>
-                    <p className="text-sm text-gray-600">{job.description}</p>
-                  </div>
+                  <button
+                    onClick={() => setSelectedTargetJob(job.name)}
+                    className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    选择职位
+                  </button>
                 </div>
               ))}
             </div>

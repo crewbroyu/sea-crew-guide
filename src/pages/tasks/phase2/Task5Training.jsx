@@ -116,9 +116,7 @@ export default function Task5Training() {
     saveToLocalStorage(data);
   }, [completedCourses, learningRecords, completedCourseDetails]);
 
-  const toggleComplete = (courseId) => {
-    setCompletedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
-  };
+
 
   // 启动计时器
   const startTimer = (course) => {
@@ -469,18 +467,17 @@ export default function Task5Training() {
               }`}>
                 <div className="p-4 cursor-pointer" onClick={() => setExpandedCourse(isExpanded ? null : course.id)}>
                   <div className="flex items-start gap-3">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleComplete(course.id); }}
-                      className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                        isCompleted ? 'bg-green-500 border-green-500' : 'border-gray-300'
-                      }`}
-                    >
-                      {isCompleted && (
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
+                    <div
+                  className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    isCompleted ? 'bg-green-500 border-green-500' : 'border-gray-300'
+                  }`}
+                >
+                  {isCompleted && (
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         {course.highlight && <span className="text-xs">⭐</span>}

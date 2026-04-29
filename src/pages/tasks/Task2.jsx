@@ -420,7 +420,7 @@ const Task2 = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="text-xl font-bold text-gray-900 mb-6">服务环境经验</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-6">服务环境经验（Experience）</h2>
       <p className="text-gray-600 mb-8">你是否有以下经验</p>
       
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -434,7 +434,7 @@ const Task2 = () => {
             className="w-4 h-4 text-purple-600"
           />
           <label htmlFor="no-experience" className={`font-medium ${noExperience ? 'text-red-700' : 'text-gray-700'}`}>
-            无相关经验
+            无相关经验（No Experience）
           </label>
         </div>
         
@@ -491,9 +491,9 @@ const Task2 = () => {
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h3 className="font-medium text-blue-800 mb-2">经验评分</h3>
           <p className="text-blue-700">
-            {testData.experienceScore === 0 && '无相关经验'}
-            {testData.experienceScore === 1 && '有一定服务经验'}
-            {testData.experienceScore === 2 && '有丰富服务经验'}
+            {testData.experienceScore === 0 && '无相关经验（No Experience）'}
+            {testData.experienceScore === 1 && '有一定服务经验（Some Experience）'}
+            {testData.experienceScore === 2 && '有丰富服务经验（Rich Experience）'}
           </p>
         </div>
       </div>
@@ -563,7 +563,7 @@ const Task2 = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="text-xl font-bold text-gray-900 mb-6">岗位倾向</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-6">岗位倾向（Position Preference）</h2>
       <p className="text-gray-600 mb-8">如果可以选择，你更倾向</p>
       
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -576,7 +576,7 @@ const Task2 = () => {
               <div className={`w-5 h-5 rounded-full flex items-center justify-center ${testData.jobPreference === 'stable' ? 'bg-blue-500 text-white' : 'border border-gray-300'}`}>
                 {testData.jobPreference === 'stable' && <CheckCircle size={12} />}
               </div>
-              <span>先上船再说（稳定优先）</span>
+              <span>先上船（Onboard）再说（稳定优先）</span>
             </div>
           </button>
           <button
@@ -660,6 +660,9 @@ const Task2 = () => {
   const [showJobSelector, setShowJobSelector] = useState(false)
   const [selectedTargetJob, setSelectedTargetJob] = useState('')
   
+  // 微信咨询弹窗状态
+  const [showWechatModal, setShowWechatModal] = useState(false)
+  
   // 邮轮基础职位（按部门分组）
   const cruiseJobs = [
     {
@@ -734,115 +737,272 @@ const Task2 = () => {
   ]
 
   // 结果页
+  // 保存任务结果的函数
+  const saveTaskResult = () => {
+    const taskResult = {
+      taskId: 2,
+      completedAt: new Date().toISOString(),
+      testData: testData,
+      currentJob: currentJob,
+      potentialJob: potentialJob,
+      gapAnalysis: gapAnalysis,
+      selectedTargetJob: selectedTargetJob
+    }
+    localStorage.setItem('task2_result', JSON.stringify(taskResult))
+    
+    const boardingProgress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
+    boardingProgress.task2 = { completed: true, completedAt: new Date().toISOString() }
+    localStorage.setItem('boarding_progress', JSON.stringify(boardingProgress))
+  }
+
+  // 微信咨询弹窗组件
+  const WechatModal = () => {
+    if (!showWechatModal) return null
+    
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl w-full max-w-md p-6 relative">
+          {/* 关闭按钮 */}
+          <button 
+            onClick={() => setShowWechatModal(false)}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
+          
+          {/* 标题 */}
+          <h3 className="text-xl font-bold text-gray-900 mb-4">
+            Not Sure Which Position Fits You?
+          </h3>
+          
+          {/* 内容 */}
+          <div className="space-y-4 mb-6">
+            <p className="text-gray-600">
+              A lot of people pick the wrong position at the beginning.
+            </p>
+            <p className="text-gray-600">
+              It usually depends on your <span className="font-medium text-purple-600">English level</span>, <span className="font-medium text-purple-600">experience</span>, and <span className="font-medium text-purple-600">what you want</span> to achieve.
+            </p>
+            <p className="text-gray-600">
+              If you're not sure, I can give you a clearer direction.
+            </p>
+          </div>
+          
+          {/* 中文辅助说明 */}
+          <div className="bg-amber-50 rounded-lg p-4 mb-6">
+            <p className="text-amber-800 text-sm">
+              很多人一开始岗位（Position）选错，后面会多走很多弯路
+            </p>
+            <p className="text-amber-800 text-sm mt-1">
+              我可以根据你的情况，帮你更具体地判断
+            </p>
+          </div>
+          
+          {/* 关键转化按钮 */}
+          <button 
+            onClick={() => {
+              // 点击后弹出微信联系方式
+              const wechatHTML = `
+                <div style="text-align: center; padding: 20px;">
+                  <p style="color: #666; margin-bottom: 10px;">Add me on WeChat</p>
+                  <p style="font-size: 24px; font-weight: bold; color: #7c3aed; margin-bottom: 20px;">crewbroyu</p>
+                  <button id="copyWechatBtn" style="background: #7c3aed; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">Copy WeChat ID</button>
+                </div>
+              `;
+              const popup = window.open('', '_blank', 'width=300,height=250');
+              popup.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <title>Add WeChat</title>
+                  <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
+                  </style>
+                </head>
+                <body>${wechatHTML}
+                <script>
+                  document.getElementById('copyWechatBtn').onclick = function() {
+                    navigator.clipboard.writeText('crewbroyu');
+                    this.textContent = 'Copied!';
+                    this.style.background = '#22c55e';
+                    setTimeout(function() {
+                      window.close();
+                    }, 1000);
+                  };
+                </script>
+                </body>
+                </html>
+              `);
+              setShowWechatModal(false);
+            }}
+            className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg"
+          >
+            Get My Suggestion →
+          </button>
+          
+          {/* 降低销售感的话 */}
+          <p className="text-center text-gray-500 text-sm mt-4">
+            I'll share what actually works on board.
+          </p>
+          <p className="text-center text-gray-500 text-xs mt-1">
+            我会直接跟你说在船上真实是怎么选的
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // 结果页
   const renderResult = () => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="text-xl font-bold text-gray-900 mb-6">测评结果</h2>
+      {/* ===== 一、顶部提示（测试结果说明） ===== */}
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-6 mb-6 text-white">
+        <h2 className="text-2xl font-bold mb-3">
+          Your Assessment Result
+        </h2>
+        <p className="text-white/90 text-sm mb-3">
+          This result is for reference only. Your best-fit position depends on your English level, experience, and goals.
+        </p>
+        <p className="text-white/80 text-xs">
+          测试结果仅供参考。实际适合的岗位（Position），还要结合你的英语、经验和目标来看。
+        </p>
+      </div>
       
-      {/* 顶部结果 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      {/* ===== 转化引导卡片 ===== */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="flex items-start gap-4 mb-4">
+          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="text-amber-600" size={24} />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 mb-1">
+              Position choice matters
+            </h3>
+            <p className="text-gray-600 text-sm">
+              If you want a more personalized recommendation, I can help you figure it out based on real onboard experience.
+            </p>
+          </div>
+        </div>
+        
+        {/* 中文辅助 */}
+        <div className="bg-gray-50 rounded-lg p-3 mb-4">
+          <p className="text-gray-700 text-sm">
+            如果你不确定怎么选，可以找我聊，我可以帮你少走弯路
+          </p>
+        </div>
+        
+        {/* ===== 二、主按钮 ===== */}
+        <button 
+          onClick={() => setShowWechatModal(true)}
+          className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg"
+        >
+          Get Personal Advice →
+        </button>
+      </div>
+      
+      {/* ===== 岗位展示 ===== */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <h3 className="font-bold text-gray-900 mb-4">Your Best-Fit Positions（最佳匹配岗位）</h3>
+        
+        {/* 当前匹配岗位 */}
         <div className="mb-6">
-          <h3 className="font-bold text-gray-800 mb-3">🎯 当前最匹配岗位</h3>
+          <h4 className="text-sm font-medium text-gray-500 mb-3">Current Best Match（当前最佳匹配岗位）</h4>
           <div className="space-y-3">
             {currentJob.map((job, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div 
+                key={index} 
+                className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  selectedTargetJob === job.name 
+                    ? 'border-purple-500 bg-purple-50' 
+                    : 'border-gray-100 hover:border-purple-200'
+                }`}
+                onClick={() => setSelectedTargetJob(job.name)}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
                     {index + 1}
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-800">{job.name}</h4>
-                    <p className="text-sm text-gray-600">{job.description}</p>
+                    <h5 className="font-medium text-gray-900">{job.name}</h5>
+                    <p className="text-sm text-gray-500">{job.description}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setSelectedTargetJob(job.name)}
-                  className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  选择职位
-                </button>
+                {selectedTargetJob === job.name && (
+                  <CheckCircle className="text-purple-500" size={24} />
+                )}
               </div>
             ))}
           </div>
         </div>
         
+        {/* 可冲岗位 */}
         {potentialJob.length > 0 && (
           <div>
-            <h3 className="font-bold text-gray-800 mb-3">🚀 可冲岗位</h3>
+            <h4 className="text-sm font-medium text-gray-500 mb-3">Positions to Aim For（可冲刺岗位）</h4>
             <div className="space-y-3">
               {potentialJob.map((job, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div 
+                  key={index} 
+                  className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    selectedTargetJob === job.name 
+                      ? 'border-purple-500 bg-purple-50' 
+                      : 'border-gray-100 hover:border-green-200'
+                  }`}
+                  onClick={() => setSelectedTargetJob(job.name)}
+                >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold">
                       {index + 1}
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-800">{job.name}</h4>
-                      <p className="text-sm text-gray-600">{job.description}</p>
+                      <h5 className="font-medium text-gray-900">{job.name}</h5>
+                      <p className="text-sm text-gray-500">{job.description}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setSelectedTargetJob(job.name)}
-                    className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    选择职位
-                  </button>
+                  {selectedTargetJob === job.name && (
+                    <CheckCircle className="text-purple-500" size={24} />
+                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
-      </div>
-      
-      {/* 一句话总结 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-        <h3 className="font-medium text-amber-800 mb-2">一句话总结</h3>
-        <p className="text-amber-700">
-          {testData.englishScore < 40 && '你目前英语基础较弱，建议从基础岗位开始，通过学习提升后再考虑更高岗位。'}
-          {testData.englishScore >= 40 && testData.englishScore < 70 && '你目前具备基础能力，但通过提升可以进入更高岗位。'}
-          {testData.englishScore >= 70 && '你具备良好的英语能力，可以挑战更高阶的岗位。'}
-        </p>
-      </div>
-      
-      {/* 差距分析 */}
-      {gapAnalysis.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h3 className="font-bold text-gray-800 mb-3">差距分析</h3>
-          <div className="space-y-2">
-            {gapAnalysis.map((gap, index) => (
-              <div key={index} className="flex items-center gap-2 text-gray-700">
-                <AlertTriangle size={16} className="text-yellow-500 flex-shrink-0" />
-                <span>{gap}</span>
-              </div>
-            ))}
+        
+        {/* 已选岗位提示 */}
+        {selectedTargetJob && (
+          <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+            <p className="text-purple-700 text-sm font-medium">
+              ✓ Selected（已选岗位）: {selectedTargetJob}
+            </p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       
-      {/* 岗位风险提示 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <h3 className="font-bold text-gray-800 mb-3">岗位风险提示</h3>
-        <div className="space-y-4">
+      {/* ===== 岗位风险提示 ===== */}
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6">
+        <h3 className="font-bold text-amber-900 mb-3">⚠️ Position Risk Alert（岗位风险提示）</h3>
+        <div className="space-y-3">
           {currentJob.map((job, index) => (
-            <div key={index} className="p-3 border border-gray-200 rounded-lg">
-              <h4 className="font-medium text-gray-800 mb-2">{job.name}</h4>
-              <p className="text-sm text-gray-600">• {job.risk}</p>
-              <p className="text-sm text-gray-600">• 英语要求：{job.englishRequirement}</p>
+            <div key={index} className="bg-white rounded-lg p-3">
+              <h4 className="font-medium text-gray-900 mb-1">{job.name}</h4>
+              <p className="text-sm text-amber-700">• {job.risk}</p>
+              <p className="text-sm text-gray-600">• English: {job.englishRequirement}</p>
             </div>
           ))}
         </div>
       </div>
       
-      {/* 目标岗位选择 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      {/* ===== 目标岗位选择 ===== */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
         <button
           onClick={() => setShowJobSelector(!showJobSelector)}
-          className="w-full flex items-center justify-between py-3 px-4 bg-gray-50 border border-gray-200 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+          className="w-full flex items-center justify-between py-3 px-4 bg-gray-50 border border-gray-200 rounded-xl font-medium hover:bg-gray-100 transition-colors"
         >
-          <span>我有自己的目标岗位</span>
+          <span>I have my own target position（我有自己的目标岗位）</span>
           <ChevronRight size={18} className={`transition-transform ${showJobSelector ? 'rotate-90' : ''}`} />
         </button>
         
@@ -883,67 +1043,36 @@ const Task2 = () => {
         {selectedTargetJob && (
           <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-green-700">
-              已选择目标岗位：<span className="font-medium">{selectedTargetJob}</span>
+              Selected（已选岗位）: <span className="font-medium">{selectedTargetJob}</span>
             </p>
           </div>
         )}
       </div>
       
-      {/* CTA按钮 */}
+      {/* ===== CTA按钮 ===== */}
       <div className="space-y-4">
         <button 
           onClick={() => {
-            // 保存任务结果到localStorage
-            const taskResult = {
-              taskId: 2,
-              completedAt: new Date().toISOString(),
-              testData: testData,
-              currentJob: currentJob,
-              potentialJob: potentialJob,
-              gapAnalysis: gapAnalysis,
-              selectedTargetJob: selectedTargetJob
-            }
-            localStorage.setItem('task2_result', JSON.stringify(taskResult))
-            
-            // 更新登船路径进度
-            const boardingProgress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
-            boardingProgress.task2 = { completed: true, completedAt: new Date().toISOString() }
-            localStorage.setItem('boarding_progress', JSON.stringify(boardingProgress))
-            
-            // 导航到海乘学院
+            saveTaskResult()
             navigate('/academy')
           }}
-          className="w-full py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+          className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-bold text-lg hover:from-purple-700 hover:to-blue-700 transition-all"
         >
-          查看如何提升到更高岗位
+          See How to Level Up（查看如何提升） →
         </button>
         <button 
           onClick={() => {
-            // 保存任务结果到localStorage
-            const taskResult = {
-              taskId: 2,
-              completedAt: new Date().toISOString(),
-              testData: testData,
-              currentJob: currentJob,
-              potentialJob: potentialJob,
-              gapAnalysis: gapAnalysis,
-              selectedTargetJob: selectedTargetJob
-            }
-            localStorage.setItem('task2_result', JSON.stringify(taskResult))
-            
-            // 更新登船路径进度
-            const boardingProgress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
-            boardingProgress.task2 = { completed: true, completedAt: new Date().toISOString() }
-            localStorage.setItem('boarding_progress', JSON.stringify(boardingProgress))
-            
-            // 导航到任务列表
+            saveTaskResult()
             navigate('/tasks')
           }}
-          className="w-full py-3 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+          className="w-full py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
         >
-          按当前岗位继续申请路径
+          Continue with Current Position（按当前岗位继续）
         </button>
       </div>
+      
+      {/* 微信弹窗 */}
+      <WechatModal />
     </motion.div>
   )
 
@@ -951,11 +1080,6 @@ const Task2 = () => {
     <TaskLayout taskId={2} taskTitle="岗位选择测评系统" canComplete={showResult}>
       <div className="space-y-6">
         {/* 任务描述 */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-          <p className="text-blue-700 text-sm">
-            这个模块的目标不是兴趣测试，而是：判断用户当前能力可以拿什么岗位，告诉用户"可以够一够"的更高岗位。
-          </p>
-        </div>
 
         {/* 步骤内容 */}
         {!showResult ? (

@@ -1,103 +1,218 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccessStore } from '../store/accessStore';
+import { supabase } from '../supabase';
 
 export default function RegisterModal() {
-  const { showRegisterModal, closeRegisterModal, register } = useAccessStore();
+  const { showRegisterModal, closeRegisterModal, register, isRegistered } = useAccessStore();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [step, setStep] = useState('form'); // form | checking | success
   const [error, setError] = useState('');
+
+  // 监听登录状态变化
+  useEffect(() => {
+    if (!showRegisterModal) return;
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          // 登录成功，创建或更新 profile
+          try {
+            await supabase.from('profiles').upsert({
+              id: session.user.id,
+              name: name || session.user.email?.split('@')[0],
+            });
+
+            // 标记为已注册
+            register(session.user.email, name || session.user.email?.split('@')[0]);
+            setStep('success');
+            
+            // 1秒后关闭弹窗
+            setTimeout(() => {
+              closeRegisterModal();
+              setStep('form');
+              setEmail('');
+              setName('');
+            }, 1000);
+          } catch (error) {
+            console.error('Profile creation failed:', error);
+            setError('创建用户信息失败，请重试');
+          }
+        }
+      }
+    );
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, [showRegisterModal, name, register, closeRegisterModal]);
+
+  // 检查是否已登录
+  useEffect(() => {
+    if (!showRegisterModal) return;
+    
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user && !isRegistered) {
+        register(data.user.email, data.user.email?.split('@')[0]);
+        closeRegisterModal();
+      }
+    };
+    
+    checkSession();
+  }, [showRegisterModal, isRegistered, register, closeRegisterModal]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // 验证邮箱
     if (!email.trim()) {
-      setError('Please enter your email');
+      setError('请输入邮箱地址');
       return;
     }
     
     if (!email.includes('@')) {
-      setError('Please enter a valid email');
+      setError('请输入有效的邮箱地址');
       return;
     }
     
-    setIsLoading(true);
+    setStep('checking');
     setError('');
     
-    // 模拟注册过程
-    setTimeout(() => {
-      register(email.trim(), name.trim() || 'User');
-      setEmail('');
-      setName('');
-      setIsLoading(false);
-    }, 500);
+    try {
+      // 发送 Magic Link
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      });
+      
+      if (error) throw error;
+      
+      // 不需要手动跳转，用户点击邮件链接后会自动回到网站并登录
+    } catch (error) {
+      console.error('Sign in error:', error);
+      setError('发送邮件失败，请重试');
+      setStep('form');
+    }
   };
 
   if (!showRegisterModal) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* 遮罩层 - 不可点击关闭 */}
-      <div className="absolute inset-0 bg-black/70"></div>
+      {/* 遮罩层 */}
+      <div className="absolute inset-0 bg-black/70" />
       
       {/* 弹窗内容 */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 mx-4">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome to Sea Crew Guide</h2>
-          <p className="text-gray-600">欢迎来到海乘指南</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError('');
-              }}
-              placeholder="your@email.com"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name (Optional)
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-
-          {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
-          )}
-
+        {/* 关闭按钮 */}
+        {step === 'form' && (
           <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium disabled:opacity-50 transition-colors"
+            onClick={closeRegisterModal}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
           >
-            {isLoading ? 'Processing...' : 'Continue'}
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
-        </form>
+        )}
 
-        <p className="text-xs text-gray-500 text-center mt-4">
-          By continuing, you agree to our Terms of Service and Privacy Policy
-        </p>
+        {/* 步骤1: 表单 */}
+        {step === 'form' && (
+          <>
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome to Sea Crew Guide</h2>
+              <p className="text-gray-600">欢迎来到海乘指南</p>
+              <div className="mt-4 text-sm text-blue-600">
+                <p>Enter your email to continue</p>
+                <p className="text-gray-500">输入邮箱即可继续</p>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">No password needed · 无需密码</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email · 邮箱 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="your@email.com"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Name · 姓名
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name · 您的名字"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
+
+              {error && (
+                <div className="text-red-600 text-sm text-center">{error}</div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium transition-colors"
+              >
+                Continue · 继续
+              </button>
+            </form>
+          </>
+        )}
+
+        {/* 步骤2: 检查邮件 */}
+        {step === 'checking' && (
+          <div className="text-center py-4">
+            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-blue-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Check your email to log in</h2>
+            <p className="text-gray-600 mb-4">请前往邮箱完成登录</p>
+            <p className="text-sm text-gray-500">已发送邮件到: {email}</p>
+            
+            <button
+              onClick={() => setStep('form')}
+              className="mt-6 text-blue-600 hover:text-blue-700"
+            >
+              返回修改邮箱
+            </button>
+          </div>
+        )}
+
+        {/* 步骤3: 成功 */}
+        {step === 'success' && (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Success! · 登录成功!</h2>
+          </div>
+        )}
       </div>
     </div>
   );

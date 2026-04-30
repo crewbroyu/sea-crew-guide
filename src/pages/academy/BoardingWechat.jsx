@@ -50,7 +50,7 @@ export default function BoardingWechat() {
           </div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">扫码添加微信</h2>
           <p className="text-gray-600 text-center mb-4">
-            微信号：seacrew_guide
+            微信号：crewbroyu
           </p>
           <div className="flex items-center gap-2 text-green-600 mb-6">
             <CheckCircle size={18} />

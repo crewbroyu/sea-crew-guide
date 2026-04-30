@@ -6,66 +6,93 @@ export default function RegisterModal() {
   const { showRegisterModal, closeRegisterModal, register, isRegistered } = useAccessStore();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [step, setStep] = useState('form'); // form | checking | success
+  const [step, setStep] = useState('form');
   const [error, setError] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // 监听登录状态变化
   useEffect(() => {
     if (!showRegisterModal) return;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    // 立即检查当前 session
+    const checkCurrentSession = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setIsProcessing(true);
+        try {
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            name: name || user.email?.split('@')[0],
+          });
+          register(user.email, name || user.email?.split('@')[0]);
+          setStep('success');
+          setTimeout(() => {
+            closeRegisterModal();
+            setStep('form');
+            setEmail('');
+            setName('');
+          }, 1500);
+        } catch (error) {
+          console.error('Profile creation failed:', error);
+          register(user.email, user.email?.split('@')[0]);
+          setStep('success');
+          setTimeout(() => {
+            closeRegisterModal();
+            setStep('form');
+            setEmail('');
+            setName('');
+          }, 1500);
+        }
+        setIsProcessing(false);
+      }
+    };
+
+    checkCurrentSession();
+
+    // 监听 auth 状态变化
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth event:', event, session);
+        
         if (event === 'SIGNED_IN' && session?.user) {
-          // 登录成功，创建或更新 profile
+          setIsProcessing(true);
           try {
             await supabase.from('profiles').upsert({
               id: session.user.id,
               name: name || session.user.email?.split('@')[0],
             });
-
-            // 标记为已注册
             register(session.user.email, name || session.user.email?.split('@')[0]);
             setStep('success');
-            
-            // 1秒后关闭弹窗
             setTimeout(() => {
               closeRegisterModal();
               setStep('form');
               setEmail('');
               setName('');
-            }, 1000);
+            }, 1500);
           } catch (error) {
             console.error('Profile creation failed:', error);
-            setError('创建用户信息失败，请重试');
+            register(session.user.email, session.user.email?.split('@')[0]);
+            setStep('success');
+            setTimeout(() => {
+              closeRegisterModal();
+              setStep('form');
+              setEmail('');
+              setName('');
+            }, 1500);
           }
+          setIsProcessing(false);
         }
       }
     );
 
     return () => {
-      authListener?.subscription?.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [showRegisterModal, name, register, closeRegisterModal]);
-
-  // 检查是否已登录
-  useEffect(() => {
-    if (!showRegisterModal) return;
-    
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user && !isRegistered) {
-        register(data.user.email, data.user.email?.split('@')[0]);
-        closeRegisterModal();
-      }
-    };
-    
-    checkSession();
-  }, [showRegisterModal, isRegistered, register, closeRegisterModal]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 验证邮箱
     if (!email.trim()) {
       setError('请输入邮箱地址');
       return;
@@ -80,7 +107,6 @@ export default function RegisterModal() {
     setError('');
     
     try {
-      // 发送 Magic Link
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
@@ -89,8 +115,6 @@ export default function RegisterModal() {
       });
       
       if (error) throw error;
-      
-      // 不需要手动跳转，用户点击邮件链接后会自动回到网站并登录
     } catch (error) {
       console.error('Sign in error:', error);
       setError('发送邮件失败，请重试');
@@ -102,12 +126,9 @@ export default function RegisterModal() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* 遮罩层 */}
       <div className="absolute inset-0 bg-black/70" />
       
-      {/* 弹窗内容 */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 mx-4">
-        {/* 关闭按钮 */}
         {step === 'form' && (
           <button
             onClick={closeRegisterModal}
@@ -119,7 +140,6 @@ export default function RegisterModal() {
           </button>
         )}
 
-        {/* 步骤1: 表单 */}
         {step === 'form' && (
           <>
             <div className="text-center mb-6">
@@ -181,7 +201,6 @@ export default function RegisterModal() {
           </>
         )}
 
-        {/* 步骤2: 检查邮件 */}
         {step === 'checking' && (
           <div className="text-center py-4">
             <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
@@ -202,7 +221,6 @@ export default function RegisterModal() {
           </div>
         )}
 
-        {/* 步骤3: 成功 */}
         {step === 'success' && (
           <div className="text-center py-8">
             <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
@@ -211,6 +229,7 @@ export default function RegisterModal() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-gray-800 mb-2">Success! · 登录成功!</h2>
+            <p className="text-gray-600">即将关闭...</p>
           </div>
         )}
       </div>

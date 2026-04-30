@@ -6,4 +6,17 @@ const supabaseUrl = 'https://pdvmyaenjkvohsmjbxha.supabase.co';
 // 公开密钥（从 Supabase 获取的 Publishable Key）
 const supabaseAnonKey = 'sb_publishable_JfAenPf7RYl6gEnJ5MOd3Q_vIB6EUit';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// 创建 Supabase 客户端，添加额外的配置
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+  global: {
+    headers: {
+      'apiKey': supabaseAnonKey,
+      'Authorization': `Bearer ${supabaseAnonKey}`,
+    },
+  },
+});

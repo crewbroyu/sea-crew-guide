@@ -19,7 +19,7 @@ export default function UnlockModal() {
     setError('');
 
     try {
-      await activationService.activateCode(code.trim().toUpperCase());
+      await activationService.activateCode(code);
       setShowSuccess(true);
       unlock();
       
@@ -29,12 +29,17 @@ export default function UnlockModal() {
         setCode('');
       }, 1500);
     } catch (err) {
-      if (err.message === 'Invalid code') {
+      const errorMsg = err.message;
+      console.error('激活失败:', errorMsg);
+      
+      if (errorMsg === 'Invalid code') {
         setError('Invalid code');
-      } else if (err.message === 'Code already used') {
+      } else if (errorMsg === 'Code already used') {
         setError('Code already used');
+      } else if (errorMsg === 'Network error') {
+        setError('Network error. Please try again later.');
       } else {
-        setError('Activation failed');
+        setError('Activation failed. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -45,10 +50,8 @@ export default function UnlockModal() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* 遮罩层 */}
       <div className="absolute inset-0 bg-black/50" onClick={closeUnlockModal}></div>
       
-      {/* 弹窗内容 */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 mx-4">
         {showSuccess ? (
           <div className="text-center py-8">

@@ -8,6 +8,7 @@ import BottomNav from './components/BottomNav'
 import AccessGate from './components/AccessGate'
 import ProtectedRoute from './components/ProtectedRoute'
 import SupabaseTest from './pages/SupabaseTest'
+import CompletionHint from './components/CompletionHint'
 
 // 动态导入大型组件
 const Task1 = lazy(() => import('./pages/tasks/Task1'))
@@ -78,6 +79,7 @@ function App() {
     <ErrorBoundary>
       <Router>
         <AccessGate />
+        <CompletionHint />
         <div className="min-h-screen bg-gray-50">
           <Suspense fallback={
             <div className="min-h-screen flex items-center justify-center bg-gray-50">

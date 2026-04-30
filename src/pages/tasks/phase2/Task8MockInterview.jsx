@@ -59,6 +59,7 @@ function Task8MockInterview() {
   // ==================== State ====================
   const [stage, setStage] = useState('ready');
   const [selectedPosition, setSelectedPosition] = useState(null);
+  const [showPositionSelector, setShowPositionSelector] = useState(false);
   const [extractedQuestions, setExtractedQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -743,81 +744,133 @@ function Task8MockInterview() {
       {/* ===== 准备阶段 ===== */}
       {stage === 'ready' && (
         <div className="px-6 py-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 max-w-2xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">🎯 AI模拟面试</h2>
-
-            {selectedInterviewer && (
-              <div className="flex items-center justify-center mb-6">
-                <div className={`w-20 h-20 rounded-full ${selectedInterviewer.color} flex items-center justify-center text-white text-2xl font-bold`}>
-                  {selectedInterviewer.initial}
-                </div>
-                <div className="ml-4 text-center">
-                  <h3 className="font-bold text-gray-800">{selectedInterviewer.name}</h3>
-                  <p className="text-gray-600 text-sm">{selectedInterviewer.title}</p>
-                </div>
+          {/* 职位选择模式 */}
+          {showPositionSelector ? (
+            <div className="bg-white rounded-xl shadow-sm p-6 max-w-2xl mx-auto">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">🎯 选择面试职位</h2>
+              <p className="text-gray-600 text-center mb-6">请选择你要面试的职位</p>
+              
+              <div className="space-y-3 mb-6">
+                {Object.entries(positionNames).map(([key, name]) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setSelectedPosition(key);
+                      localStorage.setItem('interviewSelectedPosition', key);
+                      setShowPositionSelector(false);
+                    }}
+                    className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                      selectedPosition === key 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-gray-800">{name}</span>
+                      {selectedPosition === key && (
+                        <CheckCircle size={20} className="text-blue-500" />
+                      )}
+                    </div>
+                  </button>
+                ))}
               </div>
-            )}
-
-            <div className="space-y-4 mb-6">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">目标职位：</span>
-                <span className="font-medium text-gray-800">{positionNames[selectedPosition]}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">面试题数：</span>
-                <span className="font-medium text-gray-800">7 题（题目从任务7题库中随机抽取）</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">预计时长：</span>
-                <span className="font-medium text-gray-800">10-15 分钟</span>
-              </div>
+              
+              <button
+                onClick={() => setShowPositionSelector(false)}
+                className="w-full py-3 rounded-lg font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                返回
+              </button>
             </div>
+          ) : (
+            /* 面试准备模式 */
+            <div className="bg-white rounded-xl shadow-sm p-6 max-w-2xl mx-auto">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">🎯 AI模拟面试</h2>
 
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
-              <h3 className="font-medium text-blue-800 mb-2">📋 面试流程说明：</h3>
-              <ol className="list-decimal list-inside space-y-2 text-blue-700">
-                <li>AI面试官会用语音向你提问</li>
-                <li>你需要用英语语音回答每个问题</li>
-                <li>如果语音识别不工作，可以直接打字输入</li>
-                <li>面试题目从任务7的题库中随机抽取，每次面试题目不同</li>
-                <li>每题回答时间不超过2分钟</li>
-                <li>面试结束后会给出评分和点评</li>
-              </ol>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-              <div className="flex items-start gap-2">
-                <AlertTriangle size={18} className="text-amber-600 mt-0.5" />
-                <p className="text-amber-800 text-sm">请确保麦克风可用，在安静环境中进行面试</p>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">
-              <div className="flex items-start gap-2">
-                <Info size={18} className="text-gray-600 mt-0.5" />
-                <p className="text-gray-700 text-sm">推荐使用 Chrome 或 Edge 浏览器以获得最佳语音识别体验</p>
-              </div>
-            </div>
-
-            {!browserSupported && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle size={18} className="text-red-600 mt-0.5" />
-                  <div>
-                    <p className="text-red-800 text-sm font-medium">您的浏览器不完全支持语音功能</p>
-                    <p className="text-red-700 text-sm mt-1">仍可使用文字输入方式完成面试</p>
+              {selectedInterviewer && (
+                <div className="flex items-center justify-center mb-6">
+                  <div className={`w-20 h-20 rounded-full ${selectedInterviewer.color} flex items-center justify-center text-white text-2xl font-bold`}>
+                    {selectedInterviewer.initial}
+                  </div>
+                  <div className="ml-4 text-center">
+                    <h3 className="font-bold text-gray-800">{selectedInterviewer.name}</h3>
+                    <p className="text-gray-600 text-sm">{selectedInterviewer.title}</p>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <button
-              onClick={startInterview}
-              className="w-full py-4 rounded-lg font-medium transition-colors text-lg bg-blue-600 text-white hover:bg-blue-700"
-            >
-              开始面试
-            </button>
-          </div>
+              <div className="space-y-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">目标职位：</span>
+                  <button
+                    onClick={() => setShowPositionSelector(true)}
+                    className="font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  >
+                    {positionNames[selectedPosition] || '请选择'}
+                    <Edit3 size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">面试题数：</span>
+                  <span className="font-medium text-gray-800">7 题（题目从任务7题库中随机抽取）</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">预计时长：</span>
+                  <span className="font-medium text-gray-800">10-15 分钟</span>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+                <h3 className="font-medium text-blue-800 mb-2">📋 面试流程说明：</h3>
+                <ol className="list-decimal list-inside space-y-2 text-blue-700">
+                  <li>AI面试官会用语音向你提问</li>
+                  <li>你需要用英语语音回答每个问题</li>
+                  <li>如果语音识别不工作，可以直接打字输入</li>
+                  <li>面试题目从任务7的题库中随机抽取，每次面试题目不同</li>
+                  <li>每题回答时间不超过2分钟</li>
+                  <li>面试结束后会给出评分和点评</li>
+                </ol>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={18} className="text-amber-600 mt-0.5" />
+                  <p className="text-amber-800 text-sm">请确保麦克风可用，在安静环境中进行面试</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">
+                <div className="flex items-start gap-2">
+                  <Info size={18} className="text-gray-600 mt-0.5" />
+                  <p className="text-gray-700 text-sm">推荐使用 Chrome 或 Edge 浏览器以获得最佳语音识别体验</p>
+                </div>
+              </div>
+
+              {!browserSupported && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={18} className="text-red-600 mt-0.5" />
+                    <div>
+                      <p className="text-red-800 text-sm font-medium">您的浏览器不完全支持语音功能</p>
+                      <p className="text-red-700 text-sm mt-1">仍可使用文字输入方式完成面试</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={startInterview}
+                disabled={!selectedPosition}
+                className={`w-full py-4 rounded-lg font-medium transition-colors text-lg ${
+                  selectedPosition 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                开始面试
+              </button>
+            </div>
+          )}
         </div>
       )}
 

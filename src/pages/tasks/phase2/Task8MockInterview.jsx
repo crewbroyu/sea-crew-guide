@@ -626,13 +626,9 @@ function Task8MockInterview() {
 
   useEffect(() => {
     if (!fromAcademy) {
-      // 检查是否在测试模式下
-      const isTestMode = localStorage.getItem('testMode') === 'true';
-      if (!isTestMode) {
-        const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}');
-        if (!progress.task7?.completed) {
-          navigate('/tasks');
-        }
+      const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}');
+      if (!progress.task7?.completed) {
+        navigate('/tasks');
       }
     }
   }, [navigate, fromAcademy]);

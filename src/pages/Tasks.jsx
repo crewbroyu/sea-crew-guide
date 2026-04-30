@@ -97,8 +97,6 @@ export default function Tasks() {
   const [rejectedTasks, setRejectedTasks] = useState([])
   // 当前展开的阶段ID
   const [expandedStage, setExpandedStage] = useState(null)
-  // 测试模式状态
-  const [testMode, setTestMode] = useState(() => localStorage.getItem('testMode') === 'true')
 
   // 处理 justCompleted 参数 - 必须在 useEffect 中
   useEffect(() => {
@@ -132,12 +130,6 @@ export default function Tasks() {
     localStorage.setItem(progressKey, JSON.stringify(progress));
     console.log('任务完成状态已持久化到 localStorage:', progress);
   }, [completedTasks]);
-
-  // 当 testMode 变化时，持久化到 localStorage
-  useEffect(() => {
-    localStorage.setItem('testMode', testMode.toString());
-    console.log('测试模式状态已持久化到 localStorage:', testMode);
-  }, [testMode]);
 
   // 组件加载时打印当前进度状态
   useEffect(() => {
@@ -195,10 +187,6 @@ export default function Tasks() {
 
   // 检查阶段是否已解锁
   const isStageUnlocked = (stageId) => {
-    // 测试模式下所有阶段都解锁
-    if (testMode) return true
-    
-    // 原逻辑：
     if (stageId === 1) return true
     
     // 前一阶段是否全部完成
@@ -215,10 +203,6 @@ export default function Tasks() {
     if (rejectedTasks.includes(taskId)) return TASK_STATUS.REJECTED
     if (taskId === currentTaskId) return TASK_STATUS.CURRENT
     
-    // 测试模式下所有任务都显示为进行中状态
-    if (testMode) return TASK_STATUS.IN_PROGRESS
-    
-    // 原逻辑：
     // 检查任务是否在当前任务之前
     const taskIndex = allTasks.findIndex(task => task.id === taskId)
     const currentTaskIndex = allTasks.findIndex(task => task.id === currentTaskId)
@@ -276,10 +260,7 @@ export default function Tasks() {
         
       case TASK_STATUS.LOCKED:
       default:
-        // 测试模式下即使是锁定的任务也可以点击
-        if (testMode && targetRoute) {
-          navigate(targetRoute)
-        } else if (!targetRoute) {
+        if (!targetRoute) {
           showToast('该功能即将上线，敬请期待 🚀')
         } else {
           showToast('请先完成前面的任务 🔒')
@@ -318,12 +299,6 @@ export default function Tasks() {
             <p className="text-white/80 text-sm mt-1">完成12个任务，开启你的海乘之旅</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setTestMode(!testMode)}
-              className={`rounded-full px-3 py-1.5 flex items-center gap-1.5 ${testMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-white/20 hover:bg-white/30'}`}
-            >
-              <span className="text-white text-sm font-medium">{testMode ? '关闭测试模式' : '开启测试模式'}</span>
-            </button>
             <div className="bg-white/20 rounded-full px-3 py-1.5">
               <span className="text-white text-sm font-medium">{totalCompleted}/{totalTasks} 已完成</span>
             </div>

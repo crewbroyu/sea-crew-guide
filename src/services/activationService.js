@@ -1,44 +1,87 @@
 import { supabase } from '../supabase';
 
+// 生成单个激活码
+export const generateCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除易混淆字符
+  let result = '';
+  
+  for (let i = 0; i < 6; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  
+  return `CREW-${result}`;
+};
+
+// 批量生成激活码（内置防重复）
+export const generateBatchCodes = async (count = 50) => {
+  const generatedCodes = new Set();
+  const codes = [];
+  
+  // 生成不重复的激活码
+  while (codes.length < count) {
+    const newCode = generateCode();
+    
+    if (!generatedCodes.has(newCode)) {
+      generatedCodes.add(newCode);
+      codes.push({
+        code: newCode,
+        is_used: false,
+        type: 'beta',
+      });
+    }
+  }
+  
+  return codes;
+};
+
+// 批量插入激活码到 Supabase
+export const insertBatchCodes = async (count = 50) => {
+  try {
+    const codes = await generateBatchCodes(count);
+    const { error } = await supabase.from('activation_codes').insert(codes);
+    
+    if (error) {
+      throw error;
+    }
+    
+    return { success: true, count: codes.length, codes: codes };
+  } catch (error) {
+    console.error('批量插入激活码失败:', error);
+    throw error;
+  }
+};
+
+// 激活码验证（保持原有逻辑）
 export const activationService = {
-  // 验证并激活码
   async activateCode(inputCode) {
     try {
-      // 输入处理：去除空格并转换为大写
       const cleanCode = inputCode.trim().toUpperCase();
       
-      // 调试日志
       console.log('用户输入:', inputCode);
       console.log('清洗后:', cleanCode);
 
-      // 1. 查询激活码（使用 maybeSingle 避免无数据时报错）
       const { data, error } = await supabase
         .from('activation_codes')
         .select('*')
         .eq('code', cleanCode)
         .maybeSingle();
 
-      // 调试日志
       console.log('查询结果:', data);
       console.log('查询错误:', error);
 
-      // 处理错误
       if (error) {
         console.error('查询错误:', error);
         throw new Error('Network error');
       }
 
-      // 处理无数据情况
       if (!data) {
         throw new Error('Invalid code');
       }
 
-      // 检查是否已使用
       if (data.is_used) {
         throw new Error('Code already used');
       }
 
-      // 2. 更新激活码状态
       const { error: updateError } = await supabase
         .from('activation_codes')
         .update({
@@ -53,7 +96,6 @@ export const activationService = {
         throw new Error('Activation failed');
       }
 
-      // 3. 保存解锁状态到 localStorage
       localStorage.setItem('access_unlocked', 'true');
       localStorage.setItem('access_unlocked_at', new Date().toISOString());
 
@@ -65,18 +107,15 @@ export const activationService = {
     }
   },
 
-  // 检查是否已解锁
   isUnlocked() {
     return localStorage.getItem('access_unlocked') === 'true';
   },
 
-  // 清除解锁状态
   clearAccess() {
     localStorage.removeItem('access_unlocked');
     localStorage.removeItem('access_unlocked_at');
   },
 
-  // 测试数据库连接
   async testConnection() {
     try {
       const { data, error } = await supabase
@@ -96,7 +135,6 @@ export const activationService = {
     }
   },
 
-  // 获取所有激活码（用于测试）
   async getAllCodes() {
     try {
       const { data, error } = await supabase
@@ -112,5 +150,8 @@ export const activationService = {
       console.error('获取激活码失败:', error);
       throw error;
     }
-  }
+  },
 };
+
+// 导出旧版本兼容
+export { activationService as default };

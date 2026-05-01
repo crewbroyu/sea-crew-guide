@@ -26,6 +26,31 @@ export default function AccessGate() {
       return;
     }
 
+    // 获取之前存储的用户ID
+    const previousUserId = localStorage.getItem('current_user_id');
+    const currentUserId = user.id;
+
+    // 如果用户切换了，清除之前用户的任务进度和积分数据
+    if (previousUserId && previousUserId !== currentUserId) {
+      console.log('用户切换，清除旧数据');
+      localStorage.removeItem('boarding_progress');
+      localStorage.removeItem('score_data');
+      localStorage.removeItem('checkin_data');
+      localStorage.removeItem('task1_data');
+      localStorage.removeItem('task2_data');
+      localStorage.removeItem('task4_data');
+      localStorage.removeItem('task5_data');
+      localStorage.removeItem('task7_data');
+      localStorage.removeItem('task8_data');
+      localStorage.removeItem('task9_data');
+      localStorage.removeItem('task10_data');
+      localStorage.removeItem('task11_data');
+      localStorage.removeItem('task12_data');
+    }
+
+    // 保存当前用户ID
+    localStorage.setItem('current_user_id', currentUserId);
+
     register(user, user.user_metadata?.name || user.email?.split('@')[0]);
     setCheckingAccess(true);
 

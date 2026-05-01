@@ -121,8 +121,12 @@ export default function RegisterModal() {
     try {
       let result;
       
+      console.log('当前模式:', mode);
+      console.log('邮箱:', email.trim());
+      
       if (mode === 'register') {
         // 注册新用户
+        console.log('开始注册...');
         result = await supabase.auth.signUp({
           email: email.trim(),
           password: password,
@@ -132,12 +136,15 @@ export default function RegisterModal() {
             },
           },
         });
+        console.log('注册结果:', result);
       } else {
         // 登录现有用户
+        console.log('开始登录...');
         result = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: password,
         });
+        console.log('登录结果:', result);
       }
       
       if (result.error) throw result.error;

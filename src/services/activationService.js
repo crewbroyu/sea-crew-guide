@@ -2,6 +2,72 @@ import { supabase } from '../supabase';
 
 const normalizeCode = (inputCode) => inputCode.trim().toUpperCase();
 
+// 生成单个激活码
+export const generateCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  
+  for (let i = 0; i < 6; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  
+  return `CREW-${result}`;
+};
+
+// 批量生成激活码（内置防重复）
+export const generateBatchCodes = async (count = 50) => {
+  const generatedCodes = new Set();
+  const codes = [];
+  
+  while (codes.length < count) {
+    const newCode = generateCode();
+    
+    if (!generatedCodes.has(newCode)) {
+      generatedCodes.add(newCode);
+      codes.push({
+        code: newCode,
+        is_used: false,
+        type: 'beta',
+      });
+    }
+  }
+  
+  return codes;
+};
+
+// 批量插入激活码到 Supabase
+export const insertBatchCodes = async (count = 50) => {
+  try {
+    const codes = await generateBatchCodes(count);
+    const { error } = await supabase.from('activation_codes').insert(codes);
+    
+    if (error) {
+      throw error;
+    }
+    
+    return { success: true, count: codes.length, codes: codes };
+  } catch (error) {
+    console.error('批量插入激活码失败:', error);
+    throw error;
+  }
+};
+
+// 获取所有激活码（仅供管理员使用）
+export const getAllCodes = async () => {
+  try {
+    const { data, error } = await supabase.from('activation_codes').select('*');
+    
+    if (error) {
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('获取激活码失败:', error);
+    throw error;
+  }
+};
+
 const requireUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser();
 

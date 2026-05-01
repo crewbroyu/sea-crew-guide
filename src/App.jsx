@@ -23,6 +23,7 @@ const Task6InterviewSkills = lazy(() => import('./pages/tasks/phase2/Task6Interv
 const Task7InterviewPractice = lazy(() => import('./pages/tasks/phase2/Task7InterviewPractice'))
 const Task8MockInterview = lazy(() => import('./pages/tasks/phase2/Task8MockInterview'))
 const Task9 = lazy(() => import('./pages/tasks/phase2/Task9ScenarioTraining'))
+const ActivationCodeGenerator = lazy(() => import('./pages/ActivationCodeGenerator'))
 
 const Academy = lazy(() => import('./pages/Academy'))
 const ListeningSpeaking = lazy(() => import('./pages/academy/ListeningSpeaking'))
@@ -136,6 +137,7 @@ function App() {
               <Route path="/messages" element={<Messages />} />
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<BoardingMaterials />} />
+              <Route path="/generate-codes" element={<ActivationCodeGenerator />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

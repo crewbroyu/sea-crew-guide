@@ -81,6 +81,19 @@ export default function AccessGate() {
 
       if (error) {
         console.error('Auth check failed:', error);
+        
+        // 如果 session 丢失，先检查 localStorage 是否有解锁信息
+        const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
+        if (localStorageUnlocked) {
+          console.log('从 localStorage 读取到解锁状态，即使没有 session');
+          const userEmail = localStorage.getItem('access_user_email');
+          if (userEmail) {
+            register(userEmail, userEmail.split('@')[0]);
+            setAccessStatus({ isUnlocked: true, unlockedAt: localStorage.getItem('access_unlocked_at'), checked: true });
+          }
+          return;
+        }
+        
         reset();
         openRegisterModal();
         return;
@@ -90,7 +103,7 @@ export default function AccessGate() {
     };
 
     checkAuth();
-  }, [openRegisterModal, refreshAccessForUser, reset]);
+  }, [openRegisterModal, refreshAccessForUser, reset, register, setAccessStatus]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

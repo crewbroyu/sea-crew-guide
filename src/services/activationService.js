@@ -142,6 +142,11 @@ export const activationService = {
       user: user.email
     };
     localStorage.setItem('activationInfo', JSON.stringify(activationInfo));
+    
+    // 保存解锁状态到 localStorage（用于 session 丢失时的回退）
+    localStorage.setItem('access_unlocked', 'true');
+    localStorage.setItem('access_unlocked_at', data.unlocked_at || new Date().toISOString());
+    localStorage.setItem('access_user_email', user.email);
 
     return {
       success: true,

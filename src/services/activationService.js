@@ -111,18 +111,27 @@ export const activationService = {
       throw new Error('Invalid code');
     }
 
-    const user = await requireUser();
+    console.log('开始激活流程...');
+    console.log('输入的激活码:', inputCode);
+    console.log('清洗后的激活码:', cleanCode);
 
+    const user = await requireUser();
+    console.log('当前用户:', user?.email);
+
+    console.log('调用 RPC consume_activation_code...');
     const { data, error } = await supabase.rpc('consume_activation_code', {
       input_code: cleanCode,
     });
 
+    console.log('RPC 返回:', { data, error });
+
     if (error) {
       console.error('Activation RPC failed:', error);
-      throw new Error('Activation failed');
+      throw new Error('Activation failed: ' + error.message);
     }
 
     if (!data?.success) {
+      console.log('激活失败原因:', data?.reason);
       throw new Error(data?.reason || 'Activation failed');
     }
 

@@ -46,7 +46,7 @@ export default function UnlockModal() {
         closeUnlockModal();
         openRegisterModal();
       } else {
-        setError('Activation failed. Please try again.');
+        setError(errorMsg || 'Activation failed. Please try again.');
       }
     } finally {
       setIsLoading(false);

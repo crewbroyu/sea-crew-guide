@@ -20,24 +20,11 @@ export default function RegisterModal() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setIsProcessing(true);
-        try {
-          await supabase.from('profiles').upsert({
-            id: user.id,
-            name: name || user.email?.split('@')[0],
-          });
-          register(user.email, name || user.email?.split('@')[0]);
-          setTimeout(() => {
-            closeRegisterModal();
-            resetForm();
-          }, 1500);
-        } catch (error) {
-          console.error('Profile creation failed:', error);
-          register(user.email, user.email?.split('@')[0]);
-          setTimeout(() => {
-            closeRegisterModal();
-            resetForm();
-          }, 1500);
-        }
+        register(user.email, user.email?.split('@')[0]);
+        setTimeout(() => {
+          closeRegisterModal();
+          resetForm();
+        }, 1500);
         setIsProcessing(false);
       }
     };
@@ -51,24 +38,11 @@ export default function RegisterModal() {
         
         if (event === 'SIGNED_IN' && session?.user) {
           setIsProcessing(true);
-          try {
-            await supabase.from('profiles').upsert({
-              id: session.user.id,
-              name: name || session.user.email?.split('@')[0],
-            });
-            register(session.user.email, name || session.user.email?.split('@')[0]);
-            setTimeout(() => {
-              closeRegisterModal();
-              resetForm();
-            }, 1500);
-          } catch (error) {
-            console.error('Profile creation failed:', error);
-            register(session.user.email, session.user.email?.split('@')[0]);
-            setTimeout(() => {
-              closeRegisterModal();
-              resetForm();
-            }, 1500);
-          }
+          register(session.user.email, session.user.email?.split('@')[0]);
+          setTimeout(() => {
+            closeRegisterModal();
+            resetForm();
+          }, 1500);
           setIsProcessing(false);
         }
       }
@@ -77,7 +51,7 @@ export default function RegisterModal() {
     return () => {
       subscription?.unsubscribe();
     };
-  }, [showRegisterModal, name, register, closeRegisterModal]);
+  }, [showRegisterModal, register, closeRegisterModal]);
 
   const resetForm = () => {
     setEmail('');
@@ -150,15 +124,7 @@ export default function RegisterModal() {
       if (result.error) throw result.error;
       
       if (result.data?.user) {
-        // 注册/登录成功，创建或更新 profile
-        try {
-          await supabase.from('profiles').upsert({
-            id: result.data.user.id,
-            name: name || result.data.user.email?.split('@')[0],
-          });
-        } catch (profileError) {
-          console.error('Profile creation failed:', profileError);
-        }
+        // 注册/登录成功
         register(result.data.user.email, name || result.data.user.email?.split('@')[0]);
       }
     } catch (error) {

@@ -231,6 +231,7 @@ export default function RegisterModal() {
             </label>
             <input
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -247,6 +248,7 @@ export default function RegisterModal() {
             </label>
             <input
               type="password"
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);

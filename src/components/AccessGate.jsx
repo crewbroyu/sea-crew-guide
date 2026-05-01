@@ -52,6 +52,15 @@ export default function AccessGate() {
     localStorage.setItem('current_user_id', currentUserId);
 
     register(user, user.user_metadata?.name || user.email?.split('@')[0]);
+
+    // 先检查 localStorage 是否有解锁信息
+    const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
+    if (localStorageUnlocked) {
+      console.log('从 localStorage 读取到解锁状态');
+      setAccessStatus({ isUnlocked: true, unlockedAt: localStorage.getItem('access_unlocked_at'), checked: true });
+      return;
+    }
+
     setCheckingAccess(true);
 
     try {

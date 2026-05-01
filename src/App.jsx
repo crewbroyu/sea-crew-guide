@@ -7,8 +7,8 @@ import ErrorBoundary from './components/ErrorBoundary'
 import BottomNav from './components/BottomNav'
 import AccessGate from './components/AccessGate'
 import ProtectedRoute from './components/ProtectedRoute'
-import SupabaseTest from './pages/SupabaseTest'
 import CompletionHint from './components/CompletionHint'
+import DebugPanel from './components/DebugPanel'
 
 // 动态导入大型组件
 const Task1 = lazy(() => import('./pages/tasks/Task1'))
@@ -80,6 +80,7 @@ function App() {
       <Router>
         <AccessGate />
         <CompletionHint />
+        <DebugPanel />
         <div className="min-h-screen bg-gray-50">
           <Suspense fallback={
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -135,7 +136,6 @@ function App() {
               <Route path="/messages" element={<Messages />} />
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<BoardingMaterials />} />
-              <Route path="/supabase-test" element={<SupabaseTest />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

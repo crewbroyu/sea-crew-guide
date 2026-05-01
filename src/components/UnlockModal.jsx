@@ -3,13 +3,19 @@ import { useAccessStore } from '../store/accessStore';
 import { activationService } from '../services/activationService';
 
 export default function UnlockModal() {
-  const { showUnlockModal, closeUnlockModal, unlock } = useAccessStore();
+  const { showUnlockModal, closeUnlockModal, unlock, isRegistered, openRegisterModal } = useAccessStore();
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handleActivate = async () => {
+    if (!isRegistered) {
+      closeUnlockModal();
+      openRegisterModal();
+      return;
+    }
+
     if (!code.trim()) {
       setError('Please enter activation code');
       return;
@@ -19,9 +25,9 @@ export default function UnlockModal() {
     setError('');
 
     try {
-      await activationService.activateCode(code);
+      const result = await activationService.activateCode(code);
       setShowSuccess(true);
-      unlock();
+      unlock({ unlockedAt: result.unlockedAt });
       
       setTimeout(() => {
         closeUnlockModal();
@@ -36,8 +42,9 @@ export default function UnlockModal() {
         setError('Invalid code');
       } else if (errorMsg === 'Code already used') {
         setError('Code already used');
-      } else if (errorMsg === 'Network error') {
-        setError('Network error. Please try again later.');
+      } else if (errorMsg === 'Login required') {
+        closeUnlockModal();
+        openRegisterModal();
       } else {
         setError('Activation failed. Please try again.');
       }

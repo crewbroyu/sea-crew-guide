@@ -1,157 +1,83 @@
 import { supabase } from '../supabase';
 
-// 生成单个激活码
-export const generateCode = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除易混淆字符
-  let result = '';
-  
-  for (let i = 0; i < 6; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
+const normalizeCode = (inputCode) => inputCode.trim().toUpperCase();
+
+const requireUser = async () => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error) {
+    throw new Error('Auth check failed');
   }
-  
-  return `CREW-${result}`;
+
+  if (!user) {
+    throw new Error('Login required');
+  }
+
+  return user;
 };
 
-// 批量生成激活码（内置防重复）
-export const generateBatchCodes = async (count = 50) => {
-  const generatedCodes = new Set();
-  const codes = [];
-  
-  // 生成不重复的激活码
-  while (codes.length < count) {
-    const newCode = generateCode();
-    
-    if (!generatedCodes.has(newCode)) {
-      generatedCodes.add(newCode);
-      codes.push({
-        code: newCode,
-        is_used: false,
-        type: 'beta',
-      });
-    }
-  }
-  
-  return codes;
-};
-
-// 批量插入激活码到 Supabase
-export const insertBatchCodes = async (count = 50) => {
-  try {
-    const codes = await generateBatchCodes(count);
-    const { error } = await supabase.from('activation_codes').insert(codes);
-    
-    if (error) {
-      throw error;
-    }
-    
-    return { success: true, count: codes.length, codes: codes };
-  } catch (error) {
-    console.error('批量插入激活码失败:', error);
-    throw error;
-  }
-};
-
-// 激活码验证（保持原有逻辑）
 export const activationService = {
-  async activateCode(inputCode) {
-    try {
-      const cleanCode = inputCode.trim().toUpperCase();
-      
-      console.log('用户输入:', inputCode);
-      console.log('清洗后:', cleanCode);
+  async getUserAccessStatus() {
+    const user = await requireUser();
 
-      const { data, error } = await supabase
-        .from('activation_codes')
-        .select('*')
-        .eq('code', cleanCode)
-        .maybeSingle();
+    const { data, error } = await supabase
+      .from('user_access')
+      .select('unlocked, unlocked_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-      console.log('查询结果:', data);
-      console.log('查询错误:', error);
-
-      if (error) {
-        console.error('查询错误:', error);
-        throw new Error('Network error');
-      }
-
-      if (!data) {
-        throw new Error('Invalid code');
-      }
-
-      if (data.is_used) {
-        throw new Error('Code already used');
-      }
-
-      const { error: updateError } = await supabase
-        .from('activation_codes')
-        .update({
-          is_used: true,
-          used_by: '',
-          used_at: new Date().toISOString()
-        })
-        .eq('code', cleanCode);
-
-      if (updateError) {
-        console.error('更新错误:', updateError);
-        throw new Error('Activation failed');
-      }
-
-      localStorage.setItem('access_unlocked', 'true');
-      localStorage.setItem('access_unlocked_at', new Date().toISOString());
-
-      console.log('激活成功:', cleanCode);
-      return { success: true };
-    } catch (error) {
-      console.error('激活失败:', error.message);
-      throw error;
+    if (error) {
+      console.error('Access lookup failed:', error);
+      throw new Error('Access check failed');
     }
+
+    return {
+      isUnlocked: Boolean(data?.unlocked),
+      unlockedAt: data?.unlocked_at || null,
+    };
   },
 
-  isUnlocked() {
-    return localStorage.getItem('access_unlocked') === 'true';
+  async activateCode(inputCode) {
+    const cleanCode = normalizeCode(inputCode);
+
+    if (!cleanCode) {
+      throw new Error('Invalid code');
+    }
+
+    const user = await requireUser();
+
+    const { data, error } = await supabase.rpc('consume_activation_code', {
+      input_code: cleanCode,
+    });
+
+    if (error) {
+      console.error('Activation RPC failed:', error);
+      throw new Error('Activation failed');
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.reason || 'Activation failed');
+    }
+
+    // 保存激活信息到 localStorage（用于调试）
+    const activationInfo = {
+      code: cleanCode,
+      activatedAt: data.unlocked_at || new Date().toISOString(),
+      user: user.email
+    };
+    localStorage.setItem('activationInfo', JSON.stringify(activationInfo));
+
+    return {
+      success: true,
+      unlockedAt: data.unlocked_at || new Date().toISOString(),
+    };
   },
 
-  clearAccess() {
+  clearAccessCache() {
     localStorage.removeItem('access_unlocked');
     localStorage.removeItem('access_unlocked_at');
-  },
-
-  async testConnection() {
-    try {
-      const { data, error } = await supabase
-        .from('activation_codes')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        console.error('连接测试失败:', error);
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: data };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  },
-
-  async getAllCodes() {
-    try {
-      const { data, error } = await supabase
-        .from('activation_codes')
-        .select('*');
-
-      if (error) {
-        throw error;
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('获取激活码失败:', error);
-      throw error;
-    }
+    localStorage.removeItem('access-storage');
   },
 };
 
-// 导出旧版本兼容
-export { activationService as default };
+export default activationService;

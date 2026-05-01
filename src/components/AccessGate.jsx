@@ -1,54 +1,75 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAccessStore } from '../store/accessStore';
 import { useAccessGuard } from '../hooks/useAccessGuard';
 import { supabase } from '../supabase';
+import { activationService } from '../services/activationService';
 import RegisterModal from './RegisterModal';
 import UnlockModal from './UnlockModal';
 
 export default function AccessGate() {
   const location = useLocation();
-  const { register, checkUnlockStatus } = useAccessStore();
+  const {
+    register,
+    reset,
+    setAccessStatus,
+    setCheckingAccess,
+    openRegisterModal,
+  } = useAccessStore();
   const { guardRoute } = useAccessGuard();
   const hasCheckedAuth = useRef(false);
 
-  // 页面首次加载时检查注册状态
+  const refreshAccessForUser = useCallback(async (user) => {
+    if (!user) {
+      reset();
+      openRegisterModal();
+      return;
+    }
+
+    register(user, user.user_metadata?.name || user.email?.split('@')[0]);
+    setCheckingAccess(true);
+
+    try {
+      const access = await activationService.getUserAccessStatus();
+      setAccessStatus(access);
+    } catch (error) {
+      console.error('Access check failed:', error);
+      setAccessStatus({ isUnlocked: false, unlockedAt: null, checked: true });
+    }
+  }, [openRegisterModal, register, reset, setAccessStatus, setCheckingAccess]);
+
   useEffect(() => {
     if (hasCheckedAuth.current) return;
     hasCheckedAuth.current = true;
 
     const checkAuth = async () => {
-      try {
-        // 检查 Supabase session
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          // 用户已登录（通过 Supabase session）
-          register(user.email, user.email?.split('@')[0]);
-        } else {
-          // 检查本地存储的注册状态
-          checkUnlockStatus();
-          
-          // 如果未注册，显示注册弹窗
-          const state = useAccessStore.getState();
-          if (!state.isRegistered) {
-            state.openRegisterModal();
-          }
-        }
-      } catch (error) {
+      const { data: { user }, error } = await supabase.auth.getUser();
+
+      if (error) {
         console.error('Auth check failed:', error);
+        reset();
+        openRegisterModal();
+        return;
       }
+
+      await refreshAccessForUser(user);
     };
 
     checkAuth();
-  }, [register, checkUnlockStatus]);
+  }, [openRegisterModal, refreshAccessForUser, reset]);
 
-  // 路由变化时检查权限
   useEffect(() => {
-    const state = useAccessStore.getState();
-    if (state.isRegistered) {
-      guardRoute(location.pathname);
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        await refreshAccessForUser(session?.user || null);
+      }
+    );
+
+    return () => subscription?.unsubscribe();
+  }, [refreshAccessForUser]);
+
+  useEffect(() => {
+    guardRoute(location.pathname);
   }, [location.pathname, guardRoute]);
 
   return (

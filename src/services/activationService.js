@@ -72,7 +72,8 @@ const requireUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error) {
-    throw new Error('Auth check failed');
+    console.error('Auth error details:', error);
+    throw new Error('Auth check failed: ' + error.message);
   }
 
   if (!user) {

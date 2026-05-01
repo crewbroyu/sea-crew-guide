@@ -38,11 +38,11 @@ export default function UnlockModal() {
       const errorMsg = err.message;
       console.error('激活失败:', errorMsg);
       
-      if (errorMsg === 'Invalid code') {
+      if (errorMsg?.includes('Invalid code')) {
         setError('Invalid code');
-      } else if (errorMsg === 'Code already used') {
+      } else if (errorMsg?.includes('Code already used')) {
         setError('Code already used');
-      } else if (errorMsg === 'Login required') {
+      } else if (errorMsg?.includes('Login required') || errorMsg?.includes('Auth check failed')) {
         closeUnlockModal();
         openRegisterModal();
       } else {

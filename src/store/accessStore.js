@@ -30,13 +30,13 @@ export const useAccessStore = create((set) => ({
   },
 
   setAccessStatus: ({ isUnlocked, unlockedAt = null, checked = true }) => {
-    set({
+    set((state) => ({
       isUnlocked: Boolean(isUnlocked),
       unlockedAt,
       accessChecked: checked,
       isCheckingAccess: false,
-      showUnlockModal: false,
-    });
+      showUnlockModal: isUnlocked ? false : state.showUnlockModal,
+    }));
   },
 
   setCheckingAccess: (isCheckingAccess) => set({ isCheckingAccess }),
@@ -51,14 +51,17 @@ export const useAccessStore = create((set) => ({
     });
   },
 
-  openRegisterModal: () => set({ showRegisterModal: true }),
+  openRegisterModal: () => set({ showRegisterModal: true, showUnlockModal: false }),
   closeRegisterModal: () => set({ showRegisterModal: false }),
-  openUnlockModal: () => set({ showUnlockModal: true }),
+  openUnlockModal: () => set({ showUnlockModal: true, showRegisterModal: false }),
   closeUnlockModal: () => set({ showUnlockModal: false }),
 
   reset: () => {
     localStorage.removeItem('access_unlocked');
     localStorage.removeItem('access_unlocked_at');
+    localStorage.removeItem('activationInfo');
+    localStorage.removeItem('access_unlocked_cache');
+    localStorage.removeItem('access_unlocked_at_cache');
     localStorage.removeItem('access-storage');
     set({ ...initialState, isCheckingAccess: false, accessChecked: true });
   },

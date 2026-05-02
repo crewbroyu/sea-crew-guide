@@ -3,7 +3,12 @@ import { useAccessStore } from '../store/accessStore';
 import { activationService } from '../services/activationService';
 
 export default function UnlockModal() {
-  const { showUnlockModal, closeUnlockModal, unlock, openRegisterModal } = useAccessStore();
+  const {
+    showUnlockModal,
+    closeUnlockModal,
+    setAccessStatus,
+    openRegisterModal,
+  } = useAccessStore();
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,9 +24,20 @@ export default function UnlockModal() {
     setError('');
 
     try {
+      const user = await activationService.getCurrentUser();
       const result = await activationService.activateCode(code);
+      const access = await activationService.getUserAccessStatus(user);
+
+      if (!access.isUnlocked) {
+        throw new Error('Activation saved but access verification failed');
+      }
+
       setShowSuccess(true);
-      unlock({ unlockedAt: result.unlockedAt });
+      setAccessStatus({
+        isUnlocked: true,
+        unlockedAt: access.unlockedAt || result.unlockedAt,
+        checked: true,
+      });
       
       setTimeout(() => {
         closeUnlockModal();

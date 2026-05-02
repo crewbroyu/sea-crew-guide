@@ -62,7 +62,14 @@ to authenticated
 using (false)
 with check (false);
 
-create or replace function public.consume_activation_code(input_code text)
+drop function if exists public.consume_activation_code(text);
+drop function if exists public.consume_activation_code(text, uuid, text);
+
+create or replace function public.consume_activation_code(
+  input_code text,
+  input_user_id uuid,
+  input_user_email text
+)
 returns jsonb
 language plpgsql
 security definer
@@ -77,11 +84,15 @@ begin
     return jsonb_build_object('success', false, 'reason', 'Login required');
   end if;
 
+  if input_user_id is distinct from auth.uid() then
+    return jsonb_build_object('success', false, 'reason', 'User mismatch');
+  end if;
+
   update public.activation_codes
   set
     is_used = true,
-    used_by = auth.uid()::text,
-    used_by_email = auth.email(),
+    used_by = input_user_id::text,
+    used_by_email = coalesce(nullif(input_user_email, ''), auth.email()),
     used_at = access_time
   where code = normalized_code
     and is_used = false
@@ -103,7 +114,7 @@ begin
     updated_at
   )
   values (
-    auth.uid(),
+    input_user_id,
     true,
     access_time,
     consumed_code,
@@ -123,5 +134,5 @@ begin
 end;
 $$;
 
-revoke all on function public.consume_activation_code(text) from public;
-grant execute on function public.consume_activation_code(text) to authenticated;
+revoke all on function public.consume_activation_code(text, uuid, text) from public;
+grant execute on function public.consume_activation_code(text, uuid, text) to authenticated;

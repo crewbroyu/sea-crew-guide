@@ -7,6 +7,24 @@ import { activationService } from '../services/activationService';
 import RegisterModal from './RegisterModal';
 import UnlockModal from './UnlockModal';
 
+const PROGRESS_KEYS = [
+  'boarding_progress',
+  'score_data',
+  'checkin_data',
+  'task1_data',
+  'task2_data',
+  'task4_data',
+  'task5_data',
+  'task7_data',
+  'task8_data',
+  'task9_data',
+  'task10_data',
+  'task11_data',
+  'task12_data',
+];
+
+const getDisplayName = (user) => user?.user_metadata?.name || user?.email?.split('@')[0];
+
 export default function AccessGate() {
   const location = useLocation();
   const {
@@ -16,100 +34,82 @@ export default function AccessGate() {
     setCheckingAccess,
     openRegisterModal,
     openUnlockModal,
+    closeRegisterModal,
   } = useAccessStore();
   const { guardRoute } = useAccessGuard();
   const hasCheckedAuth = useRef(false);
 
+  const clearUserScopedProgressIfNeeded = useCallback((user) => {
+    const previousUserId = localStorage.getItem('current_user_id');
+
+    if (previousUserId && previousUserId !== user.id) {
+      PROGRESS_KEYS.forEach((key) => localStorage.removeItem(key));
+      activationService.clearAccessCache();
+    }
+
+    localStorage.setItem('current_user_id', user.id);
+  }, []);
+
   const refreshAccessForUser = useCallback(async (user) => {
-    // 先检查 localStorage 是否有解锁信息
-    const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
-    if (localStorageUnlocked) {
-      console.log('从 localStorage 读取到解锁状态');
-      // 如果有用户信息，注册用户
-      if (user) {
-        register(user, user.user_metadata?.name || user.email?.split('@')[0]);
-      } else {
-        register('unlocked_user', 'User');
-      }
-      setAccessStatus({ isUnlocked: true, unlockedAt: localStorage.getItem('access_unlocked_at'), checked: true });
+    if (!user?.id) {
+      activationService.clearAccessCache();
+      reset();
+      openRegisterModal();
       return;
     }
 
-    // 如果没有 localStorage 解锁状态，但有用户，检查数据库
-    if (user) {
-      // 获取之前存储的用户ID
-      const previousUserId = localStorage.getItem('current_user_id');
-      const currentUserId = user.id;
+    clearUserScopedProgressIfNeeded(user);
+    register(user, getDisplayName(user));
+    closeRegisterModal();
+    setCheckingAccess(true);
 
-      // 如果用户切换了，清除之前用户的任务进度和积分数据
-      if (previousUserId && previousUserId !== currentUserId) {
-        console.log('用户切换，清除旧数据');
-        localStorage.removeItem('boarding_progress');
-        localStorage.removeItem('score_data');
-        localStorage.removeItem('checkin_data');
-        localStorage.removeItem('task1_data');
-        localStorage.removeItem('task2_data');
-        localStorage.removeItem('task4_data');
-        localStorage.removeItem('task5_data');
-        localStorage.removeItem('task7_data');
-        localStorage.removeItem('task8_data');
-        localStorage.removeItem('task9_data');
-        localStorage.removeItem('task10_data');
-        localStorage.removeItem('task11_data');
-        localStorage.removeItem('task12_data');
+    try {
+      const access = await activationService.getUserAccessStatus(user);
+      setAccessStatus(access);
+
+      if (!access.isUnlocked) {
+        openUnlockModal();
       }
-
-      // 保存当前用户ID
-      localStorage.setItem('current_user_id', currentUserId);
-
-      register(user, user.user_metadata?.name || user.email?.split('@')[0]);
-
-      setCheckingAccess(true);
-
-      try {
-        const access = await activationService.getUserAccessStatus();
-        setAccessStatus(access);
-      } catch (error) {
-        console.error('Access check failed:', error);
-        setAccessStatus({ isUnlocked: false, unlockedAt: null, checked: true });
-      }
+    } catch (error) {
+      console.error('Access check failed:', error);
+      activationService.clearAccessCache();
+      setAccessStatus({ isUnlocked: false, unlockedAt: null, checked: true });
+      openUnlockModal();
     }
-  }, [register, setAccessStatus, setCheckingAccess]);
+  }, [
+    clearUserScopedProgressIfNeeded,
+    closeRegisterModal,
+    openRegisterModal,
+    openUnlockModal,
+    register,
+    reset,
+    setAccessStatus,
+    setCheckingAccess,
+  ]);
 
   useEffect(() => {
     if (hasCheckedAuth.current) return;
     hasCheckedAuth.current = true;
 
     const checkAuth = async () => {
-      console.log('========== AccessGate 检查认证 ==========');
-      
-      // 首先检查 localStorage 是否有解锁信息
-      const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
-      console.log('检查localStorage解锁状态:', localStorageUnlocked);
-      
-      if (localStorageUnlocked) {
-        console.log('✓ 从 localStorage 读取到解锁状态');
-        register('unlocked_user', 'User');
-        setAccessStatus({ isUnlocked: true, unlockedAt: localStorage.getItem('access_unlocked_at'), checked: true });
-        return;
-      }
-      
-      // 然后检查 Supabase 认证
+      console.log('========== AccessGate auth check ==========');
+
       const { data: { user }, error } = await supabase.auth.getUser();
 
       if (error || !user) {
-        console.log('没有有效的认证，打开激活码弹窗');
+        console.log('No authenticated user. Opening login modal.');
+        activationService.clearAccessCache();
         reset();
-        openUnlockModal(); // 优先打开激活码弹窗
+        openRegisterModal();
         return;
       }
 
-      console.log('✓ Supabase认证成功，用户:', user?.email);
+      console.log('Supabase auth OK:', user.email);
       await refreshAccessForUser(user);
     };
 
     checkAuth();
-  }, [openUnlockModal, refreshAccessForUser, register, reset, setAccessStatus]);
+  }, [openRegisterModal, refreshAccessForUser, reset]);
 
   useEffect(() => {
     let refreshTimer = null;

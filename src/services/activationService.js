@@ -2,26 +2,24 @@ import { supabase } from '../supabase';
 
 const normalizeCode = (inputCode) => inputCode.trim().toUpperCase();
 
-// 生成单个激活码
 export const generateCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
-  
-  for (let i = 0; i < 6; i++) {
+
+  for (let i = 0; i < 6; i += 1) {
     result += chars[Math.floor(Math.random() * chars.length)];
   }
-  
+
   return `CREW-${result}`;
 };
 
-// 批量生成激活码（内置防重复）
 export const generateBatchCodes = async (count = 50) => {
   const generatedCodes = new Set();
   const codes = [];
-  
+
   while (codes.length < count) {
     const newCode = generateCode();
-    
+
     if (!generatedCodes.has(newCode)) {
       generatedCodes.add(newCode);
       codes.push({
@@ -31,52 +29,58 @@ export const generateBatchCodes = async (count = 50) => {
       });
     }
   }
-  
+
   return codes;
 };
 
-// 批量插入激活码到 Supabase
 export const insertBatchCodes = async (count = 50) => {
-  try {
-    const codes = await generateBatchCodes(count);
-    const { error } = await supabase.from('activation_codes').insert(codes);
-    
-    if (error) {
-      throw error;
-    }
-    
-    return { success: true, count: codes.length, codes: codes };
-  } catch (error) {
-    console.error('批量插入激活码失败:', error);
+  const codes = await generateBatchCodes(count);
+  const { error } = await supabase.from('activation_codes').insert(codes);
+
+  if (error) {
     throw error;
   }
+
+  return { success: true, count: codes.length, codes };
 };
 
-// 获取所有激活码（仅供管理员使用）
 export const getAllCodes = async () => {
-  try {
-    const { data, error } = await supabase.from('activation_codes').select('*');
-    
-    if (error) {
-      throw error;
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error('获取激活码失败:', error);
+  const { data, error } = await supabase.from('activation_codes').select('*');
+
+  if (error) {
     throw error;
   }
+
+  return data || [];
+};
+
+const clearAccessCache = () => {
+  localStorage.removeItem('access_unlocked');
+  localStorage.removeItem('access_unlocked_at');
+  localStorage.removeItem('activationInfo');
+  localStorage.removeItem('access_unlocked_cache');
+  localStorage.removeItem('access_unlocked_at_cache');
+  localStorage.removeItem('access-storage');
+};
+
+const writeAccessCache = ({ userId, unlockedAt }) => {
+  if (!userId) return;
+
+  localStorage.setItem('current_user_id', userId);
+  localStorage.setItem('access_unlocked_cache', 'true');
+  localStorage.setItem('access_unlocked_at_cache', unlockedAt || new Date().toISOString());
 };
 
 const requireSession = async () => {
   const { data: { session }, error } = await supabase.auth.getSession();
 
   if (error) {
-    console.error('Auth error details:', error);
+    console.error('Auth session check failed:', error);
     throw new Error('Auth check failed: ' + error.message);
   }
 
   if (!session?.access_token) {
+    clearAccessCache();
     throw new Error('Login required');
   }
 
@@ -88,45 +92,54 @@ const requireUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser(session.access_token);
 
   if (error) {
-    console.error('Auth error details:', error);
+    console.error('Auth user check failed:', error);
     throw new Error('Auth check failed: ' + error.message);
   }
 
-  if (!user) {
+  if (!user?.id) {
+    clearAccessCache();
     throw new Error('Login required');
   }
 
   return user;
 };
 
+export const getUserAccessStatus = async (user) => {
+  if (!user?.id) {
+    clearAccessCache();
+    throw new Error('Login required');
+  }
+
+  const { data, error } = await supabase
+    .from('user_access')
+    .select('unlocked, unlocked_at')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Access lookup failed:', error);
+    throw new Error('Access check failed');
+  }
+
+  if (data?.unlocked) {
+    writeAccessCache({ userId: user.id, unlockedAt: data.unlocked_at });
+  } else {
+    clearAccessCache();
+  }
+
+  return {
+    isUnlocked: Boolean(data?.unlocked),
+    unlockedAt: data?.unlocked_at || null,
+  };
+};
+
 export const activationService = {
-  async getUserAccessStatus() {
-    try {
-      const user = await requireUser();
+  async getCurrentUser() {
+    return requireUser();
+  },
 
-      const { data, error } = await supabase
-        .from('user_access')
-        .select('unlocked, unlocked_at')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Access lookup failed:', error);
-        throw new Error('Access check failed');
-      }
-
-      return {
-        isUnlocked: Boolean(data?.unlocked),
-        unlockedAt: data?.unlocked_at || null,
-      };
-    } catch (error) {
-      // 如果没有用户，检查 localStorage
-      const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
-      return {
-        isUnlocked: localStorageUnlocked,
-        unlockedAt: localStorage.getItem('access_unlocked_at') || null,
-      };
-    }
+  async getUserAccessStatus(user) {
+    return getUserAccessStatus(user);
   },
 
   async activateCode(inputCode) {
@@ -136,68 +149,42 @@ export const activationService = {
       throw new Error('Invalid code');
     }
 
-    console.log('========== 开始激活流程 ==========');
-    console.log('输入的激活码:', inputCode);
-    console.log('清洗后的激活码:', cleanCode);
+    const user = await requireUser();
 
-    // 先检查 localStorage 是否已经解锁
-    const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
-    if (localStorageUnlocked) {
-      console.log('✓ 已经是解锁状态');
-      return {
-        success: true,
-        unlockedAt: localStorage.getItem('access_unlocked_at'),
-      };
-    }
+    console.log('========== Start activation flow ==========');
+    console.log('Activation code:', cleanCode);
+    console.log('Calling RPC consume_activation_code...');
 
-    await requireSession();
-
-    // 直接调用 RPC 验证激活码
-    console.log('调用 RPC consume_activation_code...');
     const { data, error } = await supabase.rpc('consume_activation_code', {
       input_code: cleanCode,
+      input_user_id: user.id,
+      input_user_email: user.email,
     });
 
-    console.log('RPC 返回:', { data, error });
+    console.log('RPC response:', { data, error });
 
     if (error) {
-      console.error('✗ Activation RPC failed:', error);
+      console.error('Activation RPC failed:', error);
       throw new Error('Activation failed: ' + error.message);
     }
 
     if (!data?.success) {
-      console.log('✗ 激活失败原因:', data?.reason);
       throw new Error(data?.reason || 'Activation failed');
     }
 
-    console.log('✓ 激活成功！');
+    const access = await getUserAccessStatus(user);
 
-    // 保存激活信息到 localStorage（用于调试）
-    const activationInfo = {
-      code: cleanCode,
-      activatedAt: data.unlocked_at || new Date().toISOString(),
-    };
-    localStorage.setItem('activationInfo', JSON.stringify(activationInfo));
-    console.log('✓ 已保存激活信息到localStorage');
-    
-    // 保存解锁状态到 localStorage
-    localStorage.setItem('access_unlocked', 'true');
-    localStorage.setItem('access_unlocked_at', data.unlocked_at || new Date().toISOString());
-    console.log('✓ 已保存解锁状态到localStorage');
-
-    console.log('========== 激活流程完成 ==========');
+    if (!access.isUnlocked) {
+      throw new Error('Activation saved but access verification failed');
+    }
 
     return {
       success: true,
-      unlockedAt: data.unlocked_at || new Date().toISOString(),
+      unlockedAt: access.unlockedAt || data.unlocked_at || new Date().toISOString(),
     };
   },
 
-  clearAccessCache() {
-    localStorage.removeItem('access_unlocked');
-    localStorage.removeItem('access_unlocked_at');
-    localStorage.removeItem('access-storage');
-  },
+  clearAccessCache,
 };
 
 export default activationService;

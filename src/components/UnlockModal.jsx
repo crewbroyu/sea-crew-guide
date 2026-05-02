@@ -43,8 +43,8 @@ export default function UnlockModal() {
       } else if (errorMsg?.includes('Code already used')) {
         setError('Code already used');
       } else if (errorMsg?.includes('Login required') || errorMsg?.includes('Auth check failed')) {
-        closeUnlockModal();
-        openRegisterModal();
+        // 不要跳转到注册页面，而是显示错误并让用户重试
+        setError('请稍后重试，或刷新页面后再次尝试激活');
       } else {
         setError(errorMsg || 'Activation failed. Please try again.');
       }

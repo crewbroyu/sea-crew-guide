@@ -77,32 +77,40 @@ export default function AccessGate() {
     hasCheckedAuth.current = true;
 
     const checkAuth = async () => {
+      console.log('========== AccessGate 检查认证 ==========');
+      
       const { data: { user }, error } = await supabase.auth.getUser();
 
       if (error) {
-        console.error('Auth check failed:', error);
+        console.error('✗ Auth check failed:', error.message);
         
         // 如果 session 丢失，先检查 localStorage 是否有解锁信息
         const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
+        console.log('检查localStorage解锁状态:', localStorageUnlocked);
+        
         if (localStorageUnlocked) {
-          console.log('从 localStorage 读取到解锁状态，即使没有 session');
+          console.log('✓ 从 localStorage 读取到解锁状态，即使没有 session');
           const userEmail = localStorage.getItem('access_user_email');
+          console.log('localStorage中的用户邮箱:', userEmail);
           if (userEmail) {
             register(userEmail, userEmail.split('@')[0]);
             setAccessStatus({ isUnlocked: true, unlockedAt: localStorage.getItem('access_unlocked_at'), checked: true });
           } else {
             // 如果有解锁状态但没有用户邮箱，尝试使用默认信息
+            console.log('✓ 有解锁状态但无邮箱，使用默认信息');
             register(userEmail || 'unlocked_user', 'User');
             setAccessStatus({ isUnlocked: true, unlockedAt: localStorage.getItem('access_unlocked_at'), checked: true });
           }
           return;
         }
         
+        console.log('✗ 没有有效的认证和激活信息，打开注册弹窗');
         reset();
         openRegisterModal();
         return;
       }
 
+      console.log('✓ Supabase认证成功，用户:', user?.email);
       await refreshAccessForUser(user);
     };
 

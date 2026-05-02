@@ -111,26 +111,29 @@ export const activationService = {
       throw new Error('Invalid code');
     }
 
-    console.log('开始激活流程...');
+    console.log('========== 开始激活流程 ==========');
     console.log('输入的激活码:', inputCode);
     console.log('清洗后的激活码:', cleanCode);
 
     let user;
     try {
       user = await requireUser();
-      console.log('当前用户:', user?.email);
+      console.log('✓ Supabase认证成功，当前用户:', user?.email);
     } catch (authError) {
-      console.error('Supabase认证失败:', authError);
+      console.error('✗ Supabase认证失败:', authError.message);
       
       // 检查localStorage是否有之前的激活信息
       const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
       const accessUserEmail = localStorage.getItem('access_user_email');
       
+      console.log('检查localStorage:', { localStorageUnlocked, accessUserEmail });
+      
       if (localStorageUnlocked && accessUserEmail) {
-        console.log('使用localStorage中的用户信息进行激活');
+        console.log('✓ 使用localStorage中的用户信息进行激活');
         // 使用localStorage中的用户信息
         user = { id: 'local', email: accessUserEmail };
       } else {
+        console.error('✗ 没有找到有效的激活信息，需要登录');
         throw authError;
       }
     }
@@ -143,14 +146,16 @@ export const activationService = {
     console.log('RPC 返回:', { data, error });
 
     if (error) {
-      console.error('Activation RPC failed:', error);
+      console.error('✗ Activation RPC failed:', error);
       throw new Error('Activation failed: ' + error.message);
     }
 
     if (!data?.success) {
-      console.log('激活失败原因:', data?.reason);
+      console.log('✗ 激活失败原因:', data?.reason);
       throw new Error(data?.reason || 'Activation failed');
     }
+
+    console.log('✓ 激活成功！');
 
     // 保存激活信息到 localStorage（用于调试）
     const activationInfo = {
@@ -159,11 +164,15 @@ export const activationService = {
       user: user.email
     };
     localStorage.setItem('activationInfo', JSON.stringify(activationInfo));
+    console.log('✓ 已保存激活信息到localStorage');
     
     // 保存解锁状态到 localStorage（用于 session 丢失时的回退）
     localStorage.setItem('access_unlocked', 'true');
     localStorage.setItem('access_unlocked_at', data.unlocked_at || new Date().toISOString());
     localStorage.setItem('access_user_email', user.email);
+    console.log('✓ 已保存解锁状态到localStorage');
+
+    console.log('========== 激活流程完成 ==========');
 
     return {
       success: true,

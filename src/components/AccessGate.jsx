@@ -112,13 +112,26 @@ export default function AccessGate() {
   }, [openUnlockModal, refreshAccessForUser, register, reset, setAccessStatus]);
 
   useEffect(() => {
+    let refreshTimer = null;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        await refreshAccessForUser(session?.user || null);
+      (_event, session) => {
+        if (refreshTimer) {
+          clearTimeout(refreshTimer);
+        }
+
+        refreshTimer = setTimeout(() => {
+          refreshAccessForUser(session?.user || null);
+        }, 0);
       }
     );
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+      subscription?.unsubscribe();
+    };
   }, [refreshAccessForUser]);
 
   useEffect(() => {

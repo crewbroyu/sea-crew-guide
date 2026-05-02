@@ -36,6 +36,10 @@ export default function UnlockModal() {
         setError('Invalid code');
       } else if (errorMsg?.includes('Code already used')) {
         setError('Code already used');
+      } else if (errorMsg?.includes('Login required')) {
+        setError('Please sign in before activating');
+        closeUnlockModal();
+        openRegisterModal();
       } else {
         setError(errorMsg || 'Activation failed. Please try again.');
       }

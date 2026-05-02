@@ -20,7 +20,7 @@ export default function RegisterModal() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setIsProcessing(true);
-        register(user.email, user.email?.split('@')[0]);
+        register(user, user.user_metadata?.name || user.email?.split('@')[0]);
         setTimeout(() => {
           closeRegisterModal();
           resetForm();
@@ -38,7 +38,7 @@ export default function RegisterModal() {
         
         if (event === 'SIGNED_IN' && session?.user) {
           setIsProcessing(true);
-          register(session.user.email, session.user.email?.split('@')[0]);
+          register(session.user, session.user.user_metadata?.name || session.user.email?.split('@')[0]);
           setTimeout(() => {
             closeRegisterModal();
             resetForm();
@@ -122,10 +122,17 @@ export default function RegisterModal() {
       }
       
       if (result.error) throw result.error;
+
+      if (!result.data?.session) {
+        setError(mode === 'register'
+          ? '账户已创建，请先完成邮箱验证后再登录激活'
+          : '登录未完成，请重新登录');
+        return;
+      }
       
       if (result.data?.user) {
         // 注册/登录成功
-        register(result.data.user.email, name || result.data.user.email?.split('@')[0]);
+        register(result.data.user, name || result.data.user.user_metadata?.name || result.data.user.email?.split('@')[0]);
       }
     } catch (error) {
       console.error('Auth error:', error);

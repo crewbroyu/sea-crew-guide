@@ -68,8 +68,24 @@ export const getAllCodes = async () => {
   }
 };
 
+const requireSession = async () => {
+  const { data: { session }, error } = await supabase.auth.getSession();
+
+  if (error) {
+    console.error('Auth error details:', error);
+    throw new Error('Auth check failed: ' + error.message);
+  }
+
+  if (!session?.access_token) {
+    throw new Error('Login required');
+  }
+
+  return session;
+};
+
 const requireUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const session = await requireSession();
+  const { data: { user }, error } = await supabase.auth.getUser(session.access_token);
 
   if (error) {
     console.error('Auth error details:', error);
@@ -134,7 +150,9 @@ export const activationService = {
       };
     }
 
-    // 直接调用 RPC 验证激活码，不需要用户登录
+    await requireSession();
+
+    // 直接调用 RPC 验证激活码
     console.log('调用 RPC consume_activation_code...');
     const { data, error } = await supabase.rpc('consume_activation_code', {
       input_code: cleanCode,

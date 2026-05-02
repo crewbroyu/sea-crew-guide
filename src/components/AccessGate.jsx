@@ -90,6 +90,10 @@ export default function AccessGate() {
           if (userEmail) {
             register(userEmail, userEmail.split('@')[0]);
             setAccessStatus({ isUnlocked: true, unlockedAt: localStorage.getItem('access_unlocked_at'), checked: true });
+          } else {
+            // 如果有解锁状态但没有用户邮箱，尝试使用默认信息
+            register(userEmail || 'unlocked_user', 'User');
+            setAccessStatus({ isUnlocked: true, unlockedAt: localStorage.getItem('access_unlocked_at'), checked: true });
           }
           return;
         }
@@ -103,7 +107,7 @@ export default function AccessGate() {
     };
 
     checkAuth();
-  }, [openRegisterModal, refreshAccessForUser, reset, register, setAccessStatus]);
+  }, [openRegisterModal, refreshAccessForUser, register, reset, setAccessStatus]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

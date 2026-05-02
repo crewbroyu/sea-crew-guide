@@ -115,8 +115,25 @@ export const activationService = {
     console.log('输入的激活码:', inputCode);
     console.log('清洗后的激活码:', cleanCode);
 
-    const user = await requireUser();
-    console.log('当前用户:', user?.email);
+    let user;
+    try {
+      user = await requireUser();
+      console.log('当前用户:', user?.email);
+    } catch (authError) {
+      console.error('Supabase认证失败:', authError);
+      
+      // 检查localStorage是否有之前的激活信息
+      const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
+      const accessUserEmail = localStorage.getItem('access_user_email');
+      
+      if (localStorageUnlocked && accessUserEmail) {
+        console.log('使用localStorage中的用户信息进行激活');
+        // 使用localStorage中的用户信息
+        user = { id: 'local', email: accessUserEmail };
+      } else {
+        throw authError;
+      }
+    }
 
     console.log('调用 RPC consume_activation_code...');
     const { data, error } = await supabase.rpc('consume_activation_code', {

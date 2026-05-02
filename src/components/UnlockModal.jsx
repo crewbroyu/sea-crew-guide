@@ -3,19 +3,13 @@ import { useAccessStore } from '../store/accessStore';
 import { activationService } from '../services/activationService';
 
 export default function UnlockModal() {
-  const { showUnlockModal, closeUnlockModal, unlock, isRegistered, openRegisterModal } = useAccessStore();
+  const { showUnlockModal, closeUnlockModal, unlock, openRegisterModal } = useAccessStore();
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handleActivate = async () => {
-    if (!isRegistered) {
-      closeUnlockModal();
-      openRegisterModal();
-      return;
-    }
-
     if (!code.trim()) {
       setError('Please enter activation code');
       return;
@@ -42,9 +36,6 @@ export default function UnlockModal() {
         setError('Invalid code');
       } else if (errorMsg?.includes('Code already used')) {
         setError('Code already used');
-      } else if (errorMsg?.includes('Login required') || errorMsg?.includes('Auth check failed')) {
-        // 不要跳转到注册页面，而是显示错误并让用户重试
-        setError('请稍后重试，或刷新页面后再次尝试激活');
       } else {
         setError(errorMsg || 'Activation failed. Please try again.');
       }
@@ -125,6 +116,19 @@ export default function UnlockModal() {
               <div className="text-center text-gray-500 text-sm">
                 <p>Get your code via WeChat</p>
                 <p className="text-xs mt-1">添加微信获取激活码</p>
+              </div>
+              
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeUnlockModal();
+                    openRegisterModal();
+                  }}
+                  className="text-blue-600 hover:text-blue-700 text-sm"
+                >
+                  Already have an account? Sign In · 已有账户？登录
+                </button>
               </div>
             </div>
           </>

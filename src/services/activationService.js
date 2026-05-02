@@ -85,23 +85,32 @@ const requireUser = async () => {
 
 export const activationService = {
   async getUserAccessStatus() {
-    const user = await requireUser();
+    try {
+      const user = await requireUser();
 
-    const { data, error } = await supabase
-      .from('user_access')
-      .select('unlocked, unlocked_at')
-      .eq('user_id', user.id)
-      .maybeSingle();
+      const { data, error } = await supabase
+        .from('user_access')
+        .select('unlocked, unlocked_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    if (error) {
-      console.error('Access lookup failed:', error);
-      throw new Error('Access check failed');
+      if (error) {
+        console.error('Access lookup failed:', error);
+        throw new Error('Access check failed');
+      }
+
+      return {
+        isUnlocked: Boolean(data?.unlocked),
+        unlockedAt: data?.unlocked_at || null,
+      };
+    } catch (error) {
+      // 如果没有用户，检查 localStorage
+      const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
+      return {
+        isUnlocked: localStorageUnlocked,
+        unlockedAt: localStorage.getItem('access_unlocked_at') || null,
+      };
     }
-
-    return {
-      isUnlocked: Boolean(data?.unlocked),
-      unlockedAt: data?.unlocked_at || null,
-    };
   },
 
   async activateCode(inputCode) {
@@ -115,29 +124,17 @@ export const activationService = {
     console.log('输入的激活码:', inputCode);
     console.log('清洗后的激活码:', cleanCode);
 
-    let user;
-    try {
-      user = await requireUser();
-      console.log('✓ Supabase认证成功，当前用户:', user?.email);
-    } catch (authError) {
-      console.error('✗ Supabase认证失败:', authError.message);
-      
-      // 检查localStorage是否有之前的激活信息
-      const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
-      const accessUserEmail = localStorage.getItem('access_user_email');
-      
-      console.log('检查localStorage:', { localStorageUnlocked, accessUserEmail });
-      
-      if (localStorageUnlocked && accessUserEmail) {
-        console.log('✓ 使用localStorage中的用户信息进行激活');
-        // 使用localStorage中的用户信息
-        user = { id: 'local', email: accessUserEmail };
-      } else {
-        console.error('✗ 没有找到有效的激活信息，需要登录');
-        throw authError;
-      }
+    // 先检查 localStorage 是否已经解锁
+    const localStorageUnlocked = localStorage.getItem('access_unlocked') === 'true';
+    if (localStorageUnlocked) {
+      console.log('✓ 已经是解锁状态');
+      return {
+        success: true,
+        unlockedAt: localStorage.getItem('access_unlocked_at'),
+      };
     }
 
+    // 直接调用 RPC 验证激活码，不需要用户登录
     console.log('调用 RPC consume_activation_code...');
     const { data, error } = await supabase.rpc('consume_activation_code', {
       input_code: cleanCode,
@@ -161,15 +158,13 @@ export const activationService = {
     const activationInfo = {
       code: cleanCode,
       activatedAt: data.unlocked_at || new Date().toISOString(),
-      user: user.email
     };
     localStorage.setItem('activationInfo', JSON.stringify(activationInfo));
     console.log('✓ 已保存激活信息到localStorage');
     
-    // 保存解锁状态到 localStorage（用于 session 丢失时的回退）
+    // 保存解锁状态到 localStorage
     localStorage.setItem('access_unlocked', 'true');
     localStorage.setItem('access_unlocked_at', data.unlocked_at || new Date().toISOString());
-    localStorage.setItem('access_user_email', user.email);
     console.log('✓ 已保存解锁状态到localStorage');
 
     console.log('========== 激活流程完成 ==========');

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useAccessStore } from '../store/accessStore';
-import { useAccessGuard } from '../hooks/useAccessGuard';
 import { supabase } from '../supabase';
 import { activationService } from '../services/activationService';
 import RegisterModal from './RegisterModal';
@@ -26,17 +24,14 @@ const PROGRESS_KEYS = [
 const getDisplayName = (user) => user?.user_metadata?.name || user?.email?.split('@')[0];
 
 export default function AccessGate() {
-  const location = useLocation();
   const {
     register,
     reset,
     setAccessStatus,
+    setCheckingAuth,
     setCheckingAccess,
-    openRegisterModal,
-    openUnlockModal,
     closeRegisterModal,
   } = useAccessStore();
-  const { guardRoute } = useAccessGuard();
   const hasCheckedAuth = useRef(false);
 
   const clearUserScopedProgressIfNeeded = useCallback((user) => {
@@ -54,7 +49,6 @@ export default function AccessGate() {
     if (!user?.id) {
       activationService.clearAccessCache();
       reset();
-      openRegisterModal();
       return;
     }
 
@@ -66,21 +60,14 @@ export default function AccessGate() {
     try {
       const access = await activationService.getUserAccessStatus(user);
       setAccessStatus(access);
-
-      if (!access.isUnlocked) {
-        openUnlockModal();
-      }
     } catch (error) {
       console.error('Access check failed:', error);
       activationService.clearAccessCache();
       setAccessStatus({ isUnlocked: false, unlockedAt: null, checked: true });
-      openUnlockModal();
     }
   }, [
     clearUserScopedProgressIfNeeded,
     closeRegisterModal,
-    openRegisterModal,
-    openUnlockModal,
     register,
     reset,
     setAccessStatus,
@@ -93,14 +80,14 @@ export default function AccessGate() {
 
     const checkAuth = async () => {
       console.log('========== AccessGate auth check ==========');
+      setCheckingAuth(true);
 
       const { data: { user }, error } = await supabase.auth.getUser();
 
       if (error || !user) {
-        console.log('No authenticated user. Opening login modal.');
+        console.log('No authenticated user. Continuing as guest.');
         activationService.clearAccessCache();
         reset();
-        openRegisterModal();
         return;
       }
 
@@ -109,7 +96,7 @@ export default function AccessGate() {
     };
 
     checkAuth();
-  }, [openRegisterModal, refreshAccessForUser, reset]);
+  }, [refreshAccessForUser, reset, setCheckingAuth]);
 
   useEffect(() => {
     let refreshTimer = null;
@@ -133,10 +120,6 @@ export default function AccessGate() {
       subscription?.unsubscribe();
     };
   }, [refreshAccessForUser]);
-
-  useEffect(() => {
-    guardRoute(location.pathname);
-  }, [location.pathname, guardRoute]);
 
   return (
     <>

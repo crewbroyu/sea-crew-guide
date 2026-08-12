@@ -1,4 +1,5 @@
 -- Run this in Supabase SQL editor before deploying the hardened access gate.
+-- Replace YOUR_EMAIL_HERE with the Supabase Auth email of the admin user.
 -- It moves paid access authority out of browser localStorage and into
 -- authenticated, user-bound database state.
 
@@ -30,6 +31,7 @@ create table if not exists public.user_access (
 );
 
 alter table public.activation_codes enable row level security;
+alter table public.activation_codes force row level security;
 alter table public.user_access enable row level security;
 
 drop policy if exists "Users can read their own access" on public.user_access;
@@ -47,20 +49,61 @@ to authenticated
 using (false)
 with check (false);
 
-drop policy if exists "Clients cannot read activation codes" on public.activation_codes;
-create policy "Clients cannot read activation codes"
+do $$
+declare
+  policy_record record;
+begin
+  for policy_record in
+    select policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'activation_codes'
+  loop
+    execute format(
+      'drop policy if exists %I on public.activation_codes',
+      policy_record.policyname
+    );
+  end loop;
+end;
+$$;
+
+create policy "Admin can view activation codes"
 on public.activation_codes
 for select
 to authenticated
-using (false);
+using (
+  (auth.jwt() ->> 'email') = 'YOUR_EMAIL_HERE'
+  or current_setting('app.activation_rpc', true) = 'consume_activation_code'
+);
 
-drop policy if exists "Clients cannot modify activation codes" on public.activation_codes;
-create policy "Clients cannot modify activation codes"
+create policy "Admin can insert activation codes"
 on public.activation_codes
-for all
+for insert
 to authenticated
-using (false)
-with check (false);
+with check (
+  (auth.jwt() ->> 'email') = 'YOUR_EMAIL_HERE'
+);
+
+create policy "Admin can update activation codes"
+on public.activation_codes
+for update
+to authenticated
+using (
+  (auth.jwt() ->> 'email') = 'YOUR_EMAIL_HERE'
+  or current_setting('app.activation_rpc', true) = 'consume_activation_code'
+)
+with check (
+  (auth.jwt() ->> 'email') = 'YOUR_EMAIL_HERE'
+  or current_setting('app.activation_rpc', true) = 'consume_activation_code'
+);
+
+create policy "Admin can delete activation codes"
+on public.activation_codes
+for delete
+to authenticated
+using (
+  (auth.jwt() ->> 'email') = 'YOUR_EMAIL_HERE'
+);
 
 drop function if exists public.consume_activation_code(text);
 drop function if exists public.consume_activation_code(text, uuid, text);
@@ -88,11 +131,13 @@ begin
     return jsonb_build_object('success', false, 'reason', 'User mismatch');
   end if;
 
+  perform set_config('app.activation_rpc', 'consume_activation_code', true);
+
   update public.activation_codes
   set
     is_used = true,
     used_by = input_user_id::text,
-    used_by_email = coalesce(nullif(input_user_email, ''), auth.email()),
+    used_by_email = coalesce(nullif(input_user_email, ''), auth.jwt() ->> 'email'),
     used_at = access_time
   where code = normalized_code
     and is_used = false

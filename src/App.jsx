@@ -6,7 +6,8 @@ import Tasks from './pages/Tasks'
 import ErrorBoundary from './components/ErrorBoundary'
 import BottomNav from './components/BottomNav'
 import AccessGate from './components/AccessGate'
-import ProtectedRoute from './components/ProtectedRoute'
+import RequireLogin from './components/RequireLogin'
+import RequireActivation from './components/RequireActivation'
 import CompletionHint from './components/CompletionHint'
 import DebugPanel from './components/DebugPanel'
 
@@ -100,44 +101,44 @@ function App() {
               <Route path="/tasks/Task10" element={<Task10 />} />
               <Route path="/tasks/Task11" element={<Task11 />} />
               <Route path="/tasks/Task12" element={<Task12 />} />
-              <Route path="/tasks/phase2/Task4" element={<Task4ResumeBuilder />} />
-              <Route path="/tasks/phase2/Task5" element={<ProtectedRoute><Task5Training /></ProtectedRoute>} />
+              <Route path="/tasks/phase2/Task4" element={<RequireLogin><Task4ResumeBuilder /></RequireLogin>} />
+              <Route path="/tasks/phase2/Task5" element={<Task5Training />} />
               <Route path="/tasks/phase2/Task6" element={<Task6InterviewSkills />} />
               <Route path="/tasks/phase2/Task7" element={<Task7InterviewPractice />} />
               <Route path="/tasks/phase2/Task8" element={<Task8MockInterview />} />
               <Route path="/tasks/phase2/Task9" element={<Task9 />} />
               <Route path="/academy" element={<Academy />} />
-              <Route path="/academy/listening-speaking" element={<ProtectedRoute><ListeningSpeaking /></ProtectedRoute>} />
-              <Route path="/academy/listening-speaking/:category" element={<ProtectedRoute><ListeningSpeakingCategory /></ProtectedRoute>} />
-              <Route path="/academy/listening-speaking/:category/:course" element={<ProtectedRoute><ListeningSpeakingCourse /></ProtectedRoute>} />
-              <Route path="/academy/boarding" element={<ProtectedRoute><Boarding /></ProtectedRoute>} />
-              <Route path="/academy/boarding/detail" element={<ProtectedRoute><BoardingDetail /></ProtectedRoute>} />
-              <Route path="/academy/boarding/advice" element={<ProtectedRoute><BoardingAdvice /></ProtectedRoute>} />
-              <Route path="/academy/boarding/wechat" element={<ProtectedRoute><BoardingWechat /></ProtectedRoute>} />
+              <Route path="/academy/listening-speaking" element={<ListeningSpeaking />} />
+              <Route path="/academy/listening-speaking/:category" element={<ListeningSpeakingCategory />} />
+              <Route path="/academy/listening-speaking/:category/:course" element={<ListeningSpeakingCourse />} />
+              <Route path="/academy/boarding" element={<Boarding />} />
+              <Route path="/academy/boarding/detail" element={<BoardingDetail />} />
+              <Route path="/academy/boarding/advice" element={<BoardingAdvice />} />
+              <Route path="/academy/boarding/wechat" element={<BoardingWechat />} />
               <Route path="/academy/wiki" element={<Wiki />} />
               <Route path="/academy/wiki/:id" element={<WikiArticle />} />
 
-              <Route path="/academy/position-english" element={<ProtectedRoute><PositionEnglish /></ProtectedRoute>} />
-              <Route path="/academy/interview-questions" element={<ProtectedRoute><InterviewQuestions /></ProtectedRoute>} />
-              <Route path="/academy/scenarios" element={<ProtectedRoute><ScenarioList /></ProtectedRoute>} />
-              <Route path="/academy/scenarios/detail" element={<ProtectedRoute><ScenarioDetail /></ProtectedRoute>} />
-              <Route path="/academy/port-daily" element={<ProtectedRoute><PortDaily /></ProtectedRoute>} />
+              <Route path="/academy/position-english" element={<PositionEnglish />} />
+              <Route path="/academy/interview-questions" element={<InterviewQuestions />} />
+              <Route path="/academy/scenarios" element={<ScenarioList />} />
+              <Route path="/academy/scenarios/detail" element={<ScenarioDetail />} />
+              <Route path="/academy/port-daily" element={<PortDaily />} />
               <Route path="/jobs" element={<JobsCenter />} />
-              <Route path="/jobs/preparation" element={<ProtectedRoute><JobPreparation /></ProtectedRoute>} />
-              <Route path="/jobs/channels" element={<ProtectedRoute><JobChannels /></ProtectedRoute>} />
-              <Route path="/jobs/company-jobs" element={<ProtectedRoute><CruiseCompanyJobs /></ProtectedRoute>} />
-              <Route path="/jobs/platforms" element={<ProtectedRoute><CruiseJobPlatforms /></ProtectedRoute>} />
-              <Route path="/jobs/latest" element={<ProtectedRoute><LatestRecruitment /></ProtectedRoute>} />
-              <Route path="/jobs/yuge" element={<ProtectedRoute><YugeReferral /></ProtectedRoute>} />
-              <Route path="/jobs/brand-partners" element={<ProtectedRoute><BrandPartners /></ProtectedRoute>} />
-              <Route path="/jobs/applications" element={<ProtectedRoute><MyApplications /></ProtectedRoute>} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/my-offer" element={<MyOffer />} />
-              <Route path="/resume" element={<Resume />} />
-              <Route path="/messages" element={<Messages />} />
+              <Route path="/jobs/preparation" element={<JobPreparation />} />
+              <Route path="/jobs/channels" element={<JobChannels />} />
+              <Route path="/jobs/company-jobs" element={<CruiseCompanyJobs />} />
+              <Route path="/jobs/platforms" element={<CruiseJobPlatforms />} />
+              <Route path="/jobs/latest" element={<LatestRecruitment />} />
+              <Route path="/jobs/yuge" element={<YugeReferral />} />
+              <Route path="/jobs/brand-partners" element={<BrandPartners />} />
+              <Route path="/jobs/applications" element={<RequireLogin><MyApplications /></RequireLogin>} />
+              <Route path="/profile" element={<RequireLogin><Profile /></RequireLogin>} />
+              <Route path="/my-offer" element={<RequireLogin><MyOffer /></RequireLogin>} />
+              <Route path="/resume" element={<RequireLogin><Resume /></RequireLogin>} />
+              <Route path="/messages" element={<RequireLogin><Messages /></RequireLogin>} />
               <Route path="/assessment" element={<AssessmentContainer />} />
-              <Route path="/boarding-materials" element={<BoardingMaterials />} />
-              <Route path="/generate-codes" element={<ActivationCodeGenerator />} />
+              <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />
+              <Route path="/generate-codes" element={<RequireActivation><ActivationCodeGenerator /></RequireActivation>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

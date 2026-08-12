@@ -1,37 +1,29 @@
 import { useCallback } from 'react';
 import { useAccessStore } from '../store/accessStore';
 
-const UNLOCK_REQUIRED_ROUTES = {
-  tasks: ['/tasks/phase2/Task5'],
-  academy: [
-    '/academy/listening-speaking',
-    '/academy/boarding',
-    '/academy/position-english',
-    '/academy/interview-questions',
-    '/academy/scenarios',
-    '/academy/port-daily',
-  ],
-  jobs: [
-    '/jobs/preparation',
-    '/jobs/channels',
-    '/jobs/company-jobs',
-    '/jobs/platforms',
-    '/jobs/latest',
-    '/jobs/yuge',
-    '/jobs/brand-partners',
-    '/jobs/applications',
-  ],
-};
+const LOGIN_REQUIRED_ROUTES = [
+  '/tasks/phase2/Task4',
+  '/jobs/applications',
+  '/profile',
+  '/my-offer',
+  '/resume',
+  '/messages',
+];
+
+const UNLOCK_REQUIRED_ROUTES = [
+  '/boarding-materials',
+  '/generate-codes',
+];
 
 const routeStartsWithAny = (pathname, prefixes) =>
   prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
 export const checkRouteNeedsUnlock = (pathname) => {
-  if (pathname.startsWith('/academy/wiki')) return false;
-  if (UNLOCK_REQUIRED_ROUTES.tasks.includes(pathname)) return true;
-  if (routeStartsWithAny(pathname, UNLOCK_REQUIRED_ROUTES.academy)) return true;
-  if (UNLOCK_REQUIRED_ROUTES.jobs.includes(pathname)) return true;
-  return false;
+  return routeStartsWithAny(pathname, UNLOCK_REQUIRED_ROUTES);
+};
+
+export const checkRouteNeedsLogin = (pathname) => {
+  return checkRouteNeedsUnlock(pathname) || routeStartsWithAny(pathname, LOGIN_REQUIRED_ROUTES);
 };
 
 export const useAccessGuard = () => {
@@ -45,7 +37,7 @@ export const useAccessGuard = () => {
   } = useAccessStore();
 
   const canAccess = useCallback((pathname) => {
-    if (!isRegistered) {
+    if (checkRouteNeedsLogin(pathname) && !isRegistered) {
       return { canAccess: false, reason: 'register' };
     }
 

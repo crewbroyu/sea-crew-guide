@@ -2,6 +2,8 @@ import { create } from 'zustand';
 
 const initialState = {
   isRegistered: false,
+  authChecked: false,
+  isCheckingAuth: true,
   userId: null,
   userEmail: null,
   userName: null,
@@ -22,6 +24,8 @@ export const useAccessStore = create((set) => ({
 
     set({
       isRegistered: Boolean(email || userId),
+      authChecked: true,
+      isCheckingAuth: false,
       userId,
       userEmail: email,
       userName: name || email?.split('@')[0] || null,
@@ -40,6 +44,9 @@ export const useAccessStore = create((set) => ({
   },
 
   setCheckingAccess: (isCheckingAccess) => set({ isCheckingAccess }),
+  setCheckingAuth: (isCheckingAuth) => set({ isCheckingAuth }),
+
+  markAuthChecked: () => set({ authChecked: true, isCheckingAuth: false }),
 
   unlock: ({ unlockedAt = new Date().toISOString() } = {}) => {
     set({
@@ -63,6 +70,12 @@ export const useAccessStore = create((set) => ({
     localStorage.removeItem('access_unlocked_cache');
     localStorage.removeItem('access_unlocked_at_cache');
     localStorage.removeItem('access-storage');
-    set({ ...initialState, isCheckingAccess: false, accessChecked: true });
+    set({
+      ...initialState,
+      authChecked: true,
+      isCheckingAuth: false,
+      isCheckingAccess: false,
+      accessChecked: true,
+    });
   },
 }));

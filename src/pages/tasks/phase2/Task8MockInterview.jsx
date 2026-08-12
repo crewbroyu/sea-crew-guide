@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { positionConfig } from '../../../data/interviewQuestions';
 import interviewQuestions from '../../../data/interviewQuestions';
+import RequireActivation from '../../../components/RequireActivation';
 
 function Task8MockInterview() {
   const navigate = useNavigate();
@@ -854,6 +855,7 @@ function Task8MockInterview() {
                 </div>
               )}
 
+              <RequireActivation variant="inline">
               <button
                 onClick={startInterview}
                 disabled={!selectedPosition}
@@ -865,6 +867,7 @@ function Task8MockInterview() {
               >
                 开始面试
               </button>
+              </RequireActivation>
             </div>
           )}
         </div>

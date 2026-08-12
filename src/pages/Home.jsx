@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import ImageCarousel from '../components/ImageCarousel'
 import MiniCheckin from '../components/MiniCheckin'
+import RequireLogin from '../components/RequireLogin'
 import pathData from '../data/pathData'
 
 // 动态提示语函数
@@ -172,7 +173,9 @@ export default function Home() {
         
         {/* 每日英语打卡 */}
         <div className="mb-6">
-          <MiniCheckin />
+          <RequireLogin variant="inline">
+            <MiniCheckin />
+          </RequireLogin>
         </div>
 
         {/* 登船路径当前任务快捷跳转 */}

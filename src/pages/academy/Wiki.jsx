@@ -45,7 +45,7 @@ export default function Wiki() {
   };
 
   const handleArticleClick = (article) => {
-    navigate('/academy/wiki/article', {
+    navigate(`/academy/wiki/${article.slug || article.id}`, {
       state: { article }
     });
   };

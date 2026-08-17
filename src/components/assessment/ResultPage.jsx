@@ -1,274 +1,392 @@
-// src/components/assessment/ResultPage.jsx
-import { useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
-import { DIMENSIONS, DIMENSION_FEEDBACK } from '../../data/assessmentData'
+import {
+  AlertTriangle,
+  ArrowRight,
+  Briefcase,
+  CheckCircle2,
+  ChevronLeft,
+  ClipboardList,
+  RotateCcw,
+  Save,
+} from 'lucide-react'
+import { DIMENSIONS } from '../../data/assessmentData'
 import { getLevel } from '../../data/assessmentScoring'
+import { useAccessStore } from '../../store/accessStore'
+import { saveAssessmentSubmission } from '../../services/assessmentService'
 
-export default function ResultPage({ dimensionScores, overallScore, onRestart }) {
-  const navigate = useNavigate()
-  const [expandedDimension, setExpandedDimension] = useState(null)
-  const [displayScore, setDisplayScore] = useState(0)
+const dimensionLabels = {
+  professional: '服务知识',
+  english: '英语沟通',
+  interview: '面试表达',
+  personality: '职业适应',
+  adaptability: '应变意识',
+}
 
-  // 数字递增动画
-  useEffect(() => {
-    let current = 0
-    const interval = setInterval(() => {
-      current += 1
-      if (current <= overallScore) {
-        setDisplayScore(current)
-      } else {
-        clearInterval(interval)
+const jobProfiles = [
+  {
+    id: 'retail',
+    title: '免税店 / Retail Sales',
+    weights: { english: 0.25, interview: 0.2, personality: 0.15, adaptability: 0.15, professional: 0.25 },
+    strengths: ['销售沟通', '产品学习', '目标意识'],
+    risks: ['销售 KPI 压力较明显', '需要主动开口推荐产品'],
+    nextSteps: ['学习免税店岗位知识', '整理销售/服务经历', '优化英文简历'],
+  },
+  {
+    id: 'front_office',
+    title: '前台 / Guest Services',
+    weights: { english: 0.3, interview: 0.2, adaptability: 0.25, personality: 0.15, professional: 0.1 },
+    strengths: ['英语沟通', '投诉处理', '跨文化服务'],
+    risks: ['客诉和突发情况较多', '对英语和情绪稳定性要求高'],
+    nextSteps: ['练习客诉场景英语', '准备 STAR 面试故事', '学习前台服务流程'],
+  },
+  {
+    id: 'bar',
+    title: '酒吧服务 / Bar Server',
+    weights: { english: 0.22, interview: 0.18, personality: 0.15, adaptability: 0.2, professional: 0.25 },
+    strengths: ['服务节奏', '销售意识', '现场应变'],
+    risks: ['需要酒水知识', '高峰期节奏快且体力消耗高'],
+    nextSteps: ['学习基础酒水术语', '练习点单和推荐话术', '准备服务压力案例'],
+  },
+  {
+    id: 'restaurant',
+    title: '餐厅服务 / Restaurant',
+    weights: { professional: 0.25, english: 0.2, interview: 0.15, personality: 0.15, adaptability: 0.25 },
+    strengths: ['标准化服务', '团队协作', '执行力'],
+    risks: ['工作强度较高', '需要稳定体力和服务细节'],
+    nextSteps: ['学习西餐服务流程', '练习菜单和投诉英语', '补充餐饮服务经历'],
+  },
+  {
+    id: 'youth_staff',
+    title: 'Youth Staff / 儿童活动',
+    weights: { english: 0.25, personality: 0.25, adaptability: 0.2, interview: 0.2, professional: 0.1 },
+    strengths: ['亲和力', '活动组织', '安全意识'],
+    risks: ['对儿童看护经验有要求', '需要耐心和边界感'],
+    nextSteps: ['整理儿童/教育相关经历', '练习活动组织英语', '学习儿童安全规范'],
+  },
+  {
+    id: 'housekeeping',
+    title: '客房服务 / Housekeeping',
+    weights: { professional: 0.25, adaptability: 0.25, personality: 0.2, english: 0.15, interview: 0.15 },
+    strengths: ['细节执行', '稳定性', '服务标准'],
+    risks: ['体力要求较高', '工作重复度较高'],
+    nextSteps: ['了解客房清洁标准', '准备吃苦耐劳案例', '练习客房请求英语'],
+  },
+]
+
+const serviceBackgroundBoosts = {
+  retail: 'retail',
+  front_office: 'front_office',
+  bar_server: 'bar',
+  restaurant: 'restaurant',
+  youth_staff: 'youth_staff',
+  housekeeping: 'housekeeping',
+}
+
+const calculateRecommendations = (dimensionScores, serviceBackground) => {
+  return jobProfiles
+    .map((job) => {
+      const baseScore = Object.entries(job.weights).reduce((total, [dimension, weight]) => {
+        return total + (dimensionScores[dimension] || 0) * weight
+      }, 0)
+      const boostedScore = serviceBackgroundBoosts[serviceBackground] === job.id ? baseScore + 6 : baseScore
+
+      return {
+        ...job,
+        matchScore: Math.min(96, Math.round(boostedScore)),
       }
-    }, 20)
+    })
+    .sort((a, b) => b.matchScore - a.matchScore)
+    .slice(0, 3)
+}
 
-    return () => clearInterval(interval)
-  }, [overallScore])
+const getScoreColor = (score) => {
+  if (score >= 80) return 'text-green-700 bg-green-50 border-green-100'
+  if (score >= 65) return 'text-blue-700 bg-blue-50 border-blue-100'
+  if (score >= 50) return 'text-amber-700 bg-amber-50 border-amber-100'
+  return 'text-red-700 bg-red-50 border-red-100'
+}
 
-  // 准备雷达图数据
-  const radarData = DIMENSIONS.map(dimension => ({
-    subject: dimension.name,
-    score: dimensionScores[dimension.id] || 0,
-    fullMark: 100
-  }))
+const getLowestDimensions = (dimensionScores) =>
+  [...DIMENSIONS]
+    .map((dimension) => ({
+      id: dimension.id,
+      name: dimensionLabels[dimension.id] || dimension.name,
+      score: dimensionScores[dimension.id] || 0,
+    }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 2)
 
-  // 获取等级信息
+export default function ResultPage({
+  dimensionScores,
+  overallScore,
+  serviceBackground,
+  answers,
+  onRestart,
+}) {
+  const navigate = useNavigate()
+  const { userId, userEmail } = useAccessStore()
+  const [contact, setContact] = useState({
+    name: '',
+    phone: '',
+    wechat: '',
+    email: userEmail || '',
+    goal: '',
+  })
+  const [saveState, setSaveState] = useState('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+
   const overallLevel = getLevel(overallScore)
+  const recommendations = useMemo(
+    () => calculateRecommendations(dimensionScores, serviceBackground),
+    [dimensionScores, serviceBackground]
+  )
+  const lowestDimensions = useMemo(() => getLowestDimensions(dimensionScores), [dimensionScores])
 
-  // 渲染等级颜色
-  const getLevelColor = (color) => {
-    const colors = {
-      green: 'text-green-600 bg-green-100',
-      blue: 'text-blue-600 bg-blue-100',
-      yellow: 'text-yellow-600 bg-yellow-100',
-      red: 'text-red-600 bg-red-100'
+  const handleContactChange = (field, value) => {
+    setContact((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleSaveSubmission = async () => {
+    if (!contact.name.trim() && !contact.phone.trim() && !contact.wechat.trim() && !contact.email.trim()) {
+      setSaveState('error')
+      setSaveMessage('请至少填写一个联系方式，方便后续查看和跟进测评结果。')
+      return
     }
-    return colors[color] || 'text-gray-600 bg-gray-100'
-  }
 
-  // 处理进入下一任务
-  const handleNextTask = () => {
-    navigate('/tasks/Task2')
-  }
-
-  // 处理查看提升计划
-  const handleViewImprovementPlan = () => {
-    navigate('/academy')
+    try {
+      setSaveState('saving')
+      setSaveMessage('')
+      await saveAssessmentSubmission({
+        userId,
+        contact,
+        serviceBackground,
+        answers,
+        dimensionScores,
+        overallScore,
+        level: overallLevel,
+        recommendations,
+      })
+      setSaveState('saved')
+      setSaveMessage('已保存。你可以在 Supabase 后台查看这条测评记录。')
+    } catch (error) {
+      console.error('保存测评结果失败:', error)
+      setSaveState('error')
+      setSaveMessage('保存失败。请确认 Supabase 已创建 assessment_submissions 表和 insert policy。')
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 顶部导航 */}
-      <div className="bg-white shadow-sm px-6 py-4">
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="bg-white border-b border-gray-200 px-6 pt-12 pb-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/jobs/preparation')}
-            className="text-gray-600 hover:text-gray-800"
+            type="button"
+            onClick={() => navigate('/')}
+            className="text-gray-600 hover:text-gray-900"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
+            <ChevronLeft size={24} />
           </button>
-          <h1 className="text-xl font-bold text-gray-800">测评结果</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">海乘职业适配报告</h1>
+            <p className="text-sm text-gray-500 mt-0.5">基于服务经验、英语、面试表达和职业适应力</p>
+          </div>
         </div>
       </div>
 
-      {/* 主要内容 */}
-      <div className="flex-1 px-6 py-8 pb-24">
-        <div className="max-w-md mx-auto">
-          {/* 综合就绪度 */}
-          <div className="text-center mb-10">
-            <h2 className="text-lg font-semibold text-gray-800 mb-6">综合就绪度</h2>
-            <div className="relative w-48 h-48 mx-auto mb-4">
-              {/* 圆形进度环 */}
-              <svg className="w-full h-full" viewBox="0 0 100 100">
-                {/* 背景圆环 */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  fill="none"
-                  stroke="#e5e7eb"
-                  strokeWidth="8"
-                />
-                {/* 进度圆环 */}
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={`${(displayScore / 100) * 283}`}
-                  strokeDashoffset="283"
-                  transform="rotate(-90 50 50)"
-                  className="transition-all duration-1000"
-                />
-              </svg>
-              {/* 中心分数 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-bold text-gray-800">{displayScore}%</span>
-                <span className={`mt-2 px-3 py-1 rounded-full text-sm font-medium ${getLevelColor(overallLevel.color)}`}>
-                  {overallLevel.label}
-                </span>
+      <main className="px-6 py-6 max-w-3xl mx-auto">
+        <section className="bg-white rounded-xl shadow-sm p-5 mb-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">综合准备度</p>
+              <div className="flex items-end gap-2">
+                <span className="text-4xl font-bold text-gray-900">{overallScore}</span>
+                <span className="text-lg font-semibold text-gray-500 mb-1">/ 100</span>
               </div>
             </div>
-            <p className="text-gray-600">
-              你的整体准备度为 {overallScore}%，{overallLevel.label}。
-              {overallScore >= 80 ? '你已经做好了上船的准备！' : 
-               overallScore >= 60 ? '英语和面试表达是你的提升重点。' : 
-               '建议系统学习后再参加测评。'}
-            </p>
+            <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getScoreColor(overallScore)}`}>
+              {overallLevel.label}
+            </span>
           </div>
 
-          {/* 五维雷达图 */}
-          <div className="mb-10">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">五维分析</h2>
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <ResponsiveContainer width="100%" height={300}>
-                <RadarChart outerRadius={90} data={radarData}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                  <Radar
-                    name="得分"
-                    dataKey="score"
-                    stroke="#10b981"
-                    fill="#10b981"
-                    fillOpacity={0.3}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-5 gap-2 mt-4">
-                {DIMENSIONS.map((dimension) => {
-                  const score = dimensionScores[dimension.id] || 0
-                  const level = getLevel(score)
-                  return (
-                    <div key={dimension.id} className="text-center">
-                      <p className="text-xs text-gray-500 mb-1">{dimension.name}</p>
-                      <p className={`text-sm font-medium ${getLevelColor(level.color)} px-2 py-1 rounded-full`}>
-                        {score}
-                      </p>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+          <p className="text-sm text-gray-600 mt-4">
+            这份结果不是简单判断“能不能做海乘”，而是帮你找到更合适的岗位方向，以及当前最应该补齐的准备项。
+          </p>
+        </section>
+
+        <section className="mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Briefcase size={20} className="text-blue-600" />
+            <h2 className="font-bold text-gray-900">推荐岗位 Top 3</h2>
           </div>
 
-          {/* 各维度详细反馈 */}
-          <div className="mb-10">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">详细反馈</h2>
-            <div className="space-y-3">
-              {DIMENSIONS.map((dimension) => {
-                const score = dimensionScores[dimension.id] || 0
-                const level = getLevel(score)
-                const feedback = DIMENSION_FEEDBACK[dimension.id][level.level]
-                
-                return (
-                  <div key={dimension.id} className="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <button
-                      onClick={() => setExpandedDimension(expandedDimension === dimension.id ? null : dimension.id)}
-                      className="w-full px-5 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                          {dimension.icon === 'BookOpen' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path>
-                            </svg>
-                          )}
-                          {dimension.icon === 'Languages' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 10H3"></path>
-                              <path d="M21 6H3"></path>
-                              <path d="M21 14H3"></path>
-                              <path d="M21 18H3"></path>
-                              <circle cx="12" cy="12" r="4"></circle>
-                            </svg>
-                          )}
-                          {dimension.icon === 'MessageSquare' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-                            </svg>
-                          )}
-                          {dimension.icon === 'Heart' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                            </svg>
-                          )}
-                          {dimension.icon === 'Zap' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.9 6.3a1 1 0 0 0 .78 1.23 10.7 10.7 0 0 0 3.2 0 1 1 0 0 0 .78-1.23l-1.9-6.3a.5.5 0 0 1 .86-.46l9.9 10.2A1 1 0 0 1 20 14z"></path>
-                            </svg>
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-800">{dimension.name}</h3>
-                          <p className="text-sm text-gray-500">{score} 分 | {level.label}</p>
-                        </div>
-                      </div>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`text-gray-400 transition-transform ${expandedDimension === dimension.id ? 'rotate-180' : ''}`}>
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                      </svg>
-                    </button>
-                    {expandedDimension === dimension.id && (
-                      <div className="px-5 py-4 border-t border-gray-200">
-                        <p className="text-gray-700 mb-3">{feedback.feedback}</p>
-                        <div className="mb-4">
-                          <h4 className="text-sm font-medium text-gray-800 mb-2">提升建议：</h4>
-                          <ul className="space-y-1">
-                            {feedback.suggestions.map((suggestion, index) => (
-                              <li key={index} className="text-sm text-gray-600 flex items-start gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 mt-0.5">
-                                  <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
-                                {suggestion}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <button className="w-full py-2 rounded-lg border border-green-600 text-green-600 font-medium text-sm hover:bg-green-50 transition-colors">
-                          去学习
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* 底部操作 */}
           <div className="space-y-3">
-            <button
-              onClick={() => {
-                if (window.confirm('重新测评将清除当前结果，确定吗？')) {
-                  // 清除localStorage中的测评结果
-                  localStorage.removeItem('assessment_result')
-                  onRestart()
-                }
-              }}
-              className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-            >
-              重新测评
-            </button>
-            <button
-              onClick={handleNextTask}
-              className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-            >
-              进入下一任务
-            </button>
-            <button
-              onClick={handleViewImprovementPlan}
-              className="w-full py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition-colors"
-            >
-              查看提升计划
-            </button>
+            {recommendations.map((job, index) => (
+              <div key={job.id} className="bg-white rounded-xl shadow-sm p-5">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-xs text-blue-600 font-medium mb-1">推荐 {index + 1}</p>
+                    <h3 className="font-bold text-gray-900">{job.title}</h3>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold border ${getScoreColor(job.matchScore)}`}>
+                    {job.matchScore}%
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs font-medium text-gray-500 mb-2">为什么适合</p>
+                    <div className="flex flex-wrap gap-2">
+                      {job.strengths.map((item) => (
+                        <span key={item} className="text-xs bg-white border border-gray-200 rounded-full px-2 py-1 text-gray-700">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 rounded-lg p-3">
+                    <p className="text-xs font-medium text-amber-700 mb-2">需要提前知道的风险</p>
+                    <ul className="space-y-1">
+                      {job.risks.map((item) => (
+                        <li key={item} className="text-xs text-amber-800 flex gap-1.5">
+                          <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-gray-500 mb-2">下一步建议</p>
+                  <div className="space-y-1.5">
+                    {job.nextSteps.map((step) => (
+                      <div key={step} className="flex items-center gap-2 text-sm text-gray-700">
+                        <CheckCircle2 size={15} className="text-green-600" />
+                        <span>{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      </div>
+        </section>
+
+        <section className="bg-white rounded-xl shadow-sm p-5 mb-5">
+          <div className="flex items-center gap-2 mb-4">
+            <ClipboardList size={20} className="text-blue-600" />
+            <h2 className="font-bold text-gray-900">当前短板</h2>
+          </div>
+          <div className="space-y-3">
+            {lowestDimensions.map((dimension) => (
+              <div key={dimension.id}>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-700">{dimension.name}</span>
+                  <span className="font-medium text-gray-900">{dimension.score}/100</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-600 rounded-full" style={{ width: `${dimension.score}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-gray-600 mt-4">
+            建议先补齐这两个维度，再进入简历优化和面试训练，会比盲目投递更稳。
+          </p>
+        </section>
+
+        <section className="bg-white rounded-xl shadow-sm p-5 mb-5">
+          <h2 className="font-bold text-gray-900 mb-3">保存报告并方便后续跟进</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            填写联系方式后，这份测评结果会保存到后台。后续可以基于你的结果继续生成职业路线、简历建议和面试准备计划。
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              value={contact.name}
+              onChange={(event) => handleContactChange('name', event.target.value)}
+              placeholder="姓名"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            />
+            <input
+              value={contact.phone}
+              onChange={(event) => handleContactChange('phone', event.target.value)}
+              placeholder="手机号"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            />
+            <input
+              value={contact.wechat}
+              onChange={(event) => handleContactChange('wechat', event.target.value)}
+              placeholder="微信号"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            />
+            <input
+              value={contact.email}
+              onChange={(event) => handleContactChange('email', event.target.value)}
+              placeholder="邮箱"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            />
+          </div>
+
+          <textarea
+            value={contact.goal}
+            onChange={(event) => handleContactChange('goal', event.target.value)}
+            placeholder="你的目标或问题，例如：想半年内登船、想做免税店、英语一般不知道怎么准备"
+            className="w-full mt-3 rounded-lg border border-gray-300 px-3 py-2.5 text-sm min-h-24 resize-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+          />
+
+          {saveMessage && (
+            <p className={`text-sm mt-3 ${saveState === 'error' ? 'text-red-600' : 'text-green-600'}`}>
+              {saveMessage}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleSaveSubmission}
+            disabled={saveState === 'saving' || saveState === 'saved'}
+            className="w-full mt-4 py-3 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          >
+            <Save size={18} />
+            {saveState === 'saving' ? '保存中...' : saveState === 'saved' ? '已保存报告' : '保存我的测评报告'}
+          </button>
+        </section>
+
+        <section className="space-y-3">
+          <button
+            type="button"
+            onClick={() => navigate('/tasks/Task2')}
+            className="w-full py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+          >
+            进入下一步：选择目标岗位
+            <ArrowRight size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/tasks')}
+            className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+          >
+            查看完整登船路线
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('重新测评会清除当前本地结果，确定继续吗？')) {
+                localStorage.removeItem('assessment_result')
+                onRestart()
+              }
+            }}
+            className="w-full py-3 rounded-lg text-gray-600 font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+          >
+            <RotateCcw size={17} />
+            重新测评
+          </button>
+        </section>
+      </main>
     </div>
   )
 }

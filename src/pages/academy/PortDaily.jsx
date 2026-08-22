@@ -1,11 +1,11 @@
 // src/pages/academy/PortDaily.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Upload, MapPin, Calendar, ChevronRight } from 'lucide-react';
 
 export default function PortDaily() {
   const navigate = useNavigate();
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState(() => JSON.parse(localStorage.getItem('port_daily_posts') || '[]'));
   const [newPost, setNewPost] = useState({
     port: '',
     date: new Date().toISOString().split('T')[0],
@@ -14,16 +14,12 @@ export default function PortDaily() {
   });
   const [isUploading, setIsUploading] = useState(false);
 
-  // 加载到港日常数据
-  useEffect(() => {
-    loadPortDailyPosts();
-  }, []);
-
-  // 加载到港日常数据
-  const loadPortDailyPosts = () => {
-    const portDailyPosts = JSON.parse(localStorage.getItem('port_daily_posts') || '[]');
-    setPosts(portDailyPosts);
-  };
+  const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
   // 处理图片上传
   const handleImageChange = (e) => {
@@ -45,7 +41,7 @@ export default function PortDaily() {
   };
 
   // 提交新帖子
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newPost.port || !newPost.description || !newPost.image) {
       alert('请填写完整信息并上传图片');
@@ -54,13 +50,15 @@ export default function PortDaily() {
 
     setIsUploading(true);
 
-    // 模拟上传延迟
-    setTimeout(() => {
+    try {
+      const imageUrl = await readFileAsDataUrl(newPost.image);
       const portDailyPosts = JSON.parse(localStorage.getItem('port_daily_posts') || '[]');
       const newPostWithId = {
         id: Date.now().toString(),
-        ...newPost,
-        imageUrl: URL.createObjectURL(newPost.image),
+        port: newPost.port,
+        date: newPost.date,
+        description: newPost.description,
+        imageUrl,
         createdAt: new Date().toISOString()
       };
       portDailyPosts.unshift(newPostWithId);
@@ -72,8 +70,12 @@ export default function PortDaily() {
         description: '',
         image: null
       });
+    } catch (error) {
+      console.error('Failed to save port daily image:', error);
+      alert('图片保存失败，请重试');
+    } finally {
       setIsUploading(false);
-    }, 1000);
+    }
   };
 
   // 格式化日期

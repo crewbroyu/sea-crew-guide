@@ -1,81 +1,102 @@
-// src/components/assessment/WelcomePage.jsx
-import { BookOpen, Languages, MessageSquare, Heart, Zap, ChevronRight } from 'lucide-react'
+import { createElement } from 'react'
+import {
+  Anchor,
+  Briefcase,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
+  Languages,
+  Route,
+  Target,
+} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { DIMENSIONS } from '../../data/assessmentData'
 
+const dimensionIcons = {
+  ClipboardCheck,
+  Languages,
+  Briefcase,
+  Target,
+  Anchor,
+  Route,
+}
+
 export default function WelcomePage({ onStart }) {
-  // 渲染维度图标
-  const renderDimensionIcon = (iconName) => {
-    const icons = {
-      BookOpen: <BookOpen size={20} />,
-      Languages: <Languages size={20} />,
-      MessageSquare: <MessageSquare size={20} />,
-      Heart: <Heart size={20} />,
-      Zap: <Zap size={20} />,
-    }
-    return icons[iconName] || <BookOpen size={20} />
-  }
+  const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 顶部背景 */}
-      <div className="bg-gradient-to-r from-green-600 to-green-800 px-6 pt-16 pb-10">
-        <div className="text-center">
-          <h1 className="text-white text-3xl font-bold mb-2">海乘求职五维测评</h1>
-          <p className="text-white/80 text-lg">5-8分钟，全面了解你的上船准备度</p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <header className="border-b border-slate-200 bg-white px-6 pb-8 pt-12">
+        <div className="mx-auto max-w-3xl">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="mb-5 flex items-center gap-1 text-sm text-slate-500"
+          >
+            <ChevronLeft size={17} />
+            返回首页
+          </button>
 
-      {/* 主要内容 */}
-      <div className="flex-1 px-6 py-8">
-        {/* 五个维度预览 */}
-        <div className="mb-10">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4 text-center">测评维度</h2>
-          <div className="grid grid-cols-5 gap-4">
-            {DIMENSIONS.map((dimension, index) => (
-              <div key={dimension.id} className="flex flex-col items-center">
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-700 mb-2">
-                  {renderDimensionIcon(dimension.icon)}
+          <p className="mb-2 text-sm font-medium text-blue-700">职业适配测评</p>
+          <h1 className="text-3xl font-bold leading-tight text-slate-950">
+            判断你适合哪些海乘岗位
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            通过 6 个维度评估基础条件、英语、服务经历、岗位偏好、船上适应力和求职准备度，生成岗位建议和下一步准备重点。
+          </p>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={onStart}
+              className="flex items-center justify-between rounded-lg bg-blue-600 px-5 py-4 text-left text-white shadow-sm transition hover:bg-blue-700"
+            >
+              <span>
+                <span className="block font-semibold">开始职业测评</span>
+                <span className="mt-1 block text-sm text-blue-100">约 5-8 分钟，完成后生成报告</span>
+              </span>
+              <ChevronRight size={22} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/academy/wiki')}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-5 py-4 text-left transition hover:bg-white"
+            >
+              <p className="font-semibold text-slate-900">先了解海乘真实情况</p>
+              <p className="mt-1 text-sm text-slate-500">工资、合同、岗位和常见误区</p>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-6 pt-6">
+        <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 font-bold text-slate-950">评估维度</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {DIMENSIONS.map((dimension) => {
+              const icon = dimensionIcons[dimension.icon] || ClipboardCheck
+
+              return (
+                <div key={dimension.id} className="rounded-lg bg-slate-50 p-4">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-white text-blue-700">
+                    {createElement(icon, { size: 20 })}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">{dimension.name}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">{dimension.description}</p>
                 </div>
-                <p className="text-xs text-gray-600 text-center">{dimension.name}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
-        </div>
+        </section>
 
-        {/* 提示信息 */}
-        <div className="bg-gray-100 rounded-lg p-5 mb-8">
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 flex-shrink-0 mt-0.5">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-800 mb-1">测评提示</h3>
-              <p className="text-gray-600 text-sm">
-                没有标准答案，选最接近你真实情况的选项就好。
-                测评结果将帮助你了解自己的优势和需要提升的方向。
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* 开始测评按钮 */}
-        <button
-          onClick={onStart}
-          className="w-full py-4 rounded-lg bg-green-600 text-white font-medium text-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
-        >
-          开始测评
-          <ChevronRight size={20} />
-        </button>
-
-        {/* 底部说明 */}
-        <p className="text-center text-gray-500 text-sm mt-6">
-          测评结果仅作为参考，不影响实际求职
-        </p>
-      </div>
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-2 font-bold text-slate-950">填写建议</h2>
+          <p className="text-sm leading-relaxed text-slate-600">
+            这不是性格小游戏，也没有唯一正确答案。请按你目前的真实经验、英语状态、求职准备和工作偏好选择，结果才更适合后续职业路线和找搭子匹配。
+          </p>
+        </section>
+      </main>
     </div>
   )
 }

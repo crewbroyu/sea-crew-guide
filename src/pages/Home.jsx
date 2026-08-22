@@ -1,26 +1,23 @@
-import { useEffect, useState } from 'react'
+import { createElement, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Award,
   BookOpen,
+  Briefcase,
   Building2,
   ChevronRight,
   ClipboardCheck,
   FileText,
   GraduationCap,
+  Map,
   MessageSquare,
-  Mic,
   Route,
   Sparkles,
   Target,
   UserCheck,
   X,
 } from 'lucide-react'
-import ImageCarousel from '../components/ImageCarousel'
-import MiniCheckin from '../components/MiniCheckin'
-import RequireLogin from '../components/RequireLogin'
-import { getScoreData } from '../store/scoreStore'
 import { useAccessStore } from '../store/accessStore'
+import { getScoreData } from '../store/scoreStore'
 import pathData from '../data/pathData'
 
 const taskRoutes = {
@@ -38,77 +35,86 @@ const taskRoutes = {
   12: '/tasks/Task12',
 }
 
-const heroActions = [
-  { label: '我适合做海乘吗', route: '/assessment', icon: UserCheck },
-  { label: '查看岗位介绍', route: '/jobs', icon: ClipboardCheck },
-  { label: '学习登船路径', route: '/tasks', icon: Route },
-  { label: 'AI 面试练习', route: '/tasks/phase2/Task8', icon: Mic },
+const publicLinks = [
+  {
+    label: '海乘百科',
+    description: '先看清工资、合同、休假和船上生活',
+    route: '/academy/wiki',
+    icon: BookOpen,
+  },
+  {
+    label: '岗位介绍',
+    description: '免税店、餐厅、前台、客房等方向',
+    route: '/jobs',
+    icon: Briefcase,
+  },
+  {
+    label: '申请渠道',
+    description: '中介、一代、官网和低成本路线',
+    route: '/jobs/channels',
+    icon: Map,
+  },
+  {
+    label: '英语预习',
+    description: '先试学岗位英语和服务表达',
+    route: '/academy/listening-speaking',
+    icon: GraduationCap,
+  },
 ]
 
-const publicLinks = [
-  { label: '海乘 Wiki', description: '先了解行业和船上生活', route: '/academy/wiki', icon: BookOpen },
-  { label: '岗位介绍', description: '餐饮、客房、前台等方向', route: '/jobs', icon: ClipboardCheck },
-  { label: '邮轮公司', description: '了解公司和招聘渠道', route: '/jobs/company-jobs', icon: Building2 },
-  { label: '英语样课', description: '试听海乘服务英语', route: '/academy/listening-speaking', icon: GraduationCap },
+const routeSteps = [
+  { label: '判断适不适合', description: '完成职业适配测评', route: '/assessment', icon: UserCheck },
+  { label: '选目标岗位', description: '匹配岗位和风险', route: '/tasks/Task2', icon: Target },
+  { label: '准备材料', description: '简历、英语和面试', route: '/tasks', icon: FileText },
+  { label: '开始申请', description: '渠道、证件和登船', route: '/jobs/channels', icon: ClipboardCheck },
 ]
 
 const serviceLinks = [
   {
-    label: 'AI 职业顾问',
-    description: '判断你更适合哪个岗位',
+    label: '生成职业路线',
+    description: '基于测评结果判断岗位、短板和 90 天准备计划',
     icon: Sparkles,
-    action: 'wechat',
+    route: '/assessment',
   },
   {
-    label: 'AI 简历优化',
-    description: '把经历改成邮轮英文简历',
+    label: '英文简历优化',
+    description: '把经历整理成更像邮轮岗位的英文简历',
     icon: FileText,
     route: '/tasks/phase2/Task4',
   },
   {
-    label: '1 对 1 咨询',
-    description: '快速了解申请路径和准备重点',
+    label: '人工咨询',
+    description: '需要具体判断申请路线时，再一对一沟通',
     icon: MessageSquare,
     action: 'wechat',
   },
 ]
 
-const preparationSteps = ['了解海乘', '选择岗位', '简历英语', '面试登船']
+const getHomeSnapshot = () => {
+  const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
+  const allTasks = pathData.flatMap((stage) => stage.tasks)
+  const currentTask = allTasks.find((task) => !progress[`task${task.id}`]?.completed) || allTasks[0]
+  const currentStage =
+    pathData.find((stage) => stage.tasks.some((task) => task.id === currentTask?.id)) || pathData[0]
+  const completedCount = allTasks.filter((task) => progress[`task${task.id}`]?.completed).length
+  const task2Result = JSON.parse(localStorage.getItem('task2_result') || '{}')
+  const targetJob = task2Result.selectedTargetJob || task2Result.currentJob?.[0]?.name || ''
+
+  return {
+    currentTask,
+    currentStage,
+    completedCount,
+    totalTasks: allTasks.length,
+    targetJob,
+    scoreData: getScoreData(),
+  }
+}
 
 export default function Home() {
   const navigate = useNavigate()
   const { isRegistered } = useAccessStore()
-  const [currentTask, setCurrentTask] = useState(null)
-  const [currentTaskRoute, setCurrentTaskRoute] = useState('/tasks/Task2')
-  const [currentStage, setCurrentStage] = useState(null)
-  const [nextTask, setNextTask] = useState(null)
-  const [scoreData, setScoreData] = useState(null)
-  const [targetJob, setTargetJob] = useState(null)
   const [showWechatModal, setShowWechatModal] = useState(false)
-
-  useEffect(() => {
-    const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
-    const allTasks = pathData.flatMap((stage) => stage.tasks)
-    const foundCurrentTask = allTasks.find((task) => !progress[`task${task.id}`]?.completed)
-
-    if (foundCurrentTask) {
-      const currentTaskIndex = allTasks.findIndex((task) => task.id === foundCurrentTask.id)
-
-      setCurrentTask(foundCurrentTask)
-      setCurrentTaskRoute(taskRoutes[foundCurrentTask.id] || '/tasks')
-      setCurrentStage(pathData.find((stage) => stage.tasks.some((task) => task.id === foundCurrentTask.id)) || null)
-      setNextTask(currentTaskIndex < allTasks.length - 1 ? allTasks[currentTaskIndex + 1] : null)
-    }
-
-    const task2Result = JSON.parse(localStorage.getItem('task2_result') || '{}')
-    if (task2Result.selectedTargetJob) {
-      setTargetJob(task2Result.selectedTargetJob)
-    } else if (task2Result.currentJob?.length > 0) {
-      setTargetJob(task2Result.currentJob[0].name)
-    }
-
-    setScoreData(getScoreData())
-  }, [])
+  const snapshot = useMemo(() => getHomeSnapshot(), [])
 
   const handleServiceClick = (item) => {
     if (item.action === 'wechat') {
@@ -120,174 +126,187 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <section className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 pt-12 pb-10">
-        <div className="mb-6">
-          <p className="text-blue-100 text-sm mb-2">Sea Crew Career Guide</p>
-          <h1 className="text-white text-2xl font-bold leading-tight">海乘职业入门助手</h1>
-          <p className="text-white/90 text-sm mt-2">了解岗位、规划路径、练英语、准备面试</p>
-          {targetJob && (
-            <p className="text-blue-100 text-xs mt-3">当前目标岗位：{targetJob}</p>
-          )}
-        </div>
+    <div className="min-h-screen bg-slate-50">
+      <section className="bg-white px-6 pt-12 pb-8 border-b border-slate-200">
+        <div className="max-w-3xl mx-auto">
+          <p className="text-sm font-medium text-blue-700 mb-3">Crew PathGuide</p>
+          <h1 className="text-3xl font-bold text-slate-950 leading-tight">
+            先判断适不适合，再准备海乘申请
+          </h1>
+          <p className="text-slate-600 mt-3 leading-relaxed">
+            用百科建立认知，用测评找到岗位方向，再按路线准备简历、英语、面试和登船材料。
+          </p>
 
-        <div className="grid grid-cols-2 gap-3">
-          {heroActions.map(({ label, route, icon: Icon }) => (
+          {snapshot.targetJob && (
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm text-blue-800">
+              <Target size={15} />
+              当前目标岗位：{snapshot.targetJob}
+            </div>
+          )}
+
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <button
-              key={label}
               type="button"
-              onClick={() => navigate(route)}
-              className="bg-white/12 border border-white/20 rounded-xl p-3 text-left active:scale-[0.98] transition"
+              onClick={() => navigate('/assessment')}
+              className="rounded-lg bg-blue-600 px-5 py-4 text-left text-white shadow-sm transition hover:bg-blue-700"
             >
-              <Icon size={20} className="text-white mb-2" />
-              <span className="text-white text-sm font-medium">{label}</span>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold">测测我适合哪些岗位</p>
+                  <p className="mt-1 text-sm text-blue-100">5-8 分钟生成职业适配报告</p>
+                </div>
+                <ChevronRight size={22} />
+              </div>
             </button>
-          ))}
+
+            <button
+              type="button"
+              onClick={() => navigate('/academy/wiki')}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-5 py-4 text-left transition hover:bg-white"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-slate-900">先了解海乘真实情况</p>
+                  <p className="mt-1 text-sm text-slate-500">工资、合同、岗位和常见误区</p>
+                </div>
+                <ChevronRight size={22} className="text-slate-400" />
+              </div>
+            </button>
+          </div>
         </div>
       </section>
 
-      <main className="px-6 -mt-4 pb-24">
-        <section className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-bold text-gray-900">从 0 到登船，分 4 步准备</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                {isRegistered ? '继续你的个人准备进度' : '先看清路径，再决定是否深入准备'}
-              </p>
-            </div>
-            <Award size={20} className="text-yellow-500" />
-          </div>
-
-          {isRegistered ? (
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-xl font-bold text-blue-600">{scoreData?.totalScore || 0}</p>
-                <p className="text-xs text-gray-500 mt-0.5">总积分</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-green-600">{scoreData?.taskCompleted || 0}</p>
-                <p className="text-xs text-gray-500 mt-0.5">完成任务</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-orange-500">{scoreData?.continuousDays || 0}</p>
-                <p className="text-xs text-gray-500 mt-0.5">连续打卡</p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-4 gap-2">
-              {preparationSteps.map((step, index) => (
-                <div key={step} className="text-center">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto text-sm font-bold">
-                    {index + 1}
-                  </div>
-                  <p className="text-xs text-gray-600 mt-2">{step}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="font-bold text-gray-900">你的登船准备路线</h2>
-              <p className="text-sm text-gray-500 mt-1">12 个任务覆盖测评、岗位、简历、面试和登船材料</p>
-            </div>
+      <main className="mx-auto max-w-3xl px-6 pb-24 pt-6">
+        <section className="mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-bold text-slate-950">先免费了解</h2>
             <button
               type="button"
-              onClick={() => navigate('/tasks')}
-              className="text-sm text-blue-600 flex items-center gap-1"
+              onClick={() => navigate('/academy')}
+              className="flex items-center gap-1 text-sm text-blue-700"
             >
-              全部
-              <ChevronRight size={14} />
+              海乘学院
+              <ChevronRight size={15} />
             </button>
           </div>
-
-          <div className="p-3 bg-gray-50 rounded-lg mb-3">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                  <Target size={16} />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">当前阶段</p>
-                  <p className="font-medium text-gray-800 text-sm">
-                    {currentStage ? `${currentStage.id} / 4 ${currentStage.name}` : '1 / 4 决定出发'}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500">当前任务</p>
-                <p className="font-medium text-gray-800 text-sm">
-                  {currentTask ? currentTask.title : '选择目标岗位'}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate(isRegistered ? currentTaskRoute : '/tasks')}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              {isRegistered ? '继续当前任务' : '查看完整路线'}
-            </button>
-          </div>
-
-          {!isRegistered && (
-            <div className="grid grid-cols-3 gap-2">
-              {pathData[0].tasks.map((task) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  onClick={() => navigate(taskRoutes[task.id] || '/tasks')}
-                  className="bg-blue-50 rounded-lg p-2 text-left"
-                >
-                  <p className="text-xs font-medium text-blue-700 line-clamp-2">{task.title}</p>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {isRegistered && nextTask && (
-            <div className="flex items-center justify-between text-sm">
-              <p className="text-gray-500">下一任务</p>
-              <p className="text-gray-700">{nextTask.title}</p>
-            </div>
-          )}
-        </section>
-
-        <section className="mb-6">
-          <h2 className="font-bold text-gray-900 mb-3">先免费了解海乘</h2>
           <div className="grid grid-cols-2 gap-3">
-            {publicLinks.map(({ label, description, route, icon: Icon }) => (
+            {publicLinks.map(({ label, description, route, icon }) => (
               <button
                 key={label}
                 type="button"
                 onClick={() => navigate(route)}
-                className="bg-white rounded-xl p-4 shadow-sm text-left active:scale-[0.98] transition"
+                className="rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition active:scale-[0.98]"
               >
-                <Icon size={20} className="text-blue-600 mb-3" />
-                <p className="font-medium text-gray-900 text-sm">{label}</p>
-                <p className="text-xs text-gray-500 mt-1">{description}</p>
+                {createElement(icon, { size: 20, className: 'mb-3 text-blue-700' })}
+                <p className="text-sm font-semibold text-slate-900">{label}</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">{description}</p>
               </button>
             ))}
           </div>
         </section>
 
-        <section className="mb-6">
-          <h2 className="font-bold text-gray-900 mb-3">每日海乘英语练习</h2>
-          <RequireLogin variant="inline">
-            <MiniCheckin />
-          </RequireLogin>
+        <section className="mb-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-bold text-slate-950">从了解海乘到准备登船</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                首页只保留主路径，详细任务放到路线页里继续做。
+              </p>
+            </div>
+            <Route size={22} className="text-blue-700" />
+          </div>
+
+          <div className="space-y-3">
+            {routeSteps.map(({ label, description, route, icon }, index) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => navigate(route)}
+                className="flex w-full items-center gap-3 rounded-lg bg-slate-50 p-3 text-left transition hover:bg-blue-50"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-blue-700">
+                  {createElement(icon, { size: 18 })}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {index + 1}. {label}
+                  </p>
+                  <p className="text-xs text-slate-500">{description}</p>
+                </div>
+                <ChevronRight size={17} className="text-slate-400" />
+              </button>
+            ))}
+          </div>
         </section>
 
-        <section className="mb-6">
-          <h2 className="font-bold text-gray-900 mb-3">真实海上工作场景</h2>
-          <ImageCarousel />
+        <section className="mb-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-slate-950">
+                {isRegistered ? '你的申请进度' : '个性化功能'}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {isRegistered ? '继续你当前最该完成的一步' : '登录后保存测评、岗位、简历和任务进度'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(isRegistered ? '/profile' : '/tasks')}
+              className="text-sm text-blue-700"
+            >
+              查看
+            </button>
+          </div>
+
+          {isRegistered ? (
+            <>
+              <div className="mb-4 grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xl font-bold text-blue-700">{snapshot.completedCount}</p>
+                  <p className="mt-1 text-xs text-slate-500">完成任务</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xl font-bold text-emerald-700">{snapshot.scoreData?.totalScore || 0}</p>
+                  <p className="mt-1 text-xs text-slate-500">积分</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xl font-bold text-amber-600">{snapshot.scoreData?.continuousDays || 0}</p>
+                  <p className="mt-1 text-xs text-slate-500">连续打卡</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate(taskRoutes[snapshot.currentTask?.id] || '/tasks')}
+                className="flex w-full items-center justify-between rounded-lg bg-blue-600 px-4 py-3 text-left text-white transition hover:bg-blue-700"
+              >
+                <span>
+                  <span className="block text-sm text-blue-100">
+                    第 {snapshot.currentStage?.id || 1} 阶段 · {snapshot.currentStage?.name}
+                  </span>
+                  <span className="font-semibold">{snapshot.currentTask?.title || '继续申请路线'}</span>
+                </span>
+                <ChevronRight size={20} />
+              </button>
+            </>
+          ) : (
+            <div className="rounded-lg bg-slate-50 p-4">
+              <p className="text-sm text-slate-600">
+                你可以先免费浏览内容。只有保存进度、简历、个人中心和申请记录时才需要登录。
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/assessment')}
+                className="mt-4 w-full rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
+              >
+                先做一次职业测评
+              </button>
+            </div>
+          )}
         </section>
 
-        <section className="mb-6">
-          <h2 className="font-bold text-gray-900 mb-3">需要更具体的建议？</h2>
+        <section className="mb-8">
+          <h2 className="mb-3 font-bold text-slate-950">需要更具体的帮助</h2>
           <div className="space-y-3">
             {serviceLinks.map((item) => {
               const Icon = item.icon
@@ -297,66 +316,60 @@ export default function Home() {
                   key={item.label}
                   type="button"
                   onClick={() => handleServiceClick(item)}
-                  className="w-full bg-white rounded-xl p-4 shadow-sm flex items-center gap-3 text-left active:scale-[0.98] transition"
+                  className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition active:scale-[0.98]"
                 >
-                  <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
                     <Icon size={20} />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">{item.label}</p>
-                    <p className="text-sm text-gray-500 mt-0.5">{item.description}</p>
+                    <p className="font-semibold text-slate-900">{item.label}</p>
+                    <p className="mt-0.5 text-sm text-slate-500">{item.description}</p>
                   </div>
-                  <ChevronRight size={18} className="text-gray-400" />
+                  <ChevronRight size={18} className="text-slate-400" />
                 </button>
               )
             })}
           </div>
         </section>
+
+        <section className="rounded-lg bg-slate-900 p-5 text-white">
+          <div className="flex items-start gap-3">
+            <Building2 size={22} className="mt-0.5 text-blue-200" />
+            <div>
+              <h2 className="font-bold">还不确定要不要做海乘？</h2>
+              <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                先看百科和岗位介绍，再做测评。不要一上来就花钱，也不要只看工资就决定。
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/academy/wiki')}
+                className="mt-4 rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-950"
+              >
+                从入门百科开始
+              </button>
+            </div>
+          </div>
+        </section>
       </main>
 
       {showWechatModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-800">添加微信咨询</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900">人工咨询</h3>
               <button
                 type="button"
                 onClick={() => setShowWechatModal(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
-            <div className="text-center mb-4">
-              <div className="flex items-center justify-center mb-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-200">
-                  <img
-                    src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20profile%20photo%20of%20a%20Chinese%20man%20in%20his%2030s%2C%20business%20casual%2C%20friendly%20smile%2C%20high%20quality%20photo&image_size=square_hd"
-                    alt="微信头像"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-              <h4 className="text-xl font-medium text-gray-800 mb-1">海乘顾问</h4>
-              <p className="text-sm text-gray-500 mb-4">Perth, Australia</p>
-              <div className="flex justify-center mb-4">
-                <div className="w-48 h-48">
-                  <img
-                    src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=WeChat%20QR%20code%20black%20and%20white%2C%20clean%20design%2C%20high%20resolution&image_size=square_hd"
-                    alt="微信二维码"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500">扫码添加，获取 1 对 1 建议</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-2">可咨询：</p>
-              <ul className="space-y-1 text-sm text-gray-600">
-                <li>· 海乘岗位选择</li>
-                <li>· 英文简历和面试准备</li>
-                <li>· 申请路径和时间规划</li>
-              </ul>
+            <p className="text-sm leading-relaxed text-slate-600">
+              这里建议后续放你的微信号或二维码。当前首页先把咨询作为最后一步，不在用户还没了解清楚时过早打扰。
+            </p>
+            <div className="mt-5 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+              适合咨询的问题：岗位选择、简历方向、申请渠道、时间规划。
             </div>
           </div>
         </div>

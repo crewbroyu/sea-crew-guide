@@ -17,6 +17,7 @@ export const saveAssessmentSubmission = async ({
   dimensionScores = {},
   overallScore = 0,
   level = null,
+  conclusion = null,
   recommendations = [],
 }) => {
   const payload = {
@@ -32,7 +33,7 @@ export const saveAssessmentSubmission = async ({
     overall_score: overallScore,
     level: level?.level || null,
     level_label: level?.label || null,
-    recommendations,
+    recommendations: conclusion ? { conclusion, jobs: recommendations } : recommendations,
   }
 
   const { error } = await supabase

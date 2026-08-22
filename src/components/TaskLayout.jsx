@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom'
-import { ChevronLeft } from 'lucide-react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, CheckCircle2 } from 'lucide-react'
 import TaskCompleteModal from './TaskCompleteModal'
 import StageCompleteModal from './StageCompleteModal'
 import pathData from '../data/pathData'
@@ -10,125 +10,124 @@ const TaskLayout = ({ taskId, taskTitle, canComplete, children }) => {
   const [isTaskCompleteModalOpen, setIsTaskCompleteModalOpen] = useState(false)
   const [isStageCompleteModalOpen, setIsStageCompleteModalOpen] = useState(false)
 
-  // 检查任务是否是阶段的最后一个任务
-  const isLastTaskInStage = () => {
+  const getTaskMeta = () => {
+    let taskNumber = 0
+
     for (const stage of pathData) {
-      const taskIds = stage.tasks.map(t => t.id)
-      if (taskIds.includes(taskId)) {
-        return taskId === Math.max(...taskIds)
+      const taskIds = stage.tasks.map(task => task.id)
+
+      for (const task of stage.tasks) {
+        taskNumber += 1
+
+        if (task.id === taskId) {
+          return {
+            taskNumber,
+            stage,
+            isLastTaskInStage: taskId === Math.max(...taskIds),
+          }
+        }
       }
     }
-    return false
-  }
 
-  // 找到任务所属的阶段
-  const getTaskStage = () => {
-    for (const stage of pathData) {
-      if (stage.tasks.some(t => t.id === taskId)) {
-        return stage.id
-      }
+    return {
+      taskNumber: 1,
+      stage: null,
+      isLastTaskInStage: false,
     }
-    return null
   }
 
-  // 处理完成任务按钮点击
+  const taskMeta = getTaskMeta()
+
   const handleCompleteTask = () => {
     if (!canComplete) return
     setIsTaskCompleteModalOpen(true)
   }
 
-  // 关闭任务完成弹窗
   const handleTaskCompleteModalClose = () => {
     setIsTaskCompleteModalOpen(false)
-    
-    // 如果是阶段的最后一个任务，显示阶段通关弹窗
-    if (isLastTaskInStage()) {
+
+    if (taskMeta.isLastTaskInStage) {
       setTimeout(() => {
         setIsStageCompleteModalOpen(true)
       }, 300)
-    } else {
-      // 否则直接跳转回任务列表页
-      navigate(`/tasks?justCompleted=${taskId}`)
+      return
     }
-  }
 
-  // 关闭阶段通关弹窗
-  const handleStageCompleteModalClose = () => {
-    setIsStageCompleteModalOpen(false)
-    // 跳转回任务列表页
     navigate(`/tasks?justCompleted=${taskId}`)
   }
 
-  // 计算任务序号
-  const getTaskNumber = () => {
-    let count = 0
-    for (const stage of pathData) {
-      for (const task of stage.tasks) {
-        count++
-        if (task.id === taskId) {
-          return count
-        }
-      }
-    }
-    return 1
+  const handleStageCompleteModalClose = () => {
+    setIsStageCompleteModalOpen(false)
+    navigate(`/tasks?justCompleted=${taskId}`)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 顶部导航栏 */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-700 px-6 pt-16 pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => navigate('/tasks')}
-              className="p-1.5 rounded-full bg-white/20 text-white"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <h1 className="text-white text-xl font-bold">{taskTitle}</h1>
-          </div>
-          <div className="bg-white/20 rounded-full px-3 py-1.5">
-            <span className="text-white text-sm font-medium">任务 {getTaskNumber()}/12</span>
+    <div className="min-h-screen bg-slate-50 pb-32">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-3xl px-5 pb-5 pt-12">
+          <button
+            type="button"
+            onClick={() => navigate('/tasks')}
+            className="mb-5 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+          >
+            <ArrowLeft size={16} />
+            返回路线
+          </button>
+
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-blue-700">
+                任务 {taskMeta.taskNumber}/12
+                {taskMeta.stage?.name ? ` · ${taskMeta.stage.name}` : ''}
+              </p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">
+                {taskTitle}
+              </h1>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">
+              {canComplete ? '已满足完成条件' : '完成当前步骤后可提交'}
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* 中间内容区域 */}
-      <div className="px-6 py-6">
+      <main className="mx-auto max-w-3xl px-5 py-6">
         {children}
-      </div>
+      </main>
 
-      {/* 底部固定栏 */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 z-10">
-        <button
-          onClick={handleCompleteTask}
-          disabled={!canComplete}
-          className={`w-full py-3 rounded-full font-medium transition-all duration-300 ${
-            canComplete 
-              ? 'bg-gradient-to-r from-indigo-600 to-purple-700 text-white hover:opacity-90' 
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          完成任务
-        </button>
-      </div>
+      <footer className="fixed bottom-16 left-0 right-0 z-10 border-t border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
+        <div className="mx-auto max-w-3xl">
+          <button
+            type="button"
+            onClick={handleCompleteTask}
+            disabled={!canComplete}
+            className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition ${
+              canComplete
+                ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+                : 'cursor-not-allowed bg-slate-200 text-slate-500'
+            }`}
+          >
+            <CheckCircle2 size={18} />
+            完成任务
+          </button>
+        </div>
+      </footer>
 
-      {/* 任务完成弹窗 */}
       <TaskCompleteModal
         isOpen={isTaskCompleteModalOpen}
         onClose={handleTaskCompleteModalClose}
         taskName={taskTitle}
-        totalTasksCompleted={getTaskNumber()}
+        totalTasksCompleted={taskMeta.taskNumber}
         taskId={taskId}
       />
 
-      {/* 阶段通关弹窗 */}
-      {isLastTaskInStage() && (
+      {taskMeta.isLastTaskInStage && (
         <StageCompleteModal
           isOpen={isStageCompleteModalOpen}
           onClose={handleStageCompleteModalClose}
-          stageId={getTaskStage()}
-          totalXP={90} // 暂时固定，后续计算
+          stageId={taskMeta.stage?.id}
+          totalXP={90}
         />
       )}
     </div>

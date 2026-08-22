@@ -7,6 +7,7 @@ import StepWorkExperience from '../../../components/resume/StepWorkExperience';
 import StepEducation from '../../../components/resume/StepEducation';
 import StepSkillsCerts from '../../../components/resume/StepSkillsCerts';
 import ResumePreview from '../../../components/resume/ResumePreview';
+import { syncLocalPathProfile } from '../../../services/userPathService';
 
 const STEPS = [
   { num: 1, title: '个人信息', icon: '👤' },
@@ -22,6 +23,12 @@ export default function Task4ResumeBuilder() {
   const { currentStep, nextStep, prevStep, setStep } = useResumeStore();
 
   const handleComplete = () => {
+    syncLocalPathProfile({
+      resume_status: 'draft_ready',
+      application_stage: 'resume',
+      career_stage: 'resume_preparation',
+      last_completed_task_id: 4,
+    });
     navigate('/tasks?justCompleted=4');
   };
 

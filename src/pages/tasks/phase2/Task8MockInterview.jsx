@@ -8,6 +8,7 @@ import {
 import { positionConfig } from '../../../data/interviewQuestions';
 import interviewQuestions from '../../../data/interviewQuestions';
 import RequireActivation from '../../../components/RequireActivation';
+import { syncLocalPathProfile } from '../../../services/userPathService';
 
 function Task8MockInterview() {
   const navigate = useNavigate();
@@ -546,6 +547,13 @@ function Task8MockInterview() {
       const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
       progress.task8 = { completed: true, completedAt: new Date().toISOString() };
       localStorage.setItem(progressKey, JSON.stringify(progress));
+      syncLocalPathProfile({
+        target_position: selectedPosition,
+        interview_status: 'ai_mock_done',
+        application_stage: 'interview',
+        career_stage: 'interview_preparation',
+        last_completed_task_id: 8,
+      });
 
       setStage('result');
       isTransitioningRef.current = false;

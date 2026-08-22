@@ -1,10 +1,7 @@
-// src/components/assessment/QuestionPage.jsx
-import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function QuestionPage({
   question,
-  dimension,
   currentQuestion,
   totalQuestions,
   currentDimension,
@@ -12,161 +9,100 @@ export default function QuestionPage({
   answers,
   onSelectAnswer,
   onNext,
-  onPrev
+  onPrev,
 }) {
   const selectedAnswers = question.type === 'multiple' ? (answers[question.id] || []) : answers[question.id]
-  const [played, setPlayed] = useState(false)
+  const isMultiple = question.type === 'multiple'
+  const hasSelection = isMultiple ? selectedAnswers.length > 0 : !!selectedAnswers
 
-  // 生成提示音
-  const playBeep = () => {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    oscillator.frequency.value = 800;
-    oscillator.type = 'sine';
-    gainNode.gain.value = 0.3;
-    oscillator.start();
-    setTimeout(() => oscillator.stop(), 300);
-    return new Promise(resolve => setTimeout(resolve, 500));
-  };
-
-  // 提示音结束后开始TTS
-  const speakText = async (text) => {
-    await playBeep();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
-  };
-
-  // 检测是否是维度2的听力题
-  const isListeningQuestion = dimension.id === 'english' && currentQuestion === 0;
-
-  // 进入听力题时自动播放
-  useEffect(() => {
-    if (isListeningQuestion && !played) {
-      speakText(question.scenario);
-      setPlayed(true);
+  const handleOptionClick = (optionId) => {
+    if (isMultiple) {
+      const newSelected = selectedAnswers.includes(optionId)
+        ? selectedAnswers.filter((id) => id !== optionId)
+        : [...selectedAnswers, optionId]
+      onSelectAnswer(question.id, newSelected)
+      return
     }
-  }, [isListeningQuestion, question.scenario, played]);
+
+    onSelectAnswer(question.id, optionId)
+  }
+
+  const isSelected = (optionId) => (isMultiple ? selectedAnswers.includes(optionId) : selectedAnswers === optionId)
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 主要内容 */}
-      <div className="flex-1 px-6 py-8">
-        <div className="max-w-md mx-auto">
-          {/* 题目编号 */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="text-sm text-gray-500">
-              第 {currentQuestion + 1} / {totalQuestions} 题
-            </div>
-            <div className="text-sm text-gray-500">
-              维度 {currentDimension} / {totalDimensions}
-            </div>
-          </div>
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <main className="mx-auto max-w-3xl px-6 py-6">
+        <div className="mb-5 flex items-center justify-between text-sm text-slate-500">
+          <span>
+            维度 {currentDimension}/{totalDimensions}
+          </span>
+          <span>
+            问题 {currentQuestion + 1}/{totalQuestions}
+          </span>
+        </div>
 
-          {/* 场景描述 */}
-          <div className="bg-gray-100 rounded-lg p-4 mb-6">
-            <p className={`${isListeningQuestion ? 'text-transparent user-select-none' : 'text-gray-700'}`}>
-              {question.scenario}
-            </p>
-            {isListeningQuestion && (
-              <div className="text-center text-gray-500 text-sm mt-2">
-                正在播放听力内容...
-              </div>
-            )}
-          </div>
+        <section className="mb-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="mb-2 text-sm font-medium text-blue-700">请按真实情况选择</p>
+          <h1 className="text-lg font-bold leading-relaxed text-slate-950">{question.scenario}</h1>
+          {isMultiple && (
+            <p className="mt-3 text-sm text-slate-500">这道题可以多选。</p>
+          )}
+        </section>
 
-          {/* 选项 */}
-          <div className="space-y-3 mb-8">
-            {question.options.map((option) => (
+        <section className="mb-8 space-y-3">
+          {question.options.map((option) => {
+            const selected = isSelected(option.id)
+
+            return (
               <button
                 key={option.id}
-                onClick={() => {
-                  if (question.type === 'multiple') {
-                    const newSelected = selectedAnswers.includes(option.id)
-                      ? selectedAnswers.filter(id => id !== option.id)
-                      : [...selectedAnswers, option.id]
-                    onSelectAnswer(question.id, newSelected)
-                  } else {
-                    onSelectAnswer(question.id, option.id)
-                  }
-                }}
-                className={`w-full py-3 px-4 rounded-lg text-left transition-all ${question.type === 'multiple' 
-                  ? selectedAnswers.includes(option.id)
-                    ? 'bg-blue-50 border-2 border-blue-500'
-                    : 'bg-white border border-gray-200 hover:border-blue-300'
-                  : selectedAnswers === option.id
-                    ? 'bg-blue-50 border-2 border-blue-500'
-                    : 'bg-white border border-gray-200 hover:border-blue-300'}`}
+                type="button"
+                onClick={() => handleOptionClick(option.id)}
+                className={`flex w-full items-start gap-3 rounded-lg border bg-white p-4 text-left shadow-sm transition ${
+                  selected ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-300'
+                }`}
               >
-                <div className="flex items-start gap-3">
-                  <div className={`w-5 h-5 flex items-center justify-center mt-0.5 ${question.type === 'multiple' 
-                    ? selectedAnswers.includes(option.id)
-                      ? 'bg-blue-500 text-white border-2 border-blue-500'
-                      : 'border-2 border-gray-300'
-                    : selectedAnswers === option.id
-                      ? 'bg-blue-500 text-white border-2 border-blue-500'
-                      : 'border-2 border-gray-300'}`}>
-                    {(question.type === 'multiple' ? selectedAnswers.includes(option.id) : selectedAnswers === option.id) && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                      </svg>
-                    )}
-                  </div>
-                  <span className="text-gray-800">{option.text}</span>
-                </div>
+                <span
+                  className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${
+                    selected ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'
+                  }`}
+                >
+                  {selected && <Check size={13} />}
+                </span>
+                <span className="text-sm leading-relaxed text-slate-800">{option.text}</span>
               </button>
-            ))}
-          </div>
+            )
+          })}
+        </section>
 
-          {/* 底部按钮 */}
-          <div className="flex gap-4">
-            <button
-              onClick={onPrev}
-              disabled={currentQuestion === 0}
-              className={`flex-1 py-3 rounded-lg font-medium transition-colors ${currentQuestion === 0
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
-            >
-              <div className="flex items-center justify-center gap-1">
-                <ChevronLeft size={16} />
-                上一题
-              </div>
-            </button>
-            <button
-              onClick={onNext}
-              disabled={question.type === 'multiple' ? selectedAnswers.length === 0 : !selectedAnswers}
-              className={`flex-1 py-3 rounded-lg font-medium transition-colors ${question.type === 'multiple' 
-                ? selectedAnswers.length === 0
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 text-white hover:bg-green-700'
-                : !selectedAnswers
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 text-white hover:bg-green-700'}`}
-            >
-              <div className="flex items-center justify-center gap-1">
-                {currentQuestion === totalQuestions - 1 ? '完成本维度' : '下一题'}
-                <ChevronRight size={16} />
-              </div>
-            </button>
-          </div>
-
-          {/* 题目指示器 */}
-          <div className="flex justify-center gap-2 mt-8">
-            {Array.from({ length: totalQuestions }).map((_, index) => (
-              <div
-                key={index}
-                className={`w-2 h-2 rounded-full ${index === currentQuestion
-                  ? 'bg-green-600'
-                  : 'bg-gray-300'}`}
-              />
-            ))}
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={currentQuestion === 0}
+            className="flex items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white py-3 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+          >
+            <ChevronLeft size={17} />
+            上一题
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!hasSelection}
+            className="flex items-center justify-center gap-1 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {currentQuestion === totalQuestions - 1 ? '完成本维度' : '下一题'}
+            <ChevronRight size={17} />
+          </button>
         </div>
-      </div>
+
+        <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-200">
+          <div
+            className="h-full rounded-full bg-blue-600 transition-all"
+            style={{ width: `${((currentQuestion + 1) / totalQuestions) * 100}%` }}
+          />
+        </div>
+      </main>
     </div>
   )
 }

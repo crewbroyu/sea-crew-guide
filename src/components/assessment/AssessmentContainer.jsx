@@ -1,15 +1,13 @@
-// src/components/assessment/AssessmentContainer.jsx
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import WelcomePage from './WelcomePage'
 import BackgroundSelect from './BackgroundSelect'
 import QuestionPage from './QuestionPage'
-import VocabQuestion from './VocabQuestion'
-import RecordingQuestion from './RecordingQuestion'
 import DimensionTransition from './DimensionTransition'
 import ResultPage from './ResultPage'
 import { DIMENSIONS, ALL_QUESTIONS } from '../../data/assessmentData'
 import { calculateDimensionScore, calculateOverallScore, getLevel } from '../../data/assessmentScoring'
+import { syncLocalPathProfile } from '../../services/userPathService'
 
 const getSavedAssessmentResult = () => {
   try {
@@ -25,8 +23,8 @@ const getSavedAssessmentResult = () => {
 }
 
 const getQuestionsForDimension = (dimensionId, serviceBackground) => {
-  if (dimensionId === 'professional') {
-    return ALL_QUESTIONS.professional[serviceBackground]
+  if (dimensionId === 'service_experience') {
+    return ALL_QUESTIONS.service_experience[serviceBackground] || ALL_QUESTIONS.service_experience.none
   }
 
   return ALL_QUESTIONS[dimensionId]
@@ -35,7 +33,8 @@ const getQuestionsForDimension = (dimensionId, serviceBackground) => {
 export default function AssessmentContainer() {
   const navigate = useNavigate()
   const [savedAssessmentResult] = useState(getSavedAssessmentResult)
-  const [step, setStep] = useState(savedAssessmentResult ? 7 : 0)
+  const resultStep = 2 + DIMENSIONS.length
+  const [step, setStep] = useState(savedAssessmentResult ? resultStep : 0)
   const [currentDimension, setCurrentDimension] = useState(0)
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [serviceBackground, setServiceBackground] = useState(savedAssessmentResult?.serviceBackground || null)
@@ -56,10 +55,7 @@ export default function AssessmentContainer() {
   }
 
   const handleSelectAnswer = (questionId, answer) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: answer,
-    }))
+    setAnswers((prev) => ({ ...prev, [questionId]: answer }))
   }
 
   const handleNextQuestion = () => {
@@ -100,10 +96,18 @@ export default function AssessmentContainer() {
     localStorage.setItem('assessment_result', JSON.stringify(assessmentResult))
 
     const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
-    progress.task1 = { completed: true }
+    progress.task1 = { completed: true, completedAt: new Date().toISOString() }
     localStorage.setItem('boarding_progress', JSON.stringify(progress))
 
-    setStep(7)
+    syncLocalPathProfile({
+      career_stage: 'assessment_done',
+      application_stage: 'assessed',
+      latest_assessment_score: finalOverallScore,
+      latest_assessment_level: assessmentResult.level?.label || null,
+      last_completed_task_id: 1,
+    })
+
+    setStep(resultStep)
   }
 
   const handlePrevQuestion = () => {
@@ -132,7 +136,7 @@ export default function AssessmentContainer() {
   }
 
   const handleExitAssessment = () => {
-    if (window.confirm('测评还没完成，退出将丢失进度，确定离开吗？')) {
+    if (window.confirm('测评还没完成，退出将丢失当前进度，确定离开吗？')) {
       navigate('/jobs/preparation')
     }
   }
@@ -142,44 +146,9 @@ export default function AssessmentContainer() {
     const questions = getQuestionsForDimension(dimensionData.id, serviceBackground)
     const currentQuestionData = questions[currentQuestion]
 
-    if (currentQuestionData.type === 'multi' && currentQuestionData.scoringRule === 'vocab') {
-      return (
-        <VocabQuestion
-          question={currentQuestionData}
-          dimension={dimensionData}
-          currentQuestion={currentQuestion}
-          totalQuestions={questions.length}
-          currentDimension={currentDimension + 1}
-          totalDimensions={DIMENSIONS.length}
-          answers={answers}
-          onSelectAnswer={handleSelectAnswer}
-          onNext={handleNextQuestion}
-          onPrev={handlePrevQuestion}
-        />
-      )
-    }
-
-    if (dimensionData.id === 'english' && currentQuestion === 3) {
-      return (
-        <RecordingQuestion
-          question={currentQuestionData}
-          dimension={dimensionData}
-          currentQuestion={currentQuestion}
-          totalQuestions={questions.length}
-          currentDimension={currentDimension + 1}
-          totalDimensions={DIMENSIONS.length}
-          answers={answers}
-          onSelectAnswer={handleSelectAnswer}
-          onNext={handleNextQuestion}
-          onPrev={handlePrevQuestion}
-        />
-      )
-    }
-
     return (
       <QuestionPage
         question={currentQuestionData}
-        dimension={dimensionData}
         currentQuestion={currentQuestion}
         totalQuestions={questions.length}
         currentDimension={currentDimension + 1}
@@ -193,43 +162,32 @@ export default function AssessmentContainer() {
   }
 
   const renderCurrentStep = () => {
-    switch (step) {
-      case 0:
-        return <WelcomePage onStart={handleStartAssessment} />
-      case 1:
-        return <BackgroundSelect onSelect={handleBackgroundSelect} />
-      case 2:
-      case 3:
-      case 4:
-      case 5:
-      case 6:
-        if (step === 2 + currentDimension) {
-          return renderQuestionStep()
-        }
+    if (step === 0) return <WelcomePage onStart={handleStartAssessment} />
+    if (step === 1) return <BackgroundSelect onSelect={handleBackgroundSelect} />
 
-        if (step > 2 + currentDimension) {
-          return (
-            <DimensionTransition
-              dimension={DIMENSIONS[currentDimension]}
-              completedDimensions={completedDimensions}
-              totalDimensions={DIMENSIONS.length}
-              onContinue={handleContinueToNextDimension}
-            />
-          )
-        }
-        break
-      case 7:
-        return (
-          <ResultPage
-            dimensionScores={dimensionScores}
-            overallScore={overallScore}
-            serviceBackground={serviceBackground}
-            answers={answers}
-            onRestart={handleRestartAssessment}
-          />
-        )
-      default:
-        return null
+    if (step >= 2 && step < resultStep) {
+      if (step === 2 + currentDimension) return renderQuestionStep()
+
+      return (
+        <DimensionTransition
+          dimension={DIMENSIONS[currentDimension]}
+          completedDimensions={completedDimensions}
+          totalDimensions={DIMENSIONS.length}
+          onContinue={handleContinueToNextDimension}
+        />
+      )
+    }
+
+    if (step === resultStep) {
+      return (
+        <ResultPage
+          dimensionScores={dimensionScores}
+          overallScore={overallScore}
+          serviceBackground={serviceBackground}
+          answers={answers}
+          onRestart={handleRestartAssessment}
+        />
+      )
     }
 
     return null
@@ -237,42 +195,43 @@ export default function AssessmentContainer() {
 
   const currentDimensionData = DIMENSIONS[currentDimension]
   const currentQuestions =
-    step >= 2 && step <= 6
+    step >= 2 && step < resultStep
       ? getQuestionsForDimension(currentDimensionData.id, serviceBackground)
       : []
   const progressWidth =
-    step >= 2 && step <= 6
+    step >= 2 && step < resultStep
       ? (currentDimension * 100) / DIMENSIONS.length +
         ((currentQuestion + 1) / currentQuestions.length) * (100 / DIMENSIONS.length)
       : 0
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {step >= 2 && step <= 6 && (
-        <div className="bg-white shadow-sm sticky top-0 z-10">
-          <div className="px-6 py-4">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      {step >= 2 && step < resultStep && (
+        <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <div className="mx-auto max-w-3xl px-6 py-4">
             <div className="flex justify-between items-center mb-2">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-medium">
+                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-700 font-medium">
                   {currentDimension + 1}
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-800">{currentDimensionData.name}</h3>
-                  <p className="text-sm text-gray-500">
+                  <h3 className="font-medium text-slate-900">{currentDimensionData.name}</h3>
+                  <p className="text-sm text-slate-500">
                     维度 {currentDimension + 1}/{DIMENSIONS.length}
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={handleExitAssessment}
-                className="text-gray-500 hover:text-gray-700 text-sm"
+                className="text-sm text-slate-500 hover:text-slate-700"
               >
                 退出
               </button>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-slate-200 rounded-full h-2">
               <div
-                className="bg-green-600 h-2 rounded-full"
+                className="bg-blue-600 h-2 rounded-full"
                 style={{ width: `${progressWidth}%` }}
               />
             </div>

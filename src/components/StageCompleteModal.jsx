@@ -1,92 +1,71 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import pathData from '../data/pathData'
 import { recordStageComplete } from '../store/scoreStore'
 
 const StageCompleteModal = ({ isOpen, onClose, stageId, totalXP }) => {
-  const stage = pathData.find(s => s.id === stageId)
+  const stage = pathData.find(item => item.id === stageId)
   const isLastStage = stageId === pathData.length
-  const nextStage = pathData.find(s => s.id === stageId + 1)
-  
-  // 记录阶段完成并获取积分奖励
-  if (isOpen && stageId && stage) {
-    recordStageComplete(stageId, stage.name)
-  }
+  const nextStage = pathData.find(item => item.id === stageId + 1)
+
+  useEffect(() => {
+    if (isOpen && stageId && stage) {
+      recordStageComplete(stageId, stage.name)
+    }
+  }, [isOpen, stageId, stage])
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-5 backdrop-blur-sm"
           onClick={onClose}
         >
-          <motion.div 
-            className="bg-white rounded-3xl p-6 max-w-md w-full mx-4"
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-            onClick={(e) => e.stopPropagation()}
+          <div
+            className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
           >
-            {/* 阶段 emoji 动画 */}
-            <div className="flex justify-center mb-4">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', damping: 15, stiffness: 200 }}
-              >
-                <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center">
-                  <span className="text-4xl">{stage?.icon}</span>
-                </div>
-              </motion.div>
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <CheckCircle2 size={26} />
             </div>
 
-            {/* 标题和副标题 */}
-            <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">恭喜！阶段通关！</h2>
-            <p className="text-gray-500 text-center mb-6">「{stage?.name}」阶段已完成</p>
+            <h2 className="text-xl font-semibold text-slate-950">阶段已完成</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {stage?.name ? `你已经完成「${stage.name}」阶段。` : '当前阶段进度已更新。'}
+            </p>
 
-            {/* 总奖励 */}
-            <div className="flex justify-center mb-6">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', damping: 15, stiffness: 200, delay: 0.2 }}
-                className="bg-purple-100 rounded-full px-4 py-2"
-              >
-                <span className="text-lg font-bold text-purple-700">+200 积分</span>
-              </motion.div>
-            </div>
-
-            {/* 下一阶段预告或特殊文案 */}
-            <div className="text-center mb-8">
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
               {isLastStage ? (
-                <motion.p 
-                  className="text-lg font-medium text-purple-700"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  你已经准备好出发了！🎉
-                </motion.p>
+                <div>
+                  <p className="text-sm font-medium text-slate-950">申请准备路线已走完</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    现在可以回到进度中心，检查简历、证件和面试准备是否已经同步完成。
+                  </p>
+                </div>
               ) : (
-                <motion.p 
-                  className="text-gray-600"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  即将开启：{nextStage?.name}
-                </motion.p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-950">下一阶段</p>
+                    <p className="mt-1 text-xs text-slate-500">{nextStage?.name || '继续推进申请'}</p>
+                  </div>
+                  <ArrowRight size={18} className="text-blue-600" />
+                </div>
               )}
             </div>
 
-            {/* 底部按钮 */}
+            <div className="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700">
+              本阶段累计 +{totalXP || 200} 积分
+            </div>
+
             <button
+              type="button"
               onClick={onClose}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-700 text-white font-medium rounded-full hover:opacity-90 transition-opacity"
+              className="mt-6 w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
             >
-              {isLastStage ? '查看成就' : '开启下一阶段'}
+              {isLastStage ? '查看申请进度中心' : '进入下一阶段'}
             </button>
-          </motion.div>
+          </div>
         </div>
       )}
     </AnimatePresence>

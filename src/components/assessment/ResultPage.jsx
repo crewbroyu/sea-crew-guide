@@ -11,66 +11,74 @@ import {
   Save,
 } from 'lucide-react'
 import { DIMENSIONS } from '../../data/assessmentData'
-import { getLevel } from '../../data/assessmentScoring'
+import { getCareerConclusion, getLevel } from '../../data/assessmentScoring'
 import { useAccessStore } from '../../store/accessStore'
 import { saveAssessmentSubmission } from '../../services/assessmentService'
+import { syncLocalPathProfile } from '../../services/userPathService'
 
 const dimensionLabels = {
-  professional: '服务知识',
-  english: '英语沟通',
-  interview: '面试表达',
-  personality: '职业适应',
-  adaptability: '应变意识',
+  eligibility: '基础可行性',
+  english: '英语服务沟通',
+  service_experience: '服务与岗位背景',
+  work_preference: '岗位偏好匹配',
+  ship_adaptability: '船上适应力',
+  application_readiness: '求职准备度',
 }
 
 const jobProfiles = [
   {
     id: 'retail',
     title: '免税店 / Retail Sales',
-    weights: { english: 0.25, interview: 0.2, personality: 0.15, adaptability: 0.15, professional: 0.25 },
-    strengths: ['销售沟通', '产品学习', '目标意识'],
-    risks: ['销售 KPI 压力较明显', '需要主动开口推荐产品'],
-    nextSteps: ['学习免税店岗位知识', '整理销售/服务经历', '优化英文简历'],
+    detailRoute: '/jobs',
+    weights: { english: 0.24, service_experience: 0.22, work_preference: 0.2, application_readiness: 0.18, ship_adaptability: 0.16 },
+    strengths: ['适合有销售或主动沟通经验的人', '收入上限相对更依赖表现', '容易连接奢侈品、美妆或零售职业发展'],
+    risks: ['KPI 压力明显', '需要主动开口推荐产品', '不适合极度抗拒销售的人'],
+    nextSteps: ['补齐英文销售表达', '整理销售或服务案例', '学习免税店岗位职责和品牌基础知识'],
   },
   {
     id: 'front_office',
     title: '前台 / Guest Services',
-    weights: { english: 0.3, interview: 0.2, adaptability: 0.25, personality: 0.15, professional: 0.1 },
-    strengths: ['英语沟通', '投诉处理', '跨文化服务'],
-    risks: ['客诉和突发情况较多', '对英语和情绪稳定性要求高'],
-    nextSteps: ['练习客诉场景英语', '准备 STAR 面试故事', '学习前台服务流程'],
+    detailRoute: '/jobs',
+    weights: { english: 0.3, ship_adaptability: 0.22, service_experience: 0.18, application_readiness: 0.16, work_preference: 0.14 },
+    strengths: ['适合英语沟通稳定的人', '更接近酒店前厅职业路径', '能积累投诉处理和跨文化服务经验'],
+    risks: ['客诉和突发问题较多', '英语和情绪稳定要求高', '面试会重点考察服务判断'],
+    nextSteps: ['练习客诉场景英语', '准备 STAR 服务案例', '了解邮轮 Guest Services 日常流程'],
   },
   {
     id: 'bar',
     title: '酒吧服务 / Bar Server',
-    weights: { english: 0.22, interview: 0.18, personality: 0.15, adaptability: 0.2, professional: 0.25 },
-    strengths: ['服务节奏', '销售意识', '现场应变'],
-    risks: ['需要酒水知识', '高峰期节奏快且体力消耗高'],
-    nextSteps: ['学习基础酒水术语', '练习点单和推荐话术', '准备服务压力案例'],
+    detailRoute: '/jobs',
+    weights: { service_experience: 0.24, english: 0.22, work_preference: 0.2, ship_adaptability: 0.2, application_readiness: 0.14 },
+    strengths: ['适合节奏快、愿意互动的人', '小费和销售意识会影响收入', '服务技能迁移性较强'],
+    risks: ['高峰期强度大', '需要酒水和推荐话术', '晚班和嘈杂环境较常见'],
+    nextSteps: ['学习基础酒水英文', '练习点单和推荐话术', '准备高压服务案例'],
   },
   {
     id: 'restaurant',
     title: '餐厅服务 / Restaurant',
-    weights: { professional: 0.25, english: 0.2, interview: 0.15, personality: 0.15, adaptability: 0.25 },
-    strengths: ['标准化服务', '团队协作', '执行力'],
-    risks: ['工作强度较高', '需要稳定体力和服务细节'],
-    nextSteps: ['学习西餐服务流程', '练习菜单和投诉英语', '补充餐饮服务经历'],
-  },
-  {
-    id: 'youth_staff',
-    title: 'Youth Staff / 儿童活动',
-    weights: { english: 0.25, personality: 0.25, adaptability: 0.2, interview: 0.2, professional: 0.1 },
-    strengths: ['亲和力', '活动组织', '安全意识'],
-    risks: ['对儿童看护经验有要求', '需要耐心和边界感'],
-    nextSteps: ['整理儿童/教育相关经历', '练习活动组织英语', '学习儿童安全规范'],
+    detailRoute: '/jobs',
+    weights: { service_experience: 0.26, ship_adaptability: 0.22, eligibility: 0.18, english: 0.18, work_preference: 0.16 },
+    strengths: ['适合有餐饮或酒店服务基础的人', '岗位需求量相对稳定', '标准化流程清晰'],
+    risks: ['体力消耗较高', '工作重复度较高', '需要接受排班和团队协作压力'],
+    nextSteps: ['梳理餐饮服务经历', '补齐菜单和客诉英语', '确认自己能接受工作强度'],
   },
   {
     id: 'housekeeping',
     title: '客房服务 / Housekeeping',
-    weights: { professional: 0.25, adaptability: 0.25, personality: 0.2, english: 0.15, interview: 0.15 },
-    strengths: ['细节执行', '稳定性', '服务标准'],
-    risks: ['体力要求较高', '工作重复度较高'],
-    nextSteps: ['了解客房清洁标准', '准备吃苦耐劳案例', '练习客房请求英语'],
+    detailRoute: '/jobs',
+    weights: { eligibility: 0.24, ship_adaptability: 0.24, service_experience: 0.22, application_readiness: 0.16, english: 0.14 },
+    strengths: ['适合执行力强、细节稳定的人', '英语门槛通常低于前台', '能快速理解标准化服务'],
+    risks: ['体力要求高', '重复劳动较多', '晋升需要长期稳定表现'],
+    nextSteps: ['了解客房清洁标准', '准备吃苦耐劳案例', '练习基础客房请求英语'],
+  },
+  {
+    id: 'youth_staff',
+    title: 'Youth Staff / 儿童青少年活动',
+    detailRoute: '/jobs',
+    weights: { english: 0.25, ship_adaptability: 0.22, work_preference: 0.2, service_experience: 0.18, application_readiness: 0.15 },
+    strengths: ['适合有教育、活动或儿童照看经验的人', '工作内容更偏互动和活动组织', '英语表达和责任边界很重要'],
+    risks: ['对安全意识要求高', '需要耐心和情绪稳定', '部分公司会要求相关经验或证书'],
+    nextSteps: ['整理儿童、教育或活动经历', '练习活动组织英语', '学习儿童安全和边界意识'],
   },
 ]
 
@@ -83,26 +91,23 @@ const serviceBackgroundBoosts = {
   housekeeping: 'housekeeping',
 }
 
-const calculateRecommendations = (dimensionScores, serviceBackground) => {
-  return jobProfiles
+const calculateRecommendations = (dimensionScores, serviceBackground) =>
+  jobProfiles
     .map((job) => {
-      const baseScore = Object.entries(job.weights).reduce((total, [dimension, weight]) => {
-        return total + (dimensionScores[dimension] || 0) * weight
-      }, 0)
-      const boostedScore = serviceBackgroundBoosts[serviceBackground] === job.id ? baseScore + 6 : baseScore
+      const baseScore = Object.entries(job.weights).reduce(
+        (total, [dimension, weight]) => total + (dimensionScores[dimension] || 0) * weight,
+        0
+      )
+      const backgroundBoost = serviceBackgroundBoosts[serviceBackground] === job.id ? 6 : 0
 
-      return {
-        ...job,
-        matchScore: Math.min(96, Math.round(boostedScore)),
-      }
+      return { ...job, matchScore: Math.min(96, Math.round(baseScore + backgroundBoost)) }
     })
     .sort((a, b) => b.matchScore - a.matchScore)
     .slice(0, 3)
-}
 
 const getScoreColor = (score) => {
-  if (score >= 80) return 'text-green-700 bg-green-50 border-green-100'
-  if (score >= 65) return 'text-blue-700 bg-blue-50 border-blue-100'
+  if (score >= 82) return 'text-emerald-700 bg-emerald-50 border-emerald-100'
+  if (score >= 68) return 'text-blue-700 bg-blue-50 border-blue-100'
   if (score >= 50) return 'text-amber-700 bg-amber-50 border-amber-100'
   return 'text-red-700 bg-red-50 border-red-100'
 }
@@ -137,6 +142,7 @@ export default function ResultPage({
   const [saveMessage, setSaveMessage] = useState('')
 
   const overallLevel = getLevel(overallScore)
+  const conclusion = getCareerConclusion(overallScore, dimensionScores)
   const recommendations = useMemo(
     () => calculateRecommendations(dimensionScores, serviceBackground),
     [dimensionScores, serviceBackground]
@@ -150,7 +156,7 @@ export default function ResultPage({
   const handleSaveSubmission = async () => {
     if (!contact.name.trim() && !contact.phone.trim() && !contact.wechat.trim() && !contact.email.trim()) {
       setSaveState('error')
-      setSaveMessage('请至少填写一个联系方式，方便后续查看和跟进测评结果。')
+      setSaveMessage('请至少填写一种联系方式，方便后续查看和跟进测评结果。')
       return
     }
 
@@ -165,7 +171,15 @@ export default function ResultPage({
         dimensionScores,
         overallScore,
         level: overallLevel,
+        conclusion,
         recommendations,
+      })
+      await syncLocalPathProfile({
+        name: contact.name || undefined,
+        latest_assessment_score: overallScore,
+        latest_assessment_level: overallLevel.label,
+        career_stage: 'assessment_done',
+        application_stage: 'assessed',
       })
       setSaveState('saved')
       setSaveMessage('已保存。你可以在 Supabase 后台查看这条测评记录。')
@@ -177,79 +191,104 @@ export default function ResultPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-white border-b border-gray-200 px-6 pt-12 pb-4">
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <header className="border-b border-slate-200 bg-white px-6 pb-6 pt-12">
+        <div className="mx-auto max-w-3xl">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="text-gray-600 hover:text-gray-900"
+            className="mb-5 flex items-center gap-1 text-sm text-slate-500"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={17} />
+            返回首页
           </button>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">海乘职业适配报告</h1>
-            <p className="text-sm text-gray-500 mt-0.5">基于服务经验、英语、面试表达和职业适应力</p>
-          </div>
+          <p className="mb-2 text-sm font-medium text-blue-700">测评报告</p>
+          <h1 className="text-3xl font-bold leading-tight text-slate-950">海乘职业适配报告</h1>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            根据你的基础条件、英语、服务经历、岗位偏好、船上适应力和求职准备度生成。
+          </p>
         </div>
-      </div>
+      </header>
 
-      <main className="px-6 py-6 max-w-3xl mx-auto">
-        <section className="bg-white rounded-xl shadow-sm p-5 mb-5">
+      <main className="mx-auto max-w-3xl px-6 pt-6">
+        <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm text-gray-500 mb-1">综合准备度</p>
-              <div className="flex items-end gap-2">
-                <span className="text-4xl font-bold text-gray-900">{overallScore}</span>
-                <span className="text-lg font-semibold text-gray-500 mb-1">/ 100</span>
+              <p className="text-sm text-slate-500">综合准备度</p>
+              <div className="mt-1 flex items-end gap-2">
+                <span className="text-5xl font-bold text-slate-950">{overallScore}</span>
+                <span className="mb-1 text-lg font-semibold text-slate-400">/100</span>
               </div>
             </div>
-            <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getScoreColor(overallScore)}`}>
+            <span className={`rounded-full border px-3 py-1.5 text-sm font-medium ${getScoreColor(overallScore)}`}>
               {overallLevel.label}
             </span>
           </div>
 
-          <p className="text-sm text-gray-600 mt-4">
-            这份结果不是简单判断“能不能做海乘”，而是帮你找到更合适的岗位方向，以及当前最应该补齐的准备项。
-          </p>
+          <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <h2 className="font-bold text-blue-950">{conclusion.title}</h2>
+            <p className="mt-1 text-sm leading-relaxed text-blue-900">{conclusion.summary}</p>
+          </div>
         </section>
 
-        <section className="mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Briefcase size={20} className="text-blue-600" />
-            <h2 className="font-bold text-gray-900">推荐岗位 Top 3</h2>
+        <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 font-bold text-slate-950">六维能力画像</h2>
+          <div className="space-y-4">
+            {DIMENSIONS.map((dimension) => {
+              const score = dimensionScores[dimension.id] || 0
+
+              return (
+                <div key={dimension.id}>
+                  <div className="mb-1 flex justify-between gap-3 text-sm">
+                    <span className="text-slate-700">{dimensionLabels[dimension.id] || dimension.name}</span>
+                    <span className="font-medium text-slate-900">{score}/100</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full rounded-full bg-blue-600" style={{ width: `${score}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2">
+            <Briefcase size={20} className="text-blue-700" />
+            <h2 className="font-bold text-slate-950">推荐岗位 Top 3</h2>
           </div>
 
           <div className="space-y-3">
             {recommendations.map((job, index) => (
-              <div key={job.id} className="bg-white rounded-xl shadow-sm p-5">
-                <div className="flex items-start justify-between gap-3 mb-3">
+              <article key={job.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs text-blue-600 font-medium mb-1">推荐 {index + 1}</p>
-                    <h3 className="font-bold text-gray-900">{job.title}</h3>
+                    <p className="mb-1 text-xs font-medium text-blue-700">推荐 {index + 1}</p>
+                    <h3 className="font-bold text-slate-950">{job.title}</h3>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold border ${getScoreColor(job.matchScore)}`}>
+                  <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${getScoreColor(job.matchScore)}`}>
                     {job.matchScore}%
                   </span>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs font-medium text-gray-500 mb-2">为什么适合</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <p className="mb-2 text-xs font-medium text-slate-500">为什么适合</p>
+                    <ul className="space-y-1.5">
                       {job.strengths.map((item) => (
-                        <span key={item} className="text-xs bg-white border border-gray-200 rounded-full px-2 py-1 text-gray-700">
-                          {item}
-                        </span>
+                        <li key={item} className="flex gap-1.5 text-xs leading-relaxed text-slate-700">
+                          <CheckCircle2 size={13} className="mt-0.5 flex-shrink-0 text-emerald-600" />
+                          <span>{item}</span>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   </div>
 
-                  <div className="bg-amber-50 rounded-lg p-3">
-                    <p className="text-xs font-medium text-amber-700 mb-2">需要提前知道的风险</p>
-                    <ul className="space-y-1">
+                  <div className="rounded-lg bg-amber-50 p-3">
+                    <p className="mb-2 text-xs font-medium text-amber-700">提前知道的风险</p>
+                    <ul className="space-y-1.5">
                       {job.risks.map((item) => (
-                        <li key={item} className="text-xs text-amber-800 flex gap-1.5">
+                        <li key={item} className="flex gap-1.5 text-xs leading-relaxed text-amber-800">
                           <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" />
                           <span>{item}</span>
                         </li>
@@ -258,87 +297,75 @@ export default function ResultPage({
                   </div>
                 </div>
 
-                <div className="mt-3">
-                  <p className="text-xs font-medium text-gray-500 mb-2">下一步建议</p>
+                <div className="mt-4">
+                  <p className="mb-2 text-xs font-medium text-slate-500">下一步建议</p>
                   <div className="space-y-1.5">
                     {job.nextSteps.map((step) => (
-                      <div key={step} className="flex items-center gap-2 text-sm text-gray-700">
-                        <CheckCircle2 size={15} className="text-green-600" />
+                      <div key={step} className="flex items-center gap-2 text-sm text-slate-700">
+                        <CheckCircle2 size={15} className="text-emerald-600" />
                         <span>{step}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-              </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate(job.detailRoute)}
+                  className="mt-4 w-full rounded-lg border border-slate-300 bg-white py-2.5 font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  查看岗位介绍
+                </button>
+              </article>
             ))}
           </div>
         </section>
 
-        <section className="bg-white rounded-xl shadow-sm p-5 mb-5">
-          <div className="flex items-center gap-2 mb-4">
-            <ClipboardList size={20} className="text-blue-600" />
-            <h2 className="font-bold text-gray-900">当前短板</h2>
+        <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <ClipboardList size={20} className="text-blue-700" />
+            <h2 className="font-bold text-slate-950">当前最该补的短板</h2>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {lowestDimensions.map((dimension) => (
               <div key={dimension.id}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-700">{dimension.name}</span>
-                  <span className="font-medium text-gray-900">{dimension.score}/100</span>
+                <div className="mb-1 flex justify-between text-sm">
+                  <span className="text-slate-700">{dimension.name}</span>
+                  <span className="font-medium text-slate-900">{dimension.score}/100</span>
                 </div>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-600 rounded-full" style={{ width: `${dimension.score}%` }} />
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-blue-600" style={{ width: `${dimension.score}%` }} />
                 </div>
               </div>
             ))}
           </div>
-          <p className="text-sm text-gray-600 mt-4">
-            建议先补齐这两个维度，再进入简历优化和面试训练，会比盲目投递更稳。
+          <p className="mt-4 text-sm leading-relaxed text-slate-600">
+            建议先补齐这两个维度，再进入简历优化和面试训练。这样比盲目投递更容易形成稳定路径。
           </p>
         </section>
 
-        <section className="bg-white rounded-xl shadow-sm p-5 mb-5">
-          <h2 className="font-bold text-gray-900 mb-3">保存报告并方便后续跟进</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            填写联系方式后，这份测评结果会保存到后台。后续可以基于你的结果继续生成职业路线、简历建议和面试准备计划。
+        <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-2 font-bold text-slate-950">保存报告，后续生成职业路线</h2>
+          <p className="mb-4 text-sm leading-relaxed text-slate-600">
+            填写联系方式后，这份结果会保存到后台，后续可用于职业路线、简历建议、面试准备计划和找搭子匹配。
           </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              value={contact.name}
-              onChange={(event) => handleContactChange('name', event.target.value)}
-              placeholder="姓名"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
-            />
-            <input
-              value={contact.phone}
-              onChange={(event) => handleContactChange('phone', event.target.value)}
-              placeholder="手机号"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
-            />
-            <input
-              value={contact.wechat}
-              onChange={(event) => handleContactChange('wechat', event.target.value)}
-              placeholder="微信号"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
-            />
-            <input
-              value={contact.email}
-              onChange={(event) => handleContactChange('email', event.target.value)}
-              placeholder="邮箱"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
-            />
+            <input value={contact.name} onChange={(event) => handleContactChange('name', event.target.value)} placeholder="姓名" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+            <input value={contact.phone} onChange={(event) => handleContactChange('phone', event.target.value)} placeholder="手机号" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+            <input value={contact.wechat} onChange={(event) => handleContactChange('wechat', event.target.value)} placeholder="微信号" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+            <input value={contact.email} onChange={(event) => handleContactChange('email', event.target.value)} placeholder="邮箱" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
           </div>
 
           <textarea
             value={contact.goal}
             onChange={(event) => handleContactChange('goal', event.target.value)}
             placeholder="你的目标或问题，例如：想半年内登船、想做免税店、英语一般不知道怎么准备"
-            className="w-full mt-3 rounded-lg border border-gray-300 px-3 py-2.5 text-sm min-h-24 resize-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            className="mt-3 min-h-24 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
 
           {saveMessage && (
-            <p className={`text-sm mt-3 ${saveState === 'error' ? 'text-red-600' : 'text-green-600'}`}>
+            <p className={`mt-3 text-sm ${saveState === 'error' ? 'text-red-600' : 'text-emerald-600'}`}>
               {saveMessage}
             </p>
           )}
@@ -347,7 +374,7 @@ export default function ResultPage({
             type="button"
             onClick={handleSaveSubmission}
             disabled={saveState === 'saving' || saveState === 'saved'}
-            className="w-full mt-4 py-3 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             <Save size={18} />
             {saveState === 'saving' ? '保存中...' : saveState === 'saved' ? '已保存报告' : '保存我的测评报告'}
@@ -358,20 +385,18 @@ export default function ResultPage({
           <button
             type="button"
             onClick={() => navigate('/tasks/Task2')}
-            className="w-full py-3 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
           >
             进入下一步：选择目标岗位
             <ArrowRight size={18} />
           </button>
-
           <button
             type="button"
             onClick={() => navigate('/tasks')}
-            className="w-full py-3 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+            className="w-full rounded-lg border border-slate-300 bg-white py-3 font-medium text-slate-700 transition hover:bg-slate-50"
           >
-            查看完整登船路线
+            查看完整申请路线
           </button>
-
           <button
             type="button"
             onClick={() => {
@@ -380,7 +405,7 @@ export default function ResultPage({
                 onRestart()
               }
             }}
-            className="w-full py-3 rounded-lg text-gray-600 font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2 rounded-lg py-3 font-medium text-slate-500 transition hover:bg-slate-100"
           >
             <RotateCcw size={17} />
             重新测评

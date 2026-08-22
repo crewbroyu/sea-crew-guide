@@ -1,70 +1,56 @@
-import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle, Award } from 'lucide-react'
+import { useEffect } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import { Award, CheckCircle2 } from 'lucide-react'
 import { recordTaskComplete } from '../store/scoreStore'
 
 const TaskCompleteModal = ({ isOpen, onClose, taskName, totalTasksCompleted, taskId }) => {
-  // 记录任务完成并获取积分奖励
-  if (isOpen && taskId) {
-    recordTaskComplete(taskId, taskName)
-  }
+  useEffect(() => {
+    if (isOpen && taskId) {
+      recordTaskComplete(taskId, taskName)
+    }
+  }, [isOpen, taskId, taskName])
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-5 backdrop-blur-sm"
           onClick={onClose}
         >
-          <motion.div 
-            className="bg-white rounded-3xl p-6 max-w-md w-full mx-4"
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-            onClick={(e) => e.stopPropagation()}
+          <div
+            className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
           >
-            {/* 绿色勾动画 */}
-            <div className="flex justify-center mb-4">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', damping: 15, stiffness: 200 }}
-              >
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle size={40} className="text-green-500" />
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <CheckCircle2 size={26} />
+            </div>
+
+            <h2 className="text-xl font-semibold text-slate-950">任务已完成</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{taskName}</p>
+
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-slate-950">路线进度已更新</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    已完成 {totalTasksCompleted}/12 个申请任务
+                  </p>
                 </div>
-              </motion.div>
+                <div className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-2 text-sm font-semibold text-amber-700 shadow-sm">
+                  <Award size={15} />
+                  +50
+                </div>
+              </div>
             </div>
 
-            {/* 标题和副标题 */}
-            <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">任务完成！</h2>
-            <p className="text-gray-500 text-center mb-6">{taskName}</p>
-
-            {/* 奖励动画 */}
-            <div className="flex justify-center mb-6">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', damping: 15, stiffness: 200, delay: 0.2 }}
-                className="bg-yellow-100 rounded-full px-4 py-2 flex items-center gap-1"
-              >
-                <Award size={16} className="text-yellow-600" />
-                <span className="text-lg font-bold text-yellow-700">+50 积分</span>
-              </motion.div>
-            </div>
-
-            {/* 进度提示 */}
-            <p className="text-gray-500 text-center mb-8">
-              已完成 {totalTasksCompleted}/12 个任务
-            </p>
-
-            {/* 底部按钮 */}
             <button
+              type="button"
               onClick={onClose}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-700 text-white font-medium rounded-full hover:opacity-90 transition-opacity"
+              className="mt-6 w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
             >
-              继续前进
+              返回申请路线
             </button>
-          </motion.div>
+          </div>
         </div>
       )}
     </AnimatePresence>

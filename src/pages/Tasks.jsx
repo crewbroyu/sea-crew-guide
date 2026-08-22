@@ -1,495 +1,361 @@
-import { useState, useEffect, useCallback, useRef, createElement } from 'react'
-import useAuthStore from '../store/useAuthStore'
+import { createElement, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  ChevronLeft, ChevronDown, ChevronUp, CheckCircle, Lock, Clock, AlertCircle,
-  ArrowRight, RefreshCw
+  ArrowRight,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
+  FileText,
+  Lock,
+  MessageSquare,
+  Route,
+  ShieldCheck,
+  Target,
 } from 'lucide-react'
-import pathData, { TASK_STATUS } from '../data/pathData'
+import pathData from '../data/pathData'
+import { syncLocalPathProfile } from '../services/userPathService'
 
-// 简易 Toast 组件
-function Toast({ message, visible, onClose }) {
-  useEffect(() => {
-    if (visible) {
-      const timer = setTimeout(onClose, 2000)
-      return () => clearTimeout(timer)
+const taskRoutes = {
+  1: '/assessment',
+  2: '/tasks/Task2',
+  3: '/tasks/Task3',
+  4: '/tasks/phase2/Task4',
+  5: '/tasks/phase2/Task5',
+  6: '/tasks/phase2/Task6',
+  7: '/tasks/phase2/Task7',
+  8: '/tasks/phase2/Task8',
+  9: '/my-offer',
+  10: '/tasks/Task10',
+  11: '/tasks/Task11',
+  12: '/tasks/Task12',
+}
+
+const stageMeta = {
+  1: {
+    label: '职业判断',
+    summary: '先确认适不适合，再决定目标岗位和申请方式。',
+    icon: Target,
+  },
+  2: {
+    label: '能力准备',
+    summary: '把经历、英语和面试表达准备成可投递状态。',
+    icon: FileText,
+  },
+  3: {
+    label: '拿到 Offer',
+    summary: '围绕目标岗位练习面试，并记录申请结果。',
+    icon: MessageSquare,
+  },
+  4: {
+    label: '登船启航',
+    summary: '完成证件、签证和登船物品准备。',
+    icon: ShieldCheck,
+  },
+}
+
+function readCompletedTasks() {
+  const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
+  const completed = []
+
+  for (let taskId = 1; taskId <= 12; taskId += 1) {
+    if (progress[`task${taskId}`]?.completed) {
+      completed.push(taskId)
     }
-  }, [visible, onClose])
+  }
 
-  if (!visible) return null
+  const justCompletedId = Number(new URLSearchParams(window.location.search).get('justCompleted'))
+  if (justCompletedId && !completed.includes(justCompletedId)) {
+    completed.push(justCompletedId)
+  }
+
+  return completed
+}
+
+function persistCompletedTasks(completedTasks) {
+  const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
+
+  completedTasks.forEach((taskId) => {
+    progress[`task${taskId}`] = {
+      completed: true,
+      completedAt: progress[`task${taskId}`]?.completedAt || new Date().toISOString(),
+    }
+  })
+
+  Object.keys(progress).forEach((key) => {
+    const taskId = Number(key.replace('task', ''))
+    if (taskId && !completedTasks.includes(taskId)) {
+      progress[key] = {
+        ...progress[key],
+        completed: false,
+      }
+    }
+  })
+
+  localStorage.setItem('boarding_progress', JSON.stringify(progress))
+}
+
+function Toast({ message, onClose }) {
+  useEffect(() => {
+    if (!message) return undefined
+    const timer = setTimeout(onClose, 1800)
+    return () => clearTimeout(timer)
+  }, [message, onClose])
+
+  if (!message) return null
 
   return (
-    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 text-white px-6 py-3 rounded-xl shadow-lg text-sm animate-fade-in">
+    <div className="fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-lg bg-slate-900 px-5 py-3 text-sm text-white shadow-lg">
       {message}
     </div>
   )
 }
 
-// 确认对话框组件
-function ConfirmModal({ visible, title, message, onConfirm, onCancel, confirmText, cancelText, isDangerous }) {
-  if (!visible) return null
+function getTaskAction(status) {
+  if (status === 'completed') return '查看'
+  if (status === 'current') return '继续'
+  return '预览'
+}
 
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-bold text-gray-800 mb-2">{title}</h3>
-        <p className="text-gray-600 mb-6">{message}</p>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2.5 rounded-lg bg-gray-200 text-gray-800 font-medium hover:bg-gray-300"
-          >
-            {cancelText || '取消'}
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 py-2.5 rounded-lg font-medium ${
-              isDangerous ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-purple-600 text-white hover:bg-purple-700'
-            }`}
-          >
-            {confirmText || '确认'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+function getTaskStatus(task, currentTaskId, completedTasks) {
+  if (completedTasks.includes(task.id)) return 'completed'
+  if (task.id === currentTaskId) return 'current'
+  return 'upcoming'
 }
 
 export default function Tasks() {
-  const { user } = useAuthStore()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  
-  // Toast 状态
-  const [toast, setToast] = useState({ visible: false, message: '' })
-  const showToast = (message) => setToast({ visible: true, message })
-  const hideToast = () => setToast({ visible: false, message: '' })
-  
-  // 确认对话框状态
-  const [confirmModal, setConfirmModal] = useState({
-    visible: false,
-    title: '',
-    message: '',
-    confirmText: '',
-    cancelText: '',
-    onConfirm: null,
-    isDangerous: false
-  })
-  
-  // 从 localStorage 读取已完成任务列表
-  const [completedTasks, setCompletedTasks] = useState(() => {
-    const progressKey = 'boarding_progress';
-    const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-    const completed = [];
-    
-    // 检查每个任务是否完成
-    for (let i = 1; i <= 12; i++) {
-      if (progress[`task${i}`] && progress[`task${i}`].completed) {
-        completed.push(i);
-      }
-    }
-    
-    return completed;
-  })
-  // 模拟审核中的任务
-  const [reviewingTasks, setReviewingTasks] = useState([])
-  // 模拟被拒绝的任务
-  const [rejectedTasks, setRejectedTasks] = useState([])
-  // 当前展开的阶段ID
-  const [expandedStage, setExpandedStage] = useState(null)
+  const [completedTasks, setCompletedTasks] = useState(readCompletedTasks)
+  const [toast, setToast] = useState('')
 
-  // 处理 justCompleted 参数 - 必须在 useEffect 中
-  useEffect(() => {
-    const justCompletedId = searchParams.get('justCompleted');
-    if (justCompletedId) {
-      const taskId = parseInt(justCompletedId, 10);
-      setCompletedTasks(prev => {
-        if (prev.includes(taskId)) {
-          return prev;
-        }
-        return [...prev, taskId];
-      });
-      setSearchParams({}, { replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 当 completedTasks 变化时，持久化到 localStorage
-  useEffect(() => {
-    const progressKey = 'boarding_progress';
-    const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-    
-    // 重置所有任务的完成状态
-    for (let i = 1; i <= 12; i++) {
-      progress[`task${i}`] = {
-        completed: completedTasks.includes(i),
-        completedAt: progress[`task${i}`]?.completedAt || new Date().toISOString()
-      };
-    }
-    
-    localStorage.setItem(progressKey, JSON.stringify(progress));
-    console.log('任务完成状态已持久化到 localStorage:', progress);
-  }, [completedTasks]);
-
-  // 组件加载时打印当前进度状态
-  useEffect(() => {
-    const progressKey = 'boarding_progress';
-    const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-    console.log('任务列表加载，当前进度:', progress);
-  }, []);
-
-  // 扁平化所有任务用于计算
-  const allTasks = pathData.flatMap(stage => stage.tasks)
-  
-  // 计算当前任务ID（第一个未完成的任务）
-  const getCurrentTaskId = useCallback(() => {
-    for (const task of allTasks) {
-      if (!completedTasks.includes(task.id)) {
-        return task.id
-      }
-    }
-    return null
-  }, [allTasks, completedTasks])
-
-  const currentTaskId = getCurrentTaskId()
-  
-  // 找到当前任务所属的阶段
-  const getCurrentStageId = useCallback(() => {
-    if (!currentTaskId) return null
-    for (const stage of pathData) {
-      if (stage.tasks.some(task => task.id === currentTaskId)) {
-        return stage.id
-      }
-    }
-    return null
-  }, [currentTaskId])
-
-  const currentStageId = getCurrentStageId()
-
-  // 自动展开当前阶段
-  useEffect(() => {
-    if (!expandedStage && currentStageId) {
-      setExpandedStage(currentStageId)
-    }
-  }, [expandedStage, currentStageId])
-
-  // 计算阶段的完成状态
-  const getStageProgress = (stageId) => {
-    const stage = pathData.find(s => s.id === stageId)
-    if (!stage) return { done: 0, total: 0, allDone: false }
-    
-    const done = stage.tasks.filter(task => completedTasks.includes(task.id)).length
-    const total = stage.tasks.length
-    const allDone = done === total
-    
-    return { done, total, allDone }
-  }
-
-  // 检查阶段是否已解锁
-  const isStageUnlocked = (stageId) => {
-    if (stageId === 1) return true
-    
-    // 前一阶段是否全部完成
-    const previousStage = pathData.find(s => s.id === stageId - 1)
-    if (!previousStage) return false
-    
-    return previousStage.tasks.every(task => completedTasks.includes(task.id))
-  }
-
-  // 检查任务状态
-  const getTaskStatus = (taskId) => {
-    if (completedTasks.includes(taskId)) return TASK_STATUS.COMPLETED
-    if (reviewingTasks.includes(taskId)) return TASK_STATUS.REVIEWING
-    if (rejectedTasks.includes(taskId)) return TASK_STATUS.REJECTED
-    if (taskId === currentTaskId) return TASK_STATUS.CURRENT
-    
-    // 检查任务是否在当前任务之前
-    const taskIndex = allTasks.findIndex(task => task.id === taskId)
-    const currentTaskIndex = allTasks.findIndex(task => task.id === currentTaskId)
-    
-    if (taskIndex < currentTaskIndex) return TASK_STATUS.IN_PROGRESS
-    return TASK_STATUS.LOCKED
-  }
-
-  // 切换阶段展开/收缩
-  const toggleStage = (stageId) => {
-    if (!isStageUnlocked(stageId)) return
-    setExpandedStage(expandedStage === stageId ? null : stageId)
-  }
-
-  // 处理任务点击
-  const handleTaskClick = (task) => {
-    const status = getTaskStatus(task.id)
-    
-    const taskRoutes = {
-      1: '/assessment',
-      2: '/tasks/Task2',
-      3: '/tasks/Task3',
-      4: '/tasks/phase2/Task4',
-      5: '/tasks/phase2/Task5',
-      6: '/tasks/phase2/Task6',
-      7: '/tasks/phase2/Task7',
-      8: '/tasks/phase2/Task8',
-      9: '/tasks/phase2/Task9',
-      10: '/tasks/Task10',
-      11: '/tasks/Task11',
-      12: '/tasks/Task12'
-    }
-    
-    const targetRoute = taskRoutes[task.id]
-    
-    switch(status) {
-      case TASK_STATUS.COMPLETED:
-        showToast('该任务已完成 ✅')
-        // 已完成的任务也可以点击查看
-        if (targetRoute) {
-          navigate(targetRoute)
-        }
-        break
-        
-      case TASK_STATUS.CURRENT:
-      case TASK_STATUS.IN_PROGRESS:
-      case TASK_STATUS.REVIEWING:
-      case TASK_STATUS.REJECTED:
-        if (targetRoute) {
-          navigate(targetRoute)
-        } else {
-          showToast('该功能即将上线，敬请期待 🚀')
-        }
-        break
-        
-      case TASK_STATUS.LOCKED:
-      default:
-        if (!targetRoute) {
-          showToast('该功能即将上线，敬请期待 🚀')
-        } else {
-          showToast('请先完成前面的任务 🔒')
-        }
-        break
-    }
-  }
-
-  // 计算总进度
-  const totalCompleted = completedTasks.length
+  const allTasks = useMemo(() => pathData.flatMap((stage) => stage.tasks), [])
   const totalTasks = allTasks.length
-  const progressPercentage = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0
+  const currentTask = allTasks.find((task) => !completedTasks.includes(task.id)) || null
+  const currentTaskId = currentTask?.id || null
+  const currentStage =
+    pathData.find((stage) => stage.tasks.some((task) => task.id === currentTaskId)) ||
+    pathData[pathData.length - 1]
+  const progressPercentage = totalTasks ? Math.round((completedTasks.length / totalTasks) * 100) : 0
+
+  useEffect(() => {
+    if (searchParams.has('justCompleted')) {
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    persistCompletedTasks(completedTasks)
+    syncLocalPathProfile()
+  }, [completedTasks])
+
+  const showToast = useCallback((message) => {
+    setToast(message)
+  }, [])
+
+  const handleTaskClick = (task) => {
+    const route = taskRoutes[task.id]
+
+    if (!route) {
+      showToast('这个功能还在整理中')
+      return
+    }
+
+    navigate(route)
+  }
+
+  const handleMarkCurrentDone = () => {
+    if (!currentTaskId) {
+      showToast('所有任务都已完成')
+      return
+    }
+
+    setCompletedTasks((prev) => (prev.includes(currentTaskId) ? prev : [...prev, currentTaskId]))
+    showToast('已更新当前进度')
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Toast 提示 */}
-      <Toast message={toast.message} visible={toast.visible} onClose={hideToast} />
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <Toast message={toast} onClose={() => setToast('')} />
 
-      {/* 确认对话框 */}
-      <ConfirmModal
-        visible={confirmModal.visible}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        confirmText={confirmModal.confirmText}
-        cancelText={confirmModal.cancelText}
-        isDangerous={confirmModal.isDangerous}
-        onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
-      />
+      <header className="border-b border-slate-200 bg-white px-6 pb-6 pt-12">
+        <div className="mx-auto max-w-3xl">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="mb-5 flex items-center gap-1 text-sm text-slate-500"
+          >
+            <ChevronLeft size={17} />
+            返回首页
+          </button>
 
-      {/* 顶部头部区域 */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-700 px-6 pt-16 pb-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-white text-xl font-bold">登船路径</h1>
-            <p className="text-white/80 text-sm mt-1">完成12个任务，开启你的海乘之旅</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="bg-white/20 rounded-full px-3 py-1.5">
-              <span className="text-white text-sm font-medium">{totalCompleted}/{totalTasks} 已完成</span>
+          <p className="mb-2 text-sm font-medium text-blue-700">申请进度中心</p>
+          <h1 className="text-3xl font-bold leading-tight text-slate-950">
+            按顺序准备海乘申请
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            这里不需要一次做完。先完成当前最重要的一步，再进入下一阶段。
+          </p>
+
+          <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="font-medium text-slate-700">总进度</span>
+              <span className="text-slate-500">
+                {completedTasks.length}/{totalTasks} · {progressPercentage}%
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                style={{ width: `${progressPercentage}%` }}
+              />
             </div>
           </div>
         </div>
-        
-        {/* 总进度条 */}
-        <div className="mt-4">
-          <div className="flex justify-between text-white/60 text-xs mb-1">
-            <span>总进度</span>
-            <span>{progressPercentage}%</span>
-          </div>
-          <div className="h-2 bg-white/30 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-white rounded-full transition-all duration-500 ease-out" 
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
-        </div>
-      </div>
+      </header>
 
-      {/* 阶段列表 */}
-      <div className="px-6 py-4 space-y-4">
-        {pathData.map((stage, stageIndex) => {
-          const { done, total, allDone } = getStageProgress(stage.id)
-          const isUnlocked = isStageUnlocked(stage.id)
-          const isCurrentStage = stage.id === currentStageId
-          const isExpanded = expandedStage === stage.id
-          
-          return (
-            <div key={stage.id} className="relative">
-              {/* 阶段卡片 */}
-              <div 
-                className={`
-                  rounded-xl border ${isUnlocked ? 'border-gray-200' : 'border-gray-100'}
-                  ${isUnlocked ? 'bg-white' : 'bg-gray-50'}
-                  ${isCurrentStage ? 'border-l-4 border-purple-500' : ''}
-                  transition-all duration-300
-                `}
+      <main className="mx-auto max-w-3xl px-6 pt-6">
+        <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+              <Route size={22} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-slate-500">当前下一步</p>
+              <h2 className="mt-1 text-lg font-bold text-slate-950">
+                {currentTask ? currentTask.title : '全部任务已完成'}
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                {currentTask
+                  ? currentTask.subtitle
+                  : '你已经完成这条路线，可以回到个人中心查看完整申请进度。'}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => (currentTask ? handleTaskClick(currentTask) : navigate('/profile'))}
+              className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
+            >
+              {currentTask ? '继续当前任务' : '查看个人中心'}
+              <ArrowRight size={18} />
+            </button>
+            {currentTask && (
+              <button
+                type="button"
+                onClick={handleMarkCurrentDone}
+                className="rounded-lg border border-slate-300 bg-white py-3 font-medium text-slate-700 transition hover:bg-slate-50"
               >
-                {/* 阶段头部 */}
-                <div 
-                  className={`
-                    flex items-center justify-between p-4 cursor-pointer
-                    ${isUnlocked ? 'hover:bg-gray-50' : 'opacity-60 cursor-not-allowed'}
-                  `}
-                  onClick={() => toggleStage(stage.id)}
+                标记当前步骤已完成
+              </button>
+            )}
+          </div>
+        </section>
+
+        <section className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-bold text-slate-950">四阶段路线</h2>
+            <span className="text-sm text-slate-500">可预览后续步骤</span>
+          </div>
+
+          <div className="space-y-4">
+            {pathData.map((stage) => {
+              const meta = stageMeta[stage.id] || {
+                label: stage.name,
+                summary: '',
+                icon: ClipboardCheck,
+              }
+              const done = stage.tasks.filter((task) => completedTasks.includes(task.id)).length
+              const isCurrentStage = stage.id === currentStage?.id
+              const isFutureStage = currentStage?.id && stage.id > currentStage.id
+
+              return (
+                <article
+                  key={stage.id}
+                  className={`rounded-lg border bg-white p-5 shadow-sm ${
+                    isCurrentStage ? 'border-blue-200' : 'border-slate-200'
+                  }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`
-                      w-10 h-10 rounded-full flex items-center justify-center
-                      ${allDone ? 'bg-green-100' : isUnlocked ? 'bg-purple-100' : 'bg-gray-100'}
-                    `}>
-                      {allDone ? (
-                        <CheckCircle size={20} className="text-green-500" />
-                      ) : (
-                        <span className="text-lg">{stage.icon}</span>
-                      )}
+                  <div className="mb-4 flex items-start gap-3">
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                        isCurrentStage ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      {createElement(meta.icon, { size: 20 })}
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h2 className={`font-bold ${isUnlocked ? 'text-gray-800' : 'text-gray-400'}`}>
-                          {stage.name}
-                        </h2>
-                        {!isUnlocked && (
-                          <Lock size={14} className="text-gray-400" />
-                        )}
+                        <h3 className="font-bold text-slate-950">
+                          {stage.id}. {meta.label}
+                        </h3>
+                        {isFutureStage && <Lock size={14} className="text-slate-400" />}
                       </div>
-                      <p className="text-sm text-gray-500">
-                        {done}/{total} 已完成
-                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-500">{meta.summary}</p>
                     </div>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                      {done}/{stage.tasks.length}
+                    </span>
                   </div>
-                  {isUnlocked && (
-                    isExpanded ? (
-                      <ChevronUp size={20} className="text-gray-500" />
-                    ) : (
-                      <ChevronDown size={20} className="text-gray-500" />
-                    )
-                  )}
-                </div>
-                
-                {/* 任务列表 */}
-                {isExpanded && isUnlocked && (
-                  <div className="px-4 pb-4 pl-14 relative">
-                    {/* 时间线 */}
-                    <div className="absolute left-9 top-0 bottom-0 w-0.5 bg-gray-200" />
-                    
-                    {stage.tasks.map((task, taskIndex) => {
-                      const status = getTaskStatus(task.id)
-                      const isLastTask = taskIndex === stage.tasks.length - 1
-                      
+
+                  <div className="space-y-2">
+                    {stage.tasks.map((task) => {
+                      const status = getTaskStatus(task, currentTaskId, completedTasks)
+                      const isCompleted = status === 'completed'
+                      const isCurrent = status === 'current'
+
                       return (
-                        <div key={task.id} className="relative mb-4 last:mb-0">
-                          {/* 时间线节点 */}
-                          <div className="absolute left-[-24px] top-2 w-4 h-4 rounded-full z-10">
-                            {status === TASK_STATUS.LOCKED && (
-                              <div className="w-4 h-4 rounded-full bg-gray-200" />
-                            )}
-                            {status === TASK_STATUS.CURRENT && (
-                              <div className="w-4 h-4 rounded-full bg-purple-500 animate-pulse" />
-                            )}
-                            {status === TASK_STATUS.IN_PROGRESS && (
-                              <div className="w-4 h-4 rounded-full bg-purple-500" />
-                            )}
-                            {status === TASK_STATUS.REVIEWING && (
-                              <div className="w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center">
-                                <Clock size={12} className="text-white" />
-                              </div>
-                            )}
-                            {status === TASK_STATUS.REJECTED && (
-                              <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                                <AlertCircle size={12} className="text-white" />
-                              </div>
-                            )}
-                            {status === TASK_STATUS.COMPLETED && (
-                              <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                                <CheckCircle size={12} className="text-white" />
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* 任务行 */}
-                          <div 
-                            className={`
-                              rounded-lg p-3 flex items-center justify-between
-                              ${status === TASK_STATUS.LOCKED ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}
-                            `}
-                            onClick={() => handleTaskClick(task)}
+                        <button
+                          key={task.id}
+                          type="button"
+                          onClick={() => handleTaskClick(task)}
+                          className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition ${
+                            isCurrent ? 'bg-blue-50' : 'bg-slate-50 hover:bg-blue-50'
+                          }`}
+                        >
+                          <div
+                            className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                              isCompleted
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : isCurrent
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-white text-slate-400'
+                            }`}
                           >
-                            <div className="flex-1 min-w-0">
-                              <p className={`font-medium ${status === TASK_STATUS.LOCKED ? 'text-gray-400' : 'text-gray-800'}`}>
-                                {task.title}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                {task.subtitle}
-                              </p>
-                            </div>
-                            
-                            {/* 右侧按钮或标签 */}
-                            <div className="ml-3">
-                              {status === TASK_STATUS.LOCKED && null}
-                              {status === TASK_STATUS.CURRENT && (
-                                <button className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-                                  开始
-                                </button>
-                              )}
-                              {status === TASK_STATUS.IN_PROGRESS && (
-                                <button className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-                                  继续
-                                </button>
-                              )}
-                              {status === TASK_STATUS.REVIEWING && (
-                                <span className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium">
-                                  审核中
-                                </span>
-                              )}
-                              {status === TASK_STATUS.REJECTED && (
-                                <button className="px-3 py-1.5 bg-red-100 text-red-700 rounded-full text-sm font-medium">
-                                  重新提交
-                                </button>
-                              )}
-                              {status === TASK_STATUS.COMPLETED && (
-                                <div className="flex items-center gap-1">
-                                  <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                                    已完成
-                                  </span>
-                                  <ArrowRight size={16} className="text-gray-400" />
-                                </div>
-                              )}
-                            </div>
+                            {isCompleted ? <CheckCircle2 size={16} /> : <span className="text-xs">{task.id}</span>}
                           </div>
-                          
-                          {/* 时间线连接 */}
-                          {!isLastTask && (
-                            <div className={`
-                              absolute left-[-22px] top-6 bottom-[-16px] w-0.5
-                              ${status === TASK_STATUS.COMPLETED ? 'bg-green-500' : 
-                                (status === TASK_STATUS.CURRENT || status === TASK_STATUS.IN_PROGRESS) ? 'bg-purple-500' : 'bg-gray-200'}
-                            `} />
-                          )}
-                        </div>
-                      )}
-                    )}
+
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-slate-900">{task.title}</p>
+                            <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-500">
+                              {task.subtitle}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                              isCompleted
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : isCurrent
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-white text-slate-500'
+                            }`}
+                          >
+                            {getTaskAction(status)}
+                          </span>
+                          <ChevronRight size={16} className="text-slate-400" />
+                        </button>
+                      )
+                    })}
                   </div>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
+                </article>
+              )
+            })}
+          </div>
+        </section>
+      </main>
     </div>
   )
 }

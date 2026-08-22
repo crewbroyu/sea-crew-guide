@@ -7,21 +7,71 @@ import UnlockModal from './UnlockModal';
 
 const PROGRESS_KEYS = [
   'boarding_progress',
+  'assessment_result',
   'score_data',
   'checkin_data',
+  'checkin_records',
+  'messages',
+  'job_applications',
+  'port_daily_posts',
   'task1_data',
   'task2_data',
+  'task2_result',
   'task4_data',
   'task5_data',
   'task7_data',
   'task8_data',
   'task9_data',
   'task10_data',
+  'task10_docs',
+  'task10_guide_viewed',
   'task11_data',
   'task12_data',
+  'interviewSelectedPosition',
+  'seafarer-resume',
 ];
 
 const getDisplayName = (user) => user?.user_metadata?.name || user?.email?.split('@')[0];
+
+const removeBlobUrlsFromValue = (value) => {
+  if (typeof value === 'string') {
+    return value.startsWith('blob:') ? null : value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => removeBlobUrlsFromValue(item))
+      .filter((item) => item !== null);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce((cleaned, [key, item]) => {
+      const nextValue = removeBlobUrlsFromValue(item);
+      if (nextValue !== null) {
+        cleaned[key] = nextValue;
+      }
+      return cleaned;
+    }, {});
+  }
+
+  return value;
+};
+
+const removePersistedBlobUrls = () => {
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    const value = key ? localStorage.getItem(key) : null;
+
+    if (!key || !value?.includes('blob:')) continue;
+
+    try {
+      const parsedValue = JSON.parse(value);
+      localStorage.setItem(key, JSON.stringify(removeBlobUrlsFromValue(parsedValue)));
+    } catch {
+      localStorage.removeItem(key);
+    }
+  }
+};
 
 export default function AccessGate() {
   const {
@@ -77,6 +127,7 @@ export default function AccessGate() {
   useEffect(() => {
     if (hasCheckedAuth.current) return;
     hasCheckedAuth.current = true;
+    removePersistedBlobUrls();
 
     const checkAuth = async () => {
       console.log('========== AccessGate auth check ==========');

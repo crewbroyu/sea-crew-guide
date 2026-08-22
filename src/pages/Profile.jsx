@@ -1,313 +1,380 @@
-import { useState, useEffect } from 'react'
+import { createElement, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createElement } from 'react'
-import useAuthStore from '../store/useAuthStore'
 import {
-  User, FileText, Target, Route, Award, Shield,
-  Settings, LogOut, ChevronRight, Bell, X, CheckCircle
+  Award,
+  Bell,
+  ChevronRight,
+  FileText,
+  LogOut,
+  MessageSquare,
+  Route,
+  Save,
+  Shield,
+  Target,
+  User,
+  Users,
 } from 'lucide-react'
+import { supabase } from '../supabase'
+import { useAccessStore } from '../store/accessStore'
+import {
+  buildLocalPathProfile,
+  getMyPathProfile,
+  syncLocalPathProfile,
+} from '../services/userPathService'
+
+const stageLabels = {
+  exploring: '了解阶段',
+  assessment_done: '已完成测评',
+  position_planning: '岗位选择中',
+  resume_preparation: '准备简历',
+  interview_preparation: '准备面试',
+  offer_received: '已拿 Offer',
+  boarding_preparation: '登船准备',
+}
+
+const applicationStageLabels = {
+  exploring: '了解中',
+  assessed: '已测评',
+  position_selected: '已选岗位',
+  resume: '准备简历',
+  interview: '准备面试',
+  offer_received: '已拿 Offer',
+  documents: '办理证件',
+  boarding_ready: '准备登船',
+}
+
+const resumeStatusLabels = {
+  not_started: '未开始',
+  draft_ready: '已有简历草稿',
+}
+
+const interviewStatusLabels = {
+  not_started: '未开始',
+  learning: '学习面试技巧',
+  practicing: '练习中',
+  ai_mock_done: '已完成 AI 模拟',
+}
+
+const applicationMethods = [
+  { value: '', label: '还不确定' },
+  { value: 'diy', label: 'DIY 申请' },
+  { value: 'agency', label: '中介' },
+  { value: 'first_agent', label: '一代/官方合作方' },
+  { value: 'company_site', label: '船公司官网' },
+]
+
+const buddyIntentOptions = [
+  { value: '', label: '暂不需要' },
+  { value: 'interview_practice', label: '面试互练' },
+  { value: 'english_practice', label: '英语练习' },
+  { value: 'resume_review', label: '简历互改' },
+  { value: 'application_accountability', label: '投递监督' },
+  { value: 'training_together', label: '同期培训' },
+  { value: 'boarding_together', label: '同期登船' },
+]
+
+const fieldDefaults = {
+  target_position: '',
+  target_company: '',
+  target_boarding_month: '',
+  city: '',
+  training_city: '',
+  application_method: '',
+  buddy_intent: '',
+  buddy_opt_in: false,
+}
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { profile, signOut } = useAuthStore()
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [assessmentResult, setAssessmentResult] = useState(null)
-  const [showReportModal, setShowReportModal] = useState(false)
+  const { userEmail, userName, reset } = useAccessStore()
+  const [pathProfile, setPathProfile] = useState(() => buildLocalPathProfile())
+  const [form, setForm] = useState(fieldDefaults)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
 
-  // 加载未读消息数量和测评结果
   useEffect(() => {
-    // 加载未读消息
-    const messages = JSON.parse(localStorage.getItem('messages') || '[]')
-    const count = messages.filter(msg => !msg.isRead).length
-    setUnreadCount(count)
-    
-    // 加载测评结果
-    const savedResult = localStorage.getItem('assessment_result')
-    if (savedResult) {
-      const result = JSON.parse(savedResult)
-      if (result.completed) {
-        setAssessmentResult(result)
+    const loadProfile = async () => {
+      setLoading(true)
+      const localProfile = buildLocalPathProfile()
+
+      try {
+        const remoteProfile = await getMyPathProfile()
+        const mergedProfile = remoteProfile || localProfile
+        setPathProfile(mergedProfile)
+        setForm({
+          ...fieldDefaults,
+          target_position: mergedProfile.target_position || '',
+          target_company: mergedProfile.target_company || '',
+          target_boarding_month: mergedProfile.target_boarding_month || '',
+          city: mergedProfile.city || '',
+          training_city: mergedProfile.training_city || '',
+          application_method: mergedProfile.application_method || '',
+          buddy_intent: mergedProfile.buddy_intent || '',
+          buddy_opt_in: Boolean(mergedProfile.buddy_opt_in),
+        })
+
+        if (!remoteProfile) {
+          await syncLocalPathProfile()
+        }
+      } catch (error) {
+        console.error('加载路径档案失败:', error)
+        setPathProfile(localProfile)
+      } finally {
+        setLoading(false)
       }
     }
+
+    loadProfile()
   }, [])
 
-  const handleLogout = async () => {
-    await signOut()
+  const completedTasks = useMemo(() => {
+    const progress = pathProfile?.task_progress || {}
+    return Object.values(progress).filter((task) => task?.completed).length
+  }, [pathProfile])
+
+  const nextAction = useMemo(() => {
+    if (!pathProfile?.latest_assessment_score) {
+      return { label: '完成海乘适配测评', route: '/assessment' }
+    }
+    if (!pathProfile?.target_position) {
+      return { label: '选择目标岗位', route: '/tasks/Task2' }
+    }
+    if (pathProfile?.resume_status !== 'draft_ready') {
+      return { label: '制作英文简历', route: '/tasks/phase2/Task4' }
+    }
+    if (pathProfile?.interview_status !== 'ai_mock_done') {
+      return { label: '进入面试训练', route: '/tasks/phase2/Task8' }
+    }
+    return { label: '查看完整登船路线', route: '/tasks' }
+  }, [pathProfile])
+
+  const handleChange = (field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+      buddy_opt_in: field === 'buddy_intent' && value ? true : prev.buddy_opt_in,
+    }))
   }
 
-  // 加载打卡记录
-  const [checkInRecords, setCheckInRecords] = useState([])
-  const [checkInCount, setCheckInCount] = useState(0)
-  const [showCheckInModal, setShowCheckInModal] = useState(false)
+  const handleSave = async () => {
+    setSaving(true)
+    setMessage('')
 
-  useEffect(() => {
-    // 加载打卡记录
-    const records = JSON.parse(localStorage.getItem('checkin_records') || '[]')
-    setCheckInRecords(records)
-    setCheckInCount(records.length)
-  }, [])
+    try {
+      const updatedProfile = await syncLocalPathProfile({
+        ...form,
+        target_position: form.target_position || null,
+        target_company: form.target_company || null,
+        target_boarding_month: form.target_boarding_month || null,
+        city: form.city || null,
+        training_city: form.training_city || null,
+        application_method: form.application_method || null,
+        buddy_intent: form.buddy_intent || null,
+        buddy_opt_in: Boolean(form.buddy_opt_in && form.buddy_intent),
+      })
 
-  const menuItems = [
-    { 
-      icon: CheckCircle, 
-      label: `每日打卡 · ${checkInCount}次`, 
-      to: '/',
-      suffix: '去打卡',
-      onClick: () => setShowCheckInModal(true)
-    },
-    {
-      icon: Target, 
-      label: assessmentResult ? `适配度${assessmentResult.level.label} · ${assessmentResult.overallScore}分` : '海乘适配评估', 
-      to: '/assessment',
-      suffix: !assessmentResult && '去测评',
-      onClick: () => {
-        if (assessmentResult) {
-          setShowReportModal(true)
-        } else {
-          navigate('/assessment')
-        }
+      if (updatedProfile) {
+        setPathProfile(updatedProfile)
+        setMessage('申请进度已保存到后台')
+      } else {
+        setMessage('暂时无法同步，请确认登录状态')
       }
-    },
-    { icon: Route, label: '确定申请路线', to: '/route-select' },
-    { icon: FileText, label: '个人简历', to: '/resume' },
-    { icon: Award, label: '邮轮合同', to: '/my-offer' },
-    { icon: Shield, label: '登船证件', to: '/tasks/Task10' },
-    { icon: Bell, label: '站内消息', to: '/messages', hasBadge: unreadCount > 0, badgeCount: unreadCount },
-    { icon: Settings, label: '设置', to: '/settings' },
-  ]
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    reset()
+    navigate('/')
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 顶部用户信息 */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 pt-12 pb-8">
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 pt-12 pb-7">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-            <User size={32} className="text-white" />
+          <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
+            <User size={28} className="text-white" />
           </div>
-          <div>
-            <h1 className="text-white text-lg font-bold">
-              {profile?.nickname || '新船员'}
+          <div className="min-w-0">
+            <p className="text-blue-100 text-sm">我的海乘申请进度</p>
+            <h1 className="text-white text-lg font-bold truncate">
+              {userName || userEmail || 'Crew Path 用户'}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-0.5 rounded-full">
-                Lv.{profile?.level || 1}
-              </span>
-              <span className="text-blue-200 text-xs">{profile?.xp || 0} XP</span>
-            </div>
-            {profile?.selected_job && (
-              <p className="text-blue-200 text-xs mt-1">
-                目标岗位：{profile.selected_job}
-              </p>
-            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mt-6">
+          <div className="bg-white/12 border border-white/20 rounded-lg p-3">
+            <p className="text-blue-100 text-xs">当前阶段</p>
+            <p className="text-white text-sm font-semibold mt-1">
+              {stageLabels[pathProfile?.career_stage] || '了解阶段'}
+            </p>
+          </div>
+          <div className="bg-white/12 border border-white/20 rounded-lg p-3">
+            <p className="text-blue-100 text-xs">已完成任务</p>
+            <p className="text-white text-sm font-semibold mt-1">{completedTasks}/12</p>
+          </div>
+          <div className="bg-white/12 border border-white/20 rounded-lg p-3">
+            <p className="text-blue-100 text-xs">意向分</p>
+            <p className="text-white text-sm font-semibold mt-1">{pathProfile?.lead_score || 0}/100</p>
           </div>
         </div>
       </div>
 
-      {/* 菜单列表 */}
-      <div className="px-6 py-4 space-y-2">
-        {menuItems.map(({ icon, label, to, hasBadge, badgeCount, suffix, onClick }) => (
-          <button
-            key={to}
-            onClick={() => {
-              if (onClick) {
-                onClick()
-              } else {
-                navigate(to)
-              }
-            }}
-            className="w-full bg-white rounded-xl p-4 flex items-center gap-3 shadow-sm"
-          >
-            <div className="relative">
-              {createElement(icon, { size: 20, className: 'text-gray-500' })}
-              {hasBadge && (
-                <div className="absolute -top-1 -right-1">
-                  <div className="bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
-                    {badgeCount}
-                  </div>
-                </div>
-              )}
+      <main className="px-6 -mt-3 space-y-5">
+        <section className="bg-white rounded-xl shadow-sm p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-bold text-gray-900">下一步</h2>
+              <p className="text-sm text-gray-600 mt-1">{nextAction.label}</p>
             </div>
-            <div className="flex-1 text-left">
-              <span className="text-sm text-gray-800">{label}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {suffix && (
-                <span className="text-xs text-blue-600 font-medium">{suffix}</span>
-              )}
-              <ChevronRight size={18} className="text-gray-300" />
-            </div>
-          </button>
-        ))}
-
-        <button
-          onClick={handleLogout}
-          className="w-full bg-white rounded-xl p-4 flex items-center gap-3 shadow-sm mt-4"
-        >
-          <LogOut size={20} className="text-red-500" />
-          <span className="text-sm text-red-500">退出登录</span>
-        </button>
-      </div>
-
-      {/* 评估报告弹窗 */}
-      {showReportModal && assessmentResult && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-900">海乘评估报告</h2>
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* 总体评估 */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-xl p-4 mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm">总体适配度</span>
-                <span className="text-xl font-bold">{assessmentResult.overallScore}分</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">评估等级</span>
-                <span className="text-lg font-semibold">{assessmentResult.level.label}</span>
-              </div>
-            </div>
-
-            {/* 各维度评估 */}
-            <div className="mb-4">
-              <h3 className="text-md font-semibold text-gray-800 mb-3">维度评估</h3>
-              {assessmentResult.scores && Object.entries(assessmentResult.scores).map(([dimension, score]) => (
-                <div key={dimension} className="mb-3">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm text-gray-600">
-                      {dimension === 'language' && '语言能力'}
-                      {dimension === 'service' && '服务意识'}
-                      {dimension === 'personality' && '性格特质'}
-                      {dimension === 'adaptability' && '适应能力'}
-                      {dimension === 'professionalism' && '职业素养'}
-                      {dimension === 'professional' && '专业服务知识'}
-                      {dimension === 'english' && '英语听说能力'}
-                      {dimension === 'interview' && '面试表达能力'}
-                    </span>
-                    <span className="text-sm font-medium text-gray-800">{score}分</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="h-full bg-blue-600 rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `${(score / 100) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* 评估结论 */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-              <h3 className="text-md font-semibold text-gray-800 mb-2">评估结论</h3>
-              <p className="text-sm text-gray-600">
-                {assessmentResult.conclusion}
-              </p>
-            </div>
-
-            {/* 完成时间 */}
-            <div className="text-xs text-gray-500 mb-4">
-              评估完成时间：{new Date(assessmentResult.completedAt).toLocaleString()}
-            </div>
-
             <button
-              onClick={() => setShowReportModal(false)}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+              type="button"
+              onClick={() => navigate(nextAction.route)}
+              className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium"
             >
-              关闭
+              去完成
             </button>
           </div>
-        </div>
-      )}
+        </section>
 
-      {/* 打卡记录弹窗 */}
-      {showCheckInModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-900">打卡记录</h2>
-              <button
-                onClick={() => setShowCheckInModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+        <section className="bg-white rounded-xl shadow-sm p-4">
+          <h2 className="font-bold text-gray-900 mb-4">申请档案</h2>
+          {loading ? (
+            <p className="text-sm text-gray-500">加载中...</p>
+          ) : (
+            <div className="space-y-3">
+              <input
+                value={form.target_position}
+                onChange={(event) => handleChange('target_position', event.target.value)}
+                placeholder="目标岗位，例如 Retail / Guest Services"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+              <input
+                value={form.target_company}
+                onChange={(event) => handleChange('target_company', event.target.value)}
+                placeholder="目标船公司，例如 Princess / Royal Caribbean"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  value={form.city}
+                  onChange={(event) => handleChange('city', event.target.value)}
+                  placeholder="所在城市"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+                <input
+                  value={form.training_city}
+                  onChange={(event) => handleChange('training_city', event.target.value)}
+                  placeholder="培训城市"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+              <input
+                value={form.target_boarding_month}
+                onChange={(event) => handleChange('target_boarding_month', event.target.value)}
+                placeholder="预计登船月份，例如 2026-10"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+              <select
+                value={form.application_method}
+                onChange={(event) => handleChange('application_method', event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
-                <X size={20} />
-              </button>
-            </div>
+                {applicationMethods.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+              <select
+                value={form.buddy_intent}
+                onChange={(event) => handleChange('buddy_intent', event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+                {buddyIntentOptions.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+              <label className="flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-3 py-3">
+                <span className="text-sm text-gray-700">开启同行者匹配</span>
+                <input
+                  type="checkbox"
+                  checked={form.buddy_opt_in}
+                  onChange={(event) => handleChange('buddy_opt_in', event.target.checked)}
+                  className="w-4 h-4"
+                />
+              </label>
 
-            {/* 打卡统计 */}
-            <div className="bg-gradient-to-r from-green-600 to-green-800 text-white rounded-xl p-4 mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm">总打卡次数</span>
-                <span className="text-xl font-bold">{checkInCount}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">最近打卡</span>
-                <span className="text-sm">
-                  {checkInRecords.length > 0 ? new Date(checkInRecords[checkInRecords.length - 1].date).toLocaleDateString() : '暂无'}
-                </span>
-              </div>
-            </div>
-
-            {/* 打卡历史 */}
-            <div className="mb-4">
-              <h3 className="text-md font-semibold text-gray-800 mb-3">打卡历史</h3>
-              {checkInRecords.length > 0 ? (
-                <div className="space-y-3">
-                  {checkInRecords.slice(-10).reverse().map((record, index) => (
-                    <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-sm font-medium text-gray-800">
-                          {new Date(record.date).toLocaleString()}
-                        </span>
-                        <span className="text-xs text-green-600">已打卡</span>
-                      </div>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {record.sentence}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">暂无打卡记录</p>
-                  <button
-                    onClick={() => {
-                      setShowCheckInModal(false)
-                      navigate('/academy/checkin')
-                    }}
-                    className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
-                  >
-                    去打卡
-                  </button>
-                </div>
+              {message && (
+                <p className="text-sm text-green-600">{message}</p>
               )}
-            </div>
 
-            <div className="flex gap-3">
               <button
-                onClick={() => setShowCheckInModal(false)}
-                className="flex-1 py-2.5 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300"
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full py-3 rounded-lg bg-blue-600 text-white font-medium disabled:bg-gray-300 flex items-center justify-center gap-2"
               >
-                关闭
-              </button>
-              <button
-                onClick={() => {
-                  setShowCheckInModal(false)
-                  navigate('/academy/checkin')
-                }}
-                className="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
-              >
-                去打卡
+                <Save size={18} />
+                {saving ? '保存中...' : '保存申请进度'}
               </button>
             </div>
+          )}
+        </section>
+
+        <section className="bg-white rounded-xl shadow-sm p-4">
+          <h2 className="font-bold text-gray-900 mb-3">当前状态</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <StatusCard icon={Target} label="目标岗位" value={pathProfile?.target_position || '未选择'} />
+            <StatusCard icon={Route} label="申请阶段" value={applicationStageLabels[pathProfile?.application_stage] || '了解中'} />
+            <StatusCard icon={FileText} label="简历状态" value={resumeStatusLabels[pathProfile?.resume_status] || '未开始'} />
+            <StatusCard icon={MessageSquare} label="面试状态" value={interviewStatusLabels[pathProfile?.interview_status] || '未开始'} />
+            <StatusCard icon={Users} label="同行者" value={pathProfile?.buddy_opt_in ? '已开启' : '未开启'} />
+            <StatusCard icon={Award} label="测评分数" value={pathProfile?.latest_assessment_score ? `${pathProfile.latest_assessment_score}/100` : '未测评'} />
           </div>
-        </div>
-      )}
+        </section>
+
+        <section className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
+          <MenuButton icon={FileText} label="个人简历" onClick={() => navigate('/resume')} />
+          <MenuButton icon={Shield} label="登船证件" onClick={() => navigate('/tasks/Task10')} />
+          <MenuButton icon={Bell} label="站内消息" onClick={() => navigate('/messages')} />
+        </section>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full bg-white rounded-xl p-4 flex items-center gap-3 shadow-sm text-red-500"
+        >
+          <LogOut size={20} />
+          <span className="text-sm">退出登录</span>
+        </button>
+      </main>
     </div>
+  )
+}
+
+function StatusCard({ icon, label, value }) {
+  return (
+    <div className="bg-gray-50 rounded-lg p-3">
+      {createElement(icon, { size: 18, className: 'text-blue-600 mb-2' })}
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-sm font-semibold text-gray-900 mt-1">{value}</p>
+    </div>
+  )
+}
+
+function MenuButton({ icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full p-4 flex items-center gap-3"
+    >
+      {createElement(icon, { size: 20, className: 'text-gray-500' })}
+      <span className="flex-1 text-left text-sm text-gray-800">{label}</span>
+      <ChevronRight size={18} className="text-gray-300" />
+    </button>
   )
 }

@@ -1,5 +1,4 @@
-// src/components/assessment/BackgroundSelect.jsx
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SERVICE_BACKGROUNDS } from '../../data/assessmentData'
 
@@ -7,47 +6,46 @@ export default function BackgroundSelect({ onSelect }) {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* 顶部导航 */}
-      <div className="bg-white shadow-sm px-6 py-4">
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <header className="border-b border-slate-200 bg-white px-6 pb-6 pt-12">
+        <div className="mx-auto max-w-3xl">
           <button
-            onClick={() => navigate('/jobs/preparation')}
-            className="text-gray-600 hover:text-gray-800"
+            type="button"
+            onClick={() => navigate('/assessment')}
+            className="mb-5 flex items-center gap-1 text-sm text-slate-500"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={17} />
+            返回测评介绍
           </button>
-          <h1 className="text-xl font-bold text-gray-800">选择服务背景</h1>
-        </div>
-      </div>
-
-      {/* 主要内容 */}
-      <div className="flex-1 px-6 py-8">
-        <div className="max-w-md mx-auto">
-          <h2 className="text-lg font-semibold text-gray-800 mb-6 text-center">
-            请选择你的服务行业背景
-          </h2>
-
-          <div className="space-y-4">
-            {SERVICE_BACKGROUNDS.map((background) => (
-              <button
-                key={background.id}
-                onClick={() => onSelect(background.id)}
-                className="w-full py-4 px-5 bg-white rounded-xl shadow-sm border border-gray-200 hover:border-green-300 hover:shadow-md transition-all flex items-center justify-between"
-              >
-                <span className="text-gray-800 font-medium">{background.label}</span>
-                <div className="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center">
-                  <div className="w-4 h-4 rounded-full bg-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <p className="text-center text-gray-500 text-sm mt-8">
-            你的选择将影响第一维度的题目内容
+          <p className="mb-2 text-sm font-medium text-blue-700">第 1 步</p>
+          <h1 className="text-2xl font-bold text-slate-950">选择经历背景</h1>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            系统会根据你的经历背景调整服务场景题，让测评结果更接近真实岗位匹配。
           </p>
         </div>
-      </div>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-6 pt-6">
+        <div className="space-y-3">
+          {SERVICE_BACKGROUNDS.map((background) => (
+            <button
+              key={background.id}
+              type="button"
+              onClick={() => onSelect(background.id)}
+              className="flex w-full items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+            >
+              <span className="flex-1 text-sm font-semibold leading-relaxed text-slate-900">
+                {background.label}
+              </span>
+              <ChevronRight size={18} className="text-slate-400" />
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-6 rounded-lg bg-slate-100 p-4 text-sm leading-relaxed text-slate-600">
+          没有相关经历也可以继续，结果会更偏向“从零准备路线”。
+        </p>
+      </main>
     </div>
   )
 }

@@ -1,848 +1,592 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle, Clock, Mic, Video, Play, Pause, X, RefreshCw, Check, BarChart3, ArrowLeft, Volume2, BookOpen, AlertTriangle } from 'lucide-react';
-import { positionConfig } from '../../data/interviewQuestions';
-import interviewQuestions from '../../data/interviewQuestions';
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  Mic,
+  Pause,
+  RefreshCw,
+  Volume2,
+  X,
+} from 'lucide-react'
+import interviewQuestions from '../../data/interviewQuestions'
 
-const STORAGE_KEY = 'interview_practice_data';
+const STORAGE_KEY = 'interview_practice_data'
 
-const saveToLocalStorage = (data) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    return true;
-  } catch (error) {
-    console.error('Error saving to localStorage:', error);
-    return false;
-  }
-};
-
-const loadFromLocalStorage = (defaultValue) => {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : defaultValue;
-  } catch (error) {
-    console.error('Error loading from localStorage:', error);
-    return defaultValue;
-  }
-};
+const positions = [
+  { key: 'retail', name: '免税店 / Retail Sales', description: '销售表达、产品推荐、KPI 和英文服务案例。' },
+  { key: 'front_office', name: '前台 / Guest Service', description: '客诉处理、系统操作、政策解释和复杂沟通。' },
+  { key: 'restaurant', name: '餐厅 / Restaurant', description: '点单、推荐、过敏提醒、团队协作和高峰期服务。' },
+  { key: 'bar_server', name: '酒吧 / Bar Server', description: '酒水推荐、负责任售酒、small talk 和高峰期压力。' },
+  { key: 'housekeeping', name: '客房 / Housekeeping', description: '清洁流程、隐私、安全、客人请求和细节服务。' },
+  { key: 'youth_staff', name: 'Youth Staff', description: '活动组织、儿童安全、家长沟通和控场能力。' },
+  { key: 'kitchen', name: '厨房 / Kitchen Steward', description: '卫生安全、团队配合、设备使用和后台工作节奏。' },
+  { key: 'utility', name: '后勤 / Utility', description: '清洁标准、安全规则、主管汇报和基础英语。' },
+]
 
 const RECORDING_STATUS = {
   IDLE: 'idle',
   RECORDING: 'recording',
-  COMPLETED: 'completed'
-};
+  COMPLETED: 'completed',
+}
 
-function InterviewQuestions() {
-  const navigate = useNavigate();
-  const [selectedPosition, setSelectedPosition] = useState(null);
-  const [showPositionModal, setShowPositionModal] = useState(false);
-  const [showKnowledgeModal, setShowKnowledgeModal] = useState(false);
-  const [selectedKnowledge, setSelectedKnowledge] = useState(null);
-  const [activeTab, setActiveTab] = useState('questions');
-  
-  const [progress, setProgress] = useState(() => {
-    const data = loadFromLocalStorage({
-      position: null,
-      completedQuestions: [],
-      completedKnowledge: [],
-      totalQuestions: 25,
-      totalKnowledge: 10
-    });
-    return data;
-  });
-  
-  const [selectedQuestion, setSelectedQuestion] = useState(null);
-  const [showQuestionModal, setShowQuestionModal] = useState(false);
-  const [recordingStatus, setRecordingStatus] = useState(RECORDING_STATUS.IDLE);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [recordingUrl, setRecordingUrl] = useState(null);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [stream, setStream] = useState(null);
-  
-  const [knowledgeRecordingStatus, setKnowledgeRecordingStatus] = useState(RECORDING_STATUS.IDLE);
-  const [knowledgeRecordingTime, setKnowledgeRecordingTime] = useState(0);
-  const [knowledgeRecordingUrl, setKnowledgeRecordingUrl] = useState(null);
-  const [knowledgeMediaRecorder, setKnowledgeMediaRecorder] = useState(null);
-  const [knowledgeStream, setKnowledgeStream] = useState(null);
-  
-  const [speaking, setSpeaking] = useState(false);
-  const [knowledgeSpeaking, setKnowledgeSpeaking] = useState(false);
-  const [task2Position, setTask2Position] = useState(null);
-  const [positionMismatch, setPositionMismatch] = useState(false);
-  const [showMismatchModal, setShowMismatchModal] = useState(false);
-  
-  const recordingTimerRef = useRef(null);
-  const knowledgeRecordingTimerRef = useRef(null);
-  const videoPreviewRef = useRef(null);
-  const utteranceRef = useRef(null);
+const loadJson = (key, fallback) => {
+  try {
+    const value = localStorage.getItem(key)
+    return value ? JSON.parse(value) : fallback
+  } catch (error) {
+    console.error(`Error loading ${key}:`, error)
+    return fallback
+  }
+}
+
+const saveJson = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch (error) {
+    console.error(`Error saving ${key}:`, error)
+  }
+}
+
+const normalizePosition = (value) => {
+  if (!value) return null
+  if (interviewQuestions[value]) return value
+
+  const lowerValue = String(value).toLowerCase()
+  if (lowerValue.includes('retail') || lowerValue.includes('shop')) return 'retail'
+  if (lowerValue.includes('guest') || lowerValue.includes('front') || lowerValue.includes('reception')) return 'front_office'
+  if (lowerValue.includes('restaurant') || lowerValue.includes('waiter')) return 'restaurant'
+  if (lowerValue.includes('bar')) return 'bar_server'
+  if (lowerValue.includes('housekeeping') || lowerValue.includes('cabin')) return 'housekeeping'
+  if (lowerValue.includes('youth')) return 'youth_staff'
+  if (lowerValue.includes('kitchen') || lowerValue.includes('galley')) return 'kitchen'
+  if (lowerValue.includes('utility') || lowerValue.includes('cleaner')) return 'utility'
+  return null
+}
+
+const getTask2Position = () => {
+  const task2Result = loadJson('task2_result', null)
+  return normalizePosition(task2Result?.selectedTargetJob)
+}
+
+const createInitialProgress = () => {
+  const savedProgress = loadJson(STORAGE_KEY, null)
+  const savedPosition = normalizePosition(savedProgress?.position)
+  const task2Position = getTask2Position()
+  const position = savedPosition || task2Position
+
+  return {
+    position,
+    completedQuestions: savedProgress?.completedQuestions || [],
+    completedKnowledge: savedProgress?.completedKnowledge || [],
+  }
+}
+
+const getPositionMeta = (key) => positions.find(position => position.key === key) || positions[0]
+
+const getDifficultyClass = (difficulty) => {
+  if (difficulty === 'easy') return 'border-emerald-100 bg-emerald-50 text-emerald-700'
+  if (difficulty === 'medium') return 'border-amber-100 bg-amber-50 text-amber-700'
+  return 'border-rose-100 bg-rose-50 text-rose-700'
+}
+
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+}
+
+export default function InterviewQuestions() {
+  const navigate = useNavigate()
+  const [progress, setProgress] = useState(createInitialProgress)
+  const [activeTab, setActiveTab] = useState('questions')
+  const [showPositionModal, setShowPositionModal] = useState(false)
+  const [selectedQuestion, setSelectedQuestion] = useState(null)
+  const [selectedKnowledge, setSelectedKnowledge] = useState(null)
+  const [speaking, setSpeaking] = useState(false)
+  const [recordingStatus, setRecordingStatus] = useState(RECORDING_STATUS.IDLE)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [recordingUrl, setRecordingUrl] = useState(null)
+  const [mediaRecorder, setMediaRecorder] = useState(null)
+  const [stream, setStream] = useState(null)
+
+  const timerRef = useRef(null)
+  const utteranceRef = useRef(null)
+
+  const task2Position = getTask2Position()
+  const currentData = progress.position ? interviewQuestions[progress.position] : null
+  const currentPosition = progress.position ? getPositionMeta(progress.position) : null
+  const completedQuestions = progress.completedQuestions.length
+  const completedKnowledge = progress.completedKnowledge.length
+  const totalQuestions = currentData?.questions?.length || 0
+  const totalKnowledge = currentData?.knowledge?.length || 0
 
   useEffect(() => {
-    const task2Result = localStorage.getItem('task2_result');
-    if (task2Result) {
-      const task2Data = JSON.parse(task2Result);
-      if (task2Data.selectedTargetJob) {
-        setTask2Position(task2Data.selectedTargetJob);
-        if (!progress.position) {
-          setSelectedPosition(task2Data.selectedTargetJob);
-          setProgress(prev => ({ ...prev, position: task2Data.selectedTargetJob }));
-        } else if (progress.position !== task2Data.selectedTargetJob) {
-          setPositionMismatch(true);
-          setShowMismatchModal(true);
-        }
-      }
-    } else if (progress.position) {
-      setSelectedPosition(progress.position);
-    }
-  }, []);
-
-  useEffect(() => {
-    saveToLocalStorage(progress);
-  }, [progress]);
+    saveJson(STORAGE_KEY, progress)
+  }, [progress])
 
   useEffect(() => {
     return () => {
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-      }
-      if (knowledgeRecordingTimerRef.current) {
-        clearInterval(knowledgeRecordingTimerRef.current);
-      }
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      if (knowledgeStream) {
-        knowledgeStream.getTracks().forEach(track => track.stop());
-      }
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-      }
-      if (knowledgeMediaRecorder && knowledgeMediaRecorder.state !== 'inactive') {
-        knowledgeMediaRecorder.stop();
-      }
-      if (recordingUrl) {
-        URL.revokeObjectURL(recordingUrl);
-      }
-      if (knowledgeRecordingUrl) {
-        URL.revokeObjectURL(knowledgeRecordingUrl);
-      }
-      if (utteranceRef.current) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, [stream, mediaRecorder, recordingUrl, knowledgeStream, knowledgeMediaRecorder, knowledgeRecordingUrl]);
-
-  const getCurrentData = () => {
-    if (!progress.position) return null;
-    return interviewQuestions[progress.position];
-  };
-
-  const currentData = getCurrentData();
-
-  const handlePositionSelect = (position) => {
-    setSelectedPosition(position);
-    setProgress({
-      position: position,
-      completedQuestions: [],
-      completedKnowledge: [],
-      totalQuestions: 25,
-      totalKnowledge: 10
-    });
-    setShowPositionModal(false);
-    setShowMismatchModal(false);
-    setPositionMismatch(false);
-  };
-
-  const handleUseTask2Position = () => {
-    if (task2Position) {
-      setSelectedPosition(task2Position);
-      setProgress(prev => ({ ...prev, position: task2Position }));
-      setShowMismatchModal(false);
-      setPositionMismatch(false);
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (stream) stream.getTracks().forEach(track => track.stop())
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
+      if (recordingUrl) URL.revokeObjectURL(recordingUrl)
+      window.speechSynthesis.cancel()
     }
-  };
-
-  const speakText = (text, onEnd = null) => {
-    if (speaking || knowledgeSpeaking) {
-      window.speechSynthesis.cancel();
-      setSpeaking(false);
-      setKnowledgeSpeaking(false);
-      return;
-    }
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    
-    utterance.onstart = () => {
-      setSpeaking(true);
-      setKnowledgeSpeaking(true);
-    };
-    
-    utterance.onend = () => {
-      setSpeaking(false);
-      setKnowledgeSpeaking(false);
-      if (onEnd) onEnd();
-    };
-    
-    utterance.onerror = () => {
-      setSpeaking(false);
-      setKnowledgeSpeaking(false);
-    };
-    
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  };
+  }, [mediaRecorder, recordingUrl, stream])
 
   const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
-    setSpeaking(false);
-    setKnowledgeSpeaking(false);
-  };
+    window.speechSynthesis.cancel()
+    setSpeaking(false)
+  }
 
-  const handleQuestionClick = (question) => {
-    stopSpeaking();
-    setSelectedQuestion(question);
-    setShowQuestionModal(true);
-    setRecordingStatus(RECORDING_STATUS.IDLE);
-    setRecordingTime(0);
-    setRecordingUrl(null);
-  };
-
-  const startAudioRecording = async () => {
-    try {
-      stopSpeaking();
-      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setStream(audioStream);
-      
-      const recorder = new MediaRecorder(audioStream);
-      setMediaRecorder(recorder);
-      
-      const chunks = [];
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        setRecordingUrl(url);
-        setRecordingStatus(RECORDING_STATUS.COMPLETED);
-        if (recordingTimerRef.current) {
-          clearInterval(recordingTimerRef.current);
-        }
-      };
-      
-      recorder.start();
-      setRecordingStatus(RECORDING_STATUS.RECORDING);
-      setRecordingTime(0);
-      
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } catch (error) {
-      console.error('Error starting audio recording:', error);
-      alert('无法访问麦克风，请确保你已授权麦克风权限。');
+  const speakText = (text) => {
+    if (speaking) {
+      stopSpeaking()
+      return
     }
-  };
+
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'en-US'
+    utterance.rate = 0.9
+    utterance.onstart = () => setSpeaking(true)
+    utterance.onend = () => setSpeaking(false)
+    utterance.onerror = () => setSpeaking(false)
+    utteranceRef.current = utterance
+    window.speechSynthesis.speak(utterance)
+  }
+
+  const resetRecording = () => {
+    if (recordingUrl) URL.revokeObjectURL(recordingUrl)
+    setRecordingStatus(RECORDING_STATUS.IDLE)
+    setRecordingTime(0)
+    setRecordingUrl(null)
+  }
+
+  const openQuestion = (question) => {
+    stopSpeaking()
+    resetRecording()
+    setSelectedQuestion(question)
+    setSelectedKnowledge(null)
+  }
+
+  const openKnowledge = (knowledge) => {
+    stopSpeaking()
+    resetRecording()
+    setSelectedKnowledge(knowledge)
+    setSelectedQuestion(null)
+  }
+
+  const selectPosition = (positionKey) => {
+    setProgress({
+      position: positionKey,
+      completedQuestions: [],
+      completedKnowledge: [],
+    })
+    setActiveTab('questions')
+    setShowPositionModal(false)
+  }
+
+  const startRecording = async () => {
+    try {
+      stopSpeaking()
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(audioStream)
+      const chunks = []
+
+      recorder.ondataavailable = event => chunks.push(event.data)
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' })
+        setRecordingUrl(URL.createObjectURL(blob))
+        setRecordingStatus(RECORDING_STATUS.COMPLETED)
+        if (timerRef.current) clearInterval(timerRef.current)
+      }
+
+      setStream(audioStream)
+      setMediaRecorder(recorder)
+      recorder.start()
+      setRecordingStatus(RECORDING_STATUS.RECORDING)
+      setRecordingTime(0)
+      timerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000)
+    } catch (error) {
+      console.error('Error starting recording:', error)
+      alert('无法访问麦克风，请确认浏览器已允许录音权限。')
+    }
+  }
 
   const stopRecording = () => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-    }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+      stream.getTracks().forEach(track => track.stop())
+      setStream(null)
     }
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
+    if (timerRef.current) clearInterval(timerRef.current)
+  }
+
+  const confirmPractice = () => {
+    if (selectedQuestion) {
+      setProgress(prev => ({
+        ...prev,
+        completedQuestions: prev.completedQuestions.includes(selectedQuestion.id)
+          ? prev.completedQuestions
+          : [...prev.completedQuestions, selectedQuestion.id],
+      }))
+      setSelectedQuestion(null)
     }
-  };
 
-  const restartRecording = () => {
-    if (recordingUrl) {
-      URL.revokeObjectURL(recordingUrl);
-      setRecordingUrl(null);
+    if (selectedKnowledge) {
+      setProgress(prev => ({
+        ...prev,
+        completedKnowledge: prev.completedKnowledge.includes(selectedKnowledge.id)
+          ? prev.completedKnowledge
+          : [...prev.completedKnowledge, selectedKnowledge.id],
+      }))
+      setSelectedKnowledge(null)
     }
-    setRecordingStatus(RECORDING_STATUS.IDLE);
-    setRecordingTime(0);
-  };
 
-  const confirmCheckIn = () => {
-    if (!selectedQuestion) return;
-    
-    setProgress(prev => {
-      if (!prev.completedQuestions.includes(selectedQuestion.id)) {
-        const newCompleted = [...prev.completedQuestions, selectedQuestion.id];
-        return {
-          ...prev,
-          completedQuestions: newCompleted
-        };
-      }
-      return prev;
-    });
-    
-    setShowQuestionModal(false);
-    setSelectedQuestion(null);
-    stopSpeaking();
-  };
+    stopSpeaking()
+    resetRecording()
+  }
 
-  const handleKnowledgeClick = (knowledge) => {
-    stopSpeaking();
-    setSelectedKnowledge(knowledge);
-    setShowKnowledgeModal(true);
-    setKnowledgeRecordingStatus(RECORDING_STATUS.IDLE);
-    setKnowledgeRecordingTime(0);
-    setKnowledgeRecordingUrl(null);
-  };
-  
-  const startKnowledgeAudioRecording = async () => {
-    try {
-      stopSpeaking();
-      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setKnowledgeStream(audioStream);
-      
-      const recorder = new MediaRecorder(audioStream);
-      setKnowledgeMediaRecorder(recorder);
-      
-      const chunks = [];
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        setKnowledgeRecordingUrl(url);
-        setKnowledgeRecordingStatus(RECORDING_STATUS.COMPLETED);
-        if (knowledgeRecordingTimerRef.current) {
-          clearInterval(knowledgeRecordingTimerRef.current);
-        }
-      };
-      
-      recorder.start();
-      setKnowledgeRecordingStatus(RECORDING_STATUS.RECORDING);
-      setKnowledgeRecordingTime(0);
-      
-      knowledgeRecordingTimerRef.current = setInterval(() => {
-        setKnowledgeRecordingTime(prev => prev + 1);
-      }, 1000);
-    } catch (error) {
-      console.error('Error starting audio recording:', error);
-      alert('无法访问麦克风，请确保你已授权麦克风权限。');
-    }
-  };
-  
-  const stopKnowledgeRecording = () => {
-    if (knowledgeMediaRecorder && knowledgeMediaRecorder.state !== 'inactive') {
-      knowledgeMediaRecorder.stop();
-    }
-    if (knowledgeStream) {
-      knowledgeStream.getTracks().forEach(track => track.stop());
-      setKnowledgeStream(null);
-    }
-    if (knowledgeRecordingTimerRef.current) {
-      clearInterval(knowledgeRecordingTimerRef.current);
-    }
-  };
-  
-  const restartKnowledgeRecording = () => {
-    if (knowledgeRecordingUrl) {
-      URL.revokeObjectURL(knowledgeRecordingUrl);
-      setKnowledgeRecordingUrl(null);
-    }
-    setKnowledgeRecordingStatus(RECORDING_STATUS.IDLE);
-    setKnowledgeRecordingTime(0);
-  };
-
-  const confirmKnowledgeCheckIn = () => {
-    if (!selectedKnowledge) return;
-    
-    setProgress(prev => {
-      if (!prev.completedKnowledge.includes(selectedKnowledge.id)) {
-        const newCompleted = [...prev.completedKnowledge, selectedKnowledge.id];
-        return {
-          ...prev,
-          completedKnowledge: newCompleted
-        };
-      }
-      return prev;
-    });
-    
-    setShowKnowledgeModal(false);
-    setSelectedKnowledge(null);
-    stopSpeaking();
-  };
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const isQuestionCompleted = (questionId) => {
-    return progress.completedQuestions.includes(questionId);
-  };
-
-  const isKnowledgeCompleted = (knowledgeId) => {
-    return progress.completedKnowledge.includes(knowledgeId);
-  };
-
-  const getTask2PositionName = () => {
-    const position = positionConfig.find(p => p.key === task2Position);
-    return position ? `${position.icon} ${position.nameZh}` : '';
-  };
-
-  if (!progress.position) {
+  if (!progress.position || !currentData) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-24">
-        <div className="bg-gradient-to-r from-purple-600 to-purple-800 px-6 pt-16 pb-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/academy')} className="text-white/80 hover:text-white">
-              <ArrowLeft size={20} />
+      <div className="min-h-screen bg-slate-50 pb-24">
+        <header className="border-b border-slate-200 bg-white">
+          <div className="mx-auto max-w-5xl px-5 pb-6 pt-12">
+            <button
+              type="button"
+              onClick={() => navigate('/academy')}
+              className="mb-5 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+            >
+              <ArrowLeft size={16} />
+              返回学院
             </button>
-            <div>
-              <h1 className="text-white text-xl font-bold">选择目标职位</h1>
-              <p className="text-white/80 text-sm mt-1">
-                请选择一个目标职位开始面试训练
-              </p>
-            </div>
+            <p className="text-sm font-medium text-blue-700">面试题库</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">
+              选择目标岗位开始练习
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+              先选择岗位，再进入对应的面试问题、岗位知识和录音打卡。
+            </p>
           </div>
-        </div>
-        
-        <div className="px-6 py-8">
+        </header>
+
+        <main className="mx-auto max-w-5xl px-5 py-6">
           {task2Position && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-              <div className="flex items-start gap-3">
-                <AlertTriangle size={20} className="text-amber-600 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-amber-800 font-medium mb-2">任务2已选择职位：{getTask2PositionName()}</p>
-                  <button
-                    onClick={handleUseTask2Position}
-                    className="w-full py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700"
-                  >
-                    使用任务2所选职位
-                  </button>
-                </div>
-              </div>
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-medium text-amber-950">
+                岗位测评里推荐了：{getPositionMeta(task2Position).name}
+              </p>
+              <button
+                type="button"
+                onClick={() => selectPosition(task2Position)}
+                className="mt-3 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+              >
+                使用测评推荐岗位
+              </button>
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {positionConfig.map((position) => (
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {positions.map(position => (
               <button
                 key={position.key}
-                onClick={() => handlePositionSelect(position.key)}
-                className="bg-white rounded-xl border-2 border-gray-200 p-4 text-center hover:border-purple-500 transition-colors"
+                type="button"
+                onClick={() => selectPosition(position.key)}
+                className="rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-blue-200 hover:shadow-md"
               >
-                <div className="text-4xl mb-2">{position.icon}</div>
-                <h3 className="font-bold text-gray-800">{position.nameZh}</h3>
-                <p className="text-xs text-gray-500">{position.nameEn}</p>
+                <h3 className="font-semibold text-slate-950">{position.name}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{position.description}</p>
               </button>
             ))}
           </div>
-        </div>
+        </main>
       </div>
-    );
+    )
   }
 
-  const completedQuestions = progress.completedQuestions.length;
-  const totalQuestions = currentData?.questions.length || 0;
-  const completedKnowledge = progress.completedKnowledge.length;
-  const totalKnowledge = currentData?.knowledge.length || 0;
+  const activeItems = activeTab === 'questions' ? currentData.questions : currentData.knowledge
+  const selectedItem = selectedQuestion || selectedKnowledge
+  const modalTitle = selectedQuestion ? `Q${selectedQuestion.order}` : '岗位知识点'
+  const modalText = selectedQuestion?.question || selectedKnowledge?.content
+  const modalTip = selectedQuestion?.tip || '先听标准朗读，再录下自己的跟读，重点练习发音、停顿和语气。'
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {showMismatchModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6">
-            <div className="text-center mb-4">
-              <AlertTriangle size={48} className="text-amber-500 mx-auto mb-3" />
-              <h3 className="text-xl font-bold text-gray-800 mb-2">职位不一致</h3>
-              <p className="text-gray-600">
-                你当前选择的职位与任务2所选职位不一致。
-              </p>
-              <p className="text-gray-600 mt-2">
-                任务2选择：<span className="font-medium">{getTask2PositionName()}</span>
-              </p>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={handleUseTask2Position}
-                className="w-full py-3 rounded-lg font-medium bg-amber-600 text-white hover:bg-amber-700"
-              >
-                使用任务2所选职位
-              </button>
-              <button
-                onClick={() => setShowMismatchModal(false)}
-                className="w-full py-3 rounded-lg font-medium bg-gray-200 text-gray-800 hover:bg-gray-300"
-              >
-                继续使用当前职位
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-5xl px-5 pb-6 pt-12">
+          <button
+            type="button"
+            onClick={() => navigate('/academy')}
+            className="mb-5 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+          >
+            <ArrowLeft size={16} />
+            返回学院
+          </button>
 
-      <div className="bg-gradient-to-r from-purple-600 to-purple-800 px-6 pt-16 pb-6">
-        <div className="flex justify-between items-start">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/academy')} className="text-white/80 hover:text-white">
-              <ArrowLeft size={20} />
-            </button>
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-white text-xl font-bold">
-                {positionConfig.find(p => p.key === progress.position)?.nameZh} 面试训练
+              <p className="text-sm font-medium text-blue-700">面试训练</p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">
+                {currentPosition.name}
               </h1>
-              <p className="text-white/80 text-sm mt-1">
-                {positionConfig.find(p => p.key === progress.position)?.nameEn}
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+                按岗位练习高频问题和基础知识点。当前进度会保存在本地浏览器。
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowPositionModal(true)}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200"
+            >
+              切换岗位
+            </button>
           </div>
-          <button 
-            onClick={() => setShowPositionModal(true)}
-            className="bg-white/20 text-white text-sm px-3 py-1.5 rounded-full"
-          >
-            切换职位
-          </button>
-        </div>
-        
-        <div className="flex gap-4 mt-4">
-          <div className="flex-1">
-            <div className="text-white/60 text-xs mb-1">面试问题 {completedQuestions}/{totalQuestions}</div>
-            <div className="h-2 bg-white/30 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-white rounded-full transition-all"
-                style={{ width: `${(completedQuestions / totalQuestions) * 100}%` }}
-              />
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-slate-700">面试问题</span>
+                <span className="text-slate-500">{completedQuestions}/{totalQuestions}</span>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-white">
+                <div
+                  className="h-2 rounded-full bg-blue-600"
+                  style={{ width: `${totalQuestions ? (completedQuestions / totalQuestions) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-slate-700">岗位知识</span>
+                <span className="text-slate-500">{completedKnowledge}/{totalKnowledge}</span>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-white">
+                <div
+                  className="h-2 rounded-full bg-emerald-600"
+                  style={{ width: `${totalKnowledge ? (completedKnowledge / totalKnowledge) * 100 : 0}%` }}
+                />
+              </div>
             </div>
           </div>
-          <div className="flex-1">
-            <div className="text-white/60 text-xs mb-1">岗位知识 {completedKnowledge}/{totalKnowledge}</div>
-            <div className="h-2 bg-white/30 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-green-400 rounded-full transition-all"
-                style={{ width: `${(completedKnowledge / totalKnowledge) * 100}%` }}
-              />
-            </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-5xl px-5 py-6">
+        <div className="mb-5 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('questions')}
+              className={`rounded-lg px-4 py-3 text-sm font-semibold transition ${
+                activeTab === 'questions' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              面试问题
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('knowledge')}
+              className={`rounded-lg px-4 py-3 text-sm font-semibold transition ${
+                activeTab === 'knowledge' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              岗位知识
+            </button>
           </div>
         </div>
-      </div>
 
-      <div className="px-6 py-4">
-        <div className="flex gap-2 bg-white rounded-xl p-1 shadow-sm">
-          <button
-            onClick={() => setActiveTab('questions')}
-            className={`flex-1 py-2.5 rounded-lg font-medium transition-colors ${activeTab === 'questions' ? 'bg-purple-100 text-purple-700' : 'text-gray-600'}`}
-          >
-            面试问题
-          </button>
-          <button
-            onClick={() => setActiveTab('knowledge')}
-            className={`flex-1 py-2.5 rounded-lg font-medium transition-colors ${activeTab === 'knowledge' ? 'bg-green-100 text-green-700' : 'text-gray-600'}`}
-          >
-            岗位知识
-          </button>
-        </div>
-      </div>
+        <section className="grid gap-3">
+          {activeItems.map((item, index) => {
+            const completed = activeTab === 'questions'
+              ? progress.completedQuestions.includes(item.id)
+              : progress.completedKnowledge.includes(item.id)
+            const difficulty = item.difficulty
 
-      {activeTab === 'questions' && (
-        <div className="px-6 py-4 space-y-3">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold text-gray-800">面试问题列表</h2>
-            <span className="text-sm text-gray-500">{completedQuestions}/{totalQuestions} 已完成</span>
-          </div>
-          
-          {currentData?.questions.map((question, index) => {
-            const isCompleted = isQuestionCompleted(question.id);
             return (
               <button
-                key={question.id}
-                onClick={() => handleQuestionClick(question)}
-                className={`w-full rounded-xl border ${isCompleted ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'} shadow-sm p-4 text-left transition-all hover:shadow-md`}
+                key={item.id}
+                type="button"
+                onClick={() => (activeTab === 'questions' ? openQuestion(item) : openKnowledge(item))}
+                className={`rounded-xl border p-4 text-left shadow-sm transition hover:border-blue-200 hover:shadow-md ${
+                  completed ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'
+                }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isCompleted ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                    {isCompleted ? <CheckCircle size={16} /> : <span className="font-medium text-sm">{index + 1}</span>}
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold ${
+                      completed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {completed ? <CheckCircle2 size={17} /> : activeTab === 'questions' ? index + 1 : <BookOpen size={17} />}
                   </div>
-                  <div className="flex-1">
-                    <p className={`font-medium ${isCompleted ? 'text-gray-700' : 'text-gray-800'}`}>
-                      {question.question}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium leading-6 text-slate-950">
+                      {activeTab === 'questions' ? item.question : item.content}
                     </p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        question.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                        question.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {question.difficulty}
-                      </span>
-                      <span className={`text-xs px-2 py-1 rounded-full ${isCompleted ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {isCompleted ? '已打卡' : '待练习'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {activeTab === 'knowledge' && (
-        <div className="px-6 py-4 space-y-3">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold text-gray-800">岗位知识点</h2>
-            <span className="text-sm text-gray-500">{completedKnowledge}/{totalKnowledge} 已跟读</span>
-          </div>
-          
-          {currentData?.knowledge.map((knowledge, index) => {
-            const isCompleted = isKnowledgeCompleted(knowledge.id);
-            return (
-              <button
-                key={knowledge.id}
-                onClick={() => handleKnowledgeClick(knowledge)}
-                className={`w-full rounded-xl border ${isCompleted ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'} shadow-sm p-4 text-left transition-all hover:shadow-md`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isCompleted ? 'bg-green-100 text-green-600' : 'bg-green-100 text-green-600'}`}>
-                    {isCompleted ? <CheckCircle size={16} /> : <BookOpen size={16} />}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">{knowledge.content}</p>
-                    <div className="mt-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${isCompleted ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {isCompleted ? '已跟读' : '点击跟读'}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {difficulty && (
+                        <span className={`rounded-md border px-2 py-1 text-xs font-medium ${getDifficultyClass(difficulty)}`}>
+                          {difficulty}
+                        </span>
+                      )}
+                      <span className={`rounded-md px-2 py-1 text-xs font-medium ${
+                        completed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                      }`}
+                      >
+                        {completed ? '已练习' : '待练习'}
                       </span>
                     </div>
                   </div>
                 </div>
               </button>
-            );
+            )
           })}
-        </div>
-      )}
+        </section>
+      </main>
 
       {showPositionModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md max-h-[80vh] overflow-y-auto">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="font-bold text-gray-800">切换目标职位</h3>
-              {task2Position && (
-                <p className="text-sm text-amber-600 mt-1">
-                  任务2已选择：{getTask2PositionName()}
-                </p>
-              )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-5 backdrop-blur-sm">
+          <div className="max-h-[82vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-950">切换目标岗位</h3>
+                <p className="mt-1 text-sm text-slate-500">切换后会重新开始当前岗位的练习进度。</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPositionModal(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div className="p-4 grid grid-cols-2 gap-3">
-              {positionConfig.map((position) => (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {positions.map(position => (
                 <button
                   key={position.key}
-                  onClick={() => handlePositionSelect(position.key)}
-                  className={`rounded-xl border-2 p-3 text-center transition-colors ${
-                    selectedPosition === position.key 
-                      ? 'border-purple-500 bg-purple-50' 
-                      : 'border-gray-200 hover:border-purple-300'
+                  type="button"
+                  onClick={() => selectPosition(position.key)}
+                  className={`rounded-xl border p-4 text-left transition ${
+                    progress.position === position.key
+                      ? 'border-blue-300 bg-blue-50'
+                      : 'border-slate-200 bg-white hover:border-blue-200'
                   }`}
                 >
-                  <div className="text-3xl mb-1">{position.icon}</div>
-                  <h3 className="font-bold text-gray-800 text-sm">{position.nameZh}</h3>
+                  <p className="font-semibold text-slate-950">{position.name}</p>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">{position.description}</p>
                 </button>
               ))}
             </div>
-            <div className="p-4 border-t border-gray-200 space-y-2">
-              {task2Position && (
+          </div>
+        </div>
+      )}
+
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-5 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-blue-700">{modalTitle}</p>
+                {selectedQuestion?.difficulty && (
+                  <span className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-medium ${getDifficultyClass(selectedQuestion.difficulty)}`}>
+                    {selectedQuestion.difficulty}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedQuestion(null)
+                  setSelectedKnowledge(null)
+                  stopSpeaking()
+                  resetRecording()
+                }}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-base font-medium leading-7 text-slate-950">{modalText}</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => speakText(modalText)}
+              className={`mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition ${
+                speaking ? 'bg-rose-100 text-rose-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              }`}
+            >
+              {speaking ? <Pause size={18} /> : <Volume2 size={18} />}
+              {speaking ? '停止朗读' : '朗读内容'}
+            </button>
+
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-sm font-medium text-blue-900">练习提示</p>
+              <p className="mt-1 text-sm leading-6 text-blue-800">{modalTip}</p>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {recordingStatus === RECORDING_STATUS.IDLE && (
                 <button
-                  onClick={handleUseTask2Position}
-                  className="w-full py-2.5 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700"
+                  type="button"
+                  onClick={startRecording}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
                 >
-                  使用任务2所选职位
+                  <Mic size={18} />
+                  开始录音
                 </button>
               )}
-              <button
-                onClick={() => setShowPositionModal(false)}
-                className="w-full py-2.5 rounded-lg bg-gray-200 text-gray-800 font-medium"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {showQuestionModal && selectedQuestion && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="border-b border-gray-200 p-4 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-gray-800">Q{selectedQuestion.order}</h3>
-                <span className={`text-xs px-2 py-1 rounded-full mt-1 inline-block ${
-                  selectedQuestion.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                  selectedQuestion.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-red-100 text-red-700'
-                }`}>
-                  {selectedQuestion.difficulty}
-                </span>
-              </div>
-              <button onClick={() => { setShowQuestionModal(false); stopSpeaking(); }} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-4 space-y-4">
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-lg font-medium text-gray-800">{selectedQuestion.question}</p>
-              </div>
-              
-              <button
-                onClick={() => speakText(selectedQuestion.question)}
-                className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
-                  speaking ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-                }`}
-              >
-                {speaking ? <><Pause size={18} /> 停止朗读</> : <><Volume2 size={18} /> 朗读问题</>}
-              </button>
-              
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                <h4 className="font-medium text-blue-800 mb-2">回答提示</h4>
-                <p className="text-blue-700 text-sm">{selectedQuestion.tip}</p>
-              </div>
-              
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-800">录音练习</h4>
-                
-                {recordingStatus === RECORDING_STATUS.IDLE && (
+              {recordingStatus === RECORDING_STATUS.RECORDING && (
+                <>
+                  <div className="flex items-center justify-center gap-3 rounded-xl bg-rose-50 px-4 py-4">
+                    <span className="h-3 w-3 rounded-full bg-rose-500" />
+                    <span className="text-sm font-semibold text-rose-700">录制中 {formatTime(recordingTime)}</span>
+                  </div>
                   <button
-                    onClick={startAudioRecording}
-                    className="w-full py-3 rounded-lg font-medium bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={stopRecording}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-700"
                   >
-                    <Mic size={18} />
-                    开始录音
+                    <X size={18} />
+                    停止录音
                   </button>
-                )}
-                
-                {recordingStatus === RECORDING_STATUS.RECORDING && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center gap-3 py-4">
-                      <div className="w-4 h-4 rounded-full bg-red-500 animate-pulse"></div>
-                      <span className="text-red-600 font-medium">录制中 {formatTime(recordingTime)}</span>
-                    </div>
+                </>
+              )}
+
+              {recordingStatus === RECORDING_STATUS.COMPLETED && (
+                <>
+                  <audio src={recordingUrl} controls className="w-full" />
+                  <div className="grid grid-cols-2 gap-3">
                     <button
-                      onClick={stopRecording}
-                      className="w-full py-3 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 flex items-center justify-center gap-2"
+                      type="button"
+                      onClick={resetRecording}
+                      className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-200"
                     >
-                      <X size={18} />
-                      停止录制
+                      <RefreshCw size={17} />
+                      重录
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmPractice}
+                      className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    >
+                      <Check size={17} />
+                      完成练习
                     </button>
                   </div>
-                )}
-                
-                {recordingStatus === RECORDING_STATUS.COMPLETED && (
-                  <div className="space-y-3">
-                    <audio src={recordingUrl} controls className="w-full" />
-                    <div className="flex gap-3">
-                      <button
-                        onClick={restartRecording}
-                        className="flex-1 py-3 rounded-lg font-medium bg-gray-200 text-gray-800 hover:bg-gray-300 flex items-center justify-center gap-2"
-                      >
-                        <RefreshCw size={18} />
-                        重新录制
-                      </button>
-                      <button
-                        onClick={confirmCheckIn}
-                        className="flex-1 py-3 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2"
-                      >
-                        <Check size={18} />
-                        确认打卡
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showKnowledgeModal && selectedKnowledge && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="border-b border-gray-200 p-4 flex items-center justify-between">
-              <h3 className="font-bold text-gray-800">知识点跟读</h3>
-              <button onClick={() => { setShowKnowledgeModal(false); stopSpeaking(); }} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-4 space-y-4">
-              <div className="bg-green-50 rounded-xl p-4">
-                <p className="text-lg font-medium text-gray-800">{selectedKnowledge.content}</p>
-              </div>
-              
-              <button
-                onClick={() => speakText(selectedKnowledge.content)}
-                className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
-                  knowledgeSpeaking ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600 hover:bg-green-200'
-                }`}
-              >
-                {knowledgeSpeaking ? <><Pause size={18} /> 停止朗读</> : <><Volume2 size={18} /> 朗读跟读</>}
-              </button>
-              
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                <h4 className="font-medium text-blue-800 mb-2">跟读练习</h4>
-                <p className="text-blue-700 text-sm">点击上方按钮听标准发音，然后录下你的跟读发音，对比练习。</p>
-              </div>
-              
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-800">录音打卡</h4>
-                
-                {knowledgeRecordingStatus === RECORDING_STATUS.IDLE && (
-                  <button
-                    onClick={startKnowledgeAudioRecording}
-                    className="w-full py-3 rounded-lg font-medium bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
-                  >
-                    <Mic size={18} />
-                    开始录音
-                  </button>
-                )}
-                
-                {knowledgeRecordingStatus === RECORDING_STATUS.RECORDING && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center gap-3 py-4">
-                      <div className="w-4 h-4 rounded-full bg-red-500 animate-pulse"></div>
-                      <span className="text-red-600 font-medium">录制中 {formatTime(knowledgeRecordingTime)}</span>
-                    </div>
-                    <button
-                      onClick={stopKnowledgeRecording}
-                      className="w-full py-3 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 flex items-center justify-center gap-2"
-                    >
-                      <X size={18} />
-                      停止录制
-                    </button>
-                  </div>
-                )}
-                
-                {knowledgeRecordingStatus === RECORDING_STATUS.COMPLETED && (
-                  <div className="space-y-3">
-                    <audio src={knowledgeRecordingUrl} controls className="w-full" />
-                    <div className="flex gap-3">
-                      <button
-                        onClick={restartKnowledgeRecording}
-                        className="flex-1 py-3 rounded-lg font-medium bg-gray-200 text-gray-800 hover:bg-gray-300 flex items-center justify-center gap-2"
-                      >
-                        <RefreshCw size={18} />
-                        重新录制
-                      </button>
-                      <button
-                        onClick={confirmKnowledgeCheckIn}
-                        className="flex-1 py-3 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2"
-                      >
-                        <Check size={18} />
-                        确认打卡
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>
       )}
     </div>
-  );
+  )
 }
-
-export default InterviewQuestions;

@@ -56,6 +56,7 @@ const MyOffer = lazy(() => import('./pages/MyOffer'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Messages = lazy(() => import('./pages/Messages'))
 const Resume = lazy(() => import('./pages/Resume'))
+const Premium = lazy(() => import('./pages/Premium'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
 const BoardingMaterials = lazy(() => import('./pages/BoardingMaterials'))
 
@@ -82,7 +83,7 @@ function App() {
       <Router>
         <AccessGate />
         <CompletionHint />
-        <DebugPanel />
+        {import.meta.env.DEV && <DebugPanel />}
         <div className="min-h-screen bg-gray-50">
           <Suspense fallback={
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -136,6 +137,7 @@ function App() {
               <Route path="/my-offer" element={<RequireLogin><MyOffer /></RequireLogin>} />
               <Route path="/resume" element={<RequireLogin><Resume /></RequireLogin>} />
               <Route path="/messages" element={<RequireLogin><Messages /></RequireLogin>} />
+              <Route path="/premium" element={<Premium />} />
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />
               <Route path="/generate-codes" element={<RequireActivation><ActivationCodeGenerator /></RequireActivation>} />

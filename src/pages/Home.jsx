@@ -72,9 +72,9 @@ const routeSteps = [
 const serviceLinks = [
   {
     label: '生成职业路线',
-    description: '基于测评结果判断岗位、短板和 90 天准备计划',
+    description: '了解完整路线报告、简历优化和 AI 面试训练',
     icon: Sparkles,
-    route: '/assessment',
+    route: '/premium',
   },
   {
     label: '英文简历优化',

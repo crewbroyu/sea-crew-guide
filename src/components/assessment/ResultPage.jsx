@@ -7,8 +7,11 @@ import {
   CheckCircle2,
   ChevronLeft,
   ClipboardList,
+  Lock,
   RotateCcw,
   Save,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import { DIMENSIONS } from '../../data/assessmentData'
 import { getCareerConclusion, getLevel } from '../../data/assessmentScoring'
@@ -122,6 +125,61 @@ const getLowestDimensions = (dimensionScores) =>
     .sort((a, b) => a.score - b.score)
     .slice(0, 2)
 
+const premiumReportItems = [
+  {
+    title: '90 天准备路线',
+    description: '按当前短板拆成英语、岗位知识、简历和面试四条执行线。',
+  },
+  {
+    title: '英文简历修改方向',
+    description: '告诉你哪些经历应该放大，哪些表达需要改成邮轮岗位语言。',
+  },
+  {
+    title: '面试训练重点',
+    description: '根据目标岗位判断该先练服务案例、销售案例、客诉处理还是英文表达。',
+  },
+  {
+    title: '申请渠道建议',
+    description: '判断更适合低成本 DIY、指导型 DIY，还是需要更稳妥的渠道支持。',
+  },
+]
+
+const buildRoutePlan = (recommendations, lowestDimensions) => {
+  const primaryJob = recommendations[0]?.title || '目标岗位'
+  const firstGap = lowestDimensions[0]?.name || '英语服务沟通'
+  const secondGap = lowestDimensions[1]?.name || '求职准备度'
+
+  return [
+    {
+      period: '第 1-30 天',
+      title: '确认岗位方向',
+      tasks: [
+        `优先研究 ${primaryJob} 的职责、收入结构和不适合人群。`,
+        `补齐 ${firstGap} 的基础要求，避免盲目投递。`,
+        '整理 2-3 个能证明服务、销售、抗压或团队协作的真实案例。',
+      ],
+    },
+    {
+      period: '第 31-60 天',
+      title: '准备申请材料',
+      tasks: [
+        '把中文经历改写成英文简历里的岗位能力表达。',
+        `针对 ${secondGap} 制作一份短板补齐清单。`,
+        '确定申请方式：官网、一代、指导型 DIY 或其他渠道。',
+      ],
+    },
+    {
+      period: '第 61-90 天',
+      title: '进入面试与投递',
+      tasks: [
+        `围绕 ${primaryJob} 练习岗位问题、服务场景和英文自我介绍。`,
+        '每周复盘投递进度、回复情况和面试卡点。',
+        '根据反馈调整目标岗位和申请渠道。',
+      ],
+    },
+  ]
+}
+
 export default function ResultPage({
   dimensionScores,
   overallScore,
@@ -130,7 +188,7 @@ export default function ResultPage({
   onRestart,
 }) {
   const navigate = useNavigate()
-  const { userId, userEmail } = useAccessStore()
+  const { userId, userEmail, isRegistered, isUnlocked, openRegisterModal } = useAccessStore()
   const [contact, setContact] = useState({
     name: '',
     phone: '',
@@ -148,6 +206,10 @@ export default function ResultPage({
     [dimensionScores, serviceBackground]
   )
   const lowestDimensions = useMemo(() => getLowestDimensions(dimensionScores), [dimensionScores])
+  const routePlan = useMemo(
+    () => buildRoutePlan(recommendations, lowestDimensions),
+    [lowestDimensions, recommendations]
+  )
 
   const handleContactChange = (field, value) => {
     setContact((prev) => ({ ...prev, [field]: value }))
@@ -190,6 +252,20 @@ export default function ResultPage({
     }
   }
 
+  const handlePremiumAction = () => {
+    if (!isRegistered) {
+      openRegisterModal()
+      return
+    }
+
+    if (!isUnlocked) {
+      navigate('/premium')
+      return
+    }
+
+    navigate('/profile')
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="border-b border-slate-200 bg-white px-6 pb-6 pt-12">
@@ -229,6 +305,84 @@ export default function ResultPage({
             <h2 className="font-bold text-blue-950">{conclusion.title}</h2>
             <p className="mt-1 text-sm leading-relaxed text-blue-900">{conclusion.summary}</p>
           </div>
+        </section>
+
+        <section className="mb-6 overflow-hidden rounded-lg border border-blue-200 bg-white shadow-sm">
+          <div className="border-b border-blue-100 bg-blue-50 p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-blue-700">
+                {isUnlocked ? <ShieldCheck size={21} /> : <Lock size={21} />}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-blue-700">付费核心</p>
+                <h2 className="mt-1 font-bold text-slate-950">完整职业路线报告</h2>
+                <p className="mt-1 text-sm leading-relaxed text-blue-900">
+                  基础测评告诉你适合什么岗位，完整报告解决下一步怎么准备、怎么申请、哪里最容易卡住。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {!isUnlocked ? (
+            <div className="p-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {premiumReportItems.map((item) => (
+                  <div key={item.title} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Sparkles size={16} className="text-blue-600" />
+                      <h3 className="text-sm font-semibold text-slate-950">{item.title}</h3>
+                    </div>
+                    <p className="text-xs leading-relaxed text-slate-600">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 rounded-lg border border-dashed border-blue-200 bg-blue-50 p-4">
+                <p className="text-sm font-medium text-blue-950">你当前可预览的结论</p>
+                <p className="mt-1 text-sm leading-relaxed text-blue-900">
+                  优先岗位是 {recommendations[0]?.title || '待确认岗位'}，最需要补的是 {lowestDimensions[0]?.name || '当前短板'}。
+                  激活后再生成完整 90 天路线、简历方向、面试训练重点和申请策略。
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handlePremiumAction}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
+              >
+                {isRegistered ? '查看激活方式' : '登录后解锁完整报告'}
+                <ArrowRight size={18} />
+              </button>
+            </div>
+          ) : (
+            <div className="p-5">
+              <div className="space-y-3">
+                {routePlan.map((phase) => (
+                  <article key={phase.period} className="rounded-lg border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-medium text-blue-700">{phase.period}</p>
+                    <h3 className="mt-1 font-semibold text-slate-950">{phase.title}</h3>
+                    <div className="mt-3 space-y-2">
+                      {phase.tasks.map((task) => (
+                        <div key={task} className="flex gap-2 text-sm leading-relaxed text-slate-700">
+                          <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+                          <span>{task}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate('/profile')}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
+              >
+                保存到申请进度中心
+                <ArrowRight size={18} />
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

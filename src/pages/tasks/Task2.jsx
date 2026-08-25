@@ -19,6 +19,8 @@ const jobLibrary = [
     description: '客房服务岗位，适合英语基础较弱但能接受体力工作的申请者。',
     risk: '体力消耗较大，工作节奏稳定但重复度高。',
     englishRequirement: '基础',
+    fit: '适合踏实细心、能接受重复流程和体力工作的申请者。',
+    preparationFocus: ['客房清洁流程', '卫生标准', '基础客人需求英语'],
   },
   {
     id: 'galley',
@@ -27,6 +29,8 @@ const jobLibrary = [
     description: '厨房或后勤支持岗位，上船门槛相对低。',
     risk: '环境较辛苦，前期晋升和转岗需要主动规划。',
     englishRequirement: '基础',
+    fit: '适合想先低门槛登船、能吃苦、愿意从后场岗位开始的人。',
+    preparationFocus: ['安全规范', '后场协作', '体力劳动案例'],
   },
   {
     id: 'restaurant-assistant',
@@ -35,6 +39,8 @@ const jobLibrary = [
     description: '餐厅助理岗位，适合有服务意识、英语可基础沟通的人。',
     risk: '高峰期强度较高，小费和排班存在波动。',
     englishRequirement: '中级',
+    fit: '适合有餐饮、咖啡店、酒店或门店服务经验的人。',
+    preparationFocus: ['点餐流程', '投诉处理', '高峰期服务案例'],
   },
   {
     id: 'bar-server',
@@ -43,6 +49,8 @@ const jobLibrary = [
     description: '酒吧服务岗位，适合外向、能接受销售和晚班节奏的人。',
     risk: '需要记产品和酒水表达，英语与服务反应要求更高。',
     englishRequirement: '中级',
+    fit: '适合外向、反应快、能接受晚班和快节奏服务的人。',
+    preparationFocus: ['点单英语', '酒水基础', '高峰期压力案例'],
   },
   {
     id: 'guest-service',
@@ -51,6 +59,8 @@ const jobLibrary = [
     description: '前台宾客服务岗位，适合英语好、抗压强、能处理投诉的人。',
     risk: '客诉压力高，对英语表达、情绪稳定和系统操作要求高。',
     englishRequirement: '高级',
+    fit: '适合英语较好、表达清楚、能处理投诉和跨部门沟通的人。',
+    preparationFocus: ['信息确认', '投诉安抚', '跨部门沟通案例'],
   },
   {
     id: 'shop-sales',
@@ -59,8 +69,36 @@ const jobLibrary = [
     description: '免税店销售岗位，适合有销售经验、形象表达好、目标感强的人。',
     risk: '有销售 KPI，收入可能随业绩波动。',
     englishRequirement: '高级',
+    fit: '适合有销售、导购、美妆奢侈品或目标业绩经验的人。',
+    preparationFocus: ['产品推荐', '销售异议处理', 'KPI 压力案例'],
   },
 ]
+
+const getJobAdvice = (job, testData) => {
+  const gaps = []
+  if (job.englishRequirement === '高级' && testData.englishScore < 70) {
+    gaps.push('英语还需要练到能连续讲经历和处理客诉。')
+  }
+  if (job.englishRequirement === '中级' && testData.englishScore < 40) {
+    gaps.push('需要先补常见服务英语和岗位基础表达。')
+  }
+  if (job.level >= 2 && testData.experienceScore === 0) {
+    gaps.push('缺少直接服务经验，简历要突出可迁移经历。')
+  }
+  if (job.level >= 3 && testData.experienceScore < 2) {
+    gaps.push('高门槛岗位需要更具体的销售/服务案例支撑。')
+  }
+  if (testData.stressScore < 2 && ['bar-server', 'guest-service', 'shop-sales'].includes(job.id)) {
+    gaps.push('这个岗位客诉、销售或高峰期压力更高，需要提前确认承受度。')
+  }
+
+  return {
+    why: job.fit,
+    gaps: gaps.length > 0 ? gaps : ['基础匹配度较好，重点是把经历整理成英文简历和面试案例。'],
+    risks: [job.risk],
+    preparationFocus: job.preparationFocus,
+  }
+}
 
 const cruiseJobs = [
   {
@@ -80,6 +118,40 @@ const cruiseJobs = [
     jobs: ['Retail Sales Associate', 'Jewelry Specialist', 'Art Gallery Staff', 'Activity Staff', 'Youth Staff', 'Spa Therapist'],
   },
 ]
+
+const readJson = (key, fallback = null) => {
+  try {
+    const value = localStorage.getItem(key)
+    return value ? JSON.parse(value) : fallback
+  } catch (error) {
+    console.warn(`Unable to read ${key}:`, error)
+    return fallback
+  }
+}
+
+const assessmentJobMap = {
+  retail: 'Retail Sales Associate',
+  front_office: 'Guest Service Associate',
+  bar: 'Bar Server',
+  restaurant: 'Restaurant Assistant',
+  housekeeping: 'Housekeeping',
+}
+
+const getAssessmentSuggestedJob = () => {
+  const assessmentResult = readJson('assessment_result', {})
+  const firstRecommendation = assessmentResult?.recommendations?.[0]
+  if (!firstRecommendation) return ''
+
+  if (assessmentJobMap[firstRecommendation.id]) {
+    return assessmentJobMap[firstRecommendation.id]
+  }
+
+  const matchedJob = jobLibrary.find((job) =>
+    firstRecommendation.title?.toLowerCase().includes(job.name.toLowerCase().split(' ')[0])
+  )
+
+  return matchedJob?.name || ''
+}
 
 const steps = [
   { id: 1, title: '英语沟通', description: '判断适合后台、服务岗还是前台销售岗。' },
@@ -200,8 +272,9 @@ const Task2 = () => {
   const [showResult, setShowResult] = useState(false)
   const [currentJob, setCurrentJob] = useState([])
   const [potentialJob, setPotentialJob] = useState([])
+  const [notRecommendedJobs, setNotRecommendedJobs] = useState([])
   const [gapAnalysis, setGapAnalysis] = useState([])
-  const [selectedTargetJob, setSelectedTargetJob] = useState('')
+  const [selectedTargetJob, setSelectedTargetJob] = useState(getAssessmentSuggestedJob)
   const [showJobSelector, setShowJobSelector] = useState(false)
 
   const scoreSummary = useMemo(() => {
@@ -253,8 +326,18 @@ const Task2 = () => {
     if (testData.stressScore < 2) gaps.push('对长时间站立、客诉和连续工作需要提前评估。')
     if (testData.growthScore < 2) gaps.push('如果不愿意额外训练，建议先选择更稳妥的登船岗位。')
 
+    const notRecommended = jobLibrary
+      .filter(job => !matchedJobs.some(match => match.id === job.id) && !aimJobs.some(aim => aim.id === job.id))
+      .filter(job => {
+        if (job.level === 3 && (testData.englishScore < 70 || testData.experienceScore < 2)) return true
+        if (job.id === 'bar-server' && testData.stressScore < 2) return true
+        return false
+      })
+      .slice(0, 2)
+
     setCurrentJob(matchedJobs)
     setPotentialJob(aimJobs)
+    setNotRecommendedJobs(notRecommended)
     setGapAnalysis(gaps)
     setSelectedTargetJob(prev => prev || matchedJobs[0]?.name || '')
   }
@@ -314,14 +397,31 @@ const Task2 = () => {
   }
 
   const saveTaskResult = () => {
+    const selectedJob = [...currentJob, ...potentialJob, ...notRecommendedJobs].find(job => job.name === selectedTargetJob)
+    const selectedJobAdvice = selectedJob ? getJobAdvice(selectedJob, testData) : null
+    const backupPositions = [...currentJob, ...potentialJob]
+      .filter(job => job.name !== selectedTargetJob)
+      .slice(0, 2)
+      .map(job => job.name)
+    const positionGaps = selectedJobAdvice?.gaps || gapAnalysis
+    const positionRisks = selectedJobAdvice?.risks || []
+    const preparationFocus = selectedJobAdvice?.preparationFocus || []
+
     const taskResult = {
       taskId: 2,
       completedAt: new Date().toISOString(),
       testData,
       currentJob,
       potentialJob,
+      notRecommendedJobs,
       gapAnalysis,
       selectedTargetJob,
+      target_position: selectedTargetJob,
+      backup_positions: backupPositions,
+      position_reason: selectedJobAdvice?.why || '',
+      position_gaps: positionGaps,
+      position_risks: positionRisks,
+      preparation_focus: preparationFocus,
     }
 
     localStorage.setItem('task2_result', JSON.stringify(taskResult))
@@ -511,20 +611,60 @@ const Task2 = () => {
 
   const renderResult = () => (
     <div className="space-y-5">
-      <section className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
-            <ClipboardCheck size={22} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-blue-700">测评结果</p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950">你的岗位方向建议</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-700">
-              结果基于英语、服务经验、抗压强度、岗位偏好和成长意愿生成，用于帮你决定下一步申请路线。
-            </p>
-          </div>
-        </div>
-      </section>
+      {(() => {
+        const selectedJob = [...currentJob, ...potentialJob, ...notRecommendedJobs].find(job => job.name === selectedTargetJob)
+        const selectedAdvice = selectedJob ? getJobAdvice(selectedJob, testData) : null
+        const backupPositions = [...currentJob, ...potentialJob]
+          .filter(job => job.name !== selectedTargetJob)
+          .slice(0, 2)
+          .map(job => job.name)
+
+        return (
+          <>
+            <section className="rounded-xl border border-blue-100 bg-blue-50 p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
+                  <ClipboardCheck size={22} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-blue-700">岗位决策结果</p>
+                  <h2 className="mt-1 text-xl font-semibold text-slate-950">先定主攻岗位，再准备备选路线</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                    结果基于英语、服务经验、抗压强度、岗位偏好和成长意愿生成，用于帮你决定下一步准备重点。
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {selectedJob && selectedAdvice && (
+              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-sm font-medium text-blue-700">主攻岗位</p>
+                <h3 className="mt-1 text-xl font-semibold text-slate-950">{selectedTargetJob}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{selectedAdvice.why}</p>
+
+                <div className="mt-4 grid gap-3">
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <p className="text-xs font-medium text-slate-500">备选岗位</p>
+                    <p className="mt-1 text-sm text-slate-800">{backupPositions.length ? backupPositions.join(' / ') : '当前建议先集中准备主攻岗位'}</p>
+                  </div>
+                  <div className="rounded-lg bg-amber-50 p-3">
+                    <p className="text-xs font-medium text-amber-700">当前短板</p>
+                    <div className="mt-2 space-y-1">
+                      {selectedAdvice.gaps.map(item => (
+                        <p key={item} className="text-sm leading-5 text-amber-950">{item}</p>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-blue-50 p-3">
+                    <p className="text-xs font-medium text-blue-700">准备重点</p>
+                    <p className="mt-1 text-sm text-blue-950">{selectedAdvice.preparationFocus.join(' / ')}</p>
+                  </div>
+                </div>
+              </section>
+            )}
+          </>
+        )
+      })()}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -570,6 +710,27 @@ const Task2 = () => {
                   selected={selectedTargetJob === job.name}
                   onSelect={() => setSelectedTargetJob(job.name)}
                 />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {notRecommendedJobs.length > 0 && (
+          <div className="mt-6">
+            <h3 className="mb-3 font-semibold text-slate-950">暂不建议优先选择</h3>
+            <div className="space-y-3">
+              {notRecommendedJobs.map((job, index) => (
+                <div key={job.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-sm font-semibold text-slate-500">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-950">{job.name}</h4>
+                      <p className="mt-1 text-sm leading-5 text-slate-600">{job.risk}</p>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -667,7 +828,7 @@ const Task2 = () => {
   )
 
   return (
-    <TaskLayout taskId={2} taskTitle="岗位选择测评系统" canComplete={showResult}>
+    <TaskLayout taskId={2} taskTitle="岗位选择测评系统" canComplete={showResult} onComplete={saveTaskResult}>
       <div className="space-y-5">
         {!showResult ? (
           <>

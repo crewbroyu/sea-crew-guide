@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -210,6 +210,32 @@ export default function ResultPage({
     () => buildRoutePlan(recommendations, lowestDimensions),
     [lowestDimensions, recommendations]
   )
+
+  useEffect(() => {
+    try {
+      const savedResult = JSON.parse(localStorage.getItem('assessment_result') || '{}')
+      if (!savedResult?.completed) return
+
+      localStorage.setItem(
+        'assessment_result',
+        JSON.stringify({
+          ...savedResult,
+          recommendations: recommendations.map((job) => ({
+            id: job.id,
+            title: job.title,
+            matchScore: job.matchScore,
+            strengths: job.strengths,
+            risks: job.risks,
+            nextSteps: job.nextSteps,
+          })),
+          lowestDimensions,
+          routePlan,
+        })
+      )
+    } catch (error) {
+      console.warn('Unable to update assessment result recommendations:', error)
+    }
+  }, [lowestDimensions, recommendations, routePlan])
 
   const handleContactChange = (field, value) => {
     setContact((prev) => ({ ...prev, [field]: value }))

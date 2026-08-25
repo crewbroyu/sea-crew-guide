@@ -5,10 +5,11 @@ import TaskCompleteModal from './TaskCompleteModal'
 import StageCompleteModal from './StageCompleteModal'
 import pathData from '../data/pathData'
 
-const TaskLayout = ({ taskId, taskTitle, canComplete, children }) => {
+const TaskLayout = ({ taskId, taskTitle, canComplete, onComplete, children }) => {
   const navigate = useNavigate()
   const [isTaskCompleteModalOpen, setIsTaskCompleteModalOpen] = useState(false)
   const [isStageCompleteModalOpen, setIsStageCompleteModalOpen] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
 
   const getTaskMeta = () => {
     let taskNumber = 0
@@ -38,9 +39,18 @@ const TaskLayout = ({ taskId, taskTitle, canComplete, children }) => {
 
   const taskMeta = getTaskMeta()
 
-  const handleCompleteTask = () => {
-    if (!canComplete) return
-    setIsTaskCompleteModalOpen(true)
+  const handleCompleteTask = async () => {
+    if (!canComplete || isCompleting) return
+
+    try {
+      setIsCompleting(true)
+      if (onComplete) {
+        await onComplete()
+      }
+      setIsTaskCompleteModalOpen(true)
+    } finally {
+      setIsCompleting(false)
+    }
   }
 
   const handleTaskCompleteModalClose = () => {
@@ -101,7 +111,7 @@ const TaskLayout = ({ taskId, taskTitle, canComplete, children }) => {
           <button
             type="button"
             onClick={handleCompleteTask}
-            disabled={!canComplete}
+            disabled={!canComplete || isCompleting}
             className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition ${
               canComplete
                 ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
@@ -109,7 +119,7 @@ const TaskLayout = ({ taskId, taskTitle, canComplete, children }) => {
             }`}
           >
             <CheckCircle2 size={18} />
-            完成任务
+            {isCompleting ? '保存中...' : '完成任务'}
           </button>
         </div>
       </footer>

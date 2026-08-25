@@ -151,17 +151,11 @@ export const activationService = {
 
     const user = await requireUser();
 
-    console.log('========== Start activation flow ==========');
-    console.log('Activation code:', cleanCode);
-    console.log('Calling RPC consume_activation_code...');
-
     const { data, error } = await supabase.rpc('consume_activation_code', {
       input_code: cleanCode,
       input_user_id: user.id,
       input_user_email: user.email,
     });
-
-    console.log('RPC response:', { data, error });
 
     if (error) {
       console.error('Activation RPC failed:', error);

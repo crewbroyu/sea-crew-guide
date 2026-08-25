@@ -21,6 +21,7 @@ import {
   getMyPathProfile,
   syncLocalPathProfile,
 } from '../services/userPathService'
+import { getLatestInterviewPracticeRecord } from '../services/interviewPracticeService'
 
 const stageLabels = {
   exploring: '了解阶段',
@@ -86,8 +87,9 @@ const fieldDefaults = {
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { userEmail, userName, reset } = useAccessStore()
+  const { userEmail, userName, isUnlocked, reset } = useAccessStore()
   const [pathProfile, setPathProfile] = useState(() => buildLocalPathProfile())
+  const [latestInterviewRecord, setLatestInterviewRecord] = useState(null)
   const [form, setForm] = useState(fieldDefaults)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -117,6 +119,14 @@ export default function Profile() {
         if (!remoteProfile) {
           await syncLocalPathProfile()
         }
+
+        try {
+          const interviewRecord = await getLatestInterviewPracticeRecord()
+          setLatestInterviewRecord(interviewRecord)
+        } catch (error) {
+          console.error('加载最近面试记录失败:', error)
+          setLatestInterviewRecord(null)
+        }
       } catch (error) {
         console.error('加载路径档案失败:', error)
         setPathProfile(localProfile)
@@ -137,6 +147,9 @@ export default function Profile() {
     if (!pathProfile?.latest_assessment_score) {
       return { label: '完成海乘适配测评', route: '/assessment' }
     }
+    if (!isUnlocked) {
+      return { label: '解锁完整职业路线和 AI 面试', route: '/premium' }
+    }
     if (!pathProfile?.target_position) {
       return { label: '选择目标岗位', route: '/tasks/Task2' }
     }
@@ -147,7 +160,67 @@ export default function Profile() {
       return { label: '进入面试训练', route: '/tasks/phase2/Task8' }
     }
     return { label: '查看完整登船路线', route: '/tasks' }
-  }, [pathProfile])
+  }, [isUnlocked, pathProfile])
+
+  const serviceRecommendation = useMemo(() => {
+    if (!pathProfile?.latest_assessment_score) {
+      return {
+        title: '先完成职业适配测评',
+        description: '测评会生成岗位推荐和短板，后续才能判断该卖路线报告、简历优化还是面试训练。',
+        route: '/assessment',
+        cta: '开始测评',
+        tone: 'blue',
+      }
+    }
+
+    if (!isUnlocked) {
+      return {
+        title: '推荐解锁完整职业路线',
+        description: '你已经留下了测评或申请状态，下一步应该把岗位、简历、面试和申请渠道合成一条可执行路线。',
+        route: '/premium',
+        cta: '查看激活权益',
+        tone: 'amber',
+      }
+    }
+
+    if (latestInterviewRecord && latestInterviewRecord.overall_score < 70) {
+      return {
+        title: '优先继续 AI 面试训练',
+        description: `最近一次 AI 面试 ${latestInterviewRecord.overall_score}/100，建议围绕低分问题继续练回答结构和英文表达。`,
+        route: '/tasks/phase2/Task8',
+        cta: '继续练面试',
+        tone: 'amber',
+      }
+    }
+
+    if (pathProfile?.resume_status !== 'draft_ready') {
+      return {
+        title: '下一步适合做英文简历',
+        description: '目标岗位确定后，简历是进入投递和面试前最重要的材料，需要先把经历翻译成岗位能力。',
+        route: '/tasks/phase2/Task4',
+        cta: '制作简历',
+        tone: 'blue',
+      }
+    }
+
+    if (pathProfile?.interview_status !== 'ai_mock_done') {
+      return {
+        title: '下一步适合做 AI 模拟面试',
+        description: '简历有雏形后，最该暴露的问题通常是英文表达、服务案例和岗位理解。',
+        route: '/tasks/phase2/Task8',
+        cta: '开始 AI 面试',
+        tone: 'blue',
+      }
+    }
+
+    return {
+      title: '进入申请执行阶段',
+      description: '你已经完成核心判断和面试训练，接下来应该按渠道投递、记录反馈并准备证件节点。',
+      route: '/tasks',
+      cta: '查看申请路线',
+      tone: 'green',
+    }
+  }, [isUnlocked, latestInterviewRecord, pathProfile])
 
   const handleChange = (field, value) => {
     setForm((prev) => ({
@@ -238,6 +311,39 @@ export default function Profile() {
             >
               去完成
             </button>
+          </div>
+        </section>
+
+        <section className={`rounded-xl border p-4 shadow-sm ${
+          serviceRecommendation.tone === 'amber'
+            ? 'border-amber-200 bg-amber-50'
+            : serviceRecommendation.tone === 'green'
+              ? 'border-emerald-200 bg-emerald-50'
+              : 'border-blue-200 bg-blue-50'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ${
+              serviceRecommendation.tone === 'amber'
+                ? 'text-amber-700'
+                : serviceRecommendation.tone === 'green'
+                  ? 'text-emerald-700'
+                  : 'text-blue-700'
+            }`}>
+              {createElement(isUnlocked ? Target : Shield, { size: 20 })}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-gray-500">推荐服务</p>
+              <h2 className="mt-1 font-bold text-gray-950">{serviceRecommendation.title}</h2>
+              <p className="mt-1 text-sm leading-6 text-gray-700">{serviceRecommendation.description}</p>
+              <button
+                type="button"
+                onClick={() => navigate(serviceRecommendation.route)}
+                className="mt-3 inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm"
+              >
+                {serviceRecommendation.cta}
+                <ChevronRight size={15} />
+              </button>
+            </div>
           </div>
         </section>
 

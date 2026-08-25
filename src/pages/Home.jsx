@@ -20,21 +20,6 @@ import { useAccessStore } from '../store/accessStore'
 import { getScoreData } from '../store/scoreStore'
 import pathData from '../data/pathData'
 
-const taskRoutes = {
-  1: '/assessment',
-  2: '/tasks/Task2',
-  3: '/tasks/Task3',
-  4: '/tasks/phase2/Task4',
-  5: '/tasks/phase2/Task5',
-  6: '/tasks/phase2/Task6',
-  7: '/tasks/phase2/Task7',
-  8: '/tasks/phase2/Task8',
-  9: '/my-offer',
-  10: '/tasks/Task10',
-  11: '/tasks/Task11',
-  12: '/tasks/Task12',
-}
-
 const publicLinks = [
   {
     label: '海乘百科',
@@ -277,7 +262,7 @@ export default function Home() {
 
               <button
                 type="button"
-                onClick={() => navigate(taskRoutes[snapshot.currentTask?.id] || '/tasks')}
+                onClick={() => navigate(snapshot.currentTask?.route || '/tasks')}
                 className="flex w-full items-center justify-between rounded-lg bg-blue-600 px-4 py-3 text-left text-white transition hover:bg-blue-700"
               >
                 <span>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Circle } from 'lucide-react'
 import TaskLayout from '../../components/TaskLayout'
+import { syncLocalPathProfile } from '../../services/userPathService'
 
 const motivationOptions = [
   { id: 1, title: '提高收入', description: '希望通过海乘工作获得更高储蓄和现金流。' },
@@ -64,8 +65,27 @@ const Task1 = () => {
 
   const allStepsCompleted = step1Completed && step2Completed && step3Completed
 
+  const saveTaskResult = () => {
+    const selectedMotivationDetails = motivationOptions.filter(option => selectedMotivations.includes(option.id))
+    const taskResult = {
+      taskId: 1,
+      completedAt: new Date().toISOString(),
+      motivations: selectedMotivationDetails.map(option => option.title),
+      motivationDetails: selectedMotivationDetails,
+      declaration: declaration.trim(),
+    }
+
+    localStorage.setItem('task1_result', JSON.stringify(taskResult))
+
+    syncLocalPathProfile({
+      career_stage: 'assessment_done',
+      application_stage: 'assessed',
+      last_completed_task_id: 1,
+    })
+  }
+
   return (
-    <TaskLayout taskId={1} taskTitle="明确出海动机" canComplete={allStepsCompleted}>
+    <TaskLayout taskId={1} taskTitle="明确出海动机" canComplete={allStepsCompleted} onComplete={saveTaskResult}>
       <div className="space-y-5">
         <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
           <p className="text-sm font-medium text-blue-900">本任务目标</p>

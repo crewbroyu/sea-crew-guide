@@ -112,7 +112,6 @@ export default function MyOffer() {
         completedAt: new Date().toISOString()
       };
       localStorage.setItem(progressKey, JSON.stringify(progress));
-      console.log('Task9 完成状态已写入:', progress);
     } else {
       setStatus(OFFER_STATUS.NOT_SUBMITTED);
       setSelectedFile(null);
@@ -138,7 +137,7 @@ export default function MyOffer() {
   };
 
   // 判断是否是开发环境
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = import.meta.env.DEV;
 
   // 获取文件图标
   const getFileIcon = (file) => {

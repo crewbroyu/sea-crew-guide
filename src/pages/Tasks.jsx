@@ -14,22 +14,7 @@ import {
   Target,
 } from 'lucide-react'
 import pathData from '../data/pathData'
-import { syncLocalPathProfile } from '../services/userPathService'
-
-const taskRoutes = {
-  1: '/assessment',
-  2: '/tasks/Task2',
-  3: '/tasks/Task3',
-  4: '/tasks/phase2/Task4',
-  5: '/tasks/phase2/Task5',
-  6: '/tasks/phase2/Task6',
-  7: '/tasks/phase2/Task7',
-  8: '/tasks/phase2/Task8',
-  9: '/my-offer',
-  10: '/tasks/Task10',
-  11: '/tasks/Task11',
-  12: '/tasks/Task12',
-}
+import { getMyPathProfile, syncLocalPathProfile, writeLocalTaskProgress } from '../services/userPathService'
 
 const stageMeta = {
   1: {
@@ -70,6 +55,39 @@ function readCompletedTasks() {
   }
 
   return completed
+}
+
+function getCompletedFromProgress(progress = {}) {
+  const completed = []
+
+  for (let taskId = 1; taskId <= 12; taskId += 1) {
+    if (progress[`task${taskId}`]?.completed) {
+      completed.push(taskId)
+    }
+  }
+
+  return completed
+}
+
+function mergeProgress(localProgress = {}, remoteProgress = {}) {
+  const merged = { ...remoteProgress }
+
+  for (let taskId = 1; taskId <= 12; taskId += 1) {
+    const key = `task${taskId}`
+    const localTask = localProgress[key]
+    const remoteTask = remoteProgress[key]
+
+    if (localTask?.completed || remoteTask?.completed) {
+      merged[key] = {
+        ...remoteTask,
+        ...localTask,
+        completed: true,
+        completedAt: localTask?.completedAt || remoteTask?.completedAt || new Date().toISOString(),
+      }
+    }
+  }
+
+  return merged
 }
 
 function persistCompletedTasks(completedTasks) {
@@ -127,6 +145,7 @@ export default function Tasks() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [completedTasks, setCompletedTasks] = useState(readCompletedTasks)
+  const [hasHydratedProgress, setHasHydratedProgress] = useState(false)
   const [toast, setToast] = useState('')
 
   const allTasks = useMemo(() => pathData.flatMap((stage) => stage.tasks), [])
@@ -145,16 +164,51 @@ export default function Tasks() {
   }, [searchParams, setSearchParams])
 
   useEffect(() => {
+    let isMounted = true
+
+    const hydrateProgress = async () => {
+      try {
+        const remoteProfile = await getMyPathProfile()
+        if (!isMounted) return
+
+        const remoteProgress = remoteProfile?.task_progress || {}
+        const localProgress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
+        const mergedProgress = mergeProgress(localProgress, remoteProgress)
+        const mergedCompletedTasks = getCompletedFromProgress(mergedProgress)
+
+        if (mergedCompletedTasks.length > 0) {
+          writeLocalTaskProgress(mergedProgress)
+          setCompletedTasks(mergedCompletedTasks)
+        }
+      } catch (error) {
+        console.warn('Unable to hydrate task progress:', error)
+      } finally {
+        if (isMounted) {
+          setHasHydratedProgress(true)
+        }
+      }
+    }
+
+    hydrateProgress()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hasHydratedProgress) return
+
     persistCompletedTasks(completedTasks)
     syncLocalPathProfile()
-  }, [completedTasks])
+  }, [completedTasks, hasHydratedProgress])
 
   const showToast = useCallback((message) => {
     setToast(message)
   }, [])
 
   const handleTaskClick = (task) => {
-    const route = taskRoutes[task.id]
+    const route = task.route
 
     if (!route) {
       showToast('这个功能还在整理中')

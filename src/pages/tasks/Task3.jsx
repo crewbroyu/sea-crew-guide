@@ -11,6 +11,7 @@ import {
   Target,
 } from 'lucide-react'
 import TaskLayout from '../../components/TaskLayout'
+import { syncLocalPathProfile } from '../../services/userPathService'
 
 const questions = [
   {
@@ -122,6 +123,33 @@ const pathInfo = {
     control: '中低',
     icon: ShieldCheck,
   },
+}
+
+const pathActionPlans = {
+  diy: [
+    '整理 10 个船公司/招聘渠道，并记录官网或官方联系方式。',
+    '完成英文简历初稿，不先交大额费用。',
+    '准备一个目标岗位的英文自我介绍和服务案例。',
+    '每周固定跟进投递状态，记录回复和面试邀约。',
+  ],
+  guide: [
+    '先确定主攻岗位和备选岗位，避免同时乱投。',
+    '完成英文简历和岗位知识准备，再开始集中投递。',
+    '用 AI 面试或人工反馈检查回答是否像真实候选人。',
+    '关键节点再考虑付费指导，不为不透明承诺买单。',
+  ],
+  agent: [
+    '先核查收费项目、退款规则、岗位名称和合同路径。',
+    '要求对方说明合作船公司或招聘来源，不接受含糊承诺。',
+    '保留聊天记录、合同、收据和付款凭证。',
+    '即使找中介，也要自己准备英文简历和面试回答。',
+  ],
+}
+
+const pathRiskChecks = {
+  diy: ['信息真假需要自己判断', '申请周期可能更长', '容易卡在简历和面试准备'],
+  guide: ['要区分工具指导和包过承诺', '仍需要自己执行投递', '需要持续输出材料而不是只听建议'],
+  agent: ['收费不透明', '岗位和合同信息可能模糊', '承诺过度或退款困难'],
 }
 
 const StepProgress = ({ currentQuestion }) => (
@@ -277,6 +305,41 @@ const Task3 = () => {
     })
     setCurrentPage('result')
     setCanComplete(true)
+  }
+
+  const saveRouteResult = () => {
+    if (!result) return
+
+    const recommended = pathInfo[result.recommendedPath]
+    const routeResult = {
+      taskId: 3,
+      completedAt: new Date().toISOString(),
+      answers,
+      budget,
+      recommendedPath: result.recommendedPath,
+      recommendedPathTitle: recommended.title,
+      matchPercentage: result.matchPercentage,
+      reasons: result.reasons,
+      currentJobs: result.currentJobs,
+      potentialJobs: result.potentialJobs,
+      gaps: result.gaps,
+      actionPlan: pathActionPlans[result.recommendedPath],
+      riskChecks: pathRiskChecks[result.recommendedPath],
+      scores: result.scores,
+    }
+
+    localStorage.setItem('task3_result', JSON.stringify(routeResult))
+
+    const boardingProgress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
+    boardingProgress.task3 = { completed: true, completedAt: new Date().toISOString() }
+    localStorage.setItem('boarding_progress', JSON.stringify(boardingProgress))
+
+    syncLocalPathProfile({
+      application_method: recommended.title,
+      career_stage: 'position_planning',
+      application_stage: 'route_selected',
+      last_completed_task_id: 3,
+    })
   }
 
   const renderAssessmentPage = () => (
@@ -485,17 +548,51 @@ const Task3 = () => {
           </div>
         </section>
 
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="font-semibold text-slate-950">30 天行动计划</h3>
+          <div className="mt-4 space-y-3">
+            {pathActionPlans[result.recommendedPath].map((item, index) => (
+              <div key={item} className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+                  {index + 1}
+                </span>
+                <p className="text-sm leading-6 text-slate-700">{item}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <ShieldCheck size={19} className="text-amber-700" />
+            <h3 className="font-semibold text-amber-950">路线风险核查</h3>
+          </div>
+          <div className="space-y-2">
+            {pathRiskChecks[result.recommendedPath].map(item => (
+              <p key={item} className="rounded-lg bg-white/80 px-3 py-2 text-sm leading-5 text-amber-900">
+                {item}
+              </p>
+            ))}
+          </div>
+        </section>
+
         <div className="space-y-3">
           <button
             type="button"
-            onClick={() => navigate('/tasks?justCompleted=3')}
+            onClick={() => {
+              saveRouteResult()
+              navigate('/tasks?justCompleted=3')
+            }}
             className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             保存路线判断并返回进度中心
           </button>
           <button
             type="button"
-            onClick={() => navigate('/academy')}
+            onClick={() => {
+              saveRouteResult()
+              navigate('/academy')
+            }}
             className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-200"
           >
             查看申请资料与岗位内容
@@ -506,7 +603,7 @@ const Task3 = () => {
   }
 
   return (
-    <TaskLayout taskId={3} taskTitle="申请路线决策系统" canComplete={canComplete}>
+    <TaskLayout taskId={3} taskTitle="申请路线决策系统" canComplete={canComplete} onComplete={saveRouteResult}>
       <div className="space-y-5">
         <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
           <p className="text-sm font-medium text-blue-900">本任务目标</p>

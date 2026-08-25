@@ -1,10 +1,10 @@
-import React from 'react';
+import { Camera, X } from 'lucide-react';
 import useResumeStore from '../../store/resumeStore';
 
 function InputField({ label, placeholder, value, onChange, type = 'text', required }) {
   return (
     <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="mb-1 block text-sm font-medium text-slate-700">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input
@@ -12,7 +12,7 @@ function InputField({ label, placeholder, value, onChange, type = 'text', requir
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+        className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
       />
     </div>
   );
@@ -34,22 +34,27 @@ export default function StepPersonalInfo() {
 
   return (
     <div className="pb-24">
-      <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
-        {/* Photo upload */}
-        <div className="flex items-center gap-4 mb-6 p-3 bg-gray-50 rounded-lg">
-          <div className="w-20 h-20 rounded-full bg-white border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden flex-shrink-0">
+      <div className="mb-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-sm font-medium text-blue-700">Personal Information</p>
+        <h2 className="mt-1 text-lg font-semibold text-slate-950">联系方式要让招聘方能直接联系你</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          邮轮简历建议用英文姓名、可联系手机号或 WhatsApp、常用邮箱和当前所在地。
+        </p>
+
+        <div className="mb-6 mt-4 flex items-center gap-4 rounded-lg bg-slate-50 p-3">
+          <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-white">
             {personalInfo.photo ? (
               <img
                 src={personalInfo.photo}
                 alt="Photo"
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             ) : (
-              <span className="text-gray-400 text-2xl">📷</span>
+              <Camera size={24} className="text-slate-400" />
             )}
           </div>
           <div>
-            <label className="inline-block px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium cursor-pointer active:bg-blue-100">
+            <label className="inline-block cursor-pointer rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100">
               上传证件照
               <input
                 type="file"
@@ -58,14 +63,16 @@ export default function StepPersonalInfo() {
                 className="hidden"
               />
             </label>
-            <p className="text-xs text-gray-400 mt-1.5">
+            <p className="mt-1.5 text-xs text-slate-500">
               白底正装照 · 微笑自然 · 邮轮行业常用
             </p>
             {personalInfo.photo && (
               <button
+                type="button"
                 onClick={() => updatePersonalInfo({ photo: null })}
-                className="text-xs text-red-400 mt-1"
+                className="mt-1 inline-flex items-center gap-1 text-xs text-red-500"
               >
+                <X size={12} />
                 移除照片
               </button>
             )}
@@ -115,13 +122,13 @@ export default function StepPersonalInfo() {
         />
 
         <div className="mb-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-slate-700">
             Passport Status 护照状态
           </label>
           <select
             value={personalInfo.passportStatus}
             onChange={(e) => updatePersonalInfo({ passportStatus: e.target.value })}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
             <option value="">请选择</option>
             <option value="Valid">有效 Valid</option>
@@ -132,10 +139,10 @@ export default function StepPersonalInfo() {
         </div>
       </div>
 
-      {/* Tip */}
-      <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
-        <p className="text-sm text-amber-800">
-          💡 <strong>提示：</strong>邮轮简历建议<strong>英文填写</strong>，姓名用拼音或英文名。国际邮轮ATS系统优先识别英文格式。
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <p className="text-sm font-semibold text-amber-950">填写标准</p>
+        <p className="mt-2 text-sm leading-6 text-amber-900">
+          姓名建议用拼音或英文名，邮箱避免使用不专业昵称。护照状态会影响后续证件和登船准备判断。
         </p>
       </div>
     </div>

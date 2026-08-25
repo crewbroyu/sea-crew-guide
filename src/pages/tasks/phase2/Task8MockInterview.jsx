@@ -9,6 +9,7 @@ import { positionConfig } from '../../../data/interviewQuestions';
 import interviewQuestions from '../../../data/interviewQuestions';
 import RequireActivation from '../../../components/RequireActivation';
 import { syncLocalPathProfile } from '../../../services/userPathService';
+import { saveInterviewPracticeRecord } from '../../../services/interviewPracticeService';
 
 function Task8MockInterview() {
   const navigate = useNavigate();
@@ -539,7 +540,7 @@ function Task8MockInterview() {
     const allAnswers = answersRef.current;
     const allQuestions = extractedQuestionsRef.current;
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const evaluationData = mockScoring(allQuestions, allAnswers);
       setEvaluation(evaluationData);
 
@@ -547,12 +548,25 @@ function Task8MockInterview() {
       const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
       progress.task8 = { completed: true, completedAt: new Date().toISOString() };
       localStorage.setItem(progressKey, JSON.stringify(progress));
-      syncLocalPathProfile({
+      try {
+        await saveInterviewPracticeRecord({
+          targetPosition: selectedPosition,
+          interviewerName: selectedInterviewer?.name || null,
+          questions: allQuestions,
+          answers: allAnswers,
+          evaluation: evaluationData,
+        });
+      } catch (error) {
+        console.error('保存 AI 面试记录失败:', error);
+      }
+
+      await syncLocalPathProfile({
         target_position: selectedPosition,
         interview_status: 'ai_mock_done',
         application_stage: 'interview',
         career_stage: 'interview_preparation',
         last_completed_task_id: 8,
+        lead_score: evaluationData.overallScore >= 70 ? 90 : 82,
       });
 
       setStage('result');

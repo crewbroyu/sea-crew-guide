@@ -253,7 +253,7 @@ export default function Task10() {
   };
 
   // 判断是否是开发环境
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = import.meta.env.DEV;
 
   // 获取文件图标
   const getFileIcon = (file) => {
@@ -280,7 +280,6 @@ export default function Task10() {
       completedAt: new Date().toISOString()
     };
     localStorage.setItem(progressKey, JSON.stringify(progress));
-    console.log('Task10 完成状态已写入:', progress);
   };
 
   // 处理查看指南

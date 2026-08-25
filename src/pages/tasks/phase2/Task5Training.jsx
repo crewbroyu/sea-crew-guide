@@ -1,12 +1,38 @@
 // src/pages/tasks/phase2/Task5Training.jsx
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronUp } from 'lucide-react';
 import trainingCourses from '../../../data/trainingCourses';
+import { syncLocalPathProfile } from '../../../services/userPathService';
+import { upsertMyJobPreparation } from '../../../services/jobPreparationService';
 
 // 封装 localStorage 工具函数
 const STORAGE_KEY = 'task5_data';
+
+const readJson = (key, fallback = null) => {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const getTimestamp = () => new Date().getTime();
+
+const mapTargetPositionToRole = (position = '') => {
+  const normalized = position.toLowerCase();
+  if (normalized.includes('retail') || normalized.includes('shop') || normalized.includes('sales') || normalized.includes('jewelry')) return 'retail';
+  if (normalized.includes('bar') || normalized.includes('bartender')) return 'barServer';
+  if (normalized.includes('restaurant') || normalized.includes('waiter') || normalized.includes('buffet')) return 'waiter';
+  if (normalized.includes('housekeeping') || normalized.includes('cabin') || normalized.includes('laundry')) return 'housekeeping';
+  if (normalized.includes('guest service') || normalized.includes('front') || normalized.includes('reception') || normalized.includes('concierge')) return 'frontOffice';
+  if (normalized.includes('youth') || normalized.includes('activity')) return 'youthStaff';
+  if (normalized.includes('galley') || normalized.includes('kitchen')) return 'kitchen';
+  if (normalized.includes('utility') || normalized.includes('cleaner')) return 'utility';
+  return null;
+};
 
 const saveToLocalStorage = (data) => {
   try {
@@ -66,14 +92,128 @@ function getPlatformStyle(color) {
   return styles[color] || 'bg-gray-100 text-gray-700';
 }
 
+const rolePreparation = {
+  waiter: {
+    suitableFor: '有餐饮、咖啡店、酒店或基础服务经验，能接受高峰期节奏和重复服务动作的人。',
+    interviewFocus: ['点餐和上菜流程', '处理客诉和特殊需求', '高峰期配合与抗压'],
+    mustLearn: ['菜单描述', '推荐菜品', '餐具和餐桌设置', '投诉处理英语'],
+    nextStep: '准备一个餐厅高峰期服务案例，并在 Task6 写成英文回答。',
+    onePage: {
+      duties: '负责迎接客人、点单、上菜、清台、回应需求，并保持餐区服务标准。',
+      scenarios: ['客人等待过久', '点单错误', '推荐菜品或饮品', '过敏或特殊饮食需求'],
+      weakness: '只会说简单服务英语，但讲不清服务流程、投诉处理和团队配合。',
+      priority: '先掌握服务流程和投诉英语，再补菜单描述和推荐表达。',
+    },
+    checklist: ['我能说清餐厅服务员每天做什么', '我知道 3 个常见客诉场景', '我能用英文推荐一道菜或饮品', '我准备了一个高峰期服务案例', '我知道这个岗位的压力点'],
+  },
+  retail: {
+    suitableFor: '有销售、客服、美妆、奢侈品、英语沟通或目标感强的人。',
+    interviewFocus: ['销售动机', '产品推荐逻辑', '处理缺货和犹豫客人', 'KPI 压力'],
+    mustLearn: ['upselling', 'cross-selling', '商品陈列', '品牌和产品基础', '销售英语'],
+    nextStep: '准备一个“客人犹豫/缺货/推荐替代品”的销售服务案例。',
+    onePage: {
+      duties: '负责接待客人、介绍产品、促成销售、补货陈列、处理退换货或客人异议。',
+      scenarios: ['客人只看不买', '商品缺货', '推荐更高价产品', '客人比较多个品牌'],
+      weakness: '只说自己喜欢购物，但没有销售逻辑、产品意识和业绩压力认知。',
+      priority: '先学销售沟通和客户异议处理，再补香水、手表、美妆等产品知识。',
+    },
+    checklist: ['我能说清免税店销售每天做什么', '我知道 upselling 和 cross-selling 的区别', '我能用英文推荐一个产品', '我准备了一个销售服务案例', '我知道 KPI 和站立服务压力'],
+  },
+  barServer: {
+    suitableFor: '适合外向、反应快、能接受晚班和快节奏服务，并愿意练口语的人。',
+    interviewFocus: ['点单英语', '酒水基础', '客人互动', '高峰期服务节奏'],
+    mustLearn: ['basic drinks', 'order taking', 'small talk', 'responsible service', 'upselling'],
+    nextStep: '准备一个忙碌吧台下保持服务质量的压力案例。',
+    onePage: {
+      duties: '协助点单、送酒水、清理吧台或桌面、推荐饮品，并和酒保及服务团队配合。',
+      scenarios: ['客人不知道点什么', '高峰期排队', '客人催单', '推荐更合适的饮品'],
+      weakness: '误以为一定要会复杂调酒，忽略服务节奏、点单英语和客人互动。',
+      priority: '先学点单和推荐表达，再补酒水分类和基础风味。',
+    },
+    checklist: ['我能说清 Bar Server 和 Bartender 的区别', '我知道基础酒水分类', '我能用英文推荐一款饮品', '我准备了一个高峰期压力案例', '我能接受晚班和快节奏服务'],
+  },
+  housekeeping: {
+    suitableFor: '适合踏实、细心、动作稳定，能接受体力劳动和重复标准流程的人。',
+    interviewFocus: ['清洁标准', '时间管理', '细节意识', '客人隐私和安全'],
+    mustLearn: ['room cleaning sequence', 'linen handling', 'sanitation', 'lost and found', 'team handover'],
+    nextStep: '准备一个按标准完成大量房间或处理客人特殊需求的案例。',
+    onePage: {
+      duties: '负责客房清洁、布草更换、补充用品、报告维修问题，并保持卫生和安全标准。',
+      scenarios: ['房间时间紧', '客人要求额外用品', '发现遗留物品', '发现设备损坏'],
+      weakness: '只说自己能吃苦，但讲不出标准流程、隐私意识和效率管理。',
+      priority: '先理解清洁流程和卫生标准，再补酒店服务英语。',
+    },
+    checklist: ['我能说清客房清洁标准流程', '我知道客人隐私和遗留物处理原则', '我能描述一次高效率完成任务的经历', '我知道这个岗位的体力压力', '我能用英文回应客人基础需求'],
+  },
+  frontOffice: {
+    suitableFor: '适合英语较好、表达清楚、能处理信息和突发问题的人。',
+    interviewFocus: ['入住/退房流程', '信息确认', '投诉处理', '跨部门沟通'],
+    mustLearn: ['check-in', 'check-out', 'guest inquiry', 'complaint handling', 'phone etiquette'],
+    nextStep: '准备一个前台或客服场景中确认信息、安抚客人并协调解决的案例。',
+    onePage: {
+      duties: '负责接待咨询、入住退房、信息确认、解决客人问题，并和客房/餐饮等部门沟通。',
+      scenarios: ['房间未准备好', '账单疑问', '客人问路', '客人投诉设施问题'],
+      weakness: '只强调英语好，但缺少服务流程、耐心和信息准确性。',
+      priority: '先练信息确认和投诉处理，再补电话英语和系统流程。',
+    },
+    checklist: ['我能说清前台核心工作流程', '我能用英文确认客人信息', '我知道如何处理房间未准备好', '我准备了一个协调沟通案例', '我能接受持续面对客人和突发问题'],
+  },
+  youthStaff: {
+    suitableFor: '适合喜欢孩子、有活动组织经验、耐心强，并重视安全边界的人。',
+    interviewFocus: ['儿童安全', '活动组织', '家长沟通', '突发情况处理'],
+    mustLearn: ['child safety', 'activity planning', 'first aid awareness', 'parent communication'],
+    nextStep: '准备一个组织活动或处理孩子突发情况的团队案例。',
+    onePage: {
+      duties: '负责儿童活动组织、现场看护、安全提醒、家长沟通和活动记录。',
+      scenarios: ['孩子哭闹', '活动中有人受伤', '家长有特殊要求', '不同年龄孩子一起活动'],
+      weakness: '只说喜欢孩子，但没有安全意识、规则意识和活动管理经验。',
+      priority: '先学儿童安全和活动组织，再补儿童沟通英语。',
+    },
+    checklist: ['我能说清 Youth Staff 的安全责任', '我知道如何组织一个简单活动', '我能处理孩子哭闹或轻微冲突', '我准备了一个活动组织案例', '我知道家长沟通的重要性'],
+  },
+  kitchen: {
+    suitableFor: '适合能吃苦、执行力强、重视卫生安全，并有厨房或食品相关经验的人。',
+    interviewFocus: ['食品安全', '厨房协作', '卫生标准', '高强度执行力'],
+    mustLearn: ['food hygiene', 'knife/basic prep', 'kitchen safety', 'team communication'],
+    nextStep: '准备一个遵守卫生标准、配合团队完成任务的压力案例。',
+    onePage: {
+      duties: '协助备菜、清洁、食品处理、设备维护，并遵守厨房卫生和安全规范。',
+      scenarios: ['高峰期备餐', '食材污染风险', '设备使用安全', '和厨师团队配合'],
+      weakness: '只说愿意吃苦，但不了解食品安全、卫生标准和团队节奏。',
+      priority: '先学食品安全和厨房卫生，再补基础厨房英语。',
+    },
+    checklist: ['我能说清食品安全基本原则', '我知道厨房高峰期怎么配合', '我能描述一个高强度工作经历', '我知道卫生和安全的重要性', '我能接受后场工作环境'],
+  },
+  utility: {
+    suitableFor: '适合执行力强、能接受体力劳动、愿意从基础岗位开始的人。',
+    interviewFocus: ['安全意识', '清洁标准', '设备使用', '稳定性和责任心'],
+    mustLearn: ['cleaning chemicals', 'PPE', 'waste handling', 'basic maintenance', 'team support'],
+    nextStep: '准备一个完成脏累任务、保持安全和效率的工作案例。',
+    onePage: {
+      duties: '负责公共区域或后场清洁、垃圾处理、设备辅助、基础维护和团队支持。',
+      scenarios: ['地面湿滑', '清洁剂使用', '垃圾分类处理', '设备或区域临时清洁'],
+      weakness: '只把它当低门槛岗位，忽略安全规范、稳定性和执行力要求。',
+      priority: '先理解安全规范和清洁流程，再补设备和基础维护知识。',
+    },
+    checklist: ['我能说清 Utility 的核心职责', '我知道清洁安全和 PPE 的重要性', '我能描述一个体力劳动经历', '我能接受基础岗位和重复任务', '我知道如何与团队配合'],
+  },
+};
+
 export default function Task5Training() {
   const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [selectedRole, setSelectedRole] = useState(() => {
+    const task2Result = readJson('task2_result', {});
+    return mapTargetPositionToRole(task2Result.selectedTargetJob || task2Result.target_position);
+  });
   
   // 从 localStorage 加载初始数据
   const [completedCourses, setCompletedCourses] = useState(() => {
     const data = loadFromLocalStorage({});
     return data.completedCourses || {};
+  });
+  const [preparationChecks, setPreparationChecks] = useState(() => {
+    const data = loadFromLocalStorage({});
+    return data.preparationChecks || {};
   });
   const [expandedCourse, setExpandedCourse] = useState(null);
 
@@ -110,11 +250,12 @@ export default function Task5Training() {
   useEffect(() => {
     const data = {
       completedCourses,
+      preparationChecks,
       learningRecords,
       completedCourseDetails
     };
     saveToLocalStorage(data);
-  }, [completedCourses, learningRecords, completedCourseDetails]);
+  }, [completedCourses, preparationChecks, learningRecords, completedCourseDetails]);
 
 
 
@@ -129,7 +270,7 @@ export default function Task5Training() {
     window.open(course.url, '_blank');
 
     // 启动新计时器
-    const startTime = Date.now();
+    const startTime = getTimestamp();
     const newTimer = {
       courseId: course.id,
       startTime,
@@ -145,7 +286,7 @@ export default function Task5Training() {
         if (!prev) return prev;
         return {
           ...prev,
-          elapsedTime: Date.now() - prev.startTime
+          elapsedTime: getTimestamp() - prev.startTime
         };
       });
     }, 1000);
@@ -175,9 +316,9 @@ export default function Task5Training() {
   const saveLearningRecord = () => {
     if (!activeTimer) return;
 
-    const { courseId, startTime, courseName } = activeTimer;
+    const { courseId, startTime } = activeTimer;
     // 实时计算学习时长，不依赖 state 中的 elapsedTime
-    const elapsedTime = Date.now() - startTime;
+    const elapsedTime = getTimestamp() - startTime;
     const newRecord = {
       date: new Date().toISOString(),
       duration: elapsedTime,
@@ -272,15 +413,40 @@ export default function Task5Training() {
     };
   };
 
-  // 检查是否所有课程都已完成
-  const isAllCoursesCompleted = () => {
+  // 检查岗位准备清单是否完成
+  const isPreparationCompleted = () => {
     if (!selectedRole) return false;
-    const courses = trainingCourses[selectedRole].courses;
-    return courses.every(course => completedCourses[course.id]);
+    const checklist = rolePreparation[selectedRole]?.checklist || [];
+    const checks = preparationChecks[selectedRole] || {};
+    return checklist.length > 0 && checklist.every((_, index) => checks[index]);
   };
 
   // 处理任务完成
-  const handleTaskComplete = () => {
+  const handleTaskComplete = async () => {
+    const selectedChecks = rolePreparation[selectedRole]?.checklist || [];
+    const checks = preparationChecks[selectedRole] || {};
+    const completedResources = trainingCourses[selectedRole]?.courses
+      .filter(course => completedCourses[course.id])
+      .map(course => ({
+        id: course.id,
+        name: course.nameZh,
+        platform: course.platform,
+      })) || [];
+    const taskResult = {
+      taskId: 5,
+      completedAt: new Date().toISOString(),
+      selectedRole,
+      roleTitle: trainingCourses[selectedRole]?.title || '',
+      preparationChecklist: selectedChecks.map((item, index) => ({
+        item,
+          completed: Boolean(checks[index]),
+        })),
+      completedResources,
+      learningRecords,
+      completedCourseDetails,
+    };
+    localStorage.setItem('task5_result', JSON.stringify(taskResult));
+
     // 标记任务5为已完成
     const progressKey = 'boarding_progress';
     const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
@@ -289,6 +455,18 @@ export default function Task5Training() {
       completedAt: new Date().toISOString()
     };
     localStorage.setItem(progressKey, JSON.stringify(progress));
+
+    try {
+      await upsertMyJobPreparation(taskResult);
+    } catch (error) {
+      console.error('同步岗位准备资料失败:', error);
+    }
+
+    await syncLocalPathProfile({
+      career_stage: 'resume_preparation',
+      application_stage: 'job_knowledge',
+      last_completed_task_id: 5,
+    });
 
     // 跳转到任务列表页面，标记任务5为已完成
     navigate('/tasks?justCompleted=5');
@@ -313,9 +491,26 @@ export default function Task5Training() {
 
   const roles = Object.entries(trainingCourses);
   const currentRole = selectedRole ? trainingCourses[selectedRole] : null;
+  const currentPreparation = selectedRole ? rolePreparation[selectedRole] : null;
 
   const getCompletedCount = (roleKey) => {
     return trainingCourses[roleKey].courses.filter(c => completedCourses[c.id]).length;
+  };
+
+  const getPreparationCount = (roleKey) => {
+    const checklist = rolePreparation[roleKey]?.checklist || [];
+    const checks = preparationChecks[roleKey] || {};
+    return checklist.filter((_, index) => checks[index]).length;
+  };
+
+  const togglePreparationCheck = (index) => {
+    setPreparationChecks(prev => ({
+      ...prev,
+      [selectedRole]: {
+        ...(prev[selectedRole] || {}),
+        [index]: !prev[selectedRole]?.[index]
+      }
+    }));
   };
 
   const getProgress = (roleKey) => {
@@ -327,8 +522,8 @@ export default function Task5Training() {
   // ====== 岗位选择页 ======
   if (!selectedRole) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white pb-20">
-        <div className="bg-white shadow-sm sticky top-0 z-10">
+      <div className="min-h-screen bg-slate-50 pb-20">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white">
           <div className="max-w-lg mx-auto px-4 py-4 flex items-center">
             <button onClick={() => navigate('/tasks')} className="text-gray-500 mr-3">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -336,52 +531,60 @@ export default function Task5Training() {
               </svg>
             </button>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">岗位英语课程</h1>
-              <p className="text-sm text-gray-500">任务列表 {'>'} 岗位英语课程</p>
+              <h1 className="text-lg font-bold text-slate-950">岗位知识准备</h1>
+              <p className="text-sm text-slate-500">任务列表 {'>'} 岗位知识准备</p>
             </div>
           </div>
         </div>
 
-        <div className="max-w-lg mx-auto px-4 pt-6">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-            <div className="flex items-start gap-2">
-              <span className="text-xl">⚠️</span>
-              <div>
-                <p className="text-sm font-medium text-amber-800">重要提示</p>
-                <p className="text-xs text-amber-700 mt-1">
-                  以下课程均来自站外平台（Alison、Coursera等），需自行前往对应网站注册账号学习。大部分课程免费，部分平台可能需付费获取证书。
-                </p>
-              </div>
-            </div>
+        <div className="max-w-lg mx-auto px-5 pt-5">
+          <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <p className="text-sm font-semibold text-blue-950">先判断岗位，再用英文资源补知识</p>
+            <p className="mt-1 text-sm leading-6 text-blue-900">
+              这里不是让你把站外课程刷完，而是确认你是否理解目标岗位、知道面试会看什么，并完成一份岗位准备清单。
+            </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {roles.map(([key, role]) => {
               const progress = getProgress(key);
               const completed = getCompletedCount(key);
+              const preparation = rolePreparation[key];
+              const prepCount = getPreparationCount(key);
+              const prepTotal = preparation?.checklist.length || 0;
               return (
                 <button
                   key={key}
                   onClick={() => setSelectedRole(key)}
-                  className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-5 text-left hover:shadow-md transition-shadow"
+                  className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-200"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <span className="text-3xl">{role.icon}</span>
                       <div>
-                        <h3 className="font-bold text-gray-900">{role.title}</h3>
-                        <p className="text-xs text-gray-500">{role.courses.length} 个课程/资源</p>
+                        <h3 className="font-bold text-slate-950">{role.title}</h3>
+                        <p className="text-xs text-slate-500">{role.courses.length} 个英文资源 · 准备清单 {prepCount}/{prepTotal}</p>
                       </div>
                     </div>
                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">{role.description}</p>
+                  <p className="text-sm leading-6 text-slate-600 mb-3">{preparation?.suitableFor || role.description}</p>
+                  <div className="mb-3 grid grid-cols-1 gap-2">
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs font-medium text-slate-500">面试重点</p>
+                      <p className="mt-1 text-sm text-slate-800">{preparation?.interviewFocus.slice(0, 3).join(' / ')}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs font-medium text-slate-500">推荐下一步</p>
+                      <p className="mt-1 text-sm text-slate-800">{preparation?.nextStep}</p>
+                    </div>
+                  </div>
                   <div>
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>学习进度</span>
-                      <span>{completed}/{role.courses.length} 已完成</span>
+                    <div className="flex justify-between text-xs text-slate-500 mb-1">
+                      <span>英文资源完成</span>
+                      <span>{completed}/{role.courses.length}</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
                       <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
@@ -413,10 +616,10 @@ export default function Task5Training() {
     );
   }
 
-  // ====== 课程列表页 ======
+  // ====== 岗位准备页 ======
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white pb-20">
-      <div className="bg-white shadow-sm sticky top-0 z-10">
+    <div className="min-h-screen bg-slate-50 pb-20">
+      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white">
           <div className="max-w-lg mx-auto px-4 py-4 flex items-center">
             <button onClick={() => setSelectedRole(null)} className="text-gray-500 mr-3">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -424,37 +627,104 @@ export default function Task5Training() {
               </svg>
             </button>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">{currentRole.icon} {currentRole.title}</h1>
-              <p className="text-sm text-gray-500">已完成 {getCompletedCount(selectedRole)}/{currentRole.courses.length}</p>
+              <h1 className="text-lg font-bold text-slate-950">{currentRole.icon} {currentRole.title}</h1>
+              <p className="text-sm text-slate-500">准备清单 {getPreparationCount(selectedRole)}/{currentPreparation.checklist.length}</p>
             </div>
           </div>
         </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-4">
-        <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
-          <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${getProgress(selectedRole)}%` }} />
+      <div className="max-w-lg mx-auto px-5 pt-5">
+        <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-medium text-blue-700">岗位一页纸</p>
+          <h2 className="mt-1 text-xl font-bold text-slate-950">{currentRole.title}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{currentRole.description}</p>
+
+          <div className="mt-4 space-y-3">
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-medium text-slate-500">每天主要做什么</p>
+              <p className="mt-1 text-sm leading-6 text-slate-800">{currentPreparation.onePage.duties}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-medium text-slate-500">典型服务场景</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {currentPreparation.onePage.scenarios.map(item => (
+                  <span key={item} className="rounded-full bg-white px-2.5 py-1 text-xs text-slate-700 ring-1 ring-slate-200">{item}</span>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg bg-amber-50 p-3">
+              <p className="text-xs font-medium text-amber-700">常见短板</p>
+              <p className="mt-1 text-sm leading-6 text-amber-950">{currentPreparation.onePage.weakness}</p>
+            </div>
+            <div className="rounded-lg bg-blue-50 p-3">
+              <p className="text-xs font-medium text-blue-700">准备优先级</p>
+              <p className="mt-1 text-sm leading-6 text-blue-950">{currentPreparation.onePage.priority}</p>
+            </div>
+          </div>
         </div>
 
-        {isAllCoursesCompleted() && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+        <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-bold text-slate-950">岗位准备清单</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">完成这些判断和输出，就说明你不是在盲学课程，而是在准备这个岗位。</p>
+            </div>
+            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
+              isPreparationCompleted() ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            }`}>
+              {getPreparationCount(selectedRole)}/{currentPreparation.checklist.length}
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {currentPreparation.checklist.map((item, index) => {
+              const checked = preparationChecks[selectedRole]?.[index];
+              return (
+                <button
+                  type="button"
+                  key={item}
+                  onClick={() => togglePreparationCheck(index)}
+                  className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition ${
+                    checked ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:border-blue-200'
+                  }`}
+                >
+                  <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                    checked ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 text-transparent'
+                  }`}>
+                    <CheckCircle2 size={14} />
+                  </span>
+                  <span className={`text-sm leading-6 ${checked ? 'text-emerald-900' : 'text-slate-700'}`}>{item}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={handleTaskComplete}
+            disabled={!isPreparationCompleted()}
+            className="mt-4 w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {isPreparationCompleted() ? '完成岗位知识准备，进入 Task6' : '完成清单后进入 Task6'}
+          </button>
+        </div>
+
+        {isPreparationCompleted() && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-5">
             <div className="flex items-center gap-2">
               <CheckCircle2 size={20} className="text-green-600" />
               <div>
-                <h3 className="text-sm font-bold text-green-800">✅ 任务5已完成！</h3>
-                <p className="text-xs text-green-700 mt-1">你可以继续进行任务6：面试技巧学习</p>
+                <h3 className="text-sm font-bold text-green-800">岗位准备清单已完成</h3>
+                <p className="text-xs text-green-700 mt-1">外部英文资源可以继续作为补充，不再阻塞进入 Task6。</p>
               </div>
             </div>
-            <button
-              onClick={handleTaskComplete}
-              className="mt-3 w-full py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-            >
-              前往任务6
-            </button>
           </div>
         )}
 
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4">
-          <p className="text-xs text-blue-700">📌 以下均为站外课程，点击"前往学习"将跳转到对应网站。学完后回来点"标记完成"记录进度。</p>
+        <div className="mb-3">
+          <h2 className="font-bold text-slate-950">英文资源包</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            这些是岗位知识巩固和听力输入材料。建议先看推荐资源，每学完一个表达，回到 Task6 写进自己的面试答案。
+          </p>
         </div>
 
         <div className="space-y-3">
@@ -594,7 +864,7 @@ export default function Task5Training() {
       {/* 悬浮计时条 */}
       <AnimatePresence>
         {showTimerBar && activeTimer && (
-          <motion.div
+          <Motion.div
             initial={{ y: 100 }}
             animate={{ y: 0 }}
             exit={{ y: 100 }}
@@ -614,20 +884,20 @@ export default function Task5Training() {
             >
               结束
             </button>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* 学习结束弹窗 */}
       <AnimatePresence>
         {showLearningEndModal && activeTimer && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
           >
-            <motion.div
+            <Motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
@@ -639,7 +909,7 @@ export default function Task5Training() {
                 课程：{activeTimer.courseName}
               </p>
               <p className="text-sm text-gray-600 mb-4">
-                学习时长：{formatTime(Date.now() - activeTimer.startTime)}
+                学习时长：{formatTime(activeTimer.elapsedTime)}
               </p>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -667,21 +937,21 @@ export default function Task5Training() {
                   保存记录
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* 完成凭证弹窗 */}
       <AnimatePresence>
         {showCompletionModal && currentCourseForCompletion && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50"
           >
-            <motion.div
+            <Motion.div
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
@@ -769,8 +1039,8 @@ export default function Task5Training() {
               >
                 提交
               </button>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
     </div>

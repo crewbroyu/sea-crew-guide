@@ -130,19 +130,16 @@ export default function AccessGate() {
     removePersistedBlobUrls();
 
     const checkAuth = async () => {
-      console.log('========== AccessGate auth check ==========');
       setCheckingAuth(true);
 
       const { data: { user }, error } = await supabase.auth.getUser();
 
       if (error || !user) {
-        console.log('No authenticated user. Continuing as guest.');
         activationService.clearAccessCache();
         reset();
         return;
       }
 
-      console.log('Supabase auth OK:', user.email);
       await refreshAccessForUser(user);
     };
 

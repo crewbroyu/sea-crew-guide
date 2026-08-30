@@ -252,7 +252,7 @@ export default function JobSelect() {
               <h3 className="font-bold text-gray-800">确认修改岗位？</h3>
             </div>
             <p className="text-sm text-gray-500 mb-4">
-              修改目标岗位将重置任务5-8的进度（学习岗位知识、面试技巧学习、面试问题演练、AI模拟面试），需要重新完成。
+              修改目标岗位将重置任务5-8的进度（学习岗位知识、面试技巧学习、面试训练中心、真实面试跟进），需要重新完成。
             </p>
             <div className="flex gap-3">
               <button

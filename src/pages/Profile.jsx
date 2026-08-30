@@ -29,6 +29,7 @@ const stageLabels = {
   position_planning: '岗位选择中',
   resume_preparation: '准备简历',
   interview_preparation: '准备面试',
+  interview_process: '真实面试中',
   offer_received: '已拿 Offer',
   boarding_preparation: '登船准备',
 }
@@ -54,6 +55,7 @@ const interviewStatusLabels = {
   learning: '学习面试技巧',
   practicing: '练习中',
   ai_mock_done: '已完成 AI 模拟',
+  real_interview_recorded: '已有真实面试记录',
 }
 
 const applicationMethods = [
@@ -140,7 +142,8 @@ export default function Profile() {
 
   const completedTasks = useMemo(() => {
     const progress = pathProfile?.task_progress || {}
-    return Object.values(progress).filter((task) => task?.completed).length
+    return Array.from({ length: 12 }, (_, index) => progress[`task${index + 1}`])
+      .filter((task) => task?.completed).length
   }, [pathProfile])
 
   const nextAction = useMemo(() => {
@@ -156,8 +159,11 @@ export default function Profile() {
     if (pathProfile?.resume_status !== 'draft_ready') {
       return { label: '制作英文简历', route: '/tasks/phase2/Task4' }
     }
-    if (pathProfile?.interview_status !== 'ai_mock_done') {
-      return { label: '进入面试训练', route: '/tasks/phase2/Task8' }
+    if (!['ai_mock_done', 'real_interview_recorded'].includes(pathProfile?.interview_status)) {
+      return { label: '进入面试训练', route: '/tasks/phase2/Task7' }
+    }
+    if (pathProfile?.interview_status !== 'real_interview_recorded') {
+      return { label: '记录真实面试', route: '/tasks/phase2/Task8' }
     }
     return { label: '查看完整登船路线', route: '/tasks' }
   }, [isUnlocked, pathProfile])
@@ -187,7 +193,7 @@ export default function Profile() {
       return {
         title: '优先继续 AI 面试训练',
         description: `最近一次 AI 面试 ${latestInterviewRecord.overall_score}/100，建议围绕低分问题继续练回答结构和英文表达。`,
-        route: '/tasks/phase2/Task8',
+        route: '/tasks/phase2/Task7/mock',
         cta: '继续练面试',
         tone: 'amber',
       }
@@ -203,13 +209,23 @@ export default function Profile() {
       }
     }
 
-    if (pathProfile?.interview_status !== 'ai_mock_done') {
+    if (!['ai_mock_done', 'real_interview_recorded'].includes(pathProfile?.interview_status)) {
       return {
         title: '下一步适合做 AI 模拟面试',
         description: '简历有雏形后，最该暴露的问题通常是英文表达、服务案例和岗位理解。',
-        route: '/tasks/phase2/Task8',
+        route: '/tasks/phase2/Task7/mock',
         cta: '开始 AI 面试',
         tone: 'blue',
+      }
+    }
+
+    if (pathProfile?.interview_status !== 'real_interview_recorded') {
+      return {
+        title: '开始跟进真实面试',
+        description: '模拟训练完成后，把收到的面试邀请、现场问题和结果记录下来，才能形成可执行的申请反馈。',
+        route: '/tasks/phase2/Task8',
+        cta: '记录真实面试',
+        tone: 'green',
       }
     }
 

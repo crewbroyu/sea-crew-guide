@@ -74,7 +74,7 @@ const learningSections = [
       {
         title: 'AI 模拟面试',
         description: '从学院进入完整模拟面试任务',
-        route: '/tasks/phase2/Task8',
+        route: '/tasks/phase2/Task7/mock',
         state: { from: 'academy' },
         icon: Sparkles,
       },

@@ -29,7 +29,7 @@ const stageMeta = {
   },
   3: {
     label: '拿到 Offer',
-    summary: '围绕目标岗位练习面试，并记录申请结果。',
+    summary: '完成模拟训练，跟进真实面试并记录结果。',
     icon: MessageSquare,
   },
   4: {

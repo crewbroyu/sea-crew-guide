@@ -63,15 +63,15 @@ const pathData = [
     tasks: [
       {
         id: 7,
-        title: '面试问题演练',
-        subtitle: '完成全部面试问题的视频演练',
+        title: '面试训练中心',
+        subtitle: '集中完成题库学习、单题语音练习和完整 AI 模拟',
         route: '/tasks/phase2/Task7',
         completionType: 'auto',
       },
       {
         id: 8,
-        title: 'AI模拟面试',
-        subtitle: 'AI评分达到80分即可通过',
+        title: '真实面试跟进',
+        subtitle: '记录面试邀请、现场问题、结果和下一步',
         route: '/tasks/phase2/Task8',
         completionType: 'auto',
       },

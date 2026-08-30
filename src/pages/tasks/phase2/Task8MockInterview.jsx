@@ -3,17 +3,111 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Mic, MicOff, Clock, AlertTriangle, RefreshCw, Home,
-  Volume2, Info, Edit3, CheckCircle, ArrowLeft
+  Volume2, Info, Edit3, CheckCircle, LoaderCircle, BrainCircuit
 } from 'lucide-react';
 import { positionConfig } from '../../../data/interviewQuestions';
 import interviewQuestions from '../../../data/interviewQuestions';
 import RequireActivation from '../../../components/RequireActivation';
+import { useAccessStore } from '../../../store/accessStore';
+import {
+  evaluateInterviewWithAi,
+  transcribeInterviewAudio,
+} from '../../../services/interviewAiService';
 import { syncLocalPathProfile } from '../../../services/userPathService';
 import { saveInterviewPracticeRecord } from '../../../services/interviewPracticeService';
+import { normalizeInterviewPosition } from '../../../utils/interviewPosition';
+
+const INTERVIEWERS = [
+  { id: 1, name: 'Sarah Johnson', title: 'HR Manager', initial: 'SJ', color: 'bg-purple-500' },
+  { id: 2, name: 'Michael Chen', title: 'Talent Acquisition', initial: 'MC', color: 'bg-blue-500' },
+  { id: 3, name: 'Emily Rodriguez', title: 'Recruitment Specialist', initial: 'ER', color: 'bg-green-500' },
+  { id: 4, name: 'David Kim', title: 'Hiring Manager', initial: 'DK', color: 'bg-amber-500' },
+  { id: 5, name: 'Jessica Williams', title: 'Talent Director', initial: 'JW', color: 'bg-pink-500' },
+  { id: 6, name: 'Robert Lee', title: 'HR Coordinator', initial: 'RL', color: 'bg-indigo-500' },
+];
+
+const POSITION_NAMES = {
+  bar_server: '酒吧服务员',
+  restaurant: '餐厅服务员',
+  housekeeping: '客房服务员',
+  front_office: '前台接待',
+  retail: '免税店销售',
+  youth_staff: '儿童看护',
+  kitchen: '厨房帮厨',
+  utility: '后勤清洁',
+};
+
+const RESTAURANT_SERVER_QUESTIONS = [
+  { id: 1, question: 'Tell me about yourself and why you want to work as a restaurant server.', keywords: ['customer', 'service', 'experience', 'team', 'enjoy', 'people', 'communication'] },
+  { id: 2, question: 'What does good customer service mean to you?', keywords: ['attentive', 'responsive', 'friendly', 'professional', 'satisfaction', 'expectations'] },
+  { id: 3, question: 'How would you handle a customer who is unhappy with their food?', keywords: ['apologize', 'listen', 'solve', 'manager', 'compensate', 'satisfaction'] },
+  { id: 4, question: 'Can you describe a time when you worked as part of a team?', keywords: ['teamwork', 'collaborate', 'support', 'achieve', 'example', 'contribution'] },
+  { id: 5, question: 'How do you handle working under pressure during busy hours?', keywords: ['calm', 'prioritize', 'multitask', 'focus', 'efficiency', 'stress'] },
+  { id: 6, question: 'What would you do if a customer asked about menu items you are not familiar with?', keywords: ['honest', 'help', 'find', 'manager', 'knowledge', 'assistance'] },
+  { id: 7, question: 'Are you comfortable working evenings, weekends, and holidays?', keywords: ['flexible', 'availability', 'willing', 'schedule', 'commitment'] },
+  { id: 8, question: 'How would you deal with a difficult coworker?', keywords: ['communicate', 'respect', 'resolve', 'professional', 'team', 'conflict'] },
+  { id: 9, question: 'Why should we hire you for this position?', keywords: ['skills', 'experience', 'passion', 'value', 'qualifications', 'fit'] },
+  { id: 10, question: 'Do you have any experience in the food service industry?', keywords: ['experience', 'restaurant', 'service', 'food', 'beverage', 'previous'] },
+];
+
+const readTask2Position = () => {
+  try {
+    const task2Data = JSON.parse(localStorage.getItem('task2_result') || '{}');
+    return normalizeInterviewPosition(task2Data.selectedTargetJob);
+  } catch {
+    return '';
+  }
+};
+
+const readSavedInterviewPosition = () => {
+  try {
+    const task7Data = JSON.parse(localStorage.getItem('task7_data') || '{}');
+    return normalizeInterviewPosition(
+      task7Data.progress?.position || localStorage.getItem('interviewSelectedPosition')
+    );
+  } catch {
+    return normalizeInterviewPosition(localStorage.getItem('interviewSelectedPosition'));
+  }
+};
+
+const pickInterviewer = () =>
+  INTERVIEWERS[Math.floor(Math.random() * INTERVIEWERS.length)];
+
+const buildInterviewQuestions = (position) => {
+  let allQuestions = interviewQuestions[position]?.questions
+    ? [...interviewQuestions[position].questions]
+    : [...RESTAURANT_SERVER_QUESTIONS];
+
+  const selected = [
+    {
+      question: "Tell me about yourself and why you're interested in this position.",
+      keywords: ['experience', 'skills', 'passion', 'customer', 'team', 'service', 'enjoy'],
+    },
+    {
+      question: 'Why do you want to work on a cruise ship?',
+      keywords: ['travel', 'experience', 'culture', 'customer service', 'adventure', 'team', 'opportunity'],
+    },
+  ];
+
+  allQuestions = allQuestions.filter((item) => {
+    const question = item.question.toLowerCase();
+    return !question.includes('tell me about yourself')
+      && !question.includes('why do you want to work on a cruise ship');
+  });
+
+  for (let index = 0; index < 5 && allQuestions.length > 0; index += 1) {
+    const randomIndex = Math.floor(Math.random() * allQuestions.length);
+    selected.push(allQuestions[randomIndex]);
+    allQuestions.splice(randomIndex, 1);
+  }
+
+  return selected;
+};
 
 function Task8MockInterview() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { openRegisterModal, openUnlockModal } = useAccessStore();
 
   // ===== 判断来源 =====
   const fromAcademy = location.state?.from === 'academy';
@@ -25,73 +119,50 @@ function Task8MockInterview() {
     }
   }, [fromAcademy]);
 
-  // ==================== 常量 ====================
-  const interviewers = [
-    { id: 1, name: 'Sarah Johnson', title: 'HR Manager', initial: 'SJ', color: 'bg-purple-500' },
-    { id: 2, name: 'Michael Chen', title: 'Talent Acquisition', initial: 'MC', color: 'bg-blue-500' },
-    { id: 3, name: 'Emily Rodriguez', title: 'Recruitment Specialist', initial: 'ER', color: 'bg-green-500' },
-    { id: 4, name: 'David Kim', title: 'Hiring Manager', initial: 'DK', color: 'bg-amber-500' },
-    { id: 5, name: 'Jessica Williams', title: 'Talent Director', initial: 'JW', color: 'bg-pink-500' },
-    { id: 6, name: 'Robert Lee', title: 'HR Coordinator', initial: 'RL', color: 'bg-indigo-500' }
-  ];
-
-  const positionNames = {
-    bar_server: '酒吧服务员',
-    restaurant: '餐厅服务员',
-    housekeeping: '客房服务员',
-    front_office: '前台接待',
-    retail: '免税店销售',
-    youth_staff: '儿童看护',
-    kitchen: '厨房帮厨',
-    utility: '后勤清洁'
-  };
-
-  const restaurantServerQuestions = [
-    { id: 1, question: "Tell me about yourself and why you want to work as a restaurant server.", keywords: ["customer", "service", "experience", "team", "enjoy", "people", "communication"] },
-    { id: 2, question: "What does good customer service mean to you?", keywords: ["attentive", "responsive", "friendly", "professional", "satisfaction", "expectations"] },
-    { id: 3, question: "How would you handle a customer who is unhappy with their food?", keywords: ["apologize", "listen", "solve", "manager", "compensate", "satisfaction"] },
-    { id: 4, question: "Can you describe a time when you worked as part of a team?", keywords: ["teamwork", "collaborate", "support", "achieve", "example", "contribution"] },
-    { id: 5, question: "How do you handle working under pressure during busy hours?", keywords: ["calm", "prioritize", "multitask", "focus", "efficiency", "stress"] },
-    { id: 6, question: "What would you do if a customer asked about menu items you are not familiar with?", keywords: ["honest", "help", "find", "manager", "knowledge", "assistance"] },
-    { id: 7, question: "Are you comfortable working evenings, weekends, and holidays?", keywords: ["flexible", "availability", "willing", "schedule", "commitment"] },
-    { id: 8, question: "How would you deal with a difficult coworker?", keywords: ["communicate", "respect", "resolve", "professional", "team", "conflict"] },
-    { id: 9, question: "Why should we hire you for this position?", keywords: ["skills", "experience", "passion", "value", "qualifications", "fit"] },
-    { id: 10, question: "Do you have any experience in the food service industry?", keywords: ["experience", "restaurant", "service", "food", "beverage", "previous"] }
-  ];
-
   // ==================== State ====================
+  const [task2Position] = useState(readTask2Position);
   const [stage, setStage] = useState('ready');
-  const [selectedPosition, setSelectedPosition] = useState(null);
+  const [selectedPosition, setSelectedPosition] = useState(() =>
+    fromAcademy ? null : task2Position || readSavedInterviewPosition()
+  );
   const [showPositionSelector, setShowPositionSelector] = useState(false);
-  const [extractedQuestions, setExtractedQuestions] = useState([]);
+  const [extractedQuestions, setExtractedQuestions] = useState(() =>
+    selectedPosition ? buildInterviewQuestions(selectedPosition) : []
+  );
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recognizedText, setRecognizedText] = useState('');
   const [manualAnswer, setManualAnswer] = useState('');
-  const [answers, setAnswers] = useState([]);
   const [evaluation, setEvaluation] = useState(null);
-  const [selectedInterviewer, setSelectedInterviewer] = useState(null);
-  const [browserSupported, setBrowserSupported] = useState(true);
+  const [selectedInterviewer, setSelectedInterviewer] = useState(pickInterviewer);
+  const [browserSupported, setBrowserSupported] = useState(() =>
+    Boolean(navigator.mediaDevices?.getUserMedia && window.MediaRecorder)
+  );
   const [currentStatus, setCurrentStatus] = useState('');
   const [recognitionStatus, setRecognitionStatus] = useState('idle');
-  const [task2Position, setTask2Position] = useState(null);
-  const [positionMismatch, setPositionMismatch] = useState(false);
+  const [answerReady, setAnswerReady] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [showMismatchModal, setShowMismatchModal] = useState(false);
-  const [initialPositionLoaded, setInitialPositionLoaded] = useState(false);
 
   // ==================== Refs ====================
   const recognizedTextRef = useRef('');
   const manualAnswerRef = useRef('');
   const currentQuestionIndexRef = useRef(0);
-  const lastSpeechTimeRef = useRef(Date.now());
   const answersRef = useRef([]);
+  const answerDetailsRef = useRef([]);
   const isTransitioningRef = useRef(false);
-  const extractedQuestionsRef = useRef([]);
+  const extractedQuestionsRef = useRef(extractedQuestions);
   const isRecordingRef = useRef(false);
   const recordingTimerRef = useRef(null);
-  const recognitionRef = useRef(null);
-  const finalTranscriptRef = useRef('');
+  const recordingTimeRef = useRef(0);
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const currentAudioBlobRef = useRef(null);
+  const stopRecordingResolverRef = useRef(null);
+  const answerReadyRef = useRef(false);
+  const textOnlyModeRef = useRef(false);
 
   // 同步 ref
   useEffect(() => { currentQuestionIndexRef.current = currentQuestionIndex; }, [currentQuestionIndex]);
@@ -99,27 +170,8 @@ function Task8MockInterview() {
   useEffect(() => { manualAnswerRef.current = manualAnswer; }, [manualAnswer]);
   useEffect(() => { recognizedTextRef.current = recognizedText; }, [recognizedText]);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
-
-  // ==================== 任务2职位绑定 ====================
-  useEffect(() => {
-    if (initialPositionLoaded) return;
-    
-    const task2Result = localStorage.getItem('task2_result');
-    if (task2Result) {
-      const task2Data = JSON.parse(task2Result);
-      if (task2Data.selectedTargetJob) {
-        setTask2Position(task2Data.selectedTargetJob);
-        if (!selectedPosition) {
-          setSelectedPosition(task2Data.selectedTargetJob);
-          localStorage.setItem('interviewSelectedPosition', task2Data.selectedTargetJob);
-          setInitialPositionLoaded(true);
-        } else if (selectedPosition !== task2Data.selectedTargetJob) {
-          setPositionMismatch(true);
-          setShowMismatchModal(true);
-        }
-      }
-    }
-  }, [selectedPosition, initialPositionLoaded]);
+  useEffect(() => { recordingTimeRef.current = recordingTime; }, [recordingTime]);
+  useEffect(() => { answerReadyRef.current = answerReady; }, [answerReady]);
 
   const getTask2PositionName = () => {
     const position = positionConfig.find(p => p.key === task2Position);
@@ -128,90 +180,18 @@ function Task8MockInterview() {
 
   const handleUseTask2Position = () => {
     if (task2Position) {
-      setSelectedPosition(task2Position);
-      localStorage.setItem('interviewSelectedPosition', task2Position);
+      selectPosition(task2Position);
       setShowMismatchModal(false);
-      setPositionMismatch(false);
     }
   };
 
-  // ==================== 关键词提取（修复核心） ====================
-  const getKeywordsForQuestion = (question) => {
-    if (question.keywords && question.keywords.length > 0) return question.keywords;
-
-    const text = (question.question || '').toLowerCase();
-
-    if (text.includes('tell me about yourself'))
-      return ['experience', 'skills', 'passion', 'customer', 'team', 'service', 'enjoy'];
-    if (text.includes('customer service') || text.includes('good service'))
-      return ['attentive', 'friendly', 'professional', 'satisfaction', 'responsive', 'expectations'];
-    if (text.includes('unhappy') || text.includes('complaint') || text.includes('difficult') || text.includes('rude'))
-      return ['apologize', 'listen', 'solve', 'calm', 'empathy', 'resolution', 'manager'];
-    if (text.includes('team'))
-      return ['collaborate', 'support', 'communicate', 'achieve', 'contribution', 'together'];
-    if (text.includes('pressure') || text.includes('busy') || text.includes('stress'))
-      return ['calm', 'prioritize', 'multitask', 'focus', 'efficiency', 'organized'];
-    if (text.includes('allergy') || text.includes('dietary'))
-      return ['safety', 'inform', 'kitchen', 'careful', 'alternative', 'health', 'chef'];
-    if (text.includes('upsell') || text.includes('recommend') || text.includes('suggest'))
-      return ['recommend', 'describe', 'enthusiasm', 'knowledge', 'pairing', 'special', 'feature'];
-    if (text.includes('pos') || text.includes('system') || text.includes('technology') || text.includes('order management'))
-      return ['experience', 'efficient', 'accurate', 'learn', 'technology', 'training', 'system'];
-    if (text.includes('why should we hire') || text.includes('why this position') || text.includes('why do you want'))
-      return ['skills', 'experience', 'passion', 'value', 'dedication', 'fit', 'growth'];
-    if (text.includes('schedule') || text.includes('weekend') || text.includes('holiday') || text.includes('flexible'))
-      return ['flexible', 'available', 'willing', 'commitment', 'reliable', 'schedule'];
-    if (text.includes('coworker') || text.includes('colleague') || text.includes('conflict'))
-      return ['communicate', 'respect', 'resolve', 'professional', 'understanding', 'team'];
-    if (text.includes('mistake') || text.includes('error') || text.includes('wrong'))
-      return ['apologize', 'responsibility', 'correct', 'learn', 'prevent', 'honest'];
-    if (text.includes('multitask') || text.includes('multiple'))
-      return ['organize', 'prioritize', 'efficient', 'calm', 'focus', 'time'];
-    if (text.includes('experience'))
-      return ['experience', 'restaurant', 'service', 'customer', 'skills', 'learned'];
-
-    return ['experience', 'example', 'skill', 'team', 'customer', 'service'];
-  };
-
-  // ==================== 题目抽取 ====================
-  const extractInterviewQuestions = (position) => {
-    let allQuestions = [];
-    if (interviewQuestions[position]?.questions) {
-      allQuestions = [...interviewQuestions[position].questions];
-    } else {
-      allQuestions = [...restaurantServerQuestions];
-    }
-
-    const selected = [];
-    
-    // 第1题：固定自我介绍
-    const selfIntroQuestion = {
-      question: "Tell me about yourself and why you're interested in this position.",
-      keywords: ["experience", "skills", "passion", "customer", "team", "service", "enjoy"]
-    };
-    selected.push(selfIntroQuestion);
-    
-    // 第2题：固定邮轮工作动机
-    const cruiseQuestion = {
-      question: "Why do you want to work on a cruise ship?",
-      keywords: ["travel", "experience", "culture", "customer service", "adventure", "team", "opportunity"]
-    };
-    selected.push(cruiseQuestion);
-    
-    // 从题库中移除可能存在的这两道题，避免重复
-    allQuestions = allQuestions.filter(q => {
-      const lowerQ = q.question.toLowerCase();
-      return !lowerQ.includes('tell me about yourself') && !lowerQ.includes('why do you want to work on a cruise ship');
-    });
-    
-    // 从剩余题库中随机选择5道题
-    for (let i = 0; i < 5 && allQuestions.length > 0; i++) {
-      const randIdx = Math.floor(Math.random() * allQuestions.length);
-      selected.push(allQuestions[randIdx]);
-      allQuestions.splice(randIdx, 1);
-    }
-
-    return selected;
+  const selectPosition = (value) => {
+    const normalizedPosition = normalizeInterviewPosition(value);
+    const questions = buildInterviewQuestions(normalizedPosition);
+    setSelectedPosition(normalizedPosition);
+    setExtractedQuestions(questions);
+    extractedQuestionsRef.current = questions;
+    localStorage.setItem('interviewSelectedPosition', normalizedPosition);
   };
 
   // ==================== 工具函数 ====================
@@ -243,106 +223,24 @@ function Task8MockInterview() {
     });
   };
 
-  // ==================== 语音识别（修复核心） ====================
-  const startSpeechRecognition = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setRecognitionStatus('unsupported');
+  // ==================== 核心流程 ====================
+  const startInterview = async () => {
+    setAiError('');
+    textOnlyModeRef.current = false;
+
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setBrowserSupported(false);
+      setStage('interviewing');
+      setCurrentStatus('micError');
       return;
     }
 
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      console.log('[Speech] Recognition started');
-      setRecognitionStatus('listening');
-    };
-
-    recognition.onresult = (event) => {
-      let interimTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscriptRef.current += transcript + ' ';
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-      const fullText = (finalTranscriptRef.current + interimTranscript).trim();
-      setRecognizedText(fullText);
-      recognizedTextRef.current = fullText;
-      lastSpeechTimeRef.current = Date.now();
-      console.log('[Speech] Recognized:', fullText.slice(-60));
-    };
-
-    recognition.onerror = (event) => {
-      console.error('[Speech] Error:', event.error);
-      if (event.error === 'no-speech' || event.error === 'aborted') {
-        return; // 这些是正常情况，不需要报错
-      }
-      if (event.error === 'network') {
-        // 网络错误，可能是 SpeechRecognition 服务不可用，切换到文字输入
-        setRecognitionStatus('error');
-        // 不自动重启，避免无限循环
-        isRecordingRef.current = false;
-        setIsRecording(false);
-      } else {
-        setRecognitionStatus('error');
-      }
-    };
-
-    recognition.onend = () => {
-      console.log('[Speech] Recognition ended, isRecording:', isRecordingRef.current);
-      if (isRecordingRef.current) {
-        // 还在录音中，尝试重启识别
-        try {
-          setTimeout(() => {
-            if (isRecordingRef.current) {
-              // 检查当前状态，如果是错误状态则不重启
-              if (recognitionStatus !== 'error') {
-                recognition.start();
-                console.log('[Speech] Recognition restarted');
-              } else {
-                console.log('[Speech] Not restarting due to error status');
-              }
-            }
-          }, 100);
-        } catch (e) {
-          console.error('[Speech] Failed to restart:', e);
-          setRecognitionStatus('error');
-        }
-      } else {
-        setRecognitionStatus('idle');
-      }
-    };
-
     try {
-      recognition.start();
-      recognitionRef.current = recognition;
-      console.log('[Speech] Recognition start called');
-    } catch (e) {
-      console.error('[Speech] Failed to start:', e);
-      setRecognitionStatus('error');
-    }
-  };
-
-  // ==================== 核心流程 ====================
-  const startInterview = async () => {
-    try {
-      // 检查麦克风权限
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // 立即释放，避免和 SpeechRecognition 抢占麦克风
       stream.getTracks().forEach(track => track.stop());
 
       setStage('interviewing');
-      startInterviewProcess(0);
+      await startInterviewProcess(0);
     } catch (error) {
       console.error('Microphone error:', error);
       setStage('interviewing');
@@ -355,206 +253,238 @@ function Task8MockInterview() {
       // 重置当前题的状态
       setRecognizedText('');
       recognizedTextRef.current = '';
-      finalTranscriptRef.current = '';
       setManualAnswer('');
       manualAnswerRef.current = '';
+      setAnswerReady(false);
+      answerReadyRef.current = false;
+      currentAudioBlobRef.current = null;
+      setRecognitionStatus(textOnlyModeRef.current ? 'unsupported' : 'idle');
+      setAiError('');
 
       setCurrentStatus('interviewerSpeaking');
       await speakQuestion(extractedQuestionsRef.current[questionIndex]?.question);
       await new Promise(resolve => setTimeout(resolve, 800));
 
       setCurrentStatus('waitingForAnswer');
-      startListening();
+      if (!textOnlyModeRef.current) {
+        await startListening();
+      }
     } else {
-      finishInterview();
+      await finishInterview();
     }
   };
 
-  const startListening = () => {
-    setIsRecording(true);
-    isRecordingRef.current = true;
-    setRecordingTime(0);
-    lastSpeechTimeRef.current = Date.now();
-
-    // 开始计时
-    recordingTimerRef.current = setInterval(() => {
-      setRecordingTime(prev => {
-        if (prev >= 120) {
-          finishCurrentQuestion();
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 1000);
-
-    // 启动语音识别
-    startSpeechRecognition();
+  const releaseMediaStream = () => {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
   };
 
-  const stopListening = () => {
-    // 先设标志位，防止 onend 重启识别
+  const startListening = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+      currentAudioBlobRef.current = null;
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+      ].find((type) => MediaRecorder.isTypeSupported?.(type));
+      const recorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        audioBitsPerSecond: 32000,
+      });
+
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size > 0) audioChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, {
+          type: recorder.mimeType || mimeType || 'audio/webm',
+        });
+        currentAudioBlobRef.current = blob;
+        releaseMediaStream();
+        const resolve = stopRecordingResolverRef.current;
+        stopRecordingResolverRef.current = null;
+        resolve?.(blob);
+      };
+      recorder.onerror = () => {
+        releaseMediaStream();
+        setRecognitionStatus('error');
+        setAiError('录音失败，请重新尝试或改用文字回答。');
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      isRecordingRef.current = true;
+      setRecordingTime(0);
+      recordingTimeRef.current = 0;
+      setRecognitionStatus('recording');
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime((previous) => {
+          const next = Math.min(previous + 1, 120);
+          recordingTimeRef.current = next;
+          if (next >= 120) void finishCurrentQuestion();
+          return next;
+        });
+      }, 1000);
+    } catch (error) {
+      console.error('Recording start failed:', error);
+      releaseMediaStream();
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      setRecognitionStatus('error');
+      setCurrentStatus('micError');
+    }
+  };
+
+  const stopListening = ({ discard = false } = {}) => {
     isRecordingRef.current = false;
     setIsRecording(false);
-
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
-      recognitionRef.current = null;
-    }
 
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
     }
 
-    setRecognitionStatus('idle');
+    return new Promise((resolve) => {
+      const finish = (blob) => {
+        if (discard) currentAudioBlobRef.current = null;
+        resolve(discard ? null : blob);
+      };
+      const recorder = mediaRecorderRef.current;
+
+      if (recorder?.state === 'recording') {
+        stopRecordingResolverRef.current = finish;
+        recorder.stop();
+        return;
+      }
+
+      releaseMediaStream();
+      finish(currentAudioBlobRef.current);
+    });
   };
 
-  const finishCurrentQuestion = () => {
-    if (isTransitioningRef.current) return;
-    isTransitioningRef.current = true;
-
-    stopListening();
-
-    // 优先使用手动输入，其次使用语音识别结果
-    const finalAnswer = manualAnswerRef.current.trim() || recognizedTextRef.current.trim() || '';
+  const saveCurrentAnswerAndContinue = async (finalAnswer) => {
     const currentIdx = currentQuestionIndexRef.current;
-
-    console.log(`[Q${currentIdx + 1}] Answer saved:`, finalAnswer.slice(0, 80));
-
+    const question = extractedQuestionsRef.current[currentIdx];
     const updatedAnswers = [...answersRef.current, finalAnswer];
+    const updatedDetails = [
+      ...answerDetailsRef.current,
+      {
+        questionId: question?.id || String(currentIdx + 1),
+        textAnswer: finalAnswer,
+        durationSeconds: recordingTimeRef.current,
+        transcriptSource: answerReadyRef.current ? 'qwen-audio-3.0-asr-flash' : 'manual',
+        answeredAt: new Date().toISOString(),
+      },
+    ];
+
     answersRef.current = updatedAnswers;
-    setAnswers(updatedAnswers);
+    answerDetailsRef.current = updatedDetails;
 
     const nextIdx = currentIdx + 1;
     if (nextIdx < extractedQuestionsRef.current.length) {
       setCurrentQuestionIndex(nextIdx);
       currentQuestionIndexRef.current = nextIdx;
       setCurrentStatus('analyzing');
-
-      setTimeout(() => {
+      window.setTimeout(() => {
         isTransitioningRef.current = false;
-        startInterviewProcess(nextIdx);
-      }, 1500);
-    } else {
-      finishInterview();
+        void startInterviewProcess(nextIdx);
+      }, 900);
+      return;
+    }
+
+    await finishInterview();
+  };
+
+  const finishCurrentQuestion = async () => {
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+
+    const manualText = manualAnswerRef.current.trim();
+    if (answerReadyRef.current && !manualText) {
+      setAiError('请确认或修改转写文字后再进入下一题。');
+      isTransitioningRef.current = false;
+      return;
+    }
+
+    if (answerReadyRef.current || manualText) {
+      await stopListening({ discard: !answerReadyRef.current });
+      await saveCurrentAnswerAndContinue(manualText);
+      return;
+    }
+
+    setCurrentStatus('transcribing');
+    setRecognitionStatus('transcribing');
+    setAiError('');
+    const blob = await stopListening();
+
+    if (!blob?.size) {
+      setRecognitionStatus('error');
+      setAiError('没有读取到录音，请重新录制或直接输入英文回答。');
+      setCurrentStatus('waitingForAnswer');
+      isTransitioningRef.current = false;
+      return;
+    }
+
+    try {
+      const question = extractedQuestionsRef.current[currentQuestionIndexRef.current];
+      const result = await transcribeInterviewAudio(blob, {
+        mode: 'premium_mock',
+        position: POSITION_NAMES[selectedPosition] || selectedPosition,
+        question: question?.question || '',
+      });
+      setRecognizedText(result.transcript);
+      recognizedTextRef.current = result.transcript;
+      setManualAnswer(result.transcript);
+      manualAnswerRef.current = result.transcript;
+      setAnswerReady(true);
+      answerReadyRef.current = true;
+      setRecognitionStatus('success');
+      setCurrentStatus('waitingForAnswer');
+    } catch (error) {
+      console.error('Task8 transcription failed:', error);
+      setRecognitionStatus('error');
+      setAiError(error.message || '语音转写失败，请重试或手动输入。');
+      setCurrentStatus('waitingForAnswer');
+      if (error.code === 'LOGIN_REQUIRED') openRegisterModal();
+      if (error.code === 'ACTIVATION_REQUIRED') openUnlockModal();
+    } finally {
+      isTransitioningRef.current = false;
     }
   };
 
-  const evaluateAnswer = (question, answerText) => {
-    const keywords = getKeywordsForQuestion(question);
-
-    const words = answerText.trim().split(/\s+/).filter(w => w.length > 0);
-    let lengthScore = 0;
-    if (words.length > 60) lengthScore = 8;
-    else if (words.length > 30) lengthScore = 7;
-    else if (words.length > 15) lengthScore = 6;
-    else if (words.length > 10) lengthScore = 5;
-    else if (words.length > 5) lengthScore = 3;
-    else if (words.length > 0) lengthScore = 1;
-    else lengthScore = 0;
-
-    let keywordScore = 0;
-    const lowerAnswer = answerText.toLowerCase();
-    const matchedKeywords = [];
-    const missedKeywords = [];
-    keywords.forEach(keyword => {
-      if (lowerAnswer.includes(keyword.toLowerCase())) {
-        keywordScore += 2;
-        matchedKeywords.push(keyword);
-      } else {
-        missedKeywords.push(keyword);
-      }
-    });
-    keywordScore = Math.min(keywordScore, 8);
-
-    let fluencyScore = 4;
-    if (words.length === 0) fluencyScore = 0;
-    else if (words.length < 5) fluencyScore = 1;
-    else if (words.length < 15) fluencyScore = 2;
-    else if (words.length < 30) fluencyScore = 3;
-    else fluencyScore = 4;
-
-    const totalScore = lengthScore + keywordScore + fluencyScore;
-
-    let comment = '';
-    if (words.length === 0) {
-      comment = "No answer was provided. Try to practice answering this question out loud, or type your response.";
-    } else if (totalScore >= 16) {
-      comment = "Excellent! Your answer was detailed and covered the key points well.";
-    } else if (totalScore >= 11) {
-      comment = "Good answer! Try to include more specific examples to make it even stronger.";
-    } else if (totalScore >= 6) {
-      if (missedKeywords.length > 0) {
-        comment = `Decent start, but try to also mention: ${missedKeywords.slice(0, 3).join(', ')}. Adding specific examples would help.`;
-      } else {
-        comment = "Your answer was a bit short. Try to expand with specific examples from your experience.";
-      }
-    } else {
-      if (missedKeywords.length > 0) {
-        comment = `You need more practice. Try to cover these key points: ${missedKeywords.slice(0, 3).join(', ')}. Give longer, more detailed answers.`;
-      } else {
-        comment = "You need more practice. Try to give longer, more detailed answers with specific examples.";
-      }
-    }
-
-    return { score: totalScore, lengthScore, keywordScore, fluencyScore, comment, matchedKeywords, missedKeywords };
-  };
-
-  const mockScoring = (questions, answersList) => {
-    const questionScores = questions.map((q, index) => {
-      const ev = evaluateAnswer(q, answersList[index] || '');
-      return {
-        question: q.question,
-        answer: answersList[index] || '',
-        score: ev.score,
-        maxScore: 20,
-        comment: ev.comment,
-        matchedKeywords: ev.matchedKeywords,
-        missedKeywords: ev.missedKeywords
-      };
-    });
-
-    const maxPossible = questionScores.length * 20;
-    const totalPoints = questionScores.reduce((sum, item) => sum + item.score, 0);
-    const overallScore = maxPossible > 0 ? Math.round((totalPoints / maxPossible) * 100) : 0;
-    const rating = Math.max(1, Math.ceil(overallScore / 20));
-
-    let overallSuggestion = '';
-    if (overallScore >= 80) {
-      overallSuggestion = "Excellent job! Your answers were detailed and covered all the key points. You're well-prepared for the interview.";
-    } else if (overallScore >= 60) {
-      overallSuggestion = "Good job! Your answers were solid, but try to include more specific examples and details to stand out.";
-    } else if (overallScore >= 30) {
-      overallSuggestion = "You're on the right track, but need more practice. Focus on expanding your answers and including specific examples from your experience.";
-    } else {
-      overallSuggestion = "You need more practice. Make sure to speak clearly and give detailed answers. Try using the text input if speech recognition isn't capturing your voice well.";
-    }
-
-    return { overallScore, rating, questionScores, overallSuggestion };
-  };
-
-  const finishInterview = () => {
-    stopListening();
+  const finishInterview = async () => {
+    await stopListening();
     setStage('scoring');
+    setAiError('');
 
-    const allAnswers = answersRef.current;
     const allQuestions = extractedQuestionsRef.current;
 
-    setTimeout(async () => {
-      const evaluationData = mockScoring(allQuestions, allAnswers);
+    try {
+      const evaluationData = await evaluateInterviewWithAi({
+        mode: 'premium_mock',
+        position: POSITION_NAMES[selectedPosition] || selectedPosition,
+        questions: allQuestions,
+        answers: answerDetailsRef.current,
+      });
       setEvaluation(evaluationData);
 
       const progressKey = 'boarding_progress';
       const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-      progress.task8 = { completed: true, completedAt: new Date().toISOString() };
+      progress.task7AiMock = { completed: true, completedAt: new Date().toISOString() };
       localStorage.setItem(progressKey, JSON.stringify(progress));
       try {
         await saveInterviewPracticeRecord({
           targetPosition: selectedPosition,
           interviewerName: selectedInterviewer?.name || null,
           questions: allQuestions,
-          answers: allAnswers,
+          answers: answerDetailsRef.current,
           evaluation: evaluationData,
+          source: 'ai_mock_interview',
         });
       } catch (error) {
         console.error('保存 AI 面试记录失败:', error);
@@ -565,17 +495,22 @@ function Task8MockInterview() {
         interview_status: 'ai_mock_done',
         application_stage: 'interview',
         career_stage: 'interview_preparation',
-        last_completed_task_id: 8,
         lead_score: evaluationData.overallScore >= 70 ? 90 : 82,
       });
 
       setStage('result');
       isTransitioningRef.current = false;
-    }, 3000);
+    } catch (error) {
+      console.error('AI 面试评分失败:', error);
+      setAiError(error.message || 'AI 评分生成失败，请稍后重试。');
+      if (error.code === 'LOGIN_REQUIRED') openRegisterModal();
+      if (error.code === 'ACTIVATION_REQUIRED') openUnlockModal();
+      isTransitioningRef.current = false;
+    }
   };
 
   const restartInterview = () => {
-    stopListening();
+    void stopListening({ discard: true });
     window.speechSynthesis && window.speechSynthesis.cancel();
 
     setStage('ready');
@@ -586,82 +521,41 @@ function Task8MockInterview() {
     isRecordingRef.current = false;
     setRecognizedText('');
     recognizedTextRef.current = '';
-    finalTranscriptRef.current = '';
     setManualAnswer('');
     manualAnswerRef.current = '';
-    setAnswers([]);
+    setAnswerReady(false);
+    answerReadyRef.current = false;
     answersRef.current = [];
+    answerDetailsRef.current = [];
     setEvaluation(null);
+    setAiError('');
     setCurrentStatus('');
     setRecognitionStatus('idle');
     isTransitioningRef.current = false;
+    textOnlyModeRef.current = false;
 
     if (selectedPosition) {
-      const questions = extractInterviewQuestions(selectedPosition);
+      const questions = buildInterviewQuestions(selectedPosition);
       setExtractedQuestions(questions);
       extractedQuestionsRef.current = questions;
     }
+    setSelectedInterviewer(pickInterviewer());
   };
 
   const backToTasks = () => {
-    stopListening();
+    void stopListening({ discard: true });
     window.speechSynthesis && window.speechSynthesis.cancel();
-    navigate(fromAcademy ? '/academy' : '/tasks');
+    navigate(fromAcademy ? '/academy' : '/tasks/phase2/Task7');
   };
-
-  const goToTask7 = () => navigate('/tasks/phase2/Task7');
 
   // ==================== Effects ====================
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    setBrowserSupported(!!SpeechRecognition && 'speechSynthesis' in window);
-  }, []);
-
-  useEffect(() => {
-    if (stage === 'ready') {
-      setSelectedInterviewer(interviewers[Math.floor(Math.random() * interviewers.length)]);
-    }
-  }, [stage]);
-
-  useEffect(() => {
-    // 如果从学院进入，不自动加载职位，显示职位选择页面
-    if (fromAcademy) {
-      return;
-    }
-    
-    // 从任务进入时，加载之前选择的职位
-    const task7Data = JSON.parse(localStorage.getItem('task7_data') || '{}');
-    if (task7Data.progress?.position) {
-      setSelectedPosition(task7Data.progress.position);
-    } else {
-      const pos = localStorage.getItem('interviewSelectedPosition');
-      if (pos) setSelectedPosition(pos);
-    }
-  }, [fromAcademy]);
-
-  useEffect(() => {
-    if (selectedPosition) {
-      const questions = extractInterviewQuestions(selectedPosition);
-      setExtractedQuestions(questions);
-      extractedQuestionsRef.current = questions;
-    }
-  }, [selectedPosition]);
-
-  useEffect(() => {
-    if (!fromAcademy) {
-      const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}');
-      if (!progress.task7?.completed) {
-        navigate('/tasks');
-      }
-    }
-  }, [navigate, fromAcademy]);
-
-  useEffect(() => {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
+      if (mediaRecorderRef.current?.state === 'recording') {
+        try { mediaRecorderRef.current.stop(); } catch (error) { console.warn('Unable to stop recorder:', error); }
       }
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     };
   }, []);
@@ -670,7 +564,7 @@ function Task8MockInterview() {
 
   if (!selectedPosition) {
     // 从学院进来且没有选择职位，显示职位选择器
-    // 从任务进来且没有选择职位，提示完成任务7
+    // 没有目标职位时先在当前页面完成选择
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
@@ -692,8 +586,7 @@ function Task8MockInterview() {
                 <button
                   key={position.key}
                   onClick={() => {
-                    setSelectedPosition(position.key);
-                    localStorage.setItem('interviewSelectedPosition', position.key);
+                    selectPosition(position.key);
                   }}
                   className="w-full py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
                 >
@@ -754,7 +647,7 @@ function Task8MockInterview() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-white text-xl font-bold">AI模拟面试</h1>
-            <p className="text-white/80 text-sm mt-1">目标职位：{positionNames[selectedPosition]}</p>
+            <p className="text-white/80 text-sm mt-1">目标职位：{POSITION_NAMES[selectedPosition]}</p>
           </div>
           <button onClick={backToTasks} className="text-white/80 hover:text-white"><Home size={20} /></button>
         </div>
@@ -770,12 +663,11 @@ function Task8MockInterview() {
               <p className="text-gray-600 text-center mb-6">请选择你要面试的职位</p>
               
               <div className="space-y-3 mb-6">
-                {Object.entries(positionNames).map(([key, name]) => (
+                {Object.entries(POSITION_NAMES).map(([key, name]) => (
                   <button
                     key={key}
                     onClick={() => {
-                      setSelectedPosition(key);
-                      localStorage.setItem('interviewSelectedPosition', key);
+                      selectPosition(key);
                       setShowPositionSelector(false);
                     }}
                     className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
@@ -825,7 +717,7 @@ function Task8MockInterview() {
                     onClick={() => setShowPositionSelector(true)}
                     className="font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
                   >
-                    {positionNames[selectedPosition] || '请选择'}
+                    {POSITION_NAMES[selectedPosition] || '请选择'}
                     <Edit3 size={14} />
                   </button>
                 </div>
@@ -844,7 +736,7 @@ function Task8MockInterview() {
                 <ol className="list-decimal list-inside space-y-2 text-blue-700">
                   <li>AI面试官会用语音向你提问</li>
                   <li>你需要用英语语音回答每个问题</li>
-                  <li>如果语音识别不工作，可以直接打字输入</li>
+                  <li>结束录音后，AI 会转写；确认文字后进入下一题</li>
                   <li>面试题目从任务7的题库中随机抽取，每次面试题目不同</li>
                   <li>每题回答时间不超过2分钟</li>
                   <li>面试结束后会给出评分和点评</li>
@@ -861,7 +753,7 @@ function Task8MockInterview() {
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">
                 <div className="flex items-start gap-2">
                   <Info size={18} className="text-gray-600 mt-0.5" />
-                  <p className="text-gray-700 text-sm">推荐使用 Chrome 或 Edge 浏览器以获得最佳语音识别体验</p>
+                  <p className="text-gray-700 text-sm">录音只用于本次转写，不会保存到个人档案；长期保存的是确认后的文字和评分。</p>
                 </div>
               </div>
 
@@ -870,7 +762,7 @@ function Task8MockInterview() {
                   <div className="flex items-start gap-2">
                     <AlertTriangle size={18} className="text-red-600 mt-0.5" />
                     <div>
-                      <p className="text-red-800 text-sm font-medium">您的浏览器不完全支持语音功能</p>
+                      <p className="text-red-800 text-sm font-medium">您的浏览器不支持网页录音</p>
                       <p className="text-red-700 text-sm mt-1">仍可使用文字输入方式完成面试</p>
                     </div>
                   </div>
@@ -940,7 +832,12 @@ function Task8MockInterview() {
                 <div className="flex gap-3 justify-center">
                   <button onClick={() => { setStage('ready'); setCurrentStatus(''); }}
                     className="px-6 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300">返回</button>
-                  <button onClick={() => { setCurrentStatus(''); startInterviewProcess(0); }}
+                  <button onClick={() => {
+                    textOnlyModeRef.current = true;
+                    setRecognitionStatus('unsupported');
+                    setCurrentStatus('');
+                    void startInterviewProcess(currentQuestionIndexRef.current);
+                  }}
                     className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">用文字模式继续</button>
                 </div>
               </div>
@@ -992,46 +889,42 @@ function Task8MockInterview() {
                   </div>
                 </div>
 
-                {/* 语音识别状态 */}
+                {/* 录音与转写状态 */}
                 <div className={`border rounded-lg p-3 ${
-                  recognitionStatus === 'listening' ? 'bg-green-50 border-green-200' :
+                  recognitionStatus === 'recording' ? 'bg-green-50 border-green-200' :
+                  recognitionStatus === 'success' ? 'bg-blue-50 border-blue-200' :
                   recognitionStatus === 'error' ? 'bg-red-50 border-red-200' :
                   'bg-gray-50 border-gray-200'
                 }`}>
                   <div className="flex items-center gap-2">
-                    {recognitionStatus === 'listening' ? (
+                    {recognitionStatus === 'recording' ? (
                       <>
                         <Mic size={16} className="text-green-600 animate-pulse" />
-                        <span className="text-sm font-medium text-green-800">🟢 语音识别中 — 请用英语回答</span>
+                        <span className="text-sm font-medium text-green-800">正在录音，请用英语完整回答</span>
+                      </>
+                    ) : recognitionStatus === 'success' ? (
+                      <>
+                        <CheckCircle size={16} className="text-blue-600" />
+                        <span className="text-sm font-medium text-blue-800">AI 转写完成，请检查下方文字</span>
                       </>
                     ) : recognitionStatus === 'error' ? (
                       <>
                         <MicOff size={16} className="text-red-600" />
-                        <span className="text-sm font-medium text-red-800">🔴 语音识别出错 — 请在下方输入你的回答</span>
+                        <span className="text-sm font-medium text-red-800">录音或转写出错，请在下方输入回答</span>
                       </>
                     ) : recognitionStatus === 'unsupported' ? (
                       <>
                         <MicOff size={16} className="text-gray-600" />
-                        <span className="text-sm font-medium text-gray-800">⚪ 浏览器不支持语音识别 — 请在下方输入你的回答</span>
+                        <span className="text-sm font-medium text-gray-800">当前为文字回答模式</span>
                       </>
                     ) : (
                       <>
                         <Mic size={16} className="text-gray-600" />
-                        <span className="text-sm font-medium text-gray-800">⏳ 正在启动语音识别...</span>
+                        <span className="text-sm font-medium text-gray-800">正在准备录音...</span>
                       </>
                     )}
                   </div>
                 </div>
-
-                {/* 识别到的文字 */}
-                {recognizedText && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="font-medium text-gray-800 mb-2 flex items-center gap-1">
-                      <Mic size={14} /> 语音识别结果：
-                    </p>
-                    <p className="text-gray-700">{recognizedText}</p>
-                  </div>
-                )}
 
                 {/* 文字输入区域 */}
                 <div className="rounded-lg border border-gray-200 p-4">
@@ -1046,17 +939,42 @@ function Task8MockInterview() {
                     className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    💡 如果语音识别正常工作，此区域可留空。如果识别不到语音，直接在这里打字即可。
+                    录音结束后转写会自动填入这里；你也可以直接输入或修改英文回答。
                   </p>
                 </div>
+
+                {aiError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    {aiError}
+                  </div>
+                )}
 
                 {/* 结束按钮 */}
                 <button
                   onClick={finishCurrentQuestion}
-                  className="w-full py-3 rounded-lg font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+                  disabled={recognitionStatus === 'transcribing'}
+                  className="w-full py-3 rounded-lg font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
                 >
-                  {currentQuestionIndex < extractedQuestions.length - 1 ? '✅ 结束回答，下一题' : '✅ 结束回答，完成面试'}
+                  {answerReady
+                    ? currentQuestionIndex < extractedQuestions.length - 1
+                      ? '确认转写，进入下一题'
+                      : '确认转写，生成 AI 报告'
+                    : manualAnswer.trim()
+                      ? currentQuestionIndex < extractedQuestions.length - 1
+                        ? '保存文字回答，进入下一题'
+                        : '保存文字回答，生成 AI 报告'
+                      : isRecording
+                        ? '结束录音并转写'
+                        : '提交当前回答'}
                 </button>
+              </div>
+            )}
+
+            {currentStatus === 'transcribing' && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 text-center">
+                <LoaderCircle size={32} className="mx-auto mb-3 animate-spin text-blue-600" />
+                <p className="font-medium text-blue-900">AI 正在转写你的回答</p>
+                <p className="mt-1 text-sm text-blue-700">完成后请确认文字，再进入下一题。</p>
               </div>
             )}
 
@@ -1076,11 +994,23 @@ function Task8MockInterview() {
       {stage === 'scoring' && (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-            <div className="space-y-6">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-              <h2 className="text-xl font-bold text-gray-800">⏳ 面试结束，AI正在评估你的表现...</h2>
-              <p className="text-gray-600">请稍候，评分报告正在生成中...</p>
-            </div>
+            {aiError ? (
+              <div className="space-y-5">
+                <AlertTriangle size={42} className="mx-auto text-red-500" />
+                <h2 className="text-xl font-bold text-gray-800">AI 报告生成失败</h2>
+                <p className="text-sm leading-6 text-red-700">{aiError}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={backToTasks} className="rounded-lg bg-gray-100 px-4 py-3 font-medium text-gray-700">返回</button>
+                  <button onClick={finishInterview} className="rounded-lg bg-blue-600 px-4 py-3 font-medium text-white">重新生成</button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <LoaderCircle size={56} className="mx-auto animate-spin text-blue-600" />
+                <h2 className="text-xl font-bold text-gray-800">AI 正在评估面试表现</h2>
+                <p className="text-gray-600">正在根据目标岗位、回答证据和英文表达生成报告...</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1089,7 +1019,9 @@ function Task8MockInterview() {
       {stage === 'result' && evaluation && (
         <div className="px-6 py-8">
           <div className="bg-white rounded-xl shadow-sm p-6 max-w-2xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">📊 面试评估报告</h2>
+            <h2 className="mb-6 flex items-center justify-center gap-2 text-2xl font-bold text-gray-800">
+              <BrainCircuit size={24} className="text-blue-600" /> AI 面试评估报告
+            </h2>
 
             {/* 综合评分 */}
             <div className="bg-blue-50 rounded-lg p-4 mb-6 text-center">
@@ -1106,6 +1038,23 @@ function Task8MockInterview() {
                 </span>
               </div>
             </div>
+
+            {(evaluation.strengths?.length > 0 || evaluation.priorities?.length > 0) && (
+              <div className="mb-6 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-green-100 bg-green-50 p-4 text-left">
+                  <h3 className="font-medium text-green-900">表现优势</h3>
+                  <ul className="mt-2 space-y-1 text-sm leading-6 text-green-800">
+                    {evaluation.strengths?.map((item) => <li key={item}>• {item}</li>)}
+                  </ul>
+                </div>
+                <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-left">
+                  <h3 className="font-medium text-amber-900">优先改进</h3>
+                  <ul className="mt-2 space-y-1 text-sm leading-6 text-amber-800">
+                    {evaluation.priorities?.map((item) => <li key={item}>• {item}</li>)}
+                  </ul>
+                </div>
+              </div>
+            )}
 
             {/* 各题得分 */}
             <div className="mb-6">
@@ -1140,7 +1089,18 @@ function Task8MockInterview() {
                         ))}
                       </div>
                     )}
-                    <p className="text-sm text-blue-700">💬 {item.comment}</p>
+                    <p className="text-sm leading-6 text-blue-700">{item.comment}</p>
+                    {item.improvements?.length > 0 && (
+                      <p className="mt-2 text-xs leading-5 text-amber-700">
+                        优先调整：{item.improvements.slice(0, 2).join('；')}
+                      </p>
+                    )}
+                    {item.improvedAnswer && (
+                      <details className="mt-3 rounded-lg border border-gray-200 bg-white p-3">
+                        <summary className="cursor-pointer text-xs font-medium text-blue-700">查看参考表达</summary>
+                        <p className="mt-2 text-sm leading-6 text-gray-700">{item.improvedAnswer}</p>
+                      </details>
+                    )}
                   </div>
                 ))}
               </div>

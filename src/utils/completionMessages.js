@@ -52,7 +52,7 @@ export const taskTypeMap = {
   5: 'skills',     // 岗位英语课程
   6: 'interview',  // 面试技巧
   7: 'interview',  // 面试练习
-  8: 'interview',  // AI模拟面试
+  8: 'interview',  // 真实面试跟进
   9: 'documents',  // 我的Offer
   10: 'documents', // 海乘职业资质
   11: 'onboard',   // 登船准备

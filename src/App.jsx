@@ -21,8 +21,10 @@ const Task12 = lazy(() => import('./pages/tasks/Task12'))
 const Task4ResumeBuilder = lazy(() => import('./pages/tasks/phase2/Task4ResumeBuilder'))
 const Task5Training = lazy(() => import('./pages/tasks/phase2/Task5Training'))
 const Task6InterviewSkills = lazy(() => import('./pages/tasks/phase2/Task6InterviewSkills'))
+const Task7TrainingCenter = lazy(() => import('./pages/tasks/phase2/Task7TrainingCenter'))
 const Task7InterviewPractice = lazy(() => import('./pages/tasks/phase2/Task7InterviewPractice'))
 const Task8MockInterview = lazy(() => import('./pages/tasks/phase2/Task8MockInterview'))
+const Task8RealInterview = lazy(() => import('./pages/tasks/phase2/Task8RealInterview'))
 const Task9 = lazy(() => import('./pages/tasks/phase2/Task9ScenarioTraining'))
 const ActivationCodeGenerator = lazy(() => import('./pages/ActivationCodeGenerator'))
 
@@ -105,8 +107,10 @@ function App() {
               <Route path="/tasks/phase2/Task4" element={<RequireLogin><Task4ResumeBuilder /></RequireLogin>} />
               <Route path="/tasks/phase2/Task5" element={<Task5Training />} />
               <Route path="/tasks/phase2/Task6" element={<Task6InterviewSkills />} />
-              <Route path="/tasks/phase2/Task7" element={<Task7InterviewPractice />} />
-              <Route path="/tasks/phase2/Task8" element={<Task8MockInterview />} />
+              <Route path="/tasks/phase2/Task7" element={<Task7TrainingCenter />} />
+              <Route path="/tasks/phase2/Task7/voice" element={<Task7InterviewPractice />} />
+              <Route path="/tasks/phase2/Task7/mock" element={<Task8MockInterview />} />
+              <Route path="/tasks/phase2/Task8" element={<RequireLogin><Task8RealInterview /></RequireLogin>} />
               <Route path="/tasks/phase2/Task9" element={<Task9 />} />
               <Route path="/academy" element={<Academy />} />
               <Route path="/academy/listening-speaking" element={<ListeningSpeaking />} />

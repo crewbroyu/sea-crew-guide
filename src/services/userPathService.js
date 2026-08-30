@@ -10,8 +10,8 @@ const taskStageMap = {
   4: 'resume',
   5: 'job_knowledge',
   6: 'interview_skills',
-  7: 'interview_practice',
-  8: 'ai_interview',
+  7: 'interview_training',
+  8: 'real_interview',
   9: 'offer',
   10: 'documents',
   11: 'visa',
@@ -62,6 +62,7 @@ const inferStageFromProgress = (completedTaskIds) => {
   if (!lastCompletedTaskId) return 'exploring'
   if (lastCompletedTaskId >= 10) return 'boarding_preparation'
   if (lastCompletedTaskId >= 9) return 'offer_received'
+  if (lastCompletedTaskId >= 8) return 'interview_process'
   if (lastCompletedTaskId >= 6) return 'interview_preparation'
   if (lastCompletedTaskId >= 4) return 'resume_preparation'
   if (lastCompletedTaskId >= 2) return 'position_planning'
@@ -84,8 +85,9 @@ const inferResumeStatus = (completedTaskIds) => {
   return 'not_started'
 }
 
-const inferInterviewStatus = (completedTaskIds) => {
-  if (completedTaskIds.includes(8)) return 'ai_mock_done'
+const inferInterviewStatus = (completedTaskIds, progress) => {
+  if (completedTaskIds.includes(8)) return 'real_interview_recorded'
+  if (progress.task7AiMock?.completed) return 'ai_mock_done'
   if (completedTaskIds.includes(7)) return 'practicing'
   if (completedTaskIds.includes(6)) return 'learning'
   return 'not_started'
@@ -96,12 +98,14 @@ const calculateLeadScore = ({
   targetPosition,
   latestAssessmentScore,
   buddyIntent,
+  aiMockCompleted,
 }) => {
   let score = 0
   score += Math.min(completedTaskIds.length * 8, 48)
   if (targetPosition) score += 15
   if (latestAssessmentScore) score += latestAssessmentScore >= 70 ? 15 : 8
   if (completedTaskIds.includes(4)) score += 10
+  if (aiMockCompleted) score += 8
   if (completedTaskIds.includes(8)) score += 12
   if (buddyIntent) score += 8
   return Math.min(score, 100)
@@ -117,6 +121,12 @@ const compactProgress = (progress) => {
       completedAt: value?.completedAt || null,
       stage: taskStageMap[taskId],
     }
+  }
+
+  compacted.task7AiMock = {
+    completed: Boolean(progress.task7AiMock?.completed),
+    completedAt: progress.task7AiMock?.completedAt || null,
+    stage: 'ai_mock_interview',
   }
 
   return compacted
@@ -142,7 +152,7 @@ export const buildLocalPathProfile = (overrides = {}) => {
     career_stage: inferStageFromProgress(completedTaskIds),
     application_stage: inferApplicationStage(completedTaskIds),
     resume_status: inferResumeStatus(completedTaskIds),
-    interview_status: inferInterviewStatus(completedTaskIds),
+    interview_status: inferInterviewStatus(completedTaskIds, progress),
     target_position: targetPosition,
     latest_assessment_score: latestAssessmentScore,
     latest_assessment_level: latestAssessmentLevel,
@@ -153,6 +163,7 @@ export const buildLocalPathProfile = (overrides = {}) => {
       targetPosition,
       latestAssessmentScore,
       buddyIntent: overrides.buddy_intent,
+      aiMockCompleted: Boolean(progress.task7AiMock?.completed),
     }),
     ...overrides,
   }

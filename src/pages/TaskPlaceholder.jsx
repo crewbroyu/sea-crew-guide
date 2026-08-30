@@ -27,8 +27,8 @@ export default function TaskPlaceholder() {
       resume: '制作英文简历',
       'job-course': '学习岗位知识',
       'interview-skills': '面试技巧学习',
-      'interview-practice': '面试问题演练',
-      'ai-interview': 'AI模拟面试',
+      'interview-practice': '面试训练中心',
+      'ai-interview': '真实面试跟进',
       'my-offer': '我的Offer',
       certificates: '考取证件',
       luggage: '准备行李',
@@ -85,7 +85,6 @@ export default function TaskPlaceholder() {
     const taskName = getTaskName()
     const taskId = getTaskId()
     const stageId = getTaskStage(taskId)
-    const isLastTask = isLastTaskInStage(taskId)
     
     setCompletedTaskName(taskName)
     setCompletedStageId(stageId)

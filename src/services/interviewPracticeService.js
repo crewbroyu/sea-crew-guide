@@ -12,7 +12,10 @@ const getCurrentUser = async () => {
 
 const buildWeakPoints = (questionScores = []) =>
   questionScores
-    .filter((item) => Number(item?.score || 0) < 60)
+    .filter((item) => {
+      const maxScore = Number(item?.maxScore || 100)
+      return maxScore > 0 && Number(item?.score || 0) / maxScore < 0.6
+    })
     .slice(0, 3)
     .map((item) => ({
       question: item.question || '',

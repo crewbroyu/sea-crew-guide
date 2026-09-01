@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronUp } from 'lucide-react';
+import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronRight, ChevronUp } from 'lucide-react';
 import trainingCourses from '../../../data/trainingCourses';
 import { syncLocalPathProfile } from '../../../services/userPathService';
 import { upsertMyJobPreparation } from '../../../services/jobPreparationService';
@@ -544,6 +544,19 @@ export default function Task5Training() {
               这里不是让你把站外课程刷完，而是确认你是否理解目标岗位、知道面试会看什么，并完成一份岗位准备清单。
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/programs/bar-server')}
+            className="mb-5 flex w-full items-center justify-between rounded-xl border border-blue-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-300"
+          >
+            <div>
+              <p className="text-xs font-medium text-blue-700">首个岗位训练闭环</p>
+              <p className="mt-1 font-semibold text-slate-950">Bar Server 免费场景语音训练</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">完成回答、AI 反馈和针对性重练，直接检查准备度变化。</p>
+            </div>
+            <ChevronRight size={19} className="shrink-0 text-blue-700" />
+          </button>
 
           <div className="space-y-3">
             {roles.map(([key, role]) => {

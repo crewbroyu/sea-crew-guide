@@ -137,6 +137,18 @@ const assessmentJobMap = {
   housekeeping: 'Housekeeping',
 }
 
+const isRetailPosition = (position = '') =>
+  /retail|shop|sales|jewelry|免税|零售|销售/i.test(position)
+
+const isBarPosition = (position = '') =>
+  /bar server|bartender|bar utility|酒吧|调酒/i.test(position)
+
+const getPositionProgramRoute = (position = '') => {
+  if (isBarPosition(position)) return '/programs/bar-server'
+  if (isRetailPosition(position)) return '/programs/retail'
+  return '/academy'
+}
+
 const getAssessmentSuggestedJob = () => {
   const assessmentResult = readJson('assessment_result', {})
   const firstRecommendation = assessmentResult?.recommendations?.[0]
@@ -807,11 +819,15 @@ const Task2 = () => {
           type="button"
           onClick={() => {
             saveTaskResult()
-            navigate('/academy')
+            navigate(getPositionProgramRoute(selectedTargetJob))
           }}
           className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
         >
-          查看岗位提升内容
+          {isBarPosition(selectedTargetJob)
+            ? '免费体验 Bar Server 场景训练'
+            : isRetailPosition(selectedTargetJob)
+              ? '查看免税店岗位准备路径'
+              : '查看岗位提升内容'}
         </button>
         <button
           type="button"

@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  Wine,
 } from 'lucide-react'
 import useEffectiveAccess from '../hooks/useEffectiveAccess'
 
@@ -94,6 +95,29 @@ export default function Premium() {
       </header>
 
       <main className="mx-auto max-w-5xl px-5 py-6">
+        <section className="mb-8 border-l-4 border-blue-600 bg-white px-5 py-5 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Wine size={21} className="mt-0.5 shrink-0 text-blue-700" />
+              <div>
+                <p className="text-xs font-medium text-blue-700">正在验证的首个岗位产品</p>
+                <h2 className="mt-1 font-semibold text-slate-950">Bar Server 场景语音训练</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  先免费完成一次回答、AI 反馈和重练对比，再判断完整岗位训练是否有价值。
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/programs/bar-server')}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+            >
+              免费体验完整闭环
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </section>
+
         <section className="mb-8 grid gap-4 md:grid-cols-2">
           {included.map((item) => {
             const Icon = item.icon

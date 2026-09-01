@@ -51,7 +51,7 @@ const jobProfiles = [
   {
     id: 'bar',
     title: '酒吧服务 / Bar Server',
-    detailRoute: '/jobs',
+    detailRoute: '/programs/bar-server',
     weights: { service_experience: 0.24, english: 0.22, work_preference: 0.2, ship_adaptability: 0.2, application_readiness: 0.14 },
     strengths: ['适合节奏快、愿意互动的人', '小费和销售意识会影响收入', '服务技能迁移性较强'],
     risks: ['高峰期强度大', '需要酒水和推荐话术', '晚班和嘈杂环境较常见'],
@@ -493,10 +493,18 @@ export default function ResultPage({
 
                 <button
                   type="button"
-                  onClick={() => navigate(job.detailRoute)}
-                  className="mt-4 w-full rounded-lg border border-slate-300 bg-white py-2.5 font-medium text-slate-700 transition hover:bg-slate-50"
+                  onClick={() => navigate(job.id === 'retail' ? '/programs/retail' : job.detailRoute)}
+                  className={`mt-4 w-full rounded-lg py-2.5 font-medium transition ${
+                    job.id === 'retail' || job.id === 'bar'
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
                 >
-                  查看岗位介绍
+                  {job.id === 'retail'
+                    ? '查看免税店岗位准备路径'
+                    : job.id === 'bar'
+                      ? '免费体验 Bar Server 场景训练'
+                      : '查看岗位介绍'}
                 </button>
               </article>
             ))}

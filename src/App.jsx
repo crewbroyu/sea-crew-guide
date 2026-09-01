@@ -60,6 +60,8 @@ const Profile = lazy(() => import('./pages/Profile'))
 const Messages = lazy(() => import('./pages/Messages'))
 const Resume = lazy(() => import('./pages/Resume'))
 const Premium = lazy(() => import('./pages/Premium'))
+const RetailPreparationPack = lazy(() => import('./pages/programs/RetailPreparationPack'))
+const BarServerTrial = lazy(() => import('./pages/programs/BarServerTrial'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
 const BoardingMaterials = lazy(() => import('./pages/BoardingMaterials'))
 
@@ -144,6 +146,8 @@ function App() {
               <Route path="/resume" element={<RequireLogin><Resume /></RequireLogin>} />
               <Route path="/messages" element={<RequireLogin><Messages /></RequireLogin>} />
               <Route path="/premium" element={<Premium />} />
+              <Route path="/programs/retail" element={<RetailPreparationPack />} />
+              <Route path="/programs/bar-server" element={<BarServerTrial />} />
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />
               <Route path="/generate-codes" element={<RequireAdmin><ActivationCodeGenerator /></RequireAdmin>} />

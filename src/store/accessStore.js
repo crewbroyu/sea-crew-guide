@@ -9,13 +9,21 @@ const initialState = {
   userName: null,
   isUnlocked: false,
   unlockedAt: null,
+  role: 'member',
+  plan: 'free',
+  accessStatus: 'active',
+  premiumUntil: null,
+  crewVerificationStatus: 'unverified',
+  mentorStatus: 'inactive',
+  isAdmin: false,
+  previewMode: 'actual',
   accessChecked: false,
   isCheckingAccess: true,
   showRegisterModal: false,
   showUnlockModal: false,
 };
 
-export const useAccessStore = create((set) => ({
+export const useAccessStore = create((set, get) => ({
   ...initialState,
 
   register: (user, name) => {
@@ -33,13 +41,32 @@ export const useAccessStore = create((set) => ({
     });
   },
 
-  setAccessStatus: ({ isUnlocked, unlockedAt = null, checked = true }) => {
+  setAccessStatus: ({
+    isUnlocked,
+    unlockedAt = null,
+    role = 'member',
+    plan = 'free',
+    accessStatus = 'active',
+    premiumUntil = null,
+    crewVerificationStatus = 'unverified',
+    mentorStatus = 'inactive',
+    checked = true,
+  }) => {
+    const isAdmin = role === 'admin' && accessStatus === 'active';
     set((state) => ({
-      isUnlocked: Boolean(isUnlocked),
+      isUnlocked: Boolean(isUnlocked || isAdmin),
       unlockedAt,
+      role,
+      plan,
+      accessStatus,
+      premiumUntil,
+      crewVerificationStatus,
+      mentorStatus,
+      isAdmin,
+      previewMode: isAdmin ? state.previewMode : 'actual',
       accessChecked: checked,
       isCheckingAccess: false,
-      showUnlockModal: isUnlocked ? false : state.showUnlockModal,
+      showUnlockModal: isUnlocked || isAdmin ? false : state.showUnlockModal,
     }));
   },
 
@@ -52,6 +79,8 @@ export const useAccessStore = create((set) => ({
     set({
       isUnlocked: true,
       unlockedAt,
+      plan: 'premium',
+      accessStatus: 'active',
       accessChecked: true,
       isCheckingAccess: false,
       showUnlockModal: false,
@@ -62,6 +91,16 @@ export const useAccessStore = create((set) => ({
   closeRegisterModal: () => set({ showRegisterModal: false }),
   openUnlockModal: () => set({ showUnlockModal: true, showRegisterModal: false }),
   closeUnlockModal: () => set({ showUnlockModal: false }),
+
+  setPreviewMode: (previewMode) => {
+    if (!get().isAdmin) return;
+    const allowedModes = ['actual', 'anonymous', 'free', 'premium', 'mentor'];
+    set({
+      previewMode: allowedModes.includes(previewMode) ? previewMode : 'actual',
+      showRegisterModal: false,
+      showUnlockModal: false,
+    });
+  },
 
   reset: () => {
     localStorage.removeItem('access_unlocked');

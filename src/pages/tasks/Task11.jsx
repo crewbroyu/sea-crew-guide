@@ -1,241 +1,105 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, AlertCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
-import TaskLayout from '../../components/TaskLayout';
+import { ExternalLink, FileQuestion, LoaderCircle, Save } from 'lucide-react'
+import TaskLayout from '../../components/TaskLayout'
+import useBoardingCase from '../../hooks/useBoardingCase'
+import { VISA_STATUS_OPTIONS } from '../../services/boardingCaseService'
+import { completeTaskAndSyncPathProfile } from '../../services/userPathService'
+
+const inputClass = 'mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+
+const requirementOptions = [
+  { value: 'unknown', label: '尚未确认' },
+  { value: 'required', label: '公司或行程确认需要' },
+  { value: 'not_required', label: '公司或行程确认不需要' },
+]
 
 export default function Task11() {
-  const navigate = useNavigate();
-  const [expandedSections, setExpandedSections] = useState({
-    appointment: true,
-    materials: true,
-    interview: true,
-    waiting: true
-  });
+  const { boardingCase, updateBoardingCase, loading, saving, syncState, error, save } = useBoardingCase()
 
-  // 切换展开/折叠状态
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
+  const updateField = (field, value) => {
+    updateBoardingCase((current) => ({ ...current, [field]: value }))
+  }
 
-  // 处理完成任务
-  const handleCompleteTask = () => {
-    // 标记任务11为已完成
-    const progressKey = 'boarding_progress';
-    const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-    progress.task11 = {
-      completed: true,
-      completedAt: new Date().toISOString()
-    };
-    localStorage.setItem(progressKey, JSON.stringify(progress));
-    console.log('Task11 完成状态已写入:', progress);
-  };
+  const canComplete = boardingCase.us_visa_requirement === 'required'
+    ? boardingCase.visa_status === 'issued'
+    : boardingCase.us_visa_requirement === 'not_required' && Boolean(boardingCase.visa_reason.trim())
+
+  const handleComplete = async () => {
+    await save(boardingCase)
+    await completeTaskAndSyncPathProfile(11, { application_stage: 'documents' })
+  }
+
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600"><LoaderCircle size={20} className="mr-2 animate-spin" /> 正在加载签证进度</div>
+  }
 
   return (
-    <TaskLayout taskId={11} taskTitle="申请C1D签证" canComplete={true} onComplete={handleCompleteTask}>
-      <div className="space-y-6">
-        {/* 顶部核心提示 */}
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-          <p className="text-blue-700 font-medium">
-            C1D签证是海乘必备的美国过境签证，用于邮轮工作。请仔细准备材料，确保面签顺利。
-          </p>
-        </div>
+    <TaskLayout taskId={11} taskTitle="签证与通行许可" canComplete={canComplete} onComplete={handleComplete}>
+      <div className="space-y-5">
+        <section className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <FileQuestion size={20} className="mt-0.5 shrink-0 text-blue-700" />
+            <div>
+              <h2 className="font-semibold text-blue-950">先判断航线，再进入办理流程</h2>
+              <p className="mt-1 text-sm leading-6 text-blue-900">船员签证取决于国籍、登船港口、过境安排和公司要求。不要在行程未确认时默认所有人都需要同一种签证。</p>
+            </div>
+          </div>
+        </section>
 
-        {/* 预约面谈 */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => toggleSection('appointment')}
-            className="w-full px-6 py-4 flex justify-between items-center bg-gray-50"
-          >
-            <div className="flex items-center gap-2">
-              <Info size={20} className="text-blue-600" />
-              <h3 className="font-medium text-gray-800">预约面谈</h3>
-            </div>
-            {expandedSections.appointment ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </button>
-          {expandedSections.appointment && (
-            <div className="p-6 space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-medium text-gray-800">填写 DS-160 表格</h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      登录美国签证申请系统填写DS-160表格，上传照片并获取确认页。
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-medium text-gray-800">缴纳签证费（中信）</h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      通过中信银行缴纳签证申请费，获取缴费收据。
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {syncState === 'local' && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">当前进度已保存在此设备，建表后会同步到账号。</div>}
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
 
-        {/* 材料准备 */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => toggleSection('materials')}
-            className="w-full px-6 py-4 flex justify-between items-center bg-gray-50"
-          >
-            <div className="flex items-center gap-2">
-              <Info size={20} className="text-blue-600" />
-              <h3 className="font-medium text-gray-800">材料准备</h3>
-            </div>
-            {expandedSections.materials ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </button>
-          {expandedSections.materials && (
-            <div className="p-6 space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-medium text-gray-800">邮轮公司的派遣函（LOE）</h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      由邮轮公司出具的正式派遣函，包含职位、合同期限等信息。
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-medium text-gray-800">海员证</h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      有效的海员身份证件，确保有效期覆盖工作期限。
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-medium text-gray-800">无犯罪记录证明</h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      近期开具的无犯罪记录证明，通常有效期为6个月。
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={20} className="text-green-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-medium text-gray-800">其他材料</h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      护照、DS-160确认页、缴费收据、照片等。
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="font-semibold text-slate-950">是否需要美国船员或过境签证</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">请根据公司、LOE、机票路线或官方要求确认。</p>
+          <div className="mt-4 space-y-2">
+            {requirementOptions.map((option) => (
+              <label key={option.value} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm font-medium ${boardingCase.us_visa_requirement === option.value ? 'border-blue-500 bg-blue-50 text-blue-900' : 'border-slate-200 text-slate-700'}`}>
+                <input type="radio" name="visa_requirement" value={option.value} checked={boardingCase.us_visa_requirement === option.value} onChange={(event) => updateField('us_visa_requirement', event.target.value)} />
+                {option.label}
+              </label>
+            ))}
+          </div>
+          <a href="https://travel.state.gov/content/travel/en/us-visas/other-visa-categories/crewmember-visa.html" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-800">
+            查看美国国务院船员签证说明 <ExternalLink size={15} />
+          </a>
+        </section>
 
-        {/* 面签攻略 */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => toggleSection('interview')}
-            className="w-full px-6 py-4 flex justify-between items-center bg-gray-50"
-          >
-            <div className="flex items-center gap-2">
-              <Info size={20} className="text-blue-600" />
-              <h3 className="font-medium text-gray-800">面签攻略</h3>
+        {boardingCase.us_visa_requirement === 'required' && (
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="font-semibold text-slate-950">办理进度</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-slate-700">当前状态<select value={boardingCase.visa_status} onChange={(event) => updateField('visa_status', event.target.value)} className={inputClass}>{VISA_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+              <label className="text-sm font-medium text-slate-700">面谈城市 / 领馆<input value={boardingCase.visa_consulate} onChange={(event) => updateField('visa_consulate', event.target.value)} placeholder="例如 上海" className={inputClass} /></label>
+              <label className="text-sm font-medium text-slate-700">预约时间<input type="datetime-local" value={boardingCase.visa_appointment_at || ''} onChange={(event) => updateField('visa_appointment_at', event.target.value)} className={inputClass} /></label>
+              <label className="text-sm font-medium text-slate-700">签证有效期<input type="date" value={boardingCase.visa_expiry_date || ''} onChange={(event) => updateField('visa_expiry_date', event.target.value)} className={inputClass} /></label>
             </div>
-            {expandedSections.interview ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </button>
-          {expandedSections.interview && (
-            <div className="p-6 space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium text-gray-800 mb-3">常见问题对策</h4>
-                  <div className="space-y-3">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="font-medium text-gray-800">职业真实性</p>
-                      <p className="text-gray-600 text-sm mt-1">
-                        准备详细的工作经历和邮轮公司信息，证明你确实被雇佣为海乘。
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="font-medium text-gray-800">合同期限</p>
-                      <p className="text-gray-600 text-sm mt-1">
-                        清楚说明合同起止日期，强调你会在合同结束后返回中国。
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="font-medium text-gray-800">资金状况</p>
-                      <p className="text-gray-600 text-sm mt-1">
-                        提供足够的资金证明，确保你有能力支付签证费用和初期生活费用。
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="font-medium text-gray-800">归国计划</p>
-                      <p className="text-gray-600 text-sm mt-1">
-                        强调你在国内的家庭、工作或学习等羁绊，证明你会按时归国。
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+            <label className="mt-4 block text-sm font-medium text-slate-700">办理备注<textarea value={boardingCase.visa_notes} onChange={(event) => updateField('visa_notes', event.target.value)} placeholder="LOE 状态、补充材料、护照返还安排等" className={`${inputClass} h-24 resize-none`} /></label>
+          </section>
+        )}
 
-        {/* 出签等待 */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => toggleSection('waiting')}
-            className="w-full px-6 py-4 flex justify-between items-center bg-gray-50"
-          >
-            <div className="flex items-center gap-2">
-              <Info size={20} className="text-blue-600" />
-              <h3 className="font-medium text-gray-800">出签等待</h3>
-            </div>
-            {expandedSections.waiting ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </button>
-          {expandedSections.waiting && (
-            <div className="p-6 space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-medium text-gray-800">拿到签证后</h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      仔细核对签证有效期和个人信息，确保所有信息准确无误。
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-medium text-gray-800">保存签证</h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      将签证页妥善保管，避免损坏或丢失。
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-medium text-gray-800">准备登船</h4>
-                    <p className="text-gray-600 text-sm mt-1">
-                      签证到手后，开始准备登船所需的其他材料和行李。
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {boardingCase.us_visa_requirement === 'not_required' && (
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="font-semibold text-slate-950">不需要的确认依据</h2>
+            <label className="mt-4 block text-sm font-medium text-slate-700">公司或行程说明 <span className="text-red-600">*</span><textarea value={boardingCase.visa_reason} onChange={(event) => updateField('visa_reason', event.target.value)} placeholder="例如：公司书面确认本次登船路线不经美国" className={`${inputClass} h-24 resize-none`} /></label>
+          </section>
+        )}
 
-        {/* 底部空间，防止内容被固定按钮遮挡 */}
-        <div className="h-24"></div>
+        {boardingCase.us_visa_requirement === 'unknown' && (
+          <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            <p className="font-semibold">下一步不是立即填表</p>
+            <p className="mt-1">先向船公司或代理确认登船港口、机票路线和所需签证类型，再记录办理进度。</p>
+          </section>
+        )}
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600">
+          <p className="font-semibold text-slate-900">重要说明</p>
+          <p className="mt-1">签证是否签发由领事机构决定。平台记录仅用于准备进度，不构成法律意见或签证结果保证；在签证签发前避免做不可退改的最终行程安排。</p>
+        </section>
+
+        <button type="button" onClick={() => save(boardingCase)} disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:text-slate-400">
+          {saving ? <LoaderCircle size={18} className="animate-spin" /> : <Save size={18} />}{saving ? '保存中...' : '保存签证进度'}
+        </button>
       </div>
     </TaskLayout>
-  );
+  )
 }

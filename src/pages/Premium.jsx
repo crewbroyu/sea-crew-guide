@@ -10,7 +10,7 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react'
-import { useAccessStore } from '../store/accessStore'
+import useEffectiveAccess from '../hooks/useEffectiveAccess'
 
 const included = [
   {
@@ -40,7 +40,7 @@ const premiumItems = ['保存完整申请档案', '生成 90 天准备路线', '
 
 export default function Premium() {
   const navigate = useNavigate()
-  const { isRegistered, isUnlocked, openRegisterModal, openUnlockModal } = useAccessStore()
+  const { isRegistered, isUnlocked, openRegisterModal, openUnlockModal } = useEffectiveAccess()
 
   const handlePrimaryAction = () => {
     if (!isRegistered) {

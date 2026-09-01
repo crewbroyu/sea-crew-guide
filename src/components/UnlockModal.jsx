@@ -33,11 +33,7 @@ export default function UnlockModal() {
       }
 
       setShowSuccess(true);
-      setAccessStatus({
-        isUnlocked: true,
-        unlockedAt: access.unlockedAt || result.unlockedAt,
-        checked: true,
-      });
+      setAccessStatus({ ...access, unlockedAt: access.unlockedAt || result.unlockedAt, checked: true });
       
       setTimeout(() => {
         closeUnlockModal();

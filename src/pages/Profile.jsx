@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../supabase'
 import { useAccessStore } from '../store/accessStore'
+import useEffectiveAccess from '../hooks/useEffectiveAccess'
 import {
   buildLocalPathProfile,
   getMyPathProfile,
@@ -87,9 +88,29 @@ const fieldDefaults = {
   buddy_opt_in: false,
 }
 
+const roleLabels = {
+  anonymous: '访客预览',
+  member: '普通会员',
+  mentor: 'Crew Mentor',
+  admin: '管理员',
+}
+
+const planLabels = {
+  free: '免费版',
+  premium: '付费会员',
+}
+
 export default function Profile() {
   const navigate = useNavigate()
-  const { userEmail, userName, isUnlocked, reset } = useAccessStore()
+  const { userEmail, userName, reset } = useAccessStore()
+  const {
+    isUnlocked,
+    effectiveRole,
+    effectivePlan,
+    crewVerificationStatus,
+    mentorStatus,
+    isPreviewing,
+  } = useEffectiveAccess()
   const [pathProfile, setPathProfile] = useState(() => buildLocalPathProfile())
   const [latestInterviewRecord, setLatestInterviewRecord] = useState(null)
   const [form, setForm] = useState(fieldDefaults)
@@ -292,6 +313,13 @@ export default function Profile() {
             <h1 className="text-white text-lg font-bold truncate">
               {userName || userEmail || 'Crew Path 用户'}
             </h1>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-white/15 px-2 py-1 text-white">{roleLabels[effectiveRole] || effectiveRole}</span>
+              <span className="rounded-full bg-white/15 px-2 py-1 text-white">{planLabels[effectivePlan] || effectivePlan}</span>
+              {crewVerificationStatus === 'verified' && <span className="rounded-full bg-emerald-400/25 px-2 py-1 text-white">Crew 已认证</span>}
+              {mentorStatus === 'active' && <span className="rounded-full bg-emerald-400/25 px-2 py-1 text-white">Mentor 已启用</span>}
+              {isPreviewing && <span className="rounded-full bg-amber-300/25 px-2 py-1 text-white">预览模式</span>}
+            </div>
           </div>
         </div>
 

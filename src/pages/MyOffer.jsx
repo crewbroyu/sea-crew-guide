@@ -1,371 +1,164 @@
-// src/pages/MyOffer.jsx
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Upload, FileText, CheckCircle, AlertCircle, XCircle,
-  RefreshCw, ChevronLeft, FileImage, File, Trash2
-} from 'lucide-react';
+import { AlertTriangle, BriefcaseBusiness, CheckCircle2, LoaderCircle, Save } from 'lucide-react'
+import TaskLayout from '../components/TaskLayout'
+import useBoardingCase from '../hooks/useBoardingCase'
+import { completeTaskAndSyncPathProfile } from '../services/userPathService'
 
-// 状态类型
-const OFFER_STATUS = {
-  NOT_SUBMITTED: 'not_submitted',
-  UNDER_REVIEW: 'under_review',
-  REVIEWED: 'reviewed'
-};
+const inputClass = 'mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
 
-// 审核结果
-const REVIEW_RESULT = {
-  APPROVED: 'approved',
-  REJECTED: 'rejected'
-};
+const offerStatusOptions = [
+  { value: 'received', label: '刚收到，正在核对' },
+  { value: 'reviewing', label: '正在与公司确认条款' },
+  { value: 'accepted', label: '已接受 Offer' },
+  { value: 'declined', label: '已拒绝 Offer' },
+]
 
-// 模拟数据
-const mockData = {
-  rejectionReason: 'Offer文档不清晰，请重新上传清晰的扫描件'
-};
+const checkItems = [
+  { key: 'salary', label: '收入结构', detail: '确认底薪、提成、小费、扣款和发薪币种。' },
+  { key: 'contract', label: '合同期限', detail: '确认合同起止日期、试用期和提前解约规则。' },
+  { key: 'fees', label: '申请费用', detail: '确认中介费、培训费、体检费和机票由谁承担。' },
+  { key: 'joining', label: '登船安排', detail: '确认登船日期、港口、LOE 和行程责任方。' },
+]
 
 export default function MyOffer() {
-  const navigate = useNavigate();
-  const [status, setStatus] = useState(OFFER_STATUS.NOT_SUBMITTED);
-  const [reviewResult, setReviewResult] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef(null);
+  const {
+    boardingCase,
+    updateBoardingCase,
+    loading,
+    saving,
+    syncState,
+    error,
+    save,
+  } = useBoardingCase()
 
-  // 处理文件选择
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
+  const updateField = (field, value) => {
+    updateBoardingCase((current) => ({ ...current, [field]: value }))
+  }
 
-  // 处理拖拽
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
+  const toggleCheck = (key) => {
+    updateBoardingCase((current) => ({
+      ...current,
+      offer_checks: {
+        ...current.offer_checks,
+        [key]: !current.offer_checks?.[key],
+      },
+    }))
+  }
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+  const allChecksComplete = checkItems.every((item) => boardingCase.offer_checks?.[item.key])
+  const canComplete = Boolean(
+    boardingCase.cruise_company.trim()
+    && boardingCase.final_position.trim()
+    && boardingCase.offer_status === 'accepted'
+    && boardingCase.offer_confirmed
+    && allChecksComplete,
+  )
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
+  const risks = [
+    !boardingCase.salary_amount && '尚未记录收入金额或收入结构',
+    (!boardingCase.contract_start || !boardingCase.contract_end) && '合同起止日期尚未完整记录',
+    !boardingCase.embarkation_date && '登船日期尚未确定',
+    !boardingCase.embarkation_port && '登船港口尚未确定',
+    Number(boardingCase.agency_fee) > 0 && '记录了申请或服务费用，请确认收款方、用途和退款规则',
+  ].filter(Boolean)
 
-  // 移除文件
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  const handleSave = () => save(boardingCase)
 
-  // 提交审核
-  const handleSubmit = () => {
-    if (!selectedFile) return;
-    setStatus(OFFER_STATUS.UNDER_REVIEW);
-  };
+  const handleComplete = async () => {
+    await save(boardingCase)
+    await completeTaskAndSyncPathProfile(9, {
+      target_company: boardingCase.cruise_company,
+      target_position: boardingCase.final_position,
+      target_boarding_month: boardingCase.embarkation_date?.slice(0, 7) || null,
+      application_stage: 'offer_received',
+    })
+  }
 
-  // 撤回重新上传
-  const handleWithdraw = () => {
-    setStatus(OFFER_STATUS.NOT_SUBMITTED);
-  };
-
-  // 重新上传
-  const handleReupload = () => {
-    setStatus(OFFER_STATUS.NOT_SUBMITTED);
-    setSelectedFile(null);
-    setReviewResult(null);
-  };
-
-  // 开发调试：切换状态
-  const handleDebugToggle = () => {
-    if (status === OFFER_STATUS.NOT_SUBMITTED) {
-      setStatus(OFFER_STATUS.UNDER_REVIEW);
-    } else if (status === OFFER_STATUS.UNDER_REVIEW) {
-      setStatus(OFFER_STATUS.REVIEWED);
-      setReviewResult(REVIEW_RESULT.APPROVED);
-      // 模拟添加站内消息
-      const messages = JSON.parse(localStorage.getItem('messages') || '[]');
-      messages.unshift({
-        id: Date.now(),
-        title: '您的Offer已通过审核',
-        content: '恭喜！您的Offer已通过审核，请继续后续流程。',
-        type: 'success',
-        isRead: false,
-        createdAt: new Date().toISOString()
-      });
-      localStorage.setItem('messages', JSON.stringify(messages));
-      
-      // 标记任务9为已完成
-      const progressKey = 'boarding_progress';
-      const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-      progress.task9 = {
-        completed: true,
-        completedAt: new Date().toISOString()
-      };
-      localStorage.setItem(progressKey, JSON.stringify(progress));
-    } else {
-      setStatus(OFFER_STATUS.NOT_SUBMITTED);
-      setSelectedFile(null);
-      setReviewResult(null);
-    }
-  };
-
-  // 开发调试：切换为未通过
-  const handleDebugReject = () => {
-    setStatus(OFFER_STATUS.REVIEWED);
-    setReviewResult(REVIEW_RESULT.REJECTED);
-    // 模拟添加站内消息
-    const messages = JSON.parse(localStorage.getItem('messages') || '[]');
-    messages.unshift({
-      id: Date.now(),
-      title: '您的Offer未通过审核',
-      content: `您的Offer未通过审核，原因：${mockData.rejectionReason}`,
-      type: 'error',
-      isRead: false,
-      createdAt: new Date().toISOString()
-    });
-    localStorage.setItem('messages', JSON.stringify(messages));
-  };
-
-  // 判断是否是开发环境
-  const isDevelopment = import.meta.env.DEV;
-
-  // 获取文件图标
-  const getFileIcon = (file) => {
-    if (!file) return null;
-    const isImage = file.type.startsWith('image/');
-    if (isImage) {
-      return <FileImage size={48} className="text-blue-500" />;
-    }
-    return <File size={48} className="text-red-500" />;
-  };
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">
+        <LoaderCircle size={20} className="mr-2 animate-spin" /> 正在加载 Offer 档案
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* 顶部头部 */}
-      <div className="bg-gradient-to-r from-green-600 to-green-800 px-6 pt-16 pb-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/tasks')}
-            className="text-white hover:text-green-200"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-white text-2xl font-bold">我的Offer</h1>
-        </div>
+    <TaskLayout taskId={9} taskTitle="Offer 决策中心" canComplete={canComplete} onComplete={handleComplete}>
+      <div className="space-y-5">
+        <section className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex gap-3">
+            <BriefcaseBusiness size={20} className="mt-0.5 shrink-0 text-blue-700" />
+            <div>
+              <h2 className="font-semibold text-blue-950">先核对条款，再进入登船准备</h2>
+              <p className="mt-1 text-sm leading-6 text-blue-900">这里保存结构化信息，不要求上传包含姓名、证件号或签名的 Offer 原件。</p>
+            </div>
+          </div>
+        </section>
+
+        {syncState === 'local' && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            内容已保存在当前设备。执行项目中的 supabase_boarding_cases.sql 后即可同步到账号。
+          </div>
+        )}
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
+
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="font-semibold text-slate-950">录用信息</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700">邮轮公司 <span className="text-red-600">*</span><input value={boardingCase.cruise_company} onChange={(event) => updateField('cruise_company', event.target.value)} placeholder="例如 Royal Caribbean" className={inputClass} /></label>
+            <label className="text-sm font-medium text-slate-700">最终岗位 <span className="text-red-600">*</span><input value={boardingCase.final_position} onChange={(event) => updateField('final_position', event.target.value)} placeholder="例如 Retail Sales Associate" className={inputClass} /></label>
+            <label className="text-sm font-medium text-slate-700">Offer 状态<select value={boardingCase.offer_status} onChange={(event) => updateField('offer_status', event.target.value)} className={inputClass}>{offerStatusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className="text-sm font-medium text-slate-700">申请渠道<input value={boardingCase.application_channel} onChange={(event) => updateField('application_channel', event.target.value)} placeholder="官网、代理、内推等" className={inputClass} /></label>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="font-semibold text-slate-950">合同与收入</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700">收入金额<div className="mt-2 flex gap-2"><input type="number" min="0" value={boardingCase.salary_amount ?? ''} onChange={(event) => updateField('salary_amount', event.target.value)} placeholder="金额" className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" /><select value={boardingCase.salary_currency} onChange={(event) => updateField('salary_currency', event.target.value)} className="w-24 rounded-lg border border-slate-300 bg-white px-2 text-sm"><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="CNY">CNY</option></select></div></label>
+            <label className="text-sm font-medium text-slate-700">申请或服务费用<input type="number" min="0" value={boardingCase.agency_fee ?? ''} onChange={(event) => updateField('agency_fee', event.target.value)} placeholder="没有则填 0" className={inputClass} /></label>
+            <label className="text-sm font-medium text-slate-700">合同开始日期<input type="date" value={boardingCase.contract_start || ''} onChange={(event) => updateField('contract_start', event.target.value)} className={inputClass} /></label>
+            <label className="text-sm font-medium text-slate-700">合同结束日期<input type="date" value={boardingCase.contract_end || ''} onChange={(event) => updateField('contract_end', event.target.value)} className={inputClass} /></label>
+          </div>
+          <label className="mt-4 block text-sm font-medium text-slate-700">收入说明<textarea value={boardingCase.salary_notes} onChange={(event) => updateField('salary_notes', event.target.value)} placeholder="底薪、提成、小费、扣款或保底规则" className={`${inputClass} h-20 resize-none`} /></label>
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="font-semibold text-slate-950">登船安排</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700">预计登船日期<input type="date" value={boardingCase.embarkation_date || ''} onChange={(event) => updateField('embarkation_date', event.target.value)} className={inputClass} /></label>
+            <label className="text-sm font-medium text-slate-700">登船港口<input value={boardingCase.embarkation_port} onChange={(event) => updateField('embarkation_port', event.target.value)} placeholder="城市 / 港口" className={inputClass} /></label>
+            <label className="text-sm font-medium text-slate-700 sm:col-span-2">出发城市<input value={boardingCase.departure_city} onChange={(event) => updateField('departure_city', event.target.value)} placeholder="用于后续行程规划和搭子匹配" className={inputClass} /></label>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="font-semibold text-slate-950">关键条款核对</h2>
+          <div className="mt-4 space-y-3">
+            {checkItems.map((item) => (
+              <label key={item.key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:border-blue-300">
+                <input type="checkbox" checked={Boolean(boardingCase.offer_checks?.[item.key])} onChange={() => toggleCheck(item.key)} className="mt-1 h-4 w-4 rounded border-slate-300" />
+                <span><span className="block text-sm font-semibold text-slate-900">{item.label}</span><span className="mt-0.5 block text-sm leading-6 text-slate-600">{item.detail}</span></span>
+              </label>
+            ))}
+          </div>
+        </section>
+
+        <section className={`rounded-lg border p-4 ${risks.length ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+          <div className="flex items-start gap-3">
+            {risks.length ? <AlertTriangle size={19} className="mt-0.5 shrink-0 text-amber-700" /> : <CheckCircle2 size={19} className="mt-0.5 shrink-0 text-emerald-700" />}
+            <div className="text-sm leading-6"><p className={`font-semibold ${risks.length ? 'text-amber-950' : 'text-emerald-950'}`}>{risks.length ? '还有信息需要确认' : '主要信息已记录'}</p>{risks.map((risk) => <p key={risk} className="text-amber-900">{risk}</p>)}</div>
+          </div>
+        </section>
+
+        <label className="flex items-start gap-3 rounded-lg border border-slate-300 bg-white p-4 text-sm leading-6 text-slate-700">
+          <input type="checkbox" checked={boardingCase.offer_confirmed} onChange={(event) => updateField('offer_confirmed', event.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-300" />
+          我已根据 Offer 或公司书面信息核对以上内容。此记录用于规划，不代表平台对合同真实性或合法性的认证。
+        </label>
+
+        <button type="button" onClick={handleSave} disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:text-slate-400">
+          {saving ? <LoaderCircle size={18} className="animate-spin" /> : <Save size={18} />}{saving ? '保存中...' : '保存当前信息'}
+        </button>
       </div>
-
-      <div className="px-6 py-6">
-        {/* 状态一：未提交 */}
-        {status === OFFER_STATUS.NOT_SUBMITTED && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4">上传Offer文档</h2>
-              
-              {/* 上传区域 */}
-              {!selectedFile ? (
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-                    isDragging 
-                      ? 'border-green-500 bg-green-50' 
-                      : 'border-gray-300 hover:border-green-400'
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <Upload size={48} className="text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium">点击或拖拽上传文件</p>
-                  <p className="text-gray-400 text-sm mt-2">支持图片和PDF格式</p>
-                  <p className="text-amber-600 text-xs mt-3">
-                    上传文件只是为了解锁任务，请打码重要信息（姓名、证件编号）后上传
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-center gap-4">
-                    {selectedFile.type.startsWith('image/') ? (
-                      <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
-                        <img
-                          src={URL.createObjectURL(selectedFile)}
-                          alt="Preview"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <File size={40} className="text-red-500" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-800 truncate">{selectedFile.name}</p>
-                      <p className="text-sm text-gray-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveFile();
-                      }}
-                      className="p-2 text-gray-400 hover:text-red-500"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 提交按钮 */}
-              <button
-                onClick={handleSubmit}
-                disabled={!selectedFile}
-                className={`w-full mt-6 py-3 rounded-lg font-medium transition-colors ${
-                  selectedFile
-                    ? 'bg-green-600 text-white hover:bg-green-700'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                提交审核
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 状态二：审核中 */}
-        {status === OFFER_STATUS.UNDER_REVIEW && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">审核中</h2>
-                <span className="px-3 py-1 bg-amber-100 text-amber-700 text-sm font-medium rounded-full flex items-center gap-1">
-                  <AlertCircle size={16} />
-                  审核中
-                </span>
-              </div>
-
-              {/* 已上传的文档 */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                <div className="flex items-center gap-4">
-                  {getFileIcon(selectedFile)}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 truncate">{selectedFile?.name}</p>
-                    <p className="text-sm text-gray-500">已提交</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 提示文字 */}
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <p className="text-amber-700">
-                  您的Offer已提交，工作人员将在1-3个工作日内完成审核
-                </p>
-              </div>
-
-              {/* 撤回按钮 */}
-              <button
-                onClick={handleWithdraw}
-                className="w-full mt-6 py-3 rounded-lg font-medium transition-colors bg-gray-200 text-gray-800 hover:bg-gray-300 flex items-center justify-center gap-2"
-              >
-                <RefreshCw size={18} />
-                撤回重新上传
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 状态三：审核完成 */}
-        {status === OFFER_STATUS.REVIEWED && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">审核结果</h2>
-                {reviewResult === REVIEW_RESULT.APPROVED ? (
-                  <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full flex items-center gap-1">
-                    <CheckCircle size={16} />
-                    已认证
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full flex items-center gap-1">
-                    <XCircle size={16} />
-                    未通过
-                  </span>
-                )}
-              </div>
-
-              {/* Offer文档 */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                <div className="flex items-center gap-4">
-                  {getFileIcon(selectedFile)}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 truncate">{selectedFile?.name}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 审核结果详情 */}
-              {reviewResult === REVIEW_RESULT.REJECTED && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                  <h3 className="font-medium text-red-800 mb-2">未通过原因</h3>
-                  <p className="text-red-700">{mockData.rejectionReason}</p>
-                </div>
-              )}
-
-              {/* 重新上传按钮（仅未通过时显示） */}
-              {reviewResult === REVIEW_RESULT.REJECTED && (
-                <button
-                  onClick={handleReupload}
-                  className="w-full py-3 rounded-lg font-medium transition-colors bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2"
-                >
-                  <RefreshCw size={18} />
-                  重新上传
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 开发调试按钮 */}
-        {isDevelopment && (
-          <div className="bg-gray-100 border-2 border-dashed border-gray-400 rounded-xl p-4 mt-8">
-            <p className="text-xs text-gray-500 mb-3 font-medium">🔧 开发调试</p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleDebugToggle}
-                className="flex-1 py-2 rounded-lg bg-gray-300 text-gray-800 text-sm font-medium hover:bg-gray-400"
-              >
-                切换状态
-              </button>
-              {status === OFFER_STATUS.UNDER_REVIEW && (
-                <button
-                  onClick={handleDebugReject}
-                  className="flex-1 py-2 rounded-lg bg-red-300 text-red-800 text-sm font-medium hover:bg-red-400"
-                >
-                  模拟未通过
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              当前状态: {status} {reviewResult ? `(${reviewResult})` : ''}
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    </TaskLayout>
+  )
 }

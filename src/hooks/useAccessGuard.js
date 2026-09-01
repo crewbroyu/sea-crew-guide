@@ -1,11 +1,14 @@
 import { useCallback } from 'react';
-import { useAccessStore } from '../store/accessStore';
+import useEffectiveAccess from './useEffectiveAccess';
 
 const LOGIN_REQUIRED_ROUTES = [
   '/tasks/phase2/Task4',
   '/jobs/applications',
   '/profile',
   '/my-offer',
+  '/tasks/Task10',
+  '/tasks/Task11',
+  '/tasks/Task12',
   '/resume',
   '/messages',
 ];
@@ -34,7 +37,7 @@ export const useAccessGuard = () => {
     isCheckingAccess,
     openRegisterModal,
     openUnlockModal,
-  } = useAccessStore();
+  } = useEffectiveAccess();
 
   const canAccess = useCallback((pathname) => {
     if (checkRouteNeedsLogin(pathname) && !isRegistered) {

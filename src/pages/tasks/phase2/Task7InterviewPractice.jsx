@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import TaskLayout from '../../../components/TaskLayout';
 import interviewQuestions, { positionConfig } from '../../../data/interviewQuestions';
-import { useAccessStore } from '../../../store/accessStore';
+import useEffectiveAccess from '../../../hooks/useEffectiveAccess';
 import {
   evaluateInterviewWithAi,
   transcribeInterviewAudio,
@@ -230,7 +230,7 @@ const getPreparationSnapshot = () => {
 
 function Task7InterviewPractice() {
   const navigate = useNavigate();
-  const { isRegistered, openRegisterModal } = useAccessStore();
+  const { isRegistered, openRegisterModal } = useEffectiveAccess();
   const savedPractice = useMemo(() => readJson(STORAGE_KEY, {}), []);
   const compatiblePractice = savedPractice.version === PRACTICE_VERSION ? savedPractice : {};
   const [targetPositionKey] = useState(getTargetPositionKey);

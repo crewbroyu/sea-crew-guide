@@ -16,7 +16,7 @@ import {
   UserCheck,
   X,
 } from 'lucide-react'
-import { useAccessStore } from '../store/accessStore'
+import useEffectiveAccess from '../hooks/useEffectiveAccess'
 import { getScoreData } from '../store/scoreStore'
 import pathData from '../data/pathData'
 
@@ -97,7 +97,7 @@ const getHomeSnapshot = () => {
 
 export default function Home() {
   const navigate = useNavigate()
-  const { isRegistered } = useAccessStore()
+  const { isRegistered } = useEffectiveAccess()
   const [showWechatModal, setShowWechatModal] = useState(false)
   const snapshot = useMemo(() => getHomeSnapshot(), [])
 

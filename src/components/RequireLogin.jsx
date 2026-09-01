@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAccessStore } from '../store/accessStore';
+import useEffectiveAccess from '../hooks/useEffectiveAccess';
 
 function AuthCheckingFallback() {
   return (
@@ -56,7 +56,7 @@ export default function RequireLogin({
     authChecked,
     isCheckingAuth,
     openRegisterModal,
-  } = useAccessStore();
+  } = useEffectiveAccess();
 
   const shouldAutoOpen = autoOpen ?? variant === 'page';
 

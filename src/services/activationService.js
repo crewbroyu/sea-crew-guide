@@ -112,7 +112,7 @@ export const getUserAccessStatus = async (user) => {
 
   const { data, error } = await supabase
     .from('user_access')
-    .select('unlocked, unlocked_at')
+    .select('unlocked, unlocked_at, role, plan, access_status, premium_until')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -121,15 +121,39 @@ export const getUserAccessStatus = async (user) => {
     throw new Error('Access check failed');
   }
 
-  if (data?.unlocked) {
+  const premiumHasNotExpired = !data?.premium_until || new Date(data.premium_until).getTime() > Date.now();
+  const isAdmin = data?.role === 'admin' && data?.access_status === 'active';
+  const hasPremium = data?.access_status === 'active' && premiumHasNotExpired
+    && (data?.unlocked || data?.plan === 'premium' || isAdmin);
+
+  let mentorProfile = null;
+  const { data: mentorData, error: mentorError } = await supabase
+    .from('mentor_profiles')
+    .select('crew_verification_status, mentor_status')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (mentorError) {
+    console.warn('Mentor status lookup failed:', mentorError);
+  } else {
+    mentorProfile = mentorData;
+  }
+
+  if (hasPremium) {
     writeAccessCache({ userId: user.id, unlockedAt: data.unlocked_at });
   } else {
     clearAccessCache();
   }
 
   return {
-    isUnlocked: Boolean(data?.unlocked),
+    isUnlocked: Boolean(hasPremium),
     unlockedAt: data?.unlocked_at || null,
+    role: data?.role || 'member',
+    plan: data?.plan || 'free',
+    accessStatus: data?.access_status || 'active',
+    premiumUntil: data?.premium_until || null,
+    crewVerificationStatus: mentorProfile?.crew_verification_status || 'unverified',
+    mentorStatus: mentorProfile?.mentor_status || 'inactive',
   };
 };
 
@@ -153,8 +177,6 @@ export const activationService = {
 
     const { data, error } = await supabase.rpc('consume_activation_code', {
       input_code: cleanCode,
-      input_user_id: user.id,
-      input_user_email: user.email,
     });
 
     if (error) {

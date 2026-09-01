@@ -8,6 +8,8 @@ import BottomNav from './components/BottomNav'
 import AccessGate from './components/AccessGate'
 import RequireLogin from './components/RequireLogin'
 import RequireActivation from './components/RequireActivation'
+import RequireAdmin from './components/RequireAdmin'
+import AdminPreviewBar from './components/AdminPreviewBar'
 import CompletionHint from './components/CompletionHint'
 import DebugPanel from './components/DebugPanel'
 
@@ -25,7 +27,6 @@ const Task7TrainingCenter = lazy(() => import('./pages/tasks/phase2/Task7Trainin
 const Task7InterviewPractice = lazy(() => import('./pages/tasks/phase2/Task7InterviewPractice'))
 const Task8MockInterview = lazy(() => import('./pages/tasks/phase2/Task8MockInterview'))
 const Task8RealInterview = lazy(() => import('./pages/tasks/phase2/Task8RealInterview'))
-const Task9 = lazy(() => import('./pages/tasks/phase2/Task9ScenarioTraining'))
 const ActivationCodeGenerator = lazy(() => import('./pages/ActivationCodeGenerator'))
 
 const Academy = lazy(() => import('./pages/Academy'))
@@ -84,6 +85,7 @@ function App() {
     <ErrorBoundary>
       <Router>
         <AccessGate />
+        <AdminPreviewBar />
         <CompletionHint />
         {import.meta.env.DEV && <DebugPanel />}
         <div className="min-h-screen bg-gray-50">
@@ -101,9 +103,9 @@ function App() {
               <Route path="/tasks/Task1" element={<Task1 />} />
               <Route path="/tasks/Task2" element={<Task2 />} />
               <Route path="/tasks/Task3" element={<Task3 />} />
-              <Route path="/tasks/Task10" element={<Task10 />} />
-              <Route path="/tasks/Task11" element={<Task11 />} />
-              <Route path="/tasks/Task12" element={<Task12 />} />
+              <Route path="/tasks/Task10" element={<RequireLogin><Task10 /></RequireLogin>} />
+              <Route path="/tasks/Task11" element={<RequireLogin><Task11 /></RequireLogin>} />
+              <Route path="/tasks/Task12" element={<RequireLogin><Task12 /></RequireLogin>} />
               <Route path="/tasks/phase2/Task4" element={<RequireLogin><Task4ResumeBuilder /></RequireLogin>} />
               <Route path="/tasks/phase2/Task5" element={<Task5Training />} />
               <Route path="/tasks/phase2/Task6" element={<Task6InterviewSkills />} />
@@ -111,7 +113,7 @@ function App() {
               <Route path="/tasks/phase2/Task7/voice" element={<Task7InterviewPractice />} />
               <Route path="/tasks/phase2/Task7/mock" element={<Task8MockInterview />} />
               <Route path="/tasks/phase2/Task8" element={<RequireLogin><Task8RealInterview /></RequireLogin>} />
-              <Route path="/tasks/phase2/Task9" element={<Task9 />} />
+              <Route path="/tasks/phase2/Task9" element={<Navigate to="/my-offer" replace />} />
               <Route path="/academy" element={<Academy />} />
               <Route path="/academy/listening-speaking" element={<ListeningSpeaking />} />
               <Route path="/academy/listening-speaking/:category" element={<ListeningSpeakingCategory />} />
@@ -144,7 +146,7 @@ function App() {
               <Route path="/premium" element={<Premium />} />
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />
-              <Route path="/generate-codes" element={<RequireActivation><ActivationCodeGenerator /></RequireActivation>} />
+              <Route path="/generate-codes" element={<RequireAdmin><ActivationCodeGenerator /></RequireAdmin>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

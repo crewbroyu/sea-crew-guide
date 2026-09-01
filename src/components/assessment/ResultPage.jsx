@@ -16,6 +16,7 @@ import {
 import { DIMENSIONS } from '../../data/assessmentData'
 import { getCareerConclusion, getLevel } from '../../data/assessmentScoring'
 import { useAccessStore } from '../../store/accessStore'
+import useEffectiveAccess from '../../hooks/useEffectiveAccess'
 import { saveAssessmentSubmission } from '../../services/assessmentService'
 import { syncLocalPathProfile } from '../../services/userPathService'
 
@@ -188,7 +189,8 @@ export default function ResultPage({
   onRestart,
 }) {
   const navigate = useNavigate()
-  const { userId, userEmail, isRegistered, isUnlocked, openRegisterModal } = useAccessStore()
+  const { userId, userEmail, openRegisterModal } = useAccessStore()
+  const { isRegistered, isUnlocked } = useEffectiveAccess()
   const [contact, setContact] = useState({
     name: '',
     phone: '',

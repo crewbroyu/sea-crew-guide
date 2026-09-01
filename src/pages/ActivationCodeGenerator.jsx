@@ -3,7 +3,7 @@ import { useAccessStore } from '../store/accessStore';
 import { generateCode, insertBatchCodes, getAllCodes } from '../services/activationService';
 
 export default function ActivationCodeGenerator() {
-  const { isUnlocked } = useAccessStore();
+  const { isAdmin } = useAccessStore();
   const [generatedCodes, setGeneratedCodes] = useState([]);
   const [count, setCount] = useState(10);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -47,11 +47,11 @@ export default function ActivationCodeGenerator() {
     }
   };
 
-  if (!isUnlocked) {
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600">需要解锁才能访问此页面</p>
+          <p className="text-gray-600">仅管理员可以访问此页面</p>
         </div>
       </div>
     );

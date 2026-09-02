@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useResumeStore from '../store/resumeStore'
 import { ChevronLeft, Download, Save, Eye, AlertCircle } from 'lucide-react'
@@ -16,16 +16,12 @@ export default function Resume() {
   } = useResumeStore()
   
   const [isLoading, setIsLoading] = useState(false)
-  const [hasResume, setHasResume] = useState(false)
-
-  useEffect(() => {
-    // 检查是否有简历数据
-    const hasData = personalInfo.name || 
-                   professionalSummary || 
-                   workExperience.length > 0 || 
-                   education.length > 0
-    setHasResume(hasData)
-  }, [personalInfo, professionalSummary, workExperience, education])
+  const hasResume = Boolean(
+    personalInfo.name ||
+    professionalSummary ||
+    workExperience.length > 0 ||
+    education.length > 0
+  )
 
   const handleExportPDF = () => {
     setIsLoading(true)
@@ -37,7 +33,7 @@ export default function Resume() {
   }
 
   const handleEditResume = () => {
-    navigate('/tasks/phase2/Task4ResumeBuilder')
+    navigate('/tasks/phase2/Task4')
   }
 
   return (

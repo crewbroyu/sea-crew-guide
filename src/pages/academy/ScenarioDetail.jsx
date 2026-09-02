@@ -33,7 +33,6 @@ function ScenarioDetail() {
   const [progress, setProgress] = useState(() => loadProgress());
   
   const utteranceRef = useRef(null);
-  const audioRef = useRef(null);
   const intervalRef = useRef(null);
 
   useEffect(() => {
@@ -47,8 +46,11 @@ function ScenarioDetail() {
       if (utteranceRef.current) {
         window.speechSynthesis.cancel();
       }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      // The recording interval is allocated after mount, so cleanup needs its latest handle.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const activeInterval = intervalRef.current;
+      if (activeInterval) {
+        clearInterval(activeInterval);
       }
     };
   }, []);
@@ -130,9 +132,12 @@ function ScenarioDetail() {
   };
 
   const handleGoToInterview = (questionId) => {
-    navigate('/academy/interview-questions', {
-      state: { selectedQuestionId: questionId, position: job }
+    const params = new URLSearchParams({
+      position: job || 'bar_server',
+      question: questionId,
+      source: 'scenario',
     });
+    navigate(`/tasks/phase2/Task7/voice?${params.toString()}`);
   };
 
   if (!scenario) {

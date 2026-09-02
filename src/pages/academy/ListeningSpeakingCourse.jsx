@@ -1,226 +1,109 @@
-// src/pages/academy/ListeningSpeakingCourse.jsx
-import { useNavigate, useParams } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { ChevronLeft, Play, Pause, Mic, Check, AlertCircle } from 'lucide-react'
-import { callCloudFunction } from '../../services/cloudService'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { CheckCircle2, ChevronLeft, Mic, Pause, RotateCcw, Volume2 } from 'lucide-react'
+import { getListeningSpeakingCourse } from '../../data/listeningSpeakingCourses'
+
+const formatSeconds = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
 export default function ListeningSpeakingCourse() {
   const navigate = useNavigate()
-  const { category, course } = useParams()
-  const [courseData, setCourseData] = useState(null)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const { category: categoryId, course: courseId } = useParams()
+  const lesson = getListeningSpeakingCourse(categoryId, courseId)
+  const recorderRef = useRef(null)
+  const streamRef = useRef(null)
+  const chunksRef = useRef([])
+  const timerRef = useRef(null)
+  const audioUrlRef = useRef('')
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const [recordingTime, setRecordingTime] = useState(0)
-  const [mediaRecorder, setMediaRecorder] = useState(null)
-  const [audioChunks, setAudioChunks] = useState([])
-  const [checkinSuccess, setCheckinSuccess] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
+  const [audioUrl, setAudioUrl] = useState('')
+  const [recordingCount, setRecordingCount] = useState(0)
   const [error, setError] = useState('')
-  const [timer, setTimer] = useState(null)
 
-  // 模拟课程数据
-  useEffect(() => {
-    const mockCourseData = {
-      id: course,
-      title: course === 'eslpod-1' ? 'Daily English' : 'Business English',
-      mediaUrl: 'https://example.com/audio/eslpod1.mp3',
-      transcript: 'Welcome to ESLPod! Today we\'re going to learn about daily English conversations.',
-      translation: '欢迎来到ESLPod！今天我们将学习日常英语对话。'
+  useEffect(() => () => {
+    window.speechSynthesis?.cancel()
+    clearInterval(timerRef.current)
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+  }, [])
+
+  if (!lesson) return <Navigate to="/academy/listening-speaking" replace />
+
+  const { category, course } = lesson
+  const stopSpeech = () => { window.speechSynthesis?.cancel(); setIsSpeaking(false) }
+
+  const playExample = () => {
+    if (!('speechSynthesis' in window)) {
+      setError('当前浏览器不支持朗读示范，请直接阅读文本后练习。')
+      return
     }
-    setCourseData(mockCourseData)
-  }, [course])
-
-  // 播放原音
-  const handlePlay = () => {
-    // 实际项目中，这里会播放真实的音频文件
-    setIsPlaying(true)
-    setTimeout(() => {
-      setIsPlaying(false)
-    }, 3000) // 模拟播放3秒
+    if (isSpeaking) { stopSpeech(); return }
+    const utterance = new SpeechSynthesisUtterance(course.transcript)
+    utterance.lang = 'en-US'
+    utterance.rate = 0.85
+    utterance.onend = () => setIsSpeaking(false)
+    utterance.onerror = () => setIsSpeaking(false)
+    setIsSpeaking(true)
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utterance)
   }
 
-  // 开始录音
+  const finishRecording = () => {
+    clearInterval(timerRef.current)
+    setIsRecording(false)
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+  }
+
   const startRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError('当前浏览器不支持录音，请使用 Chrome、Edge 或 Safari 最新版本。')
+      return
+    }
     try {
       setError('')
+      stopSpeech()
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      
-      // 获取浏览器支持的音频格式
-      let mimeType = 'audio/webm'
-      let fileExtension = 'webm'
-      
-      if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        mimeType = 'audio/mp4'
-        fileExtension = 'mp4'
-      } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-        mimeType = 'audio/ogg'
-        fileExtension = 'ogg'
+      streamRef.current = stream
+      chunksRef.current = []
+      const recorder = new MediaRecorder(stream)
+      recorderRef.current = recorder
+      recorder.ondataavailable = (event) => { if (event.data.size > 0) chunksRef.current.push(event.data) }
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+        const nextAudioUrl = URL.createObjectURL(blob)
+        audioUrlRef.current = nextAudioUrl
+        setAudioUrl(nextAudioUrl)
+        setRecordingCount((count) => {
+          const nextCount = count + 1
+          localStorage.setItem(`listening-speaking:${category.id}:${course.id}`, JSON.stringify({ completedAt: new Date().toISOString(), recordingCount: nextCount }))
+          return nextCount
+        })
+        finishRecording()
       }
-      
-      const recorder = new MediaRecorder(stream, { mimeType })
-      setMediaRecorder(recorder)
-      
-      const chunks = []
-      recorder.ondataavailable = (e) => chunks.push(e.data)
-      recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: mimeType })
-        const reader = new FileReader()
-        reader.onloadend = async () => {
-          const base64Audio = reader.result.split(',')[1]
-          await uploadAudio(base64Audio, fileExtension)
-        }
-        reader.readAsDataURL(blob)
-      }
-      
+      setRecordingSeconds(0)
       recorder.start()
       setIsRecording(true)
-      setAudioChunks(chunks)
-      
-      // 开始计时
-      const interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1)
-      }, 1000)
-      setTimer(interval)
-    } catch (err) {
-      setError('无法访问麦克风，请检查权限设置')
-      console.error('录音失败:', err)
+      timerRef.current = setInterval(() => setRecordingSeconds((seconds) => seconds + 1), 1000)
+    } catch (recordingError) {
+      setError(recordingError.name === 'NotAllowedError' ? '需要允许麦克风权限后才能录音。' : '无法启动录音，请稍后再试。')
+      finishRecording()
     }
   }
 
-  // 停止录音
-  const stopRecording = () => {
-    if (mediaRecorder) {
-      mediaRecorder.stop()
-      setIsRecording(false)
-      if (timer) {
-        clearInterval(timer)
-      }
-      setRecordingTime(0)
-    }
-  }
-
-  // 上传音频
-  const uploadAudio = async (base64Audio, fileExtension) => {
-    try {
-      const result = await callCloudFunction('uploadAudio', {
-        audioData: base64Audio,
-        userId: 'user123', // 实际项目中从用户登录信息获取
-        userName: '测试用户', // 实际项目中从用户登录信息获取
-        courseId: course,
-        fileExtension: fileExtension
-      })
-      
-      if (result.code === 0) {
-        setCheckinSuccess(true)
-        setTimeout(() => {
-          setCheckinSuccess(false)
-        }, 3000)
-      } else {
-        setError(result.message)
-      }
-    } catch (err) {
-      setError('上传失败，请重试')
-      console.error('上传失败:', err)
-    }
-  }
-
-  if (!courseData) {
-    return <div className="loading">加载中...</div>
-  }
+  const stopRecording = () => { if (recorderRef.current?.state === 'recording') recorderRef.current.stop() }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 顶部头部 */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 pt-16 pb-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(`/academy/listening-speaking/${category}`)}
-            className="text-white hover:text-blue-200"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-white text-2xl font-bold">{courseData.title}</h1>
-        </div>
-        <p className="text-white/80 text-sm mt-2">
-          {category === 'eslpod' ? 'ESLPod' : 'EnglishPod'}
-        </p>
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 pb-6 pt-16">
+        <div className="flex items-center gap-3"><button onClick={() => navigate(`/academy/listening-speaking/${category.id}`)} className="text-white hover:text-blue-200" aria-label="返回课程列表"><ChevronLeft size={24} /></button><div><h1 className="text-2xl font-bold text-white">{course.title}</h1><p className="mt-1 text-sm text-white/80">{category.name} · 短句跟读</p></div></div>
       </div>
-
-      <div className="px-6 py-6 space-y-6">
-        {/* 原音播放 */}
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <h3 className="font-bold text-gray-800 mb-4">原音播放</h3>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handlePlay}
-              disabled={isPlaying}
-              className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 transition"
-            >
-              {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-            </button>
-            <div>
-              <p className="text-gray-600">点击播放原音</p>
-              {isPlaying && <p className="text-sm text-blue-600">正在播放...</p>}
-            </div>
-          </div>
-        </div>
-
-        {/* 文本内容 */}
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <h3 className="font-bold text-gray-800 mb-3">文本内容</h3>
-          <div className="space-y-3">
-            <div>
-              <p className="text-gray-500 text-sm mb-1">英文</p>
-              <p className="text-gray-800">{courseData.transcript}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 text-sm mb-1">中文</p>
-              <p className="text-gray-800">{courseData.translation}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 跟读打卡 */}
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <h3 className="font-bold text-gray-800 mb-4">跟读打卡</h3>
-          <div className="space-y-4">
-            {isRecording ? (
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={stopRecording}
-                  className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white hover:bg-red-700 transition"
-                >
-                  <Pause size={24} />
-                </button>
-                <div>
-                  <p className="text-gray-600">正在录音</p>
-                  <p className="text-sm text-red-600">已录制 {recordingTime} 秒</p>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={startRecording}
-                className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-2"
-              >
-                <Mic size={20} />
-                <span>开始跟读</span>
-              </button>
-            )}
-
-            {error && (
-              <div className="flex items-center gap-2 text-red-600 text-sm">
-                <AlertCircle size={16} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {checkinSuccess && (
-              <div className="flex items-center gap-2 text-green-600 text-sm">
-                <Check size={16} />
-                <span>打卡成功！</span>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="space-y-5 px-6 py-6">
+        <section className="rounded-xl bg-white p-5 shadow-sm"><p className="text-sm font-medium text-blue-700">先听示范</p><p className="mt-3 text-lg leading-8 text-gray-900">{course.transcript}</p><p className="mt-3 text-sm leading-6 text-gray-600">{course.translation}</p><button onClick={playExample} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700">{isSpeaking ? <Pause size={18} /> : <Volume2 size={18} />}{isSpeaking ? '停止朗读' : '朗读示范'}</button></section>
+        <section className="rounded-xl bg-white p-5 shadow-sm"><p className="text-sm font-medium text-emerald-700">再录一遍自己的版本</p><p className="mt-2 text-sm text-gray-600">录音不会上传到服务器，仅用于你在当前浏览器回放。</p>{isRecording ? <div className="mt-5 flex items-center gap-4"><button onClick={stopRecording} className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700" aria-label="停止录音"><Pause size={20} /></button><div><p className="font-medium text-gray-800">正在录音</p><p className="text-sm text-red-600">{formatSeconds(recordingSeconds)}</p></div></div> : <button onClick={startRecording} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-3 font-medium text-white hover:bg-emerald-700"><Mic size={20} />{audioUrl ? '重新录音' : '开始跟读'}</button>}{audioUrl && !isRecording && <div className="mt-4 rounded-lg bg-gray-50 p-3"><audio controls src={audioUrl} className="w-full" /><div className="mt-3 flex items-center gap-2 text-sm text-emerald-700"><CheckCircle2 size={17} /><span>本次跟读已完成{recordingCount > 1 ? `（第 ${recordingCount} 次）` : ''}</span></div></div>}{error && <p className="mt-3 text-sm text-red-600">{error}</p>}</section>
+        <button onClick={() => navigate(`/academy/listening-speaking/${category.id}`)} className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"><RotateCcw size={16} /> 返回课程列表</button>
       </div>
     </div>
   )

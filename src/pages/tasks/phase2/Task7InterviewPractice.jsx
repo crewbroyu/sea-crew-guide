@@ -216,7 +216,12 @@ const inferQuestionKeywords = (question) => {
   return ['experience', 'example', 'action', 'service', 'result'];
 };
 
-const buildPracticeQuestions = (positionKey, roundNumber = 0, practiceMode = 'standard') => {
+const buildPracticeQuestions = (
+  positionKey,
+  roundNumber = 0,
+  practiceMode = 'standard',
+  requestedQuestionId = ''
+) => {
   const bank = interviewQuestions[positionKey]?.questions || interviewQuestions.retail.questions;
 
   if (practiceMode === 'knowledge' && positionKey === 'bar_server') {
@@ -246,20 +251,30 @@ const buildPracticeQuestions = (positionKey, roundNumber = 0, practiceMode = 'st
   const selectedScenarios = [0, 5, 10]
     .map((offset) => scenarioBank[(roundNumber * 3 + offset) % scenarioBank.length])
     .filter(Boolean);
-  const selectedRoleQuestions = [...selectedFoundation, ...selectedScenarios].map((item) => ({
+  const requestedQuestion = bank.find((item) => item.id === requestedQuestionId);
+  const roleSelection = [...selectedFoundation, ...selectedScenarios]
+    .filter((item) => item.id !== requestedQuestion?.id);
+  const selectedRoleQuestions = roleSelection.map((item) => ({
     ...item,
     phase: categoryLabels[item.category] || `Role ${item.difficulty === 'hard' ? 'Challenge' : 'Practice'}`,
     focus: item.tip || '用具体经历或清晰步骤回答，避免只给结论。',
     keywords: inferQuestionKeywords(item),
   }));
 
-  return [...coreQuestionTemplates.slice(0, 3), ...selectedRoleQuestions].map((item, index) => ({
+  const roundQuestions = requestedQuestion
+    ? [requestedQuestion, ...coreQuestionTemplates.slice(0, 3), ...selectedRoleQuestions].slice(0, 8)
+    : [...coreQuestionTemplates.slice(0, 3), ...selectedRoleQuestions];
+
+  return roundQuestions.map((item, index) => ({
     ...item,
     order: index + 1,
+    phase: item.phase || categoryLabels[item.category] || 'Selected Question',
+    focus: item.focus || item.tip || '用具体经历或清晰步骤回答，避免只给结论。',
+    keywords: item.keywords || inferQuestionKeywords(item),
   }));
 };
 
-const getPreparationSnapshot = () => {
+const getPreparationSnapshot = (fallbackPosition = '') => {
   const assessment = readJson('assessment_result', {});
   const task2 = readJson('task2_result', {});
   const task4 = readJson('task4_result', {});
@@ -274,8 +289,8 @@ const getPreparationSnapshot = () => {
     },
     {
       label: '目标岗位',
-      value: task2.selectedTargetJob || task2.target_position || '使用默认岗位',
-      ready: Boolean(task2.selectedTargetJob || task2.target_position),
+      value: task2.selectedTargetJob || task2.target_position || fallbackPosition || '使用默认岗位',
+      ready: Boolean(task2.selectedTargetJob || task2.target_position || fallbackPosition),
     },
     {
       label: '英文简历',
@@ -301,11 +316,14 @@ function Task7InterviewPractice() {
   const access = useEffectiveAccess();
   const { isRegistered, openRegisterModal } = access;
   const requestedPosition = normalizeInterviewPosition(searchParams.get('position'), '');
+  const requestedQuestionId = searchParams.get('question') || '';
+  const source = searchParams.get('source') || '';
   const practiceMode = searchParams.get('mode') === 'knowledge' ? 'knowledge' : 'standard';
   const savedPractice = useMemo(() => readJson(STORAGE_KEY, {}), []);
   const compatiblePractice = savedPractice.version === PRACTICE_VERSION
     && savedPractice.practiceMode === practiceMode
     && (!requestedPosition || savedPractice.targetPositionKey === requestedPosition)
+    && (savedPractice.requestedQuestionId || '') === requestedQuestionId
     ? savedPractice
     : {};
   const [targetPositionKey] = useState(() => requestedPosition || getTargetPositionKey());
@@ -314,10 +332,13 @@ function Task7InterviewPractice() {
   const hasPaidAiAccess = access.isUnlocked
     || (targetPositionKey === 'bar_server' && hasProductEntitlement(access, 'bar_server_pack'));
   const questions = useMemo(
-    () => buildPracticeQuestions(targetPositionKey, roundNumber, practiceMode),
-    [practiceMode, roundNumber, targetPositionKey]
+    () => buildPracticeQuestions(targetPositionKey, roundNumber, practiceMode, requestedQuestionId),
+    [practiceMode, requestedQuestionId, roundNumber, targetPositionKey]
   );
-  const preparationSnapshot = useMemo(() => getPreparationSnapshot(), []);
+  const preparationSnapshot = useMemo(
+    () => getPreparationSnapshot(targetPosition.nameEn),
+    [targetPosition.nameEn]
+  );
   const [stage, setStage] = useState(compatiblePractice.stage || 'briefing');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(compatiblePractice.currentQuestionIndex || 0);
   const [answers, setAnswers] = useState(compatiblePractice.answers || {});
@@ -351,8 +372,9 @@ function Task7InterviewPractice() {
       evaluation,
       targetPositionKey,
       practiceMode,
+      requestedQuestionId,
     });
-  }, [answers, currentQuestionIndex, evaluation, practiceMode, roundNumber, stage, targetPositionKey]);
+  }, [answers, currentQuestionIndex, evaluation, practiceMode, requestedQuestionId, roundNumber, stage, targetPositionKey]);
 
   useEffect(() => () => {
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -642,12 +664,28 @@ function Task7InterviewPractice() {
   const renderBriefing = () => (
     <div className="space-y-5">
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-medium text-blue-700">{practiceMode === 'knowledge' ? '任务5 → 任务7 · 知识巩固' : '语音演练第一轮'}</p>
-        <h2 className="mt-2 text-xl font-semibold text-slate-950">{practiceMode === 'knowledge' ? '把酒水知识说成岗位答案' : '先把答案说出来，再追求说漂亮'}</h2>
+        <p className="text-sm font-medium text-blue-700">
+          {practiceMode === 'knowledge'
+            ? '任务5 → 任务7 · 知识巩固'
+            : source === 'academy'
+              ? '海乘学院 → 任务7 · 正式训练'
+              : source === 'scenario'
+                ? '岗位场景 → 任务7 · 正式训练'
+              : '语音演练第一轮'}
+        </p>
+        <h2 className="mt-2 text-xl font-semibold text-slate-950">
+          {practiceMode === 'knowledge'
+            ? '把酒水知识说成岗位答案'
+            : requestedQuestionId
+              ? '从你在题库选择的问题开始'
+              : '先把答案说出来，再追求说漂亮'}
+        </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {practiceMode === 'knowledge'
             ? '本轮固定练习任务5对应的 8 类 Bar Server 基础知识。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案。'
-            : '本轮会根据你的目标岗位安排 8 道题。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案；你可以在评分前修改转写文本。'}
+            : requestedQuestionId
+              ? '你选择的问题会排在本轮第一题，其余题目由通用问题和岗位场景组成。录音会临时用于英文转写，音频本身不会写入长期档案。'
+              : '本轮会根据你的目标岗位安排 8 道题。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案；你可以在评分前修改转写文本。'}
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -659,7 +697,13 @@ function Task7InterviewPractice() {
           <div className="rounded-lg bg-slate-50 p-4">
             <p className="text-xs text-slate-500">题目数量</p>
             <p className="mt-1 font-semibold text-slate-950">{questions.length} 题</p>
-            <p className="text-sm text-slate-500">{practiceMode === 'knowledge' ? '8 道岗位知识题' : '3 道核心题 + 5 道岗位题'}</p>
+            <p className="text-sm text-slate-500">
+              {practiceMode === 'knowledge'
+                ? '8 道岗位知识题'
+                : requestedQuestionId
+                  ? '选中题 + 3 道核心题 + 4 道岗位题'
+                  : '3 道核心题 + 5 道岗位题'}
+            </p>
           </div>
         </div>
       </section>
@@ -694,7 +738,9 @@ function Task7InterviewPractice() {
             <p className="mt-1 text-sm leading-6 text-blue-900">
               {practiceMode === 'knowledge'
                 ? '依次练基酒、Mojito、neat / on the rocks、饮品推荐、未知配方、开档检查、过敏处理和葡萄酒服务。AI会检查你是否把知识转成了准确的服务动作。'
-                : `先练自我介绍、上船动机和服务案例，再从 ${targetPosition.nameZh} 的 40 道题库中轮换抽取 5 道岗位题；重练下一轮会自动换题。`}
+                : requestedQuestionId
+                  ? `先完成你从学院选中的问题，再练3道核心题和4道${targetPosition.nameZh}岗位题；重练下一轮会更换其余岗位题。`
+                  : `先练自我介绍、上船动机和服务案例，再从 ${targetPosition.nameZh} 的 40 道题库中轮换抽取 5 道岗位题；重练下一轮会自动换题。`}
             </p>
           </div>
         </div>

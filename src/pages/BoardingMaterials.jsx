@@ -34,7 +34,7 @@ export default function BoardingMaterials() {
 
   // 处理跳转到简历制作
   const handleGoToResume = () => {
-    navigate('/tasks/phase1/Task4')
+    navigate('/tasks/phase2/Task4')
   }
 
   return (

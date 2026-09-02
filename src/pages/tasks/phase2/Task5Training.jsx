@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronRight, ChevronUp } from 'lucide-react';
 import trainingCourses from '../../../data/trainingCourses';
+import BarServerFoundationTraining from '../../../components/training/BarServerFoundationTraining';
+import { barServerFoundationDays, getCompletedFoundationDays } from '../../../data/barServerFoundation';
 import { syncLocalPathProfile } from '../../../services/userPathService';
-import { upsertMyJobPreparation } from '../../../services/jobPreparationService';
+import { getMyJobPreparation, upsertMyJobPreparation } from '../../../services/jobPreparationService';
 
 // 封装 localStorage 工具函数
 const STORAGE_KEY = 'task5_data';
@@ -203,7 +205,9 @@ export default function Task5Training() {
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState(() => {
     const task2Result = readJson('task2_result', {});
-    return mapTargetPositionToRole(task2Result.selectedTargetJob || task2Result.target_position);
+    return mapTargetPositionToRole(task2Result.selectedTargetJob || task2Result.target_position)
+      || loadFromLocalStorage({}).selectedRole
+      || null;
   });
   
   // 从 localStorage 加载初始数据
@@ -214,6 +218,10 @@ export default function Task5Training() {
   const [preparationChecks, setPreparationChecks] = useState(() => {
     const data = loadFromLocalStorage({});
     return data.preparationChecks || {};
+  });
+  const [foundationProgress, setFoundationProgress] = useState(() => {
+    const data = loadFromLocalStorage({});
+    return data.foundationProgress || {};
   });
   const [expandedCourse, setExpandedCourse] = useState(null);
 
@@ -249,13 +257,43 @@ export default function Task5Training() {
   // 当数据变化时，保存到 localStorage
   useEffect(() => {
     const data = {
+      selectedRole,
       completedCourses,
       preparationChecks,
+      foundationProgress,
       learningRecords,
       completedCourseDetails
     };
     saveToLocalStorage(data);
-  }, [completedCourses, preparationChecks, learningRecords, completedCourseDetails]);
+  }, [selectedRole, completedCourses, preparationChecks, foundationProgress, learningRecords, completedCourseDetails]);
+
+  useEffect(() => {
+    const localData = loadFromLocalStorage({});
+    if (localData.selectedRole || Object.keys(localData.foundationProgress || {}).length) return;
+
+    getMyJobPreparation()
+      .then((profile) => {
+        if (!profile) return;
+        const roleKey = profile.selected_role || null;
+        const checks = (profile.preparation_checklist || []).reduce((result, item, index) => {
+          result[index] = Boolean(item?.completed);
+          return result;
+        }, {});
+        const courses = (profile.completed_resources || []).reduce((result, item) => {
+          if (item?.id) result[item.id] = true;
+          return result;
+        }, {});
+        const records = profile.learning_records || {};
+
+        setSelectedRole(roleKey);
+        setPreparationChecks(roleKey ? { [roleKey]: checks } : {});
+        setCompletedCourses(courses);
+        setLearningRecords(records);
+        setFoundationProgress(records.barServerFoundation || {});
+        setCompletedCourseDetails(profile.completed_course_details || {});
+      })
+      .catch((error) => console.error('恢复云端岗位准备资料失败:', error));
+  }, []);
 
 
 
@@ -418,7 +456,10 @@ export default function Task5Training() {
     if (!selectedRole) return false;
     const checklist = rolePreparation[selectedRole]?.checklist || [];
     const checks = preparationChecks[selectedRole] || {};
-    return checklist.length > 0 && checklist.every((_, index) => checks[index]);
+    const checklistCompleted = checklist.length > 0 && checklist.every((_, index) => checks[index]);
+    const foundationCompleted = selectedRole !== 'barServer'
+      || getCompletedFoundationDays(foundationProgress) === barServerFoundationDays.length;
+    return checklistCompleted && foundationCompleted;
   };
 
   // 处理任务完成
@@ -432,6 +473,9 @@ export default function Task5Training() {
         name: course.nameZh,
         platform: course.platform,
       })) || [];
+    const persistedLearningRecords = selectedRole === 'barServer'
+      ? { ...learningRecords, barServerFoundation: foundationProgress }
+      : learningRecords;
     const taskResult = {
       taskId: 5,
       completedAt: new Date().toISOString(),
@@ -442,7 +486,9 @@ export default function Task5Training() {
           completed: Boolean(checks[index]),
         })),
       completedResources,
-      learningRecords,
+      learningRecords: persistedLearningRecords,
+      foundationProgress: selectedRole === 'barServer' ? foundationProgress : {},
+      foundationCompletedDays: selectedRole === 'barServer' ? getCompletedFoundationDays(foundationProgress) : 0,
       completedCourseDetails,
     };
     localStorage.setItem('task5_result', JSON.stringify(taskResult));
@@ -468,8 +514,8 @@ export default function Task5Training() {
       last_completed_task_id: 5,
     });
 
-    // 跳转到任务列表页面，标记任务5为已完成
-    navigate('/tasks?justCompleted=5');
+    // 任务5学知识，任务6把知识和经历组织成可练的回答。
+    navigate('/tasks/phase2/Task6?source=task5&justCompleted=5');
   };
 
   // 监听页面可见性变化 - 用 ref 避免每秒重建
@@ -492,6 +538,10 @@ export default function Task5Training() {
   const roles = Object.entries(trainingCourses);
   const currentRole = selectedRole ? trainingCourses[selectedRole] : null;
   const currentPreparation = selectedRole ? rolePreparation[selectedRole] : null;
+  const task6Completed = Boolean(
+    readJson('task6_result', {})?.completedAt
+    || readJson('boarding_progress', {})?.task6?.completed
+  );
 
   const getCompletedCount = (roleKey) => {
     return trainingCourses[roleKey].courses.filter(c => completedCourses[c.id]).length;
@@ -539,9 +589,9 @@ export default function Task5Training() {
 
         <div className="max-w-lg mx-auto px-5 pt-5">
           <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <p className="text-sm font-semibold text-blue-950">先判断岗位，再用英文资源补知识</p>
+            <p className="text-sm font-semibold text-blue-950">先判断岗位，再完成基础知识训练</p>
             <p className="mt-1 text-sm leading-6 text-blue-900">
-              这里不是让你把站外课程刷完，而是确认你是否理解目标岗位、知道面试会看什么，并完成一份岗位准备清单。
+              岗位一页纸负责讲清方向；内部基础课负责具体知识；站外英文课程只作为听力和知识补充。
             </p>
           </div>
 
@@ -553,7 +603,7 @@ export default function Task5Training() {
             <div>
               <p className="text-xs font-medium text-blue-700">首个岗位训练闭环</p>
               <p className="mt-1 font-semibold text-slate-950">Bar Server 免费场景语音训练</p>
-              <p className="mt-1 text-sm leading-6 text-slate-600">完成回答、AI 反馈和针对性重练，直接检查准备度变化。</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">免费完成 3 个真实场景，每题都有岗位知识反馈、参考回答和重练对比。</p>
             </div>
             <ChevronRight size={19} className="shrink-0 text-blue-700" />
           </button>
@@ -576,7 +626,11 @@ export default function Task5Training() {
                       <span className="text-3xl">{role.icon}</span>
                       <div>
                         <h3 className="font-bold text-slate-950">{role.title}</h3>
-                        <p className="text-xs text-slate-500">{role.courses.length} 个英文资源 · 准备清单 {prepCount}/{prepTotal}</p>
+                        <p className="text-xs text-slate-500">
+                          {key === 'barServer'
+                            ? `7 天内部课 ${getCompletedFoundationDays(foundationProgress)}/7 · ${role.courses.length} 个英文资源`
+                            : `${role.courses.length} 个英文资源 · 准备清单 ${prepCount}/${prepTotal}`}
+                        </p>
                       </div>
                     </div>
                     <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -676,6 +730,16 @@ export default function Task5Training() {
           </div>
         </div>
 
+        {selectedRole === 'barServer' && (
+          <BarServerFoundationTraining
+            progress={foundationProgress}
+            onProgressChange={setFoundationProgress}
+            task6Completed={task6Completed}
+            onStartTask6={() => navigate('/tasks/phase2/Task6?source=task5')}
+            onStartTask7={() => navigate('/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task5')}
+          />
+        )}
+
         <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
@@ -717,7 +781,11 @@ export default function Task5Training() {
             disabled={!isPreparationCompleted()}
             className="mt-4 w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {isPreparationCompleted() ? '完成岗位知识准备，进入 Task6' : '完成清单后进入 Task6'}
+            {isPreparationCompleted()
+              ? '完成岗位知识准备，进入 Task6'
+              : selectedRole === 'barServer' && getCompletedFoundationDays(foundationProgress) < barServerFoundationDays.length
+                ? `完成 7 天基础训练与清单后进入 Task6（${getCompletedFoundationDays(foundationProgress)}/7）`
+                : '完成清单后进入 Task6'}
           </button>
         </div>
 

@@ -17,12 +17,13 @@ import {
 import { supabase } from '../supabase'
 import { useAccessStore } from '../store/accessStore'
 import useEffectiveAccess from '../hooks/useEffectiveAccess'
+import { hasProductEntitlement } from '../services/activationService'
 import {
   buildLocalPathProfile,
   getMyPathProfile,
   syncLocalPathProfile,
 } from '../services/userPathService'
-import { getLatestInterviewPracticeRecord } from '../services/interviewPracticeService'
+import { getInterviewPracticeHistory } from '../services/interviewPracticeService'
 
 const stageLabels = {
   exploring: '了解阶段',
@@ -103,6 +104,7 @@ const planLabels = {
 export default function Profile() {
   const navigate = useNavigate()
   const { userEmail, userName, reset } = useAccessStore()
+  const effectiveAccess = useEffectiveAccess()
   const {
     isUnlocked,
     effectiveRole,
@@ -110,9 +112,11 @@ export default function Profile() {
     crewVerificationStatus,
     mentorStatus,
     isPreviewing,
-  } = useEffectiveAccess()
+  } = effectiveAccess
+  const hasBarServerPack = hasProductEntitlement(effectiveAccess, 'bar_server_pack')
   const [pathProfile, setPathProfile] = useState(() => buildLocalPathProfile())
   const [latestInterviewRecord, setLatestInterviewRecord] = useState(null)
+  const [interviewHistory, setInterviewHistory] = useState([])
   const [form, setForm] = useState(fieldDefaults)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -144,11 +148,13 @@ export default function Profile() {
         }
 
         try {
-          const interviewRecord = await getLatestInterviewPracticeRecord()
-          setLatestInterviewRecord(interviewRecord)
+          const records = await getInterviewPracticeHistory(8)
+          setInterviewHistory(records)
+          setLatestInterviewRecord(records[0] || null)
         } catch (error) {
           console.error('加载最近面试记录失败:', error)
           setLatestInterviewRecord(null)
+          setInterviewHistory([])
         }
       } catch (error) {
         console.error('加载路径档案失败:', error)
@@ -316,6 +322,7 @@ export default function Profile() {
             <div className="mt-2 flex flex-wrap gap-2 text-xs">
               <span className="rounded-full bg-white/15 px-2 py-1 text-white">{roleLabels[effectiveRole] || effectiveRole}</span>
               <span className="rounded-full bg-white/15 px-2 py-1 text-white">{planLabels[effectivePlan] || effectivePlan}</span>
+              {hasBarServerPack && <span className="rounded-full bg-emerald-400/25 px-2 py-1 text-white">Bar Server 完整包</span>}
               {crewVerificationStatus === 'verified' && <span className="rounded-full bg-emerald-400/25 px-2 py-1 text-white">Crew 已认证</span>}
               {mentorStatus === 'active' && <span className="rounded-full bg-emerald-400/25 px-2 py-1 text-white">Mentor 已启用</span>}
               {isPreviewing && <span className="rounded-full bg-amber-300/25 px-2 py-1 text-white">预览模式</span>}
@@ -357,6 +364,36 @@ export default function Profile() {
             </button>
           </div>
         </section>
+
+        {interviewHistory.length > 0 && (
+          <section className="bg-white rounded-xl shadow-sm p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-bold text-gray-900">面试训练记录</h2>
+                <p className="mt-1 text-xs text-gray-500">最近 {interviewHistory.length} 次 AI 训练，按时间从新到旧</p>
+              </div>
+              <button type="button" onClick={() => navigate('/tasks/phase2/Task7/voice?position=bar_server')} className="text-sm font-medium text-blue-700">继续训练</button>
+            </div>
+            <div className="mt-4 space-y-2">
+              {interviewHistory.map((record, index) => {
+                const nextOlder = interviewHistory[index + 1]
+                const delta = nextOlder ? Number(record.overall_score || 0) - Number(nextOlder.overall_score || 0) : null
+                return (
+                  <div key={record.id} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">{record.target_position || '岗位面试训练'}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">{new Date(record.created_at).toLocaleString('zh-CN')}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {delta !== null && <span className={`text-xs font-semibold ${delta >= 0 ? 'text-emerald-700' : 'text-amber-700'}`}>{delta >= 0 ? '+' : ''}{delta}</span>}
+                      <span className="min-w-12 rounded-lg bg-white px-2 py-1 text-center text-sm font-bold text-blue-800">{record.overall_score || 0}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         <section className={`rounded-xl border p-4 shadow-sm ${
           serviceRecommendation.tone === 'amber'

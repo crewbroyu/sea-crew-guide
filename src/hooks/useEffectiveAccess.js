@@ -21,6 +21,7 @@ export default function useEffectiveAccess() {
       plan: 'free',
       crewVerificationStatus: 'unverified',
       mentorStatus: 'inactive',
+      productEntitlements: [],
     },
     free: {
       isRegistered: true,
@@ -29,6 +30,7 @@ export default function useEffectiveAccess() {
       plan: 'free',
       crewVerificationStatus: 'unverified',
       mentorStatus: 'inactive',
+      productEntitlements: [],
     },
     premium: {
       isRegistered: true,
@@ -37,6 +39,7 @@ export default function useEffectiveAccess() {
       plan: 'premium',
       crewVerificationStatus: 'unverified',
       mentorStatus: 'inactive',
+      productEntitlements: [{ product_code: 'bar_server_pack', status: 'active', source: 'preview' }],
     },
     mentor: {
       isRegistered: true,
@@ -45,6 +48,7 @@ export default function useEffectiveAccess() {
       plan: 'premium',
       crewVerificationStatus: 'verified',
       mentorStatus: 'active',
+      productEntitlements: [{ product_code: 'bar_server_pack', status: 'active', source: 'preview' }],
     },
   }[previewMode]
 
@@ -57,6 +61,7 @@ export default function useEffectiveAccess() {
     isAdmin: false,
     crewVerificationStatus: preview.crewVerificationStatus,
     mentorStatus: preview.mentorStatus,
+    productEntitlements: preview.productEntitlements,
     effectiveRole: preview.role,
     effectivePlan: preview.plan,
     isPreviewing: true,

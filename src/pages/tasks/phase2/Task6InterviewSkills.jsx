@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { syncLocalPathProfile } from '../../../services/userPathService';
-import { upsertMyInterviewAnswerProfile } from '../../../services/interviewAnswerService';
+import { getMyInterviewAnswerProfile, upsertMyInterviewAnswerProfile } from '../../../services/interviewAnswerService';
 
 // 封装 localStorage 工具函数
 const STORAGE_KEY = 'task6_data';
@@ -34,7 +34,34 @@ const loadFromLocalStorage = (defaultValue) => {
   }
 };
 
+const readJson = (key, fallback = {}) => {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch (error) {
+    console.warn(`Unable to read ${key}:`, error);
+    return fallback;
+  }
+};
+
 const answerCards = [
+  {
+    id: 'bar_knowledge',
+    title: '我的 Bar Server 岗位知识回答',
+    description: '把任务5学到的酒水、推荐和安全知识整理成一段能在面试里说清楚的回答。',
+    status: 'available',
+    roles: ['barServer'],
+    focusPoints: ['不是背品牌清单', '讲清分类、客人需求和服务动作', '不确定时要核实，不越权承诺'],
+    referenceCase: '使用任务5的六大基酒、经典鸡尾酒、Ask → Match → Explain → Confirm 推荐公式和责任售酒原则。面试官更在意你能否正确运用，而不是背出最多酒名。',
+    avoidAnswer: 'I know many cocktails and all cruise ship menus.',
+    fields: [
+      { key: 'spiritFamilies', label: '你能说出哪些主要基酒和代表饮品？', placeholder: '例如：Vodka is neutral and is commonly used in a Moscow Mule or Vodka Soda...' },
+      { key: 'recommendation', label: '客人不知道点什么时，你怎么推荐？', placeholder: '写清确认偏好、匹配饮品、解释风味和确认套餐的顺序。' },
+      { key: 'serviceFlow', label: '你理解的完整 Bar Server 服务流程是什么？', placeholder: '从问候、点单、POS、交接、送达、回访到清台。' },
+      { key: 'safety', label: '责任售酒和不确定信息怎么处理？', placeholder: '说明年龄核验、疑似醉酒、过敏信息和核实公司政策。' },
+      { key: 'learning', label: '上船后你会怎样快速学习当前酒吧菜单？', placeholder: '例如学习 approved recipes、brands、package rules、POS buttons 和库存。' },
+    ],
+  },
   {
     id: 'service_case',
     title: '我的服务案例',
@@ -120,6 +147,17 @@ const answerCards = [
 // 主组件
 function Task6InterviewSkills() {
   const navigate = useNavigate();
+  const [task5Context] = useState(() => {
+    const task5Result = readJson('task5_result', {});
+    const task5Data = readJson('task5_data', {});
+    const foundationProgress = task5Result.foundationProgress || task5Data.foundationProgress || {};
+    return {
+      selectedRole: task5Result.selectedRole || task5Data.selectedRole || null,
+      foundationProgress,
+      foundationCompletedDays: task5Result.foundationCompletedDays
+        || Object.values(foundationProgress).filter((day) => day?.completedAt).length,
+    };
+  });
   const [activeAnswerCardId, setActiveAnswerCardId] = useState(null);
   const [answerCardData, setAnswerCardData] = useState(() => {
     const data = loadFromLocalStorage({});
@@ -130,6 +168,22 @@ function Task6InterviewSkills() {
   useEffect(() => {
     saveToLocalStorage({ answerCardData });
   }, [answerCardData]);
+
+  useEffect(() => {
+    const localData = loadFromLocalStorage({});
+    if (Object.keys(localData.answerCardData || {}).length) return;
+
+    getMyInterviewAnswerProfile()
+      .then((profile) => {
+        if (!profile?.answer_cards?.length) return;
+        const restored = profile.answer_cards.reduce((result, card) => {
+          if (card?.id) result[card.id] = card.answers || {};
+          return result;
+        }, {});
+        setAnswerCardData(restored);
+      })
+      .catch((error) => console.error('恢复云端面试答案卡失败:', error));
+  }, []);
 
   const handleAnswerCardChange = (cardId, field, value) => {
     setAnswerCardData(prev => ({
@@ -147,10 +201,26 @@ function Task6InterviewSkills() {
     return card.fields.every(field => saved[field.key]?.trim());
   };
 
-  const preparedAnswerCount = answerCards.filter(card => isAnswerCardCompleted(card)).length;
+  const visibleAnswerCards = answerCards.filter(
+    (card) => !card.roles || card.roles.includes(task5Context.selectedRole),
+  );
+  const preparedAnswerCount = visibleAnswerCards.filter(card => isAnswerCardCompleted(card)).length;
 
   const buildAnswerCardOutput = (cardId) => {
     const data = answerCardData[cardId] || {};
+
+    if (cardId === 'bar_knowledge') {
+      const spiritFamilies = data.spiritFamilies || 'the main spirit families include vodka, gin, rum, tequila, whiskey, and brandy';
+      const recommendation = data.recommendation || 'I ask about the guest’s preferred base spirit, sweetness, flavor, and beverage package before recommending one suitable option';
+      const serviceFlow = data.serviceFlow || 'I greet the guest, confirm and enter the order accurately, communicate with the bartender, serve the correct drink, and follow up';
+      const safety = data.safety || 'I follow age-verification and responsible-service policies, and I verify any recipe, allergy, or package information I am not sure about';
+      const learning = data.learning || 'I will study the approved menu, recipes, brands, package rules, POS buttons, and stock for my assigned venue';
+
+      return {
+        basic: `I have built a practical foundation in bar service. ${spiritFamilies}. When a guest is unsure, ${recommendation}. During service, ${serviceFlow}. For safety and accuracy, ${safety}. After joining the ship, ${learning}.`,
+        concise: `I understand the main spirit families and common cocktail styles. When recommending a drink, ${recommendation}. I always follow responsible-service rules and verify information instead of guessing. Onboard, ${learning}.`,
+      };
+    }
 
     if (cardId === 'pressure_case') {
       const context = data.context || 'we had a very busy shift';
@@ -218,7 +288,7 @@ function Task6InterviewSkills() {
 
   const completeTask6FromWorkbench = async () => {
     const completedAt = new Date().toISOString();
-    const preparedCards = answerCards.map(card => ({
+    const preparedCards = visibleAnswerCards.map(card => ({
       id: card.id,
       title: card.title,
       completed: isAnswerCardCompleted(card),
@@ -230,6 +300,7 @@ function Task6InterviewSkills() {
       completedAt,
       preparedAnswerCount,
       answerCards: preparedCards,
+      task5KnowledgeContext: task5Context.selectedRole === 'barServer' ? task5Context : null,
     };
     localStorage.setItem('task6_result', JSON.stringify(taskResult));
 
@@ -254,17 +325,26 @@ function Task6InterviewSkills() {
       last_completed_task_id: 6,
     });
 
-    navigate('/tasks');
+    navigate(
+      task5Context.selectedRole === 'barServer'
+        ? '/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task6'
+        : '/tasks?justCompleted=6'
+    );
   };
   
   const renderAnswerCardDetail = () => {
-    const card = answerCards.find(item => item.id === activeAnswerCardId);
+    const card = visibleAnswerCards.find(item => item.id === activeAnswerCardId);
     if (!card) return null;
 
     const saved = answerCardData[card.id] || {};
     const generated = buildAnswerCardOutput(card.id);
     const completed = isAnswerCardCompleted(card);
     const followUpQuestions = {
+      bar_knowledge: [
+        'What basic spirits and classic cocktails do you know?',
+        'How would you recommend a drink to an undecided guest?',
+        'What would you do if you did not know a cocktail recipe or package rule?',
+      ],
       service_case: [
         'What exactly did you do first?',
         'How did the guest react?',
@@ -412,7 +492,7 @@ function Task6InterviewSkills() {
           <div className="mt-5 grid grid-cols-3 gap-3">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">已准备回答</p>
-              <p className="mt-1 text-lg font-bold text-slate-950">{preparedAnswerCount}/5</p>
+              <p className="mt-1 text-lg font-bold text-slate-950">{preparedAnswerCount}/{visibleAnswerCards.length}</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">完成条件</p>
@@ -420,19 +500,29 @@ function Task6InterviewSkills() {
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">下一步</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">服务案例</p>
+              <p className="mt-1 text-sm font-semibold text-slate-950">{task5Context.selectedRole === 'barServer' ? '岗位知识回答' : '服务案例'}</p>
             </div>
           </div>
         </div>
         
         <div className="px-6 py-5">
+          {task5Context.selectedRole === 'barServer' && (
+            <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <p className="text-xs font-semibold text-blue-700">来自任务5 · Bar Server 基础课</p>
+              <h2 className="mt-1 font-semibold text-blue-950">已学习 {task5Context.foundationCompletedDays}/7 天，先把知识整理成自己的回答</h2>
+              <p className="mt-1 text-sm leading-6 text-blue-900">
+                系统已经把基酒、鸡尾酒推荐、服务流程和责任售酒带入第一张答案卡。完成后，任务7会用对应问题检查你能不能真正说出来。
+              </p>
+            </section>
+          )}
+
           <section className="mb-6">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-bold text-slate-950">我的面试答案卡</h2>
               <span className="text-xs text-slate-500">完成 3 张即可进入下一步</span>
             </div>
             <div className="space-y-3">
-              {answerCards.map((card) => {
+              {visibleAnswerCards.map((card) => {
                 const completed = isAnswerCardCompleted(card);
                 const available = card.status === 'available';
 
@@ -483,7 +573,9 @@ function Task6InterviewSkills() {
               <div>
                 <h2 className="font-bold text-slate-950">进入下一步前，请先准备 3 个可用回答</h2>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  这三个回答会直接服务于后面的 AI 模拟面试：服务案例、压力案例和岗位动机。
+                  {task5Context.selectedRole === 'barServer'
+                    ? '建议优先完成岗位知识回答、服务案例和压力案例，它们会直接进入任务7的知识与场景训练。'
+                    : '这三个回答会直接服务于后面的 AI 模拟面试：服务案例、压力案例和岗位动机。'}
                 </p>
               </div>
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${

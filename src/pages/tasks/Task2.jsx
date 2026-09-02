@@ -824,7 +824,7 @@ const Task2 = () => {
           className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
         >
           {isBarPosition(selectedTargetJob)
-            ? '免费体验 Bar Server 场景训练'
+            ? '免费体验 Bar Server 前 3 个场景'
             : isRetailPosition(selectedTargetJob)
               ? '查看免税店岗位准备路径'
               : '查看岗位提升内容'}

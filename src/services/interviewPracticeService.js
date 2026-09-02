@@ -74,3 +74,18 @@ export const getLatestInterviewPracticeRecord = async () => {
   if (error) throw error
   return data
 }
+
+export const getInterviewPracticeHistory = async (limit = 10) => {
+  const user = await getCurrentUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('interview_practice_records')
+    .select('id, target_position, source, overall_score, rating, weak_points, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Math.max(Number(limit) || 10, 1), 30))
+
+  if (error) throw error
+  return data || []
+}

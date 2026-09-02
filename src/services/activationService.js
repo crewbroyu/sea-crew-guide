@@ -26,6 +26,8 @@ export const generateBatchCodes = async (count = 50) => {
         code: newCode,
         is_used: false,
         type: 'beta',
+        product_code: 'bar_server_pack',
+        access_days: 180,
       });
     }
   }
@@ -126,6 +128,21 @@ export const getUserAccessStatus = async (user) => {
   const hasPremium = data?.access_status === 'active' && premiumHasNotExpired
     && (data?.unlocked || data?.plan === 'premium' || isAdmin);
 
+  const { data: entitlementData, error: entitlementError } = await supabase
+    .from('user_entitlements')
+    .select('product_code, status, starts_at, expires_at, ai_feedback_limit, mock_interview_limit, source')
+    .eq('user_id', user.id)
+    .eq('status', 'active');
+
+  if (entitlementError) {
+    console.warn('Product entitlement lookup failed:', entitlementError);
+  }
+
+  const now = Date.now();
+  const productEntitlements = (entitlementData || []).filter((entitlement) => (
+    !entitlement.expires_at || new Date(entitlement.expires_at).getTime() > now
+  ));
+
   let mentorProfile = null;
   const { data: mentorData, error: mentorError } = await supabase
     .from('mentor_profiles')
@@ -152,9 +169,16 @@ export const getUserAccessStatus = async (user) => {
     plan: data?.plan || 'free',
     accessStatus: data?.access_status || 'active',
     premiumUntil: data?.premium_until || null,
+    productEntitlements,
     crewVerificationStatus: mentorProfile?.crew_verification_status || 'unverified',
     mentorStatus: mentorProfile?.mentor_status || 'inactive',
   };
+};
+
+export const hasProductEntitlement = (access, productCode) => {
+  if (!productCode) return false;
+  if (access?.isAdmin || access?.isUnlocked) return true;
+  return (access?.productEntitlements || []).some((item) => item.product_code === productCode);
 };
 
 export const activationService = {
@@ -190,12 +214,14 @@ export const activationService = {
 
     const access = await getUserAccessStatus(user);
 
-    if (!access.isUnlocked) {
+    const activatedProductCode = data.product_code || null;
+    if (!access.isUnlocked && !hasProductEntitlement(access, activatedProductCode)) {
       throw new Error('Activation saved but access verification failed');
     }
 
     return {
       success: true,
+      productCode: activatedProductCode,
       unlockedAt: access.unlockedAt || data.unlocked_at || new Date().toISOString(),
     };
   },

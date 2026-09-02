@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import useEffectiveAccess from '../hooks/useEffectiveAccess';
+import { hasProductEntitlement } from '../services/activationService';
 
 function ActivationCheckingFallback() {
   return (
@@ -51,7 +52,9 @@ export default function RequireActivation({
   message,
   variant = 'page',
   autoOpen,
+  productCode,
 }) {
+  const access = useEffectiveAccess();
   const {
     isRegistered,
     isUnlocked,
@@ -61,7 +64,10 @@ export default function RequireActivation({
     isCheckingAccess,
     openRegisterModal,
     openUnlockModal,
-  } = useEffectiveAccess();
+  } = access;
+  const hasRequiredAccess = productCode
+    ? hasProductEntitlement(access, productCode)
+    : isUnlocked;
 
   const shouldAutoOpen = autoOpen ?? variant === 'page';
 
@@ -70,7 +76,7 @@ export default function RequireActivation({
 
     if (authChecked && !isCheckingAuth && !isRegistered) {
       openRegisterModal();
-    } else if (accessChecked && !isCheckingAccess && !isUnlocked) {
+    } else if (accessChecked && !isCheckingAccess && !hasRequiredAccess) {
       openUnlockModal();
     }
   }, [
@@ -79,7 +85,7 @@ export default function RequireActivation({
     isCheckingAccess,
     isCheckingAuth,
     isRegistered,
-    isUnlocked,
+    hasRequiredAccess,
     openRegisterModal,
     openUnlockModal,
     shouldAutoOpen,
@@ -108,7 +114,7 @@ export default function RequireActivation({
     );
   }
 
-  if (!isUnlocked) {
+  if (!hasRequiredAccess) {
     if (variant === 'inline') {
       return fallback || <InlineFallback label="Activate to start" onClick={openUnlockModal} />;
     }

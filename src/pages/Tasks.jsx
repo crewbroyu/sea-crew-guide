@@ -218,16 +218,6 @@ export default function Tasks() {
     navigate(route)
   }
 
-  const handleMarkCurrentDone = () => {
-    if (!currentTaskId) {
-      showToast('所有任务都已完成')
-      return
-    }
-
-    setCompletedTasks((prev) => (prev.includes(currentTaskId) ? prev : [...prev, currentTaskId]))
-    showToast('已更新当前进度')
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <Toast message={toast} onClose={() => setToast('')} />
@@ -287,7 +277,7 @@ export default function Tasks() {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5">
             <button
               type="button"
               onClick={() => (currentTask ? handleTaskClick(currentTask) : navigate('/profile'))}
@@ -296,15 +286,6 @@ export default function Tasks() {
               {currentTask ? '继续当前任务' : '查看个人中心'}
               <ArrowRight size={18} />
             </button>
-            {currentTask && (
-              <button
-                type="button"
-                onClick={handleMarkCurrentDone}
-                className="rounded-lg border border-slate-300 bg-white py-3 font-medium text-slate-700 transition hover:bg-slate-50"
-              >
-                标记当前步骤已完成
-              </button>
-            )}
           </div>
         </section>
 

@@ -154,17 +154,17 @@ export default function JobsCenter() {
               <Store size={22} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-blue-700">首个岗位训练闭环 · 免费试练</p>
+              <p className="text-xs font-medium text-blue-700">首个岗位训练闭环 · 3 个完整免费场景</p>
               <h2 className="mt-1 font-semibold text-slate-950">Bar Server 场景语音训练</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                完成一次真实回答，获得 AI 反馈，再按建议重练并比较前后变化。
+                练饮品推荐、客诉补救和安全拒酒；每题都有专业反馈、参考回答与重练对比。
               </p>
               <button
                 type="button"
                 onClick={() => navigate('/programs/bar-server')}
                 className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-700"
               >
-                开始免费场景训练
+                开始 3 个免费场景
                 <ArrowRight size={16} />
               </button>
             </div>

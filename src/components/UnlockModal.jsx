@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAccessStore } from '../store/accessStore';
-import { activationService } from '../services/activationService';
+import { activationService, hasProductEntitlement } from '../services/activationService';
 
 export default function UnlockModal() {
   const {
@@ -28,7 +28,7 @@ export default function UnlockModal() {
       const result = await activationService.activateCode(code);
       const access = await activationService.getUserAccessStatus(user);
 
-      if (!access.isUnlocked) {
+      if (!access.isUnlocked && !hasProductEntitlement(access, result.productCode)) {
         throw new Error('Activation saved but access verification failed');
       }
 
@@ -74,8 +74,8 @@ export default function UnlockModal() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Access granted. Full guide unlocked.</h3>
-            <p className="text-gray-600">已解锁完整内容</p>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Activation successful</h3>
+            <p className="text-gray-600">对应产品权益已解锁</p>
           </div>
         ) : (
           <>

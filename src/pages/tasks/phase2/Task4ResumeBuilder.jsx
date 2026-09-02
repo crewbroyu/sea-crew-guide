@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, FileText } from 'lucide-react';
 import useResumeStore from '../../../store/resumeStore';
@@ -8,7 +9,7 @@ import StepEducation from '../../../components/resume/StepEducation';
 import StepSkillsCerts from '../../../components/resume/StepSkillsCerts';
 import ResumePreview from '../../../components/resume/ResumePreview';
 import { syncLocalPathProfile } from '../../../services/userPathService';
-import { upsertMyResumeProfile } from '../../../services/resumeProfileService';
+import { getMyResumeProfile, upsertMyResumeProfile } from '../../../services/resumeProfileService';
 import { getResumeGuidance, getTargetPositionFromTask2 } from '../../../data/resumeGuidance';
 
 const STEPS = [
@@ -34,9 +35,40 @@ export default function Task4ResumeBuilder() {
     skills,
     certificates,
     languages,
+    hydrateResume,
   } = useResumeStore();
   const targetPosition = getTargetPositionFromTask2();
   const guidance = getResumeGuidance(targetPosition);
+
+  useEffect(() => {
+    const hasLocalDraft = Boolean(
+      personalInfo.name || professionalSummary || workExperience.length
+      || education.length || skills.length || certificates.length || languages.length
+    );
+    if (hasLocalDraft) return;
+
+    getMyResumeProfile()
+      .then((profile) => {
+        if (!profile) return;
+        hydrateResume({
+          personalInfo: {
+            name: profile.name || '',
+            phone: profile.phone || '',
+            email: profile.email || '',
+            nationality: profile.nationality || '',
+            location: profile.location || '',
+            passportStatus: profile.passport_status || '',
+          },
+          professionalSummary: profile.professional_summary || '',
+          workExperience: profile.work_experience || [],
+          education: profile.education || [],
+          skills: profile.skills || [],
+          certificates: profile.certificates || [],
+          languages: profile.languages || [],
+        });
+      })
+      .catch((error) => console.error('恢复云端简历失败:', error));
+  }, [certificates.length, education.length, hydrateResume, languages.length, personalInfo.name, professionalSummary, skills.length, workExperience.length]);
 
   const handleComplete = async () => {
     const completedAt = new Date().toISOString();

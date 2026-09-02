@@ -503,7 +503,7 @@ export default function ResultPage({
                   {job.id === 'retail'
                     ? '查看免税店岗位准备路径'
                     : job.id === 'bar'
-                      ? '免费体验 Bar Server 场景训练'
+                      ? '免费体验 Bar Server 前 3 个场景'
                       : '查看岗位介绍'}
                 </button>
               </article>

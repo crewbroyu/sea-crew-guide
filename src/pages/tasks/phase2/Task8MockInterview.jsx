@@ -769,7 +769,7 @@ function Task8MockInterview() {
                 </div>
               )}
 
-              <RequireActivation variant="inline">
+              <RequireActivation variant="inline" productCode={selectedPosition === 'bar_server' ? 'bar_server_pack' : undefined}>
               <button
                 onClick={startInterview}
                 disabled={!selectedPosition}

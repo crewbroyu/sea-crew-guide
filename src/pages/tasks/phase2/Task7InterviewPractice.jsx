@@ -1,6 +1,6 @@
 // src/pages/tasks/phase2/Task7InterviewPractice.jsx
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   BarChart3,
@@ -15,18 +15,32 @@ import {
 } from 'lucide-react';
 import TaskLayout from '../../../components/TaskLayout';
 import interviewQuestions, { positionConfig } from '../../../data/interviewQuestions';
+import { barServerFoundationDays } from '../../../data/barServerFoundation';
 import useEffectiveAccess from '../../../hooks/useEffectiveAccess';
+import { hasProductEntitlement } from '../../../services/activationService';
 import {
   evaluateInterviewWithAi,
   transcribeInterviewAudio,
 } from '../../../services/interviewAiService';
 import { saveInterviewPracticeRecord } from '../../../services/interviewPracticeService';
+import { upsertMyJobPreparation } from '../../../services/jobPreparationService';
 import { syncLocalPathProfile } from '../../../services/userPathService';
 import { normalizeInterviewPosition } from '../../../utils/interviewPosition';
 
 const STORAGE_KEY = 'task7_voice_practice';
 const RESULT_KEY = 'task7_result';
-const PRACTICE_VERSION = 4;
+const PRACTICE_VERSION = 5;
+
+const barKnowledgeQuestionIds = [
+  'bs_02',
+  'bs_04',
+  'bs_05',
+  'bs_26',
+  'bs_28',
+  'bs_31',
+  'bs_33',
+  'bs_39',
+];
 
 const readJson = (key, fallback = null) => {
   try {
@@ -52,6 +66,45 @@ const stripEphemeralAudioUrls = (answers = {}) =>
       return [questionId, persistableAnswer];
     })
   );
+
+const uniqueItems = (items = []) => [...new Set(items.filter(Boolean))];
+
+const buildFoundationMastery = ({ questions, evaluation, currentProgress = {} }) => {
+  const scoredQuestions = questions.map((question, index) => ({
+    question,
+    score: evaluation?.questionScores?.[index] || {},
+  }));
+
+  return barServerFoundationDays.reduce((nextProgress, day) => {
+    const relevantScores = scoredQuestions.filter(({ question }) =>
+      day.task7QuestionIds?.includes(question.id)
+    );
+    if (!relevantScores.length) return nextProgress;
+
+    const lastScore = Math.round(
+      relevantScores.reduce((sum, item) => sum + Number(item.score.score || 0), 0)
+      / (relevantScores.length * 20)
+      * 100
+    );
+    const previousPractice = currentProgress[day.id]?.practice || {};
+    const bestScore = Math.max(Number(previousPractice.bestScore || 0), lastScore);
+
+    nextProgress[day.id] = {
+      ...(currentProgress[day.id] || {}),
+      practice: {
+        ...previousPractice,
+        lastScore,
+        bestScore,
+        status: bestScore >= 70 ? 'mastered' : bestScore >= 50 ? 'developing' : 'needs_practice',
+        questionIds: relevantScores.map((item) => item.question.id),
+        improvements: uniqueItems(relevantScores.flatMap((item) => item.score.improvements || [])).slice(0, 4),
+        missedKeywords: uniqueItems(relevantScores.flatMap((item) => item.score.missedKeywords || [])).slice(0, 6),
+        practicedAt: new Date().toISOString(),
+      },
+    };
+    return nextProgress;
+  }, { ...currentProgress });
+};
 
 const getTimestamp = () => Date.now();
 
@@ -163,8 +216,22 @@ const inferQuestionKeywords = (question) => {
   return ['experience', 'example', 'action', 'service', 'result'];
 };
 
-const buildPracticeQuestions = (positionKey, roundNumber = 0) => {
+const buildPracticeQuestions = (positionKey, roundNumber = 0, practiceMode = 'standard') => {
   const bank = interviewQuestions[positionKey]?.questions || interviewQuestions.retail.questions;
+
+  if (practiceMode === 'knowledge' && positionKey === 'bar_server') {
+    return barKnowledgeQuestionIds
+      .map((questionId) => bank.find((item) => item.id === questionId))
+      .filter(Boolean)
+      .map((item, index) => ({
+        ...item,
+        order: index + 1,
+        phase: item.category ? (categoryLabels[item.category] || 'Knowledge Review') : 'Knowledge Review',
+        focus: item.tip || '先讲清知识，再说明如何把它用于客人服务。',
+        keywords: inferQuestionKeywords(item),
+      }));
+  }
+
   const roleBank = bank.filter((item) => {
     const text = item.question.toLowerCase();
     return !text.includes('why do you want to work on a cruise ship') &&
@@ -230,15 +297,25 @@ const getPreparationSnapshot = () => {
 
 function Task7InterviewPractice() {
   const navigate = useNavigate();
-  const { isRegistered, openRegisterModal } = useEffectiveAccess();
+  const [searchParams] = useSearchParams();
+  const access = useEffectiveAccess();
+  const { isRegistered, openRegisterModal } = access;
+  const requestedPosition = normalizeInterviewPosition(searchParams.get('position'), '');
+  const practiceMode = searchParams.get('mode') === 'knowledge' ? 'knowledge' : 'standard';
   const savedPractice = useMemo(() => readJson(STORAGE_KEY, {}), []);
-  const compatiblePractice = savedPractice.version === PRACTICE_VERSION ? savedPractice : {};
-  const [targetPositionKey] = useState(getTargetPositionKey);
+  const compatiblePractice = savedPractice.version === PRACTICE_VERSION
+    && savedPractice.practiceMode === practiceMode
+    && (!requestedPosition || savedPractice.targetPositionKey === requestedPosition)
+    ? savedPractice
+    : {};
+  const [targetPositionKey] = useState(() => requestedPosition || getTargetPositionKey());
   const [roundNumber, setRoundNumber] = useState(compatiblePractice.roundNumber || 0);
   const targetPosition = useMemo(() => getTargetPositionMeta(targetPositionKey), [targetPositionKey]);
+  const hasPaidAiAccess = access.isUnlocked
+    || (targetPositionKey === 'bar_server' && hasProductEntitlement(access, 'bar_server_pack'));
   const questions = useMemo(
-    () => buildPracticeQuestions(targetPositionKey, roundNumber),
-    [roundNumber, targetPositionKey]
+    () => buildPracticeQuestions(targetPositionKey, roundNumber, practiceMode),
+    [practiceMode, roundNumber, targetPositionKey]
   );
   const preparationSnapshot = useMemo(() => getPreparationSnapshot(), []);
   const [stage, setStage] = useState(compatiblePractice.stage || 'briefing');
@@ -273,8 +350,9 @@ function Task7InterviewPractice() {
       answers: stripEphemeralAudioUrls(answers),
       evaluation,
       targetPositionKey,
+      practiceMode,
     });
-  }, [answers, currentQuestionIndex, evaluation, roundNumber, stage, targetPositionKey]);
+  }, [answers, currentQuestionIndex, evaluation, practiceMode, roundNumber, stage, targetPositionKey]);
 
   useEffect(() => () => {
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -418,9 +496,54 @@ function Task7InterviewPractice() {
     }
   };
 
+  const persistKnowledgeMastery = async (evaluationData) => {
+    if (practiceMode !== 'knowledge' || targetPositionKey !== 'bar_server') return null;
+
+    const task5Data = readJson('task5_data', {});
+    const currentProgress = task5Data.foundationProgress || {};
+    const foundationProgress = buildFoundationMastery({
+      questions,
+      evaluation: evaluationData,
+      currentProgress,
+    });
+    writeJson('task5_data', {
+      ...task5Data,
+      selectedRole: task5Data.selectedRole || 'barServer',
+      foundationProgress,
+    });
+
+    const task5Result = readJson('task5_result', {});
+    if (task5Result.taskId === 5) {
+      const updatedTask5Result = {
+        ...task5Result,
+        foundationProgress,
+        learningRecords: {
+          ...(task5Result.learningRecords || {}),
+          barServerFoundation: foundationProgress,
+        },
+        knowledgePracticeUpdatedAt: new Date().toISOString(),
+      };
+      writeJson('task5_result', updatedTask5Result);
+
+      try {
+        await upsertMyJobPreparation(updatedTask5Result);
+      } catch (error) {
+        console.error('同步岗位知识口头运用结果失败:', error);
+      }
+    }
+
+    return foundationProgress;
+  };
+
   const goToNextQuestion = async () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex((index) => index + 1);
+      return;
+    }
+
+    if (!hasPaidAiAccess) {
+      setEvaluationError('题库和录音可免费练习；AI逐题评分与训练报告属于岗位训练权益。');
+      navigate(`/premium?source=task7-ai-report&position=${targetPositionKey}`);
       return;
     }
 
@@ -434,12 +557,13 @@ function Task7InterviewPractice() {
 
     try {
       const evaluationData = await evaluateInterviewWithAi({
-        mode: 'practice',
+        mode: 'premium_practice',
         position: targetPosition.nameEn,
         questions,
         answers: normalizedAnswers,
       });
       setEvaluation(evaluationData);
+      await persistKnowledgeMastery(evaluationData);
       setStage('report');
     } catch (error) {
       console.error('AI 训练报告生成失败:', error);
@@ -481,6 +605,7 @@ function Task7InterviewPractice() {
       completedAt,
       targetPosition: targetPosition.key,
       targetPositionName: targetPosition.nameEn,
+      practiceMode,
       questions,
       answers: normalizedAnswers,
       evaluation,
@@ -494,11 +619,11 @@ function Task7InterviewPractice() {
     try {
       await saveInterviewPracticeRecord({
         targetPosition: targetPosition.key,
-        interviewerName: 'Task7 Voice Practice',
+        interviewerName: practiceMode === 'knowledge' ? 'Task7 Bar Knowledge Review' : 'Task7 Voice Practice',
         questions,
         answers: normalizedAnswers,
         evaluation,
-        source: 'voice_practice',
+        source: practiceMode === 'knowledge' ? 'task5_knowledge_review' : 'voice_practice',
       });
     } catch (error) {
       console.error('保存语音面试演练记录失败:', error);
@@ -517,10 +642,12 @@ function Task7InterviewPractice() {
   const renderBriefing = () => (
     <div className="space-y-5">
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-medium text-blue-700">语音演练第一轮</p>
-        <h2 className="mt-2 text-xl font-semibold text-slate-950">先把答案说出来，再追求说漂亮</h2>
+        <p className="text-sm font-medium text-blue-700">{practiceMode === 'knowledge' ? '任务5 → 任务7 · 知识巩固' : '语音演练第一轮'}</p>
+        <h2 className="mt-2 text-xl font-semibold text-slate-950">{practiceMode === 'knowledge' ? '把酒水知识说成岗位答案' : '先把答案说出来，再追求说漂亮'}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          本轮会根据你的目标岗位安排 8 道题。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案；你可以在评分前修改转写文本。
+          {practiceMode === 'knowledge'
+            ? '本轮固定练习任务5对应的 8 类 Bar Server 基础知识。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案。'
+            : '本轮会根据你的目标岗位安排 8 道题。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案；你可以在评分前修改转写文本。'}
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -532,7 +659,7 @@ function Task7InterviewPractice() {
           <div className="rounded-lg bg-slate-50 p-4">
             <p className="text-xs text-slate-500">题目数量</p>
             <p className="mt-1 font-semibold text-slate-950">{questions.length} 题</p>
-            <p className="text-sm text-slate-500">3 道核心题 + 5 道岗位题</p>
+            <p className="text-sm text-slate-500">{practiceMode === 'knowledge' ? '8 道岗位知识题' : '3 道核心题 + 5 道岗位题'}</p>
           </div>
         </div>
       </section>
@@ -565,7 +692,9 @@ function Task7InterviewPractice() {
           <div>
             <h2 className="font-semibold text-blue-950">本轮训练重点</h2>
             <p className="mt-1 text-sm leading-6 text-blue-900">
-              先练自我介绍、上船动机和服务案例，再从 {targetPosition.nameZh} 的 40 道题库中轮换抽取 5 道岗位题；重练下一轮会自动换题。
+              {practiceMode === 'knowledge'
+                ? '依次练基酒、Mojito、neat / on the rocks、饮品推荐、未知配方、开档检查、过敏处理和葡萄酒服务。AI会检查你是否把知识转成了准确的服务动作。'
+                : `先练自我介绍、上船动机和服务案例，再从 ${targetPosition.nameZh} 的 40 道题库中轮换抽取 5 道岗位题；重练下一轮会自动换题。`}
             </p>
           </div>
         </div>
@@ -717,7 +846,7 @@ function Task7InterviewPractice() {
             {isGeneratingEvaluation
               ? 'AI 正在生成报告...'
               : currentQuestionIndex === questions.length - 1
-                ? '生成 AI 训练报告'
+                ? hasPaidAiAccess ? '生成 AI 训练报告' : '解锁 AI 评分与报告'
                 : '保存并下一题'}
           </button>
         </div>
@@ -810,7 +939,9 @@ function Task7InterviewPractice() {
       <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
         <h2 className="font-semibold text-amber-950">下一步建议</h2>
         <p className="mt-1 text-sm leading-6 text-amber-900">
-          如果总分低于 70，建议先重练低分题；如果已经超过 70，可以进入完整 AI 模拟，把追问和临场表现练起来。
+          {practiceMode === 'knowledge'
+            ? '分数已经按课程天数回写到任务5。低于70分的知识模块会标记为“建议重练”，你可以回去复习对应内容后再练一轮。'
+            : '如果总分低于 70，建议先重练低分题；如果已经超过 70，可以进入完整 AI 模拟，把追问和临场表现练起来。'}
         </p>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button
@@ -823,10 +954,10 @@ function Task7InterviewPractice() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/tasks/phase2/Task7/mock')}
+            onClick={() => navigate(practiceMode === 'knowledge' ? '/tasks/phase2/Task5' : '/tasks/phase2/Task7/mock')}
             className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
           >
-            完整 AI 模拟
+            {practiceMode === 'knowledge' ? '查看任务5能力状态' : '完整 AI 模拟'}
             <ArrowRight size={16} />
           </button>
         </div>
@@ -835,7 +966,9 @@ function Task7InterviewPractice() {
       <section className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
         <div className="flex gap-2">
           <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-700" />
-          <p>点击底部“完成任务”后，本轮结果会写入申请进度。登录用户会同步到后台面试练习记录。</p>
+          <p>{practiceMode === 'knowledge'
+            ? '知识分项成绩已经回写任务5。点击底部“完成任务”后，本轮完整记录还会写入申请进度和后台面试练习记录。'
+            : '点击底部“完成任务”后，本轮结果会写入申请进度。登录用户会同步到后台面试练习记录。'}</p>
         </div>
       </section>
     </div>

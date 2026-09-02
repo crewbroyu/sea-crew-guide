@@ -144,6 +144,17 @@ const useResumeStore = create(
       removeLanguage: (id) =>
         set((s) => ({ languages: s.languages.filter((l) => l.id !== id) })),
 
+      hydrateResume: (resume) => set((state) => ({
+        ...state,
+        personalInfo: { ...state.personalInfo, ...(resume.personalInfo || {}) },
+        professionalSummary: resume.professionalSummary || '',
+        workExperience: resume.workExperience || [],
+        education: resume.education || [],
+        skills: resume.skills || [],
+        certificates: resume.certificates || [],
+        languages: resume.languages || [],
+      })),
+
       // Reset
       resetResume: () => set(initialState),
     }),

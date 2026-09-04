@@ -86,6 +86,12 @@ create table if not exists public.ai_usage_events (
 create index if not exists ai_usage_events_user_product_idx
   on public.ai_usage_events (user_id, product_code, action, created_at desc);
 
+-- A client request can be retried after a network interruption. Keep one paid
+-- usage record for that logical request instead of charging the quota twice.
+create unique index if not exists ai_usage_events_paid_request_id_idx
+  on public.ai_usage_events (user_id, product_code, action, request_id)
+  where product_code is not null and request_id is not null;
+
 alter table public.activation_codes
   add column if not exists product_code text references public.products(code),
   add column if not exists access_days integer check (access_days is null or access_days > 0);
@@ -290,7 +296,7 @@ create or replace function public.record_ai_usage_event(
 )
 returns bigint
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
@@ -305,29 +311,68 @@ begin
     raise exception 'Invalid AI action';
   end if;
 
-  insert into public.ai_usage_events (
-    user_id,
-    product_code,
-    action,
-    mode,
-    scenario_id,
-    provider,
-    model,
-    request_id,
-    success
-  )
-  values (
-    actor_user_id,
-    input_product_code,
-    input_action,
-    left(input_mode, 80),
-    left(input_scenario_id, 160),
-    left(input_provider, 80),
-    left(input_model, 120),
-    left(input_request_id, 200),
-    true
-  )
-  returning id into inserted_id;
+  if input_product_code is not null and input_request_id is not null then
+    insert into public.ai_usage_events (
+      user_id,
+      product_code,
+      action,
+      mode,
+      scenario_id,
+      provider,
+      model,
+      request_id,
+      success
+    )
+    values (
+      actor_user_id,
+      input_product_code,
+      input_action,
+      left(input_mode, 80),
+      left(input_scenario_id, 160),
+      left(input_provider, 80),
+      left(input_model, 120),
+      left(input_request_id, 200),
+      true
+    )
+    on conflict (user_id, product_code, action, request_id)
+      where product_code is not null and request_id is not null
+    do nothing
+    returning id into inserted_id;
+
+    if inserted_id is null then
+      select id
+      into inserted_id
+      from public.ai_usage_events
+      where user_id = actor_user_id
+        and product_code = input_product_code
+        and action = input_action
+        and request_id = left(input_request_id, 200);
+    end if;
+  else
+    insert into public.ai_usage_events (
+      user_id,
+      product_code,
+      action,
+      mode,
+      scenario_id,
+      provider,
+      model,
+      request_id,
+      success
+    )
+    values (
+      actor_user_id,
+      input_product_code,
+      input_action,
+      left(input_mode, 80),
+      left(input_scenario_id, 160),
+      left(input_provider, 80),
+      left(input_model, 120),
+      left(input_request_id, 200),
+      true
+    )
+    returning id into inserted_id;
+  end if;
 
   return inserted_id;
 end;
@@ -338,10 +383,7 @@ revoke all on function public.record_ai_usage_event(text, text, text, text, text
 grant execute on function public.record_ai_usage_event(text, text, text, text, text, text, text)
   to authenticated;
 
-grant insert on table public.ai_usage_events to authenticated;
+-- The RPC above is the only write path. Clients may read their own usage but
+-- cannot create arbitrary rows or manipulate their remaining quota display.
+revoke insert on table public.ai_usage_events from authenticated;
 drop policy if exists "Users can record own AI usage" on public.ai_usage_events;
-create policy "Users can record own AI usage"
-on public.ai_usage_events
-for insert
-to authenticated
-with check ((select auth.uid()) = user_id);

@@ -143,6 +143,7 @@ function Task8MockInterview() {
   const [recognitionStatus, setRecognitionStatus] = useState('idle');
   const [answerReady, setAnswerReady] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [aiErrorCode, setAiErrorCode] = useState('');
   const [showMismatchModal, setShowMismatchModal] = useState(false);
 
   // ==================== Refs ====================
@@ -461,6 +462,7 @@ function Task8MockInterview() {
     await stopListening();
     setStage('scoring');
     setAiError('');
+    setAiErrorCode('');
 
     const allQuestions = extractedQuestionsRef.current;
 
@@ -503,6 +505,7 @@ function Task8MockInterview() {
     } catch (error) {
       console.error('AI 面试评分失败:', error);
       setAiError(error.message || 'AI 评分生成失败，请稍后重试。');
+      setAiErrorCode(error.code || '');
       if (error.code === 'LOGIN_REQUIRED') openRegisterModal();
       if (error.code === 'ACTIVATION_REQUIRED') openUnlockModal();
       isTransitioningRef.current = false;
@@ -1001,7 +1004,12 @@ function Task8MockInterview() {
                 <p className="text-sm leading-6 text-red-700">{aiError}</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button onClick={backToTasks} className="rounded-lg bg-gray-100 px-4 py-3 font-medium text-gray-700">返回</button>
-                  <button onClick={finishInterview} className="rounded-lg bg-blue-600 px-4 py-3 font-medium text-white">重新生成</button>
+                  <button
+                    onClick={() => aiErrorCode === 'AI_QUOTA_EXHAUSTED' ? navigate('/premium?source=task8-ai-quota') : finishInterview()}
+                    className="rounded-lg bg-blue-600 px-4 py-3 font-medium text-white"
+                  >
+                    {aiErrorCode === 'AI_QUOTA_EXHAUSTED' ? '查看权益方案' : '重新生成'}
+                  </button>
                 </div>
               </div>
             ) : (

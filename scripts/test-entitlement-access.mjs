@@ -2,6 +2,22 @@ import assert from 'node:assert/strict'
 import { handleInterviewRequest } from '../server/interviewAi.js'
 
 let providerCalls = 0
+let accessResponse = {
+  unlocked: false,
+  role: 'member',
+  plan: 'free',
+  access_status: 'active',
+  premium_until: null,
+}
+let entitlementResponse = {
+  user_id: '00000000-0000-4000-8000-000000000002',
+  product_code: 'bar_server_pack',
+  status: 'active',
+  starts_at: '2026-01-01T00:00:00.000Z',
+  expires_at: '2027-01-01T00:00:00.000Z',
+  ai_feedback_limit: 120,
+  mock_interview_limit: 10,
+}
 
 globalThis.fetch = async (url) => {
   const target = String(url)
@@ -18,25 +34,11 @@ globalThis.fetch = async (url) => {
   }
 
   if (target.includes('/rest/v1/user_access')) {
-    return Response.json({
-      unlocked: false,
-      role: 'member',
-      plan: 'free',
-      access_status: 'active',
-      premium_until: null,
-    })
+    return Response.json(accessResponse)
   }
 
   if (target.includes('/rest/v1/user_entitlements')) {
-    return Response.json({
-      user_id: '00000000-0000-4000-8000-000000000002',
-      product_code: 'bar_server_pack',
-      status: 'active',
-      starts_at: '2026-01-01T00:00:00.000Z',
-      expires_at: '2027-01-01T00:00:00.000Z',
-      ai_feedback_limit: 120,
-      mock_interview_limit: 10,
-    })
+    return Response.json(entitlementResponse)
   }
 
   if (target.includes('/rest/v1/ai_usage_events')) {
@@ -96,6 +98,19 @@ assert.equal(providerCalls, 1)
 const denied = await request('Retail Sales')
 assert.equal(denied.status, 403)
 assert.equal(denied.body.error.code, 'ACTIVATION_REQUIRED')
+assert.equal(providerCalls, 1)
+
+entitlementResponse = null
+accessResponse = {
+  unlocked: true,
+  role: 'member',
+  plan: 'premium',
+  access_status: 'active',
+  premium_until: null,
+}
+const legacyDenied = await request('Bar Server')
+assert.equal(legacyDenied.status, 403)
+assert.equal(legacyDenied.body.error.code, 'ACTIVATION_REQUIRED')
 assert.equal(providerCalls, 1)
 
 console.log('Product entitlement access contract passed.')

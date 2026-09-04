@@ -1,24 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  AlertTriangle,
   ArrowRight,
-  Briefcase,
-  CheckCircle2,
   ChevronLeft,
   ClipboardList,
-  Lock,
   RotateCcw,
   Save,
-  ShieldCheck,
-  Sparkles,
 } from 'lucide-react'
 import { DIMENSIONS } from '../../data/assessmentData'
 import { getCareerConclusion, getLevel } from '../../data/assessmentScoring'
 import { useAccessStore } from '../../store/accessStore'
-import useEffectiveAccess from '../../hooks/useEffectiveAccess'
 import { saveAssessmentSubmission } from '../../services/assessmentService'
 import { syncLocalPathProfile } from '../../services/userPathService'
+import CareerReportPanel from './CareerReportPanel'
 
 const dimensionLabels = {
   eligibility: '基础可行性',
@@ -126,25 +120,6 @@ const getLowestDimensions = (dimensionScores) =>
     .sort((a, b) => a.score - b.score)
     .slice(0, 2)
 
-const premiumReportItems = [
-  {
-    title: '90 天准备路线',
-    description: '按当前短板拆成英语、岗位知识、简历和面试四条执行线。',
-  },
-  {
-    title: '英文简历修改方向',
-    description: '告诉你哪些经历应该放大，哪些表达需要改成邮轮岗位语言。',
-  },
-  {
-    title: '面试训练重点',
-    description: '根据目标岗位判断该先练服务案例、销售案例、客诉处理还是英文表达。',
-  },
-  {
-    title: '申请渠道建议',
-    description: '判断更适合低成本 DIY、指导型 DIY，还是需要更稳妥的渠道支持。',
-  },
-]
-
 const buildRoutePlan = (recommendations, lowestDimensions) => {
   const primaryJob = recommendations[0]?.title || '目标岗位'
   const firstGap = lowestDimensions[0]?.name || '英语服务沟通'
@@ -181,6 +156,14 @@ const buildRoutePlan = (recommendations, lowestDimensions) => {
   ]
 }
 
+const getSavedCareerReport = () => {
+  try {
+    return JSON.parse(localStorage.getItem('assessment_result') || '{}').careerReport || null
+  } catch {
+    return null
+  }
+}
+
 export default function ResultPage({
   dimensionScores,
   overallScore,
@@ -189,8 +172,7 @@ export default function ResultPage({
   onRestart,
 }) {
   const navigate = useNavigate()
-  const { userId, userEmail, openRegisterModal } = useAccessStore()
-  const { isRegistered, isUnlocked } = useEffectiveAccess()
+  const { userId, userEmail } = useAccessStore()
   const [contact, setContact] = useState({
     name: '',
     phone: '',
@@ -200,6 +182,7 @@ export default function ResultPage({
   })
   const [saveState, setSaveState] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
+  const [careerReport, setCareerReport] = useState(getSavedCareerReport)
 
   const overallLevel = getLevel(overallScore)
   const conclusion = getCareerConclusion(overallScore, dimensionScores)
@@ -222,14 +205,18 @@ export default function ResultPage({
         'assessment_result',
         JSON.stringify({
           ...savedResult,
-          recommendations: recommendations.map((job) => ({
-            id: job.id,
-            title: job.title,
-            matchScore: job.matchScore,
-            strengths: job.strengths,
-            risks: job.risks,
-            nextSteps: job.nextSteps,
-          })),
+          // Once generated, the AI report becomes the user's single job recommendation.
+          // Keep the rule-based result only before that report exists.
+          recommendations: savedResult.careerReport
+            ? savedResult.recommendations
+            : recommendations.map((job) => ({
+                id: job.id,
+                title: job.title,
+                matchScore: job.matchScore,
+                strengths: job.strengths,
+                risks: job.risks,
+                nextSteps: job.nextSteps,
+              })),
           lowestDimensions,
           routePlan,
         })
@@ -238,6 +225,24 @@ export default function ResultPage({
       console.warn('Unable to update assessment result recommendations:', error)
     }
   }, [lowestDimensions, recommendations, routePlan])
+
+  const activeRecommendations = useMemo(() => {
+    if (!careerReport?.recommendedPositions?.length) return recommendations
+
+    return careerReport.recommendedPositions.map((position) => {
+      const fallback = recommendations.find((job) => job.id === position.id)
+
+      return {
+        ...fallback,
+        id: position.id,
+        title: position.title || fallback?.title || position.id,
+        matchScore: position.matchScore,
+        strengths: position.reasons || [],
+        risks: position.risks || [],
+        nextSteps: position.nextSteps || [],
+      }
+    })
+  }, [careerReport, recommendations])
 
   const handleContactChange = (field, value) => {
     setContact((prev) => ({ ...prev, [field]: value }))
@@ -262,7 +267,7 @@ export default function ResultPage({
         overallScore,
         level: overallLevel,
         conclusion,
-        recommendations,
+        recommendations: activeRecommendations,
       })
       await syncLocalPathProfile({
         name: contact.name || undefined,
@@ -278,20 +283,6 @@ export default function ResultPage({
       setSaveState('error')
       setSaveMessage('保存失败。请确认 Supabase 已创建 assessment_submissions 表和 insert policy。')
     }
-  }
-
-  const handlePremiumAction = () => {
-    if (!isRegistered) {
-      openRegisterModal()
-      return
-    }
-
-    if (!isUnlocked) {
-      navigate('/premium')
-      return
-    }
-
-    navigate('/profile')
   }
 
   return (
@@ -335,83 +326,11 @@ export default function ResultPage({
           </div>
         </section>
 
-        <section className="mb-6 overflow-hidden rounded-lg border border-blue-200 bg-white shadow-sm">
-          <div className="border-b border-blue-100 bg-blue-50 p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-blue-700">
-                {isUnlocked ? <ShieldCheck size={21} /> : <Lock size={21} />}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-blue-700">付费核心</p>
-                <h2 className="mt-1 font-bold text-slate-950">完整职业路线报告</h2>
-                <p className="mt-1 text-sm leading-relaxed text-blue-900">
-                  基础测评告诉你适合什么岗位，完整报告解决下一步怎么准备、怎么申请、哪里最容易卡住。
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {!isUnlocked ? (
-            <div className="p-5">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {premiumReportItems.map((item) => (
-                  <div key={item.title} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <div className="mb-2 flex items-center gap-2">
-                      <Sparkles size={16} className="text-blue-600" />
-                      <h3 className="text-sm font-semibold text-slate-950">{item.title}</h3>
-                    </div>
-                    <p className="text-xs leading-relaxed text-slate-600">{item.description}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-5 rounded-lg border border-dashed border-blue-200 bg-blue-50 p-4">
-                <p className="text-sm font-medium text-blue-950">你当前可预览的结论</p>
-                <p className="mt-1 text-sm leading-relaxed text-blue-900">
-                  优先岗位是 {recommendations[0]?.title || '待确认岗位'}，最需要补的是 {lowestDimensions[0]?.name || '当前短板'}。
-                  激活后再生成完整 90 天路线、简历方向、面试训练重点和申请策略。
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handlePremiumAction}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
-              >
-                {isRegistered ? '查看激活方式' : '登录后解锁完整报告'}
-                <ArrowRight size={18} />
-              </button>
-            </div>
-          ) : (
-            <div className="p-5">
-              <div className="space-y-3">
-                {routePlan.map((phase) => (
-                  <article key={phase.period} className="rounded-lg border border-slate-200 bg-white p-4">
-                    <p className="text-xs font-medium text-blue-700">{phase.period}</p>
-                    <h3 className="mt-1 font-semibold text-slate-950">{phase.title}</h3>
-                    <div className="mt-3 space-y-2">
-                      {phase.tasks.map((task) => (
-                        <div key={task} className="flex gap-2 text-sm leading-relaxed text-slate-700">
-                          <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
-                          <span>{task}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </article>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => navigate('/profile')}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
-              >
-                保存到申请进度中心
-                <ArrowRight size={18} />
-              </button>
-            </div>
-          )}
-        </section>
+        <CareerReportPanel
+          assessment={{ overallScore, level: overallLevel.label, serviceBackground, dimensionScores, careerReport }}
+          fallbackRecommendations={recommendations}
+          onReportGenerated={setCareerReport}
+        />
 
         <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 font-bold text-slate-950">六维能力画像</h2>
@@ -434,82 +353,12 @@ export default function ResultPage({
           </div>
         </section>
 
-        <section className="mb-6">
-          <div className="mb-3 flex items-center gap-2">
-            <Briefcase size={20} className="text-blue-700" />
-            <h2 className="font-bold text-slate-950">推荐岗位 Top 3</h2>
-          </div>
-
-          <div className="space-y-3">
-            {recommendations.map((job, index) => (
-              <article key={job.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="mb-1 text-xs font-medium text-blue-700">推荐 {index + 1}</p>
-                    <h3 className="font-bold text-slate-950">{job.title}</h3>
-                  </div>
-                  <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${getScoreColor(job.matchScore)}`}>
-                    {job.matchScore}%
-                  </span>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg bg-slate-50 p-3">
-                    <p className="mb-2 text-xs font-medium text-slate-500">为什么适合</p>
-                    <ul className="space-y-1.5">
-                      {job.strengths.map((item) => (
-                        <li key={item} className="flex gap-1.5 text-xs leading-relaxed text-slate-700">
-                          <CheckCircle2 size={13} className="mt-0.5 flex-shrink-0 text-emerald-600" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="rounded-lg bg-amber-50 p-3">
-                    <p className="mb-2 text-xs font-medium text-amber-700">提前知道的风险</p>
-                    <ul className="space-y-1.5">
-                      {job.risks.map((item) => (
-                        <li key={item} className="flex gap-1.5 text-xs leading-relaxed text-amber-800">
-                          <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <p className="mb-2 text-xs font-medium text-slate-500">下一步建议</p>
-                  <div className="space-y-1.5">
-                    {job.nextSteps.map((step) => (
-                      <div key={step} className="flex items-center gap-2 text-sm text-slate-700">
-                        <CheckCircle2 size={15} className="text-emerald-600" />
-                        <span>{step}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => navigate(job.id === 'retail' ? '/programs/retail' : job.detailRoute)}
-                  className={`mt-4 w-full rounded-lg py-2.5 font-medium transition ${
-                    job.id === 'retail' || job.id === 'bar'
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {job.id === 'retail'
-                    ? '查看免税店岗位准备路径'
-                    : job.id === 'bar'
-                      ? '免费体验 Bar Server 前 3 个场景'
-                      : '查看岗位介绍'}
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
+        {!careerReport && (
+          <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-950">先补充资料，获得更具体的岗位结论</p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">上方的免费职业决策报告会结合你的真实经历、目标和顾虑，给出唯一的岗位梯度与申请建议。</p>
+          </section>
+        )}
 
         <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-2">

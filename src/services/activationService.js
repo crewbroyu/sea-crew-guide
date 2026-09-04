@@ -13,7 +13,7 @@ export const generateCode = () => {
   return `CREW-${result}`;
 };
 
-export const generateBatchCodes = async (count = 50) => {
+export const generateBatchCodes = async (count = 50, type = 'manual_paid') => {
   const generatedCodes = new Set();
   const codes = [];
 
@@ -25,7 +25,7 @@ export const generateBatchCodes = async (count = 50) => {
       codes.push({
         code: newCode,
         is_used: false,
-        type: 'beta',
+        type,
         product_code: 'bar_server_pack',
         access_days: 180,
       });
@@ -35,8 +35,8 @@ export const generateBatchCodes = async (count = 50) => {
   return codes;
 };
 
-export const insertBatchCodes = async (count = 50) => {
-  const codes = await generateBatchCodes(count);
+export const insertBatchCodes = async (count = 50, type = 'manual_paid') => {
+  const codes = await generateBatchCodes(count, type);
   const { error } = await supabase.from('activation_codes').insert(codes);
 
   if (error) {
@@ -177,7 +177,7 @@ export const getUserAccessStatus = async (user) => {
 
 export const hasProductEntitlement = (access, productCode) => {
   if (!productCode) return false;
-  if (access?.isAdmin || access?.isUnlocked) return true;
+  if (access?.isAdmin || access?.role === 'admin') return true;
   return (access?.productEntitlements || []).some((item) => item.product_code === productCode);
 };
 

@@ -2,8 +2,6 @@ import { createClient } from '@supabase/supabase-js'
 import process from 'node:process'
 import { getBarServerScenarioKnowledge } from './barServerScenarioKnowledge.js'
 
-const DEFAULT_SUPABASE_URL = 'https://pdvmyaenjkvohsmjbxha.supabase.co'
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_JfAenPf7RYl6gEnJ5MOd3Q_vIB6EUit'
 const DEFAULT_TEXT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 const DEFAULT_ASR_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
 const DEFAULT_EVALUATION_MODEL = 'qwen3.5-plus'
@@ -81,14 +79,17 @@ const getServerConfig = (env = process.env) => ({
   evaluationModel: trimText(env.DASHSCOPE_EVALUATION_MODEL, 100) || DEFAULT_EVALUATION_MODEL,
   scenarioEvaluationModel:
     trimText(env.DASHSCOPE_SCENARIO_MODEL, 100) || DEFAULT_SCENARIO_EVALUATION_MODEL,
-  supabaseUrl: env.SUPABASE_URL || env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL,
-  supabaseAnonKey:
-    env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY,
+  supabaseUrl: trimText(env.SUPABASE_URL || env.VITE_SUPABASE_URL, 500),
+  supabaseAnonKey: trimText(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY, 1000),
 })
 
 const requireConfig = (config) => {
   if (!config.apiKey) {
     throw new InterviewApiError(503, 'AI_NOT_CONFIGURED', 'AI 服务尚未配置。')
+  }
+
+  if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    throw new InterviewApiError(503, 'AUTH_NOT_CONFIGURED', '登录验证服务尚未配置。')
   }
 }
 
@@ -128,11 +129,7 @@ const authenticateRequest = async ({ headers, mode, position, config }) => {
       throw new InterviewApiError(503, 'ACCESS_CHECK_FAILED', '暂时无法验证激活状态，请稍后重试。')
     }
 
-    const premiumIsCurrent = !access?.premium_until
-      || new Date(access.premium_until).getTime() > Date.now()
-    const hasLegacyPremium = access?.access_status === 'active'
-      && premiumIsCurrent
-      && (access?.unlocked || access?.plan === 'premium' || access?.role === 'admin')
+    const isActiveAdmin = access?.access_status === 'active' && access?.role === 'admin'
 
     const { data: entitlement, error: entitlementError } = await supabase
       .from('user_entitlements')
@@ -151,7 +148,7 @@ const authenticateRequest = async ({ headers, mode, position, config }) => {
       && (!entitlement.expires_at || new Date(entitlement.expires_at).getTime() > Date.now())
     const entitlementMatchesPosition = /bar[\s_-]*server/i.test(trimText(position, 120))
 
-    if (!hasLegacyPremium && !(entitlementIsCurrent && entitlementMatchesPosition)) {
+    if (!isActiveAdmin && !(entitlementIsCurrent && entitlementMatchesPosition)) {
       throw new InterviewApiError(403, 'ACTIVATION_REQUIRED', '此训练需要 Bar Server 单职位全流程包。')
     }
 
@@ -175,11 +172,14 @@ const recordAiUsage = async ({ supabase, userId, action, mode, body, data, confi
       : (mode === SCENARIO_TRIAL_MODE || mode === PREMIUM_SCENARIO_MODE
         ? config.scenarioEvaluationModel
         : config.evaluationModel),
-    input_request_id: trimText(data?.requestId, 200) || null,
+    input_request_id: trimText(data?.requestId || body.clientRequestId, 200) || null,
   })
 
   if (error) {
     console.error('AI usage persistence failed:', { userId, mode, action, message: error.message })
+    if ([PREMIUM_SCENARIO_MODE, PREMIUM_PRACTICE_MODE, PREMIUM_MOCK_MODE].includes(mode)) {
+      throw new InterviewApiError(503, 'USAGE_RECORD_FAILED', 'AI 结果已生成，但使用记录未保存。请稍后重新提交。')
+    }
   }
 }
 

@@ -28,6 +28,11 @@ const getAccessToken = async () => {
   return session.access_token
 }
 
+const createRequestId = () => (
+  globalThis.crypto?.randomUUID?.()
+  || `ai-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+)
+
 const requestInterviewAi = async (payload) => {
   const accessToken = await getAccessToken()
   const controller = new AbortController()
@@ -40,7 +45,7 @@ const requestInterviewAi = async (payload) => {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, clientRequestId: createRequestId() }),
       signal: controller.signal,
     })
     const body = await response.json().catch(() => null)

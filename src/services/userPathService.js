@@ -44,6 +44,38 @@ export const markLocalTaskComplete = (taskId) => {
   return progress
 }
 
+export const mergeTaskProgress = (remoteProgress = {}, localProgress = {}) => {
+  const merged = { ...remoteProgress, ...localProgress }
+
+  for (let taskId = 1; taskId <= TASK_COUNT; taskId += 1) {
+    const key = `task${taskId}`
+    const remoteTask = remoteProgress[key]
+    const localTask = localProgress[key]
+
+    if (remoteTask?.completed || localTask?.completed) {
+      merged[key] = {
+        ...remoteTask,
+        ...localTask,
+        completed: true,
+        completedAt: remoteTask?.completedAt || localTask?.completedAt || new Date().toISOString(),
+      }
+    }
+  }
+
+  const remoteMock = remoteProgress.task7AiMock
+  const localMock = localProgress.task7AiMock
+  if (remoteMock?.completed || localMock?.completed) {
+    merged.task7AiMock = {
+      ...remoteMock,
+      ...localMock,
+      completed: true,
+      completedAt: remoteMock?.completedAt || localMock?.completedAt || new Date().toISOString(),
+    }
+  }
+
+  return merged
+}
+
 const getCompletedTaskIds = (progress) => {
   const completed = []
 
@@ -132,8 +164,8 @@ const compactProgress = (progress) => {
   return compacted
 }
 
-export const buildLocalPathProfile = (overrides = {}) => {
-  const progress = getLocalTaskProgress()
+export const buildLocalPathProfile = (overrides = {}, progressOverride = null) => {
+  const progress = progressOverride || getLocalTaskProgress()
   const completedTaskIds = getCompletedTaskIds(progress)
   const task2Result = readJson('task2_result', {})
   const assessmentResult = readJson('assessment_result', {})
@@ -182,6 +214,34 @@ const getCurrentUser = async () => {
 const removeUndefinedValues = (payload) =>
   Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
 
+const isMeaningfulValue = (value) => value !== null && value !== undefined && value !== ''
+
+const preserveRemoteProfileValues = (remoteProfile, localProfile, partial) => {
+  if (!remoteProfile) return localProfile
+
+  const protectedFields = [
+    'target_position',
+    'target_company',
+    'target_ship',
+    'target_interview_month',
+    'target_boarding_month',
+    'city',
+    'training_city',
+    'application_method',
+    'buddy_intent',
+    'latest_assessment_score',
+    'latest_assessment_level',
+  ]
+
+  return protectedFields.reduce((profile, field) => {
+    if (Object.prototype.hasOwnProperty.call(partial, field) || isMeaningfulValue(profile[field])) {
+      return profile
+    }
+
+    return { ...profile, [field]: remoteProfile[field] ?? profile[field] }
+  }, localProfile)
+}
+
 export const getMyPathProfile = async () => {
   const user = await getCurrentUser()
   if (!user) return null
@@ -196,11 +256,53 @@ export const getMyPathProfile = async () => {
   return data
 }
 
+export const hydrateLocalPathProfile = async () => {
+  const profile = await getMyPathProfile()
+  if (!profile) return { profile: null, progress: getLocalTaskProgress() }
+
+  const progress = mergeTaskProgress(profile.task_progress || {}, getLocalTaskProgress())
+  writeLocalTaskProgress(progress)
+
+  const task2Result = readJson('task2_result', {})
+  if (!task2Result.selectedTargetJob && profile.target_position) {
+    localStorage.setItem('task2_result', JSON.stringify({
+      ...task2Result,
+      selectedTargetJob: profile.target_position,
+      target_position: profile.target_position,
+    }))
+  }
+
+  const assessmentResult = readJson('assessment_result', {})
+  if (!assessmentResult.overallScore && profile.latest_assessment_score) {
+    localStorage.setItem('assessment_result', JSON.stringify({
+      ...assessmentResult,
+      overallScore: profile.latest_assessment_score,
+      level_label: profile.latest_assessment_level || assessmentResult.level_label || null,
+    }))
+  }
+
+  return { profile, progress }
+}
+
 export const upsertMyPathProfile = async (partial = {}) => {
   const user = await getCurrentUser()
   if (!user) return null
 
-  const localProfile = buildLocalPathProfile(partial)
+  const { data: remoteProfile, error: remoteProfileError } = await supabase
+    .from('user_path_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (remoteProfileError) throw remoteProfileError
+
+  const mergedProgress = mergeTaskProgress(remoteProfile?.task_progress || {}, getLocalTaskProgress())
+  writeLocalTaskProgress(mergedProgress)
+  const localProfile = preserveRemoteProfileValues(
+    remoteProfile,
+    buildLocalPathProfile(partial, mergedProgress),
+    partial,
+  )
   const payload = removeUndefinedValues({
     user_id: user.id,
     email: user.email || null,

@@ -314,7 +314,7 @@ function Task7InterviewPractice() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const access = useEffectiveAccess();
-  const { isRegistered, openRegisterModal } = access;
+  const { isRegistered, openRegisterModal, openUnlockModal } = access;
   const requestedPosition = normalizeInterviewPosition(searchParams.get('position'), '');
   const requestedQuestionId = searchParams.get('question') || '';
   const source = searchParams.get('source') || '';
@@ -329,8 +329,8 @@ function Task7InterviewPractice() {
   const [targetPositionKey] = useState(() => requestedPosition || getTargetPositionKey());
   const [roundNumber, setRoundNumber] = useState(compatiblePractice.roundNumber || 0);
   const targetPosition = useMemo(() => getTargetPositionMeta(targetPositionKey), [targetPositionKey]);
-  const hasPaidAiAccess = access.isUnlocked
-    || (targetPositionKey === 'bar_server' && hasProductEntitlement(access, 'bar_server_pack'));
+  const hasPaidAiAccess = targetPositionKey === 'bar_server'
+    && hasProductEntitlement(access, 'bar_server_pack');
   const questions = useMemo(
     () => buildPracticeQuestions(targetPositionKey, roundNumber, practiceMode, requestedQuestionId),
     [practiceMode, requestedQuestionId, roundNumber, targetPositionKey]
@@ -591,6 +591,12 @@ function Task7InterviewPractice() {
       console.error('AI 训练报告生成失败:', error);
       if (error.code === 'LOGIN_REQUIRED') {
         openRegisterModal();
+      }
+      if (error.code === 'ACTIVATION_REQUIRED') {
+        openUnlockModal();
+      }
+      if (error.code === 'AI_QUOTA_EXHAUSTED') {
+        navigate(`/premium?source=task7-ai-quota&position=${targetPositionKey}`);
       }
       setEvaluationError(error.message || 'AI 训练报告生成失败，请稍后重试。');
     } finally {
@@ -898,7 +904,15 @@ function Task7InterviewPractice() {
         </div>
         {evaluationError && (
           <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
-            {evaluationError}
+            <p>{evaluationError}</p>
+            <button
+              type="button"
+              onClick={goToNextQuestion}
+              disabled={isGeneratingEvaluation}
+              className="mt-2 font-semibold text-red-800 underline underline-offset-2 disabled:opacity-50"
+            >
+              重新生成报告
+            </button>
           </div>
         )}
       </div>

@@ -14,7 +14,7 @@ import {
   Target,
 } from 'lucide-react'
 import pathData from '../data/pathData'
-import { getMyPathProfile, syncLocalPathProfile, writeLocalTaskProgress } from '../services/userPathService'
+import { hydrateLocalPathProfile, syncLocalPathProfile, writeLocalTaskProgress } from '../services/userPathService'
 
 const stageMeta = {
   1: {
@@ -67,27 +67,6 @@ function getCompletedFromProgress(progress = {}) {
   }
 
   return completed
-}
-
-function mergeProgress(localProgress = {}, remoteProgress = {}) {
-  const merged = { ...remoteProgress }
-
-  for (let taskId = 1; taskId <= 12; taskId += 1) {
-    const key = `task${taskId}`
-    const localTask = localProgress[key]
-    const remoteTask = remoteProgress[key]
-
-    if (localTask?.completed || remoteTask?.completed) {
-      merged[key] = {
-        ...remoteTask,
-        ...localTask,
-        completed: true,
-        completedAt: localTask?.completedAt || remoteTask?.completedAt || new Date().toISOString(),
-      }
-    }
-  }
-
-  return merged
 }
 
 function persistCompletedTasks(completedTasks) {
@@ -168,12 +147,10 @@ export default function Tasks() {
 
     const hydrateProgress = async () => {
       try {
-        const remoteProfile = await getMyPathProfile()
+        const hydratedPath = await hydrateLocalPathProfile()
         if (!isMounted) return
 
-        const remoteProgress = remoteProfile?.task_progress || {}
-        const localProgress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
-        const mergedProgress = mergeProgress(localProgress, remoteProgress)
+        const mergedProgress = hydratedPath.progress
         const mergedCompletedTasks = getCompletedFromProgress(mergedProgress)
 
         if (mergedCompletedTasks.length > 0) {

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
   Target,
 } from 'lucide-react'
 import { getInterviewPositionMeta } from '../../../utils/interviewPosition'
+import { getMyProductUsage } from '../../../services/productUsageService'
 
 const readJson = (key, fallback = {}) => {
   try {
@@ -35,6 +36,18 @@ export default function Task7TrainingCenter() {
   const voiceResult = useMemo(() => readJson('task7_result', null), [])
   const voiceCompleted = Boolean(progress.task7?.completed)
   const mockCompleted = Boolean(progress.task7AiMock?.completed)
+  const [usage, setUsage] = useState(null)
+
+  useEffect(() => {
+    if (position?.key !== 'bar_server') return undefined
+
+    let active = true
+    getMyProductUsage('bar_server_pack')
+      .then((nextUsage) => { if (active) setUsage(nextUsage) })
+      .catch((error) => console.warn('Unable to load AI usage status:', error))
+
+    return () => { active = false }
+  }, [position?.key])
 
   const trainingModes = [
     {
@@ -140,6 +153,16 @@ export default function Task7TrainingCenter() {
               </p>
             </div>
           </div>
+
+          {position?.key === 'bar_server' && usage?.active && (
+            <div className="mt-3 rounded-lg border border-amber-100 bg-amber-50 p-3">
+              <p className="text-xs font-semibold text-amber-800">Bar Server 权益与 AI 额度</p>
+              <div className="mt-2 grid grid-cols-2 gap-3 text-sm text-amber-950">
+                <p>逐题反馈：{usage.feedback.limit === null ? '不限次' : `${usage.feedback.remaining}/${usage.feedback.limit} 剩余`}</p>
+                <p>完整模拟：{usage.mockInterview.limit === null ? '不限次' : `${usage.mockInterview.remaining}/${usage.mockInterview.limit} 剩余`}</p>
+              </div>
+            </div>
+          )}
         </section>
 
         <section>

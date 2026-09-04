@@ -4,6 +4,7 @@ import process from 'node:process'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { handleInterviewRequest } from './server/interviewAi.js'
+import { handleCareerReportRequest } from './server/careerReport.js'
 
 const readJsonBody = async (request) => {
   const chunks = []
@@ -54,12 +55,44 @@ const localInterviewApi = (env) => ({
   },
 })
 
+const localCareerReportApi = (env) => ({
+  name: 'local-career-report-api',
+  configureServer(server) {
+    server.middlewares.use('/api/career-report', async (request, response) => {
+      try {
+        const body = await readJsonBody(request)
+        const result = await handleCareerReportRequest({
+          method: request.method,
+          headers: request.headers,
+          body,
+          env,
+        })
+
+        response.statusCode = result.status
+        response.setHeader('Content-Type', 'application/json; charset=utf-8')
+        response.end(JSON.stringify(result.body))
+      } catch (error) {
+        response.statusCode = error.status || 400
+        response.setHeader('Content-Type', 'application/json; charset=utf-8')
+        response.end(JSON.stringify({
+          success: false,
+          error: {
+            code: error.status === 413 ? 'REQUEST_TOO_LARGE' : 'INVALID_JSON',
+            message: error.status === 413 ? '请求内容过大。' : '请求格式无效。',
+          },
+        }))
+      }
+    })
+  },
+})
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
     plugins: [
       localInterviewApi(env),
+      localCareerReportApi(env),
       react(),
       tailwindcss(),
     ],

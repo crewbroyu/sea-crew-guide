@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test:qwen": "node --env-file=.env.local scripts/test-qwen.mjs",
     "test:scenario": "node scripts/test-interview-scenario.mjs",
-    "test:access": "node scripts/test-entitlement-access.mjs"
+    "test:access": "node scripts/test-entitlement-access.mjs",
+    "test:career-report": "node scripts/test-career-report.mjs"
   },
   "dependencies": {
     "@cloudbase/js-sdk": "^3.3.3",

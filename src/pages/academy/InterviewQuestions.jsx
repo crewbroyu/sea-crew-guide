@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, CheckCircle2, Filter, Search, Target, Volume2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, Filter, Search, Target, Volume2, X } from 'lucide-react'
 import interviewQuestions, { positionConfig } from '../../data/interviewQuestions'
 import { normalizeInterviewPosition } from '../../utils/interviewPosition'
 
@@ -157,7 +157,8 @@ export default function InterviewQuestions() {
             <div>
               <p className="text-sm font-medium text-blue-700">公开岗位题库</p>
               <h1 className="mt-2 text-2xl font-semibold text-slate-950">{currentPosition?.nameZh} · {currentPosition?.nameEn}</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{questions.length} 道真实岗位问题，正式回答与训练记录统一进入任务7。</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{questions.length} 道岗位训练题，正式回答与训练记录统一进入任务7。</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">题目结合公开岗位指南与从业者经验编辑，不把个别公司的面试流程当作行业通用规则。</p>
             </div>
             <button type="button" onClick={() => setShowPositionModal(true)} className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">切换岗位</button>
           </div>
@@ -199,6 +200,7 @@ export default function InterviewQuestions() {
                     <span className={`rounded-md px-2 py-1 text-xs font-medium ${getDifficultyClass(question.difficulty)}`}>{difficultyLabels[question.difficulty] || question.difficulty}</span>
                     <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{categoryLabels[question.category || 'foundation']}</span>
                   </div>
+                  {question.source && <a href={question.source.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-2 inline-flex items-center gap-1 text-xs leading-5 text-slate-500 hover:text-blue-700"><ExternalLink size={12} />来源参考：{question.source.label}</a>}
                 </div>
                 <ArrowRight size={17} className="mt-1 shrink-0 text-slate-400" />
               </div>
@@ -236,6 +238,8 @@ export default function InterviewQuestions() {
             </div>
 
             <div className="mt-5 rounded-lg border border-amber-100 bg-amber-50 p-4"><p className="text-xs font-semibold text-amber-700">回答重点</p><p className="mt-1 text-sm leading-6 text-amber-950">{selectedQuestion.tip}</p></div>
+
+            {selectedQuestion.source && <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-700">来源参考</p><a href={selectedQuestion.source.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-sm font-medium leading-6 text-blue-700 hover:text-blue-800">{selectedQuestion.source.label}<ExternalLink size={14} /></a><p className="mt-1 text-xs leading-5 text-slate-500">{selectedQuestion.sourceNote}</p></div>}
 
             {selectedQuestion.keywords?.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{selectedQuestion.keywords.map((keyword) => <span key={keyword} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{keyword}</span>)}</div>}
 

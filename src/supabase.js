@@ -19,3 +19,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     },
   },
 })
+
+export const getAuthCallbackUrl = () => `${window.location.origin}/auth/callback`

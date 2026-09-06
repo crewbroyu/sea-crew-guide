@@ -61,6 +61,7 @@ const Messages = lazy(() => import('./pages/Messages'))
 const Resume = lazy(() => import('./pages/Resume'))
 const Premium = lazy(() => import('./pages/Premium'))
 const Support = lazy(() => import('./pages/Support'))
+const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const RetailPreparationPack = lazy(() => import('./pages/programs/RetailPreparationPack'))
 const BarServerTrial = lazy(() => import('./pages/programs/BarServerTrial'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
@@ -102,6 +103,7 @@ function App() {
           }>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/tasks/Task1" element={<Task1 />} />
               <Route path="/tasks/Task2" element={<Task2 />} />

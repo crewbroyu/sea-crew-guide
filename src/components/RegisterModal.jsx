@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAccessStore } from '../store/accessStore';
-import { supabase } from '../supabase';
+import { getAuthCallbackUrl, supabase } from '../supabase';
 
 export default function RegisterModal() {
   const { showRegisterModal, closeRegisterModal, register } = useAccessStore();
@@ -10,12 +10,14 @@ export default function RegisterModal() {
   const [mode, setMode] = useState('register'); // 'register' or 'login'
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState('');
 
   function resetForm() {
     setEmail('');
     setPassword('');
     setName('');
     setError('');
+    setConfirmationEmail('');
     setMode('register');
   }
 
@@ -102,6 +104,7 @@ export default function RegisterModal() {
             data: {
               name: name.trim(),
             },
+            emailRedirectTo: getAuthCallbackUrl(),
           },
         });
       } else {
@@ -115,8 +118,9 @@ export default function RegisterModal() {
       if (result.error) throw result.error;
 
       if (!result.data?.session) {
+        setConfirmationEmail(email.trim());
         setError(mode === 'register'
-          ? '账户已创建，请先完成邮箱验证后再登录激活'
+          ? '验证邮件已发送。请点击邮件中的确认按钮，随后会自动回到 CrewPathGuide 完成登录。'
           : '登录未完成，请重新登录');
         return;
       }
@@ -135,6 +139,29 @@ export default function RegisterModal() {
       } else {
         setError(error.message || '操作失败，请重试');
       }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    const address = confirmationEmail || email.trim();
+    if (!address) return;
+
+    setIsProcessing(true);
+    setError('');
+
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: address,
+        options: { emailRedirectTo: getAuthCallbackUrl() },
+      });
+      if (resendError) throw resendError;
+      setConfirmationEmail(address);
+      setError('新的验证邮件已发送，请使用最新一封邮件里的链接。');
+    } catch (resendError) {
+      setError(resendError.message || '验证邮件暂时无法重发，请稍后再试。');
     } finally {
       setIsProcessing(false);
     }
@@ -225,6 +252,17 @@ export default function RegisterModal() {
 
           {error && (
             <div className="text-red-600 text-sm text-center">{error}</div>
+          )}
+
+          {confirmationEmail && (
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={isProcessing}
+              className="w-full text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
+            >
+              重新发送验证邮件
+            </button>
           )}
 
           <button

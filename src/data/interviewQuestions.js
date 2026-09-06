@@ -476,4 +476,109 @@ const interviewQuestions = {
   }
 };
 
+const sourceCatalog = {
+  cruiseCommunity: {
+    label: 'CruiseCrew 从业者经验讨论',
+    url: 'https://www.reddit.com/r/CruiseCrew/comments/1rp4n74/final_interview_questions/',
+  },
+  bar: {
+    label: 'Indeed Bartender interview guide + CruiseCrew 经验讨论',
+    url: 'https://www.indeed.com/career-advice/interviewing/bartending-interview-tips',
+  },
+  restaurant: {
+    label: 'Indeed Waitstaff interview guide + 邮轮 F&B 经验讨论',
+    url: 'https://www.indeed.com/career-advice/interviewing/interview-questions-for-waitstaff',
+  },
+  frontOffice: {
+    label: 'Indeed Hotel Front Desk interview guide + CruiseCrew 经验讨论',
+    url: 'https://www.indeed.com/career-advice/interviewing/hotel-front-desk-interview-questions',
+  },
+  retail: {
+    label: 'CruiseCrew Retail 招聘与群面经验讨论',
+    url: 'https://www.reddit.com/r/CruiseCrew/comments/1rea4ae/harding_retail_stage_2_group_assessment_questions/',
+  },
+  health: {
+    label: 'CDC Vessel Sanitation Program 岗位规范',
+    url: 'https://www.cdc.gov/vessel-sanitation/communication-resources/operational-inspections.html',
+  },
+  shipRoles: {
+    label: 'Royal Caribbean Group 船上岗位说明 + 从业者经验',
+    url: 'https://careers.royalcaribbeangroup.com/ship/',
+  },
+}
+
+// These replace the old textbook-style opening prompts with answers that reveal real shipboard judgement.
+const questionRefinements = {
+  bs_01: { question: 'A guest says, "I want something refreshing but not too sweet." How would you discover their preference and make one confident cocktail recommendation?', category: 'demonstration', tip: 'Ask one useful preference question, name a specific drink, explain its flavour clearly, then confirm the guest is comfortable with the choice.', keywords: ['preference', 'recommendation', 'flavour', 'guest', 'confirm'] },
+  bs_02: { question: 'Which spirit families and classic drinks could you confidently discuss with a guest, and how would you avoid guessing when you do not know a recipe?', category: 'knowledge', tip: 'Show basic product range, then explain that you verify recipes or product information instead of inventing an answer.', keywords: ['spirits', 'cocktails', 'verify', 'product knowledge', 'accuracy'] },
+  bs_03: { question: 'You are setting up the bar when a guest approaches and looks ready to order. What would you say and do in the first thirty seconds?', category: 'communication', tip: 'Acknowledge promptly, make eye contact, welcome the guest, offer help, and manage expectations if setup is still in progress.', keywords: ['welcome', 'eye contact', 'acknowledge', 'order', 'service'] },
+  bs_06: { question: 'A guest is speaking unclearly and asks for another cocktail. Talk us through how you would refuse service while keeping the guest and the team safe.', category: 'safety', tip: 'Use calm language, follow the approved alcohol-service policy, offer a non-alcoholic alternative, and involve support early.', keywords: ['intoxication', 'policy', 'refuse', 'alternative', 'support'] },
+  bs_15: { question: 'Why Bar Server on a cruise ship specifically, and what do you understand about high-volume service, sales expectations, late shifts, and shipboard contracts?', category: 'ship_life', tip: 'Give a realistic answer. Connect your experience to the job and show you have considered the demands, not only travel.', keywords: ['contract', 'sales', 'high volume', 'late shift', 'motivation'] },
+
+  rs_01: { question: 'A family arrives at your restaurant during a busy seating period. How would you welcome them, confirm their needs, and set expectations without slowing the queue?', category: 'communication', tip: 'Show warmth, accuracy, awareness of children or accessibility needs, and clear wait-time communication.', keywords: ['welcome', 'queue', 'needs', 'wait time', 'service'] },
+  rs_03: { question: 'What safe service techniques would you use when carrying plates or trays through a crowded dining room, and when would you ask for help?', category: 'safety', tip: 'Talk about safe handling, awareness of guests, avoiding overload, and asking for support before risking a spill or injury.', keywords: ['safety', 'tray', 'awareness', 'support', 'service'] },
+  rs_06: { question: 'A guest tells you they have a serious allergy just as you begin taking the order. What exactly would you do before confirming anything?', category: 'safety', tip: 'Clarify the allergy, follow the approved notification process, verify with the galley, and never promise a dish is safe without confirmation.', keywords: ['allergy', 'verify', 'galley', 'confirm', 'safety'] },
+  rs_08: { question: 'A guest says their main course is cold and they are already frustrated. How would you recover the service while coordinating with the galley?', category: 'scenario', tip: 'Listen, apologize without blaming, remove or assess the item, agree the next step, coordinate promptly, and follow up after replacement.', keywords: ['complaint', 'apologize', 'galley', 'replacement', 'follow-up'] },
+  rs_14: { question: 'Why restaurant service at sea, and what have you done to prepare for split shifts, repetitive service, multicultural teams, and a long contract?', category: 'ship_life', tip: 'Show that you understand the operating reality and can explain why your experience and routine fit it.', keywords: ['ship life', 'contract', 'team', 'service', 'motivation'] },
+
+  hk_01: { question: 'Tell me about the highest-volume housekeeping or cleaning environment you have worked in. How did you maintain both pace and inspection quality?', category: 'behavioral', tip: 'Use real workload, standards, sequence, and a measurable result rather than only saying you are hardworking.', keywords: ['volume', 'quality', 'sequence', 'standard', 'result'] },
+  hk_03: { question: 'A guest is still in the cabin when you arrive for service. How would you protect privacy, communicate clearly, and keep your work plan moving?', category: 'privacy', tip: 'Knock and announce yourself, respect the guest’s choice, agree a return time if appropriate, and follow the line’s privacy process.', keywords: ['privacy', 'knock', 'guest choice', 'return time', 'procedure'] },
+  hk_06: { question: 'You notice a strong odour and a maintenance issue in a guest cabin shortly before turnaround. What would you handle yourself, and what would you escalate?', category: 'scenario', tip: 'Separate cleaning from maintenance or safety escalation, protect the guest experience, document accurately, and avoid promising an outcome you cannot deliver.', keywords: ['maintenance', 'escalate', 'guest', 'document', 'quality'] },
+  hk_10: { question: 'How would you plan a cabin section when several rooms need different priorities, such as an early turnaround, a guest request, and a maintenance follow-up?', category: 'operations', tip: 'Explain how you confirm priorities, communicate timing, protect standards, and keep supervisors updated.', keywords: ['priority', 'turnaround', 'request', 'communication', 'standard'] },
+  hk_15: { question: 'What makes you confident you can complete a housekeeping contract at sea, including repetitive physical work, shared living, and limited personal time?', category: 'ship_life', tip: 'Be realistic about demands and give concrete routines or past evidence that show resilience.', keywords: ['contract', 'physical work', 'routine', 'resilience', 'ship life'] },
+
+  fo_01: { question: 'A guest arrives at the desk upset because their cabin is not ready. How would you open the conversation, verify the facts, and manage the expectation?', category: 'scenario', tip: 'Start with acknowledgement, check the correct system or colleague, give only confirmed information, and agree a follow-up point.', keywords: ['acknowledge', 'verify', 'expectation', 'follow-up', 'guest'] },
+  fo_02: { question: 'You have a phone call, a queue at the desk, and a guest asking an urgent question. How would you prioritize without making anyone feel ignored?', category: 'operations', tip: 'Acknowledge each person, assess urgency and safety, use concise communication, and keep the queue informed.', keywords: ['queue', 'priority', 'phone', 'urgency', 'communication'] },
+  fo_06: { question: 'A guest says their booking or cabin assignment is wrong, but the system shows no obvious error. How would you investigate and decide the next step?', category: 'scenario', tip: 'Verify identity and documents, listen for the exact issue, check approved records, involve the correct authority, and document the outcome.', keywords: ['verify', 'system', 'records', 'authority', 'document'] },
+  fo_08: { question: 'Tell me about a time you handled an upset guest or customer when the solution depended on another department. What did you personally own?', category: 'behavioral', tip: 'Use a specific example that shows listening, coordination, clear updates, and a result rather than saying you simply transferred the case.', keywords: ['complaint', 'ownership', 'coordinate', 'updates', 'result'] },
+  fo_14: { question: 'Why Guest Services on a cruise ship, and what do you understand about handling complaints, changing itineraries, privacy, and a 24-hour operation?', category: 'ship_life', tip: 'Connect your front-office experience to the actual responsibilities and show calm, realistic motivation.', keywords: ['guest services', 'privacy', 'itinerary', 'complaint', 'motivation'] },
+
+  rt_01: { question: 'A guest asks why an item is duty-free and whether they can take it home without paying tax. How would you explain the product without giving incorrect customs advice?', category: 'knowledge', tip: 'Explain that allowances and taxes vary by itinerary and destination; use approved information and refer uncertain cases to official guidance.', keywords: ['duty-free', 'allowance', 'customs', 'approved information', 'accuracy'] },
+  rt_02: { question: 'Tell me about a retail or customer-facing role where you had to understand a customer’s need before making a recommendation.', category: 'behavioral', tip: 'Give a real example with your discovery questions, recommendation, customer response, and any result you can support.', keywords: ['discovery', 'recommendation', 'customer', 'sales', 'result'] },
+  rt_03: { question: 'A guest walks into a busy onboard store and says, "I am just looking." How would you greet them and create a helpful opening without pressure?', category: 'sales', tip: 'Respect the guest’s space, offer a specific form of help, stay available, and avoid a scripted or pushy pitch.', keywords: ['greeting', 'browse', 'help', 'pressure', 'service'] },
+  rt_07: { question: 'Tell me about a sales target you were responsible for. What actions did you take, what did you measure, and how did you protect the customer experience?', category: 'behavioral', tip: 'Use concrete actions and honest figures. Strong answers show both performance and ethical judgment.', keywords: ['target', 'action', 'measure', 'customer', 'result'] },
+  rt_15: { question: 'Why onboard retail rather than a shore-based shop, and what do you understand about targets, group assessment, sea-day intensity, and contract life?', category: 'ship_life', tip: 'Show you have researched the role beyond travel and commission, including teamwork and fluctuating trading hours.', keywords: ['retail', 'targets', 'group assessment', 'contract', 'motivation'] },
+
+  ys_01: { question: 'A nervous child arrives at the activity centre for the first time while their parent is waiting nearby. How would you introduce yourself and help them join safely?', category: 'scenario', tip: 'Use calm, age-appropriate language, do not force participation, involve the parent appropriately, and keep supervision clear.', keywords: ['child', 'parent', 'trust', 'supervision', 'activity'] },
+  ys_02: { question: 'Which age groups have you supported, and how did you adapt your communication, activities, and supervision for them?', category: 'behavioral', tip: 'Use specific ages, settings, responsibilities, and one example of adapting an activity.', keywords: ['age group', 'adapt', 'activity', 'supervision', 'experience'] },
+  ys_05: { question: 'Before an activity begins, what checks would you make to keep a mixed-age group of children safe?', category: 'safety', tip: 'Cover attendance, authorised adults, allergies or needs, equipment, room safety, rules, and supervision ratios or policy.', keywords: ['attendance', 'allergy', 'equipment', 'supervision', 'policy'] },
+  ys_08: { question: 'A child is injured during an activity. Explain your immediate priorities, how you communicate, and what you would never do beyond your training.', category: 'safety', tip: 'Secure the group, call the designated help, follow first-aid and reporting procedure, notify the correct people, and avoid diagnosing.', keywords: ['injury', 'secure', 'first aid', 'report', 'training'] },
+  ys_15: { question: 'Why youth programming at sea, and how are you prepared for safeguarding responsibility, split schedules, parent communication, and long contracts?', category: 'ship_life', tip: 'Show a child-safety-first mindset and realistic knowledge of the role’s responsibility.', keywords: ['safeguarding', 'parents', 'schedule', 'contract', 'motivation'] },
+
+  kt_01: { question: 'Describe the busiest kitchen, dish area, or food-service operation you have worked in. What standards were you personally responsible for?', category: 'behavioral', tip: 'Give workload, equipment or station, hygiene responsibilities, teamwork, and an example of keeping up safely.', keywords: ['volume', 'station', 'hygiene', 'teamwork', 'standard'] },
+  kt_03: { question: 'Explain what food safety means in your daily work, from receiving or storage through cleaning, sanitizing, and illness reporting.', category: 'knowledge', tip: 'Connect safe food handling to personal hygiene, cross-contamination prevention, temperature controls, and reporting symptoms.', keywords: ['food safety', 'hygiene', 'cross-contamination', 'temperature', 'report'] },
+  kt_06: { question: 'Walk me through the difference between cleaning and sanitizing a food-contact surface, including what you would check before using a chemical.', category: 'knowledge', tip: 'Explain the sequence and the need to follow approved dilution, contact time, PPE, labels, and ship procedure.', keywords: ['clean', 'sanitize', 'chemical', 'PPE', 'procedure'] },
+  kt_07: { question: 'You cut your hand during a busy shift. What actions do you take to protect yourself, food safety, and the operation?', category: 'safety', tip: 'Stop work, follow first-aid and reporting procedure, prevent contamination, and return only when cleared by policy.', keywords: ['injury', 'first aid', 'report', 'contamination', 'policy'] },
+  kt_15: { question: 'Why galley work on a cruise ship, and what have you done to prepare for hot, repetitive, safety-critical work across a long contract?', category: 'ship_life', tip: 'Show realistic expectations and evidence of discipline, physical safety, and reliable teamwork.', keywords: ['galley', 'safety', 'contract', 'discipline', 'teamwork'] },
+
+  ut_01: { question: 'Describe a cleaning role where you had to work to a visible standard while guests or customers were present. How did you balance pace, safety, and courtesy?', category: 'behavioral', tip: 'Use a real setting, explain your sequence, safety controls, and how you protected the customer experience.', keywords: ['cleaning', 'safety', 'guest', 'quality', 'pace'] },
+  ut_02: { question: 'Before using an unfamiliar cleaning chemical onboard, what information would you check and what would make you stop and ask for help?', category: 'safety', tip: 'Cover label, approved use, dilution, PPE, storage, incompatibilities, and the limits of your training.', keywords: ['chemical', 'label', 'dilution', 'PPE', 'training'] },
+  ut_04: { question: 'You are assigned an early shift after a late finish. How would you keep your work safe, consistent, and respectful in quiet guest areas?', category: 'ship_life', tip: 'Discuss routines, rest, checklist discipline, noise awareness, and reporting fatigue or hazards early.', keywords: ['shift', 'routine', 'quiet', 'checklist', 'safety'] },
+  ut_07: { question: 'You find a wallet while cleaning a public area. What exact steps would you take from discovery to handover?', category: 'integrity', tip: 'Protect the item, avoid unnecessary handling, notify through the authorised lost-property process, and document accurately.', keywords: ['lost property', 'integrity', 'report', 'document', 'procedure'] },
+  ut_15: { question: 'Why public-area utility work at sea, and what do you understand about night work, repetitive tasks, safety checks, and long contracts?', category: 'ship_life', tip: 'Give a realistic answer that shows you value the role and understand the working conditions.', keywords: ['utility', 'night work', 'safety', 'contract', 'motivation'] },
+}
+
+const sourceForQuestion = (positionKey, question) => {
+  if (['kitchen', 'utility'].includes(positionKey) && ['knowledge', 'safety', 'health', 'emergency'].includes(question.category)) return sourceCatalog.health
+  if (question.category === 'ship_life') return sourceCatalog.cruiseCommunity
+  if (positionKey === 'bar_server') return sourceCatalog.bar
+  if (positionKey === 'restaurant') return sourceCatalog.restaurant
+  if (positionKey === 'front_office') return sourceCatalog.frontOffice
+  if (positionKey === 'retail') return sourceCatalog.retail
+  return sourceCatalog.shipRoles
+}
+
+Object.entries(interviewQuestions).forEach(([positionKey, bank]) => {
+  bank.questions = bank.questions.map((question) => {
+    const refined = questionRefinements[question.id] || {}
+    const updatedQuestion = { ...question, ...refined }
+
+    return {
+      ...updatedQuestion,
+      source: sourceForQuestion(positionKey, updatedQuestion),
+      sourceNote: '题目根据公开岗位指南与从业者经验编辑为训练题，不代表某家邮轮公司的逐字真题。',
+    }
+  })
+})
+
 export default interviewQuestions;

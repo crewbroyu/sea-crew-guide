@@ -76,7 +76,7 @@ export default function Task7TrainingCenter() {
     },
     {
       id: 'ai-mock',
-      title: '完整 AI 模拟面试',
+      title: 'AI 模拟面试',
       description: '连续完成一轮英文面试，训练追问节奏和临场表达。',
       meta: '激活权益 · 约 10-15 分钟',
       action: mockCompleted ? '再次模拟' : '进入模拟',
@@ -146,7 +146,7 @@ export default function Task7TrainingCenter() {
               </p>
             </div>
             <div className="rounded-lg bg-slate-50 p-3">
-              <p className="text-xs text-slate-500">完整模拟</p>
+              <p className="text-xs text-slate-500">AI 模拟面试</p>
               <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-900">
                 {mockCompleted && <CheckCircle2 size={15} className="text-emerald-600" />}
                 {mockCompleted ? '已有模拟记录' : '待开始'}
@@ -159,7 +159,7 @@ export default function Task7TrainingCenter() {
               <p className="text-xs font-semibold text-amber-800">Bar Server 权益与 AI 额度</p>
               <div className="mt-2 grid grid-cols-2 gap-3 text-sm text-amber-950">
                 <p>逐题反馈：{usage.feedback.limit === null ? '不限次' : `${usage.feedback.remaining}/${usage.feedback.limit} 剩余`}</p>
-                <p>完整模拟：{usage.mockInterview.limit === null ? '不限次' : `${usage.mockInterview.remaining}/${usage.mockInterview.limit} 剩余`}</p>
+                <p>AI 模拟面试：{usage.mockInterview.limit === null ? '不限次' : `${usage.mockInterview.remaining}/${usage.mockInterview.limit} 剩余`}</p>
               </div>
             </div>
           )}

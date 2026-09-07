@@ -12,6 +12,23 @@ const motivationOptions = [
   { id: 6, title: '生活体验', description: '想看世界，但也愿意接受船上工作的纪律和强度。' },
 ]
 
+const getSavedTaskResult = () => {
+  try {
+    return JSON.parse(localStorage.getItem('task1_result') || '{}')
+  } catch (error) {
+    console.warn('Unable to restore Task 1 result:', error)
+    return {}
+  }
+}
+
+const getSavedMotivationIds = () => {
+  const result = getSavedTaskResult()
+  const selectedTitles = new Set(result.motivations || [])
+  return motivationOptions
+    .filter((option) => selectedTitles.has(option.title))
+    .map((option) => option.id)
+}
+
 const StepCard = ({ step, title, completed, children }) => (
   <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
     <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
@@ -32,19 +49,21 @@ const StepCard = ({ step, title, completed, children }) => (
 )
 
 const Task1 = () => {
-  const [step1Completed, setStep1Completed] = useState(false)
-  const [step2Completed, setStep2Completed] = useState(false)
-  const [step3Completed, setStep3Completed] = useState(false)
-  const [selectedMotivations, setSelectedMotivations] = useState([])
-  const [declaration, setDeclaration] = useState('')
+  const [step1Completed, setStep1Completed] = useState(() => Boolean(getSavedTaskResult().completedAt))
+  const [selectedMotivations, setSelectedMotivations] = useState(getSavedMotivationIds)
+  const [declaration, setDeclaration] = useState(() => getSavedTaskResult().declaration || '')
+  const [step2Completed, setStep2Completed] = useState(() => getSavedMotivationIds().length > 0)
+  const [step3Completed, setStep3Completed] = useState(() => getSavedTaskResult().declaration?.trim().length >= 10)
 
   useEffect(() => {
+    if (step1Completed) return undefined
+
     const timer = setTimeout(() => {
       setStep1Completed(true)
     }, 3000)
 
     return () => clearTimeout(timer)
-  }, [])
+  }, [step1Completed])
 
   const handleMotivationToggle = (id) => {
     setSelectedMotivations(prev => {

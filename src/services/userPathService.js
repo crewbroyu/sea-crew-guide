@@ -2,6 +2,7 @@ import { supabase } from '../supabase'
 
 const PROGRESS_KEY = 'boarding_progress'
 const TASK_COUNT = 12
+const TASK_SNAPSHOT_KEYS = ['task1_result', 'task2_result', 'task3_result']
 
 const taskStageMap = {
   1: 'assessment',
@@ -161,6 +162,16 @@ const compactProgress = (progress) => {
     stage: 'ai_mock_interview',
   }
 
+  const taskSnapshots = TASK_SNAPSHOT_KEYS.reduce((snapshots, key) => {
+    const snapshot = readJson(key, null)
+    if (snapshot?.taskId) snapshots[key] = snapshot
+    return snapshots
+  }, {})
+
+  if (Object.keys(taskSnapshots).length) {
+    compacted.task_snapshots = taskSnapshots
+  }
+
   return compacted
 }
 
@@ -262,6 +273,16 @@ export const hydrateLocalPathProfile = async () => {
 
   const progress = mergeTaskProgress(profile.task_progress || {}, getLocalTaskProgress())
   writeLocalTaskProgress(progress)
+
+  const remoteSnapshots = profile.task_progress?.task_snapshots || {}
+  TASK_SNAPSHOT_KEYS.forEach((key) => {
+    const localSnapshot = readJson(key, null)
+    const remoteSnapshot = remoteSnapshots[key]
+
+    if (!localSnapshot?.taskId && remoteSnapshot?.taskId) {
+      localStorage.setItem(key, JSON.stringify(remoteSnapshot))
+    }
+  })
 
   const task2Result = readJson('task2_result', {})
   if (!task2Result.selectedTargetJob && profile.target_position) {

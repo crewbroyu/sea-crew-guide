@@ -61,6 +61,8 @@ const Messages = lazy(() => import('./pages/Messages'))
 const Resume = lazy(() => import('./pages/Resume'))
 const Premium = lazy(() => import('./pages/Premium'))
 const Support = lazy(() => import('./pages/Support'))
+const ServiceInfo = lazy(() => import('./pages/ServiceInfo'))
+const FounderBeta = lazy(() => import('./pages/FounderBeta'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const RetailPreparationPack = lazy(() => import('./pages/programs/RetailPreparationPack'))
 const BarServerTrial = lazy(() => import('./pages/programs/BarServerTrial'))
@@ -150,6 +152,8 @@ function App() {
               <Route path="/messages" element={<RequireLogin><Messages /></RequireLogin>} />
               <Route path="/premium" element={<Premium />} />
               <Route path="/support" element={<Support />} />
+              <Route path="/service-info" element={<ServiceInfo />} />
+              <Route path="/founder-test" element={<RequireActivation productCode="bar_server_pack"><FounderBeta /></RequireActivation>} />
               <Route path="/programs/retail" element={<RetailPreparationPack />} />
               <Route path="/programs/bar-server" element={<BarServerTrial />} />
               <Route path="/assessment" element={<AssessmentContainer />} />

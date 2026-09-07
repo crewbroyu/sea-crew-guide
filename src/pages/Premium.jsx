@@ -282,7 +282,10 @@ export default function Premium() {
               <button type="button" onClick={() => navigate('/support?category=payment&product=bar_server_pack')} className="mt-1 font-semibold underline underline-offset-2">前往支持中心</button>
             </div>
           )}
-          <button type="button" onClick={() => navigate('/support')} className="mt-4 text-sm font-semibold text-blue-700 underline underline-offset-2">权益或训练遇到问题？联系支持</button>
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-blue-700">
+            <button type="button" onClick={() => navigate('/support')} className="underline underline-offset-2">权益或训练遇到问题？联系支持</button>
+            <button type="button" onClick={() => navigate('/service-info')} className="underline underline-offset-2">服务与数据说明</button>
+          </div>
         </section>
       </main>
     </div>

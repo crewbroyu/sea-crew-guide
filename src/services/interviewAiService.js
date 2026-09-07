@@ -74,6 +74,7 @@ export const transcribeInterviewAudio = async (audioBlob, {
   mode = 'practice',
   position = '',
   question = '',
+  scenarioId = '',
 } = {}) => {
   if (!(audioBlob instanceof Blob) || audioBlob.size === 0) {
     throw new InterviewAiError('INVALID_AUDIO', '没有读取到有效录音。')
@@ -89,6 +90,7 @@ export const transcribeInterviewAudio = async (audioBlob, {
     mode,
     position,
     question,
+    scenarioId,
     mimeType: audioBlob.type || 'audio/webm',
     audioData,
   })
@@ -99,10 +101,12 @@ export const evaluateInterviewWithAi = ({
   position,
   questions,
   answers,
+  scenarioId = '',
 }) => requestInterviewAi({
   action: 'evaluate',
   mode,
   position,
   questions,
   answers,
+  scenarioId,
 })

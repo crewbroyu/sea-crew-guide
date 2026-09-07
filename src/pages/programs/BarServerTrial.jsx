@@ -237,6 +237,7 @@ export default function BarServerTrial() {
             mode: 'scenario_trial',
             position: 'Bar Server',
             question: scenario.interviewerQuestion,
+            scenarioId: scenario.id,
           })
           setTranscript(result.transcript)
           setRecordingStatus('ready')
@@ -294,6 +295,7 @@ export default function BarServerTrial() {
         position: 'Bar Server',
         questions: [questionPayload],
         answers: [{ questionId: scenario.id, textAnswer: normalizedTranscript, durationSeconds }],
+        scenarioId: scenario.id,
       })
       const savedAttempt = buildSavedAttempt({ transcript: normalizedTranscript, durationSeconds, evaluation, attemptNumber })
       setCurrentAttempts(attemptNumber === 1 ? [savedAttempt] : [attempts[0], savedAttempt])

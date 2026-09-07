@@ -44,6 +44,10 @@ globalThis.fetch = async (url, options) => {
     return new Response('1', { status: 200, headers: { 'Content-Type': 'application/json' } })
   }
 
+  if (target.includes('/rest/v1/ai_usage_events')) {
+    return new Response(null, { status: 200, headers: { 'Content-Range': '0-0/0' } })
+  }
+
   if (target.includes('/chat/completions')) {
     evaluationRequestCount += 1
     evaluationRequests.push(JSON.parse(options?.body || '{}'))
@@ -62,6 +66,7 @@ const evaluateScenario = () => handleInterviewRequest({
     action: 'evaluate',
     mode: 'scenario_trial',
     position: 'Bar Server',
+    scenarioId: 'bar_server_drink_recommendation_01',
     questions: [{
       id: 'bar_server_drink_recommendation_01',
       question: 'What would you recommend?',
@@ -116,6 +121,10 @@ globalThis.fetch = async (url, options) => {
     return new Response('2', { status: 200, headers: { 'Content-Type': 'application/json' } })
   }
 
+  if (target.includes('/rest/v1/ai_usage_events')) {
+    return new Response(null, { status: 200, headers: { 'Content-Range': '0-0/0' } })
+  }
+
   if (target.includes('/chat/completions')) {
     evaluationRequestCount += 1
     evaluationRequests.push(JSON.parse(options?.body || '{}'))
@@ -133,5 +142,26 @@ const fallbackFeedback = sparseResult.body.data.questionScores[0]
 assert.equal(sparseResult.status, 200)
 assert.equal(evaluationRequestCount - requestsBeforeRetryTest, 2)
 assert.equal(fallbackFeedback.comment, scenarioEvaluation.questionScores[0].comment)
+
+const publicPracticeResult = await handleInterviewRequest({
+  method: 'POST',
+  headers: { authorization: 'Bearer scenario-test-token' },
+  body: {
+    action: 'evaluate',
+    mode: 'practice',
+    position: 'Restaurant Assistant',
+    questions: [{ id: 'public-question', question: 'Why do you want this role?' }],
+    answers: [{ textAnswer: 'I enjoy service.', durationSeconds: 3 }],
+  },
+  env: {
+    DASHSCOPE_API_KEY: 'scenario-test-key',
+    DASHSCOPE_BASE_URL: 'https://dashscope.test/v1',
+    SUPABASE_URL: 'https://supabase.test',
+    SUPABASE_ANON_KEY: 'scenario-test-anon-key',
+  },
+})
+
+assert.equal(publicPracticeResult.status, 403)
+assert.equal(publicPracticeResult.body.error.code, 'VOICE_TRAINING_REQUIRES_ACCESS')
 
 console.log('Scenario feedback contract passed.')

@@ -15,6 +15,12 @@ const PREMIUM_SCENARIO_MODE = 'premium_scenario'
 const PREMIUM_PRACTICE_MODE = 'premium_practice'
 const PREMIUM_MOCK_MODE = 'premium_mock'
 const BAR_SERVER_PRODUCT_CODE = 'bar_server_pack'
+const FREE_BAR_SERVER_TRIAL_SCENARIO_IDS = new Set([
+  'bar_server_drink_recommendation_01',
+  'bar_server_complaint_recovery_02',
+  'bar_server_responsible_service_03',
+])
+const FREE_TRIAL_ACTION_LIMIT_PER_SCENARIO = 2
 
 const usageBuckets = globalThis.__crewPathInterviewUsage || new Map()
 globalThis.__crewPathInterviewUsage = usageBuckets
@@ -229,6 +235,40 @@ const enforcePersistentQuota = async ({ supabase, entitlement, action, mode }) =
       402,
       'AI_QUOTA_EXHAUSTED',
       isMock ? '完整模拟面试次数已用完。' : '本岗位包的 AI 反馈次数已用完。',
+    )
+  }
+}
+
+const enforceFreeScenarioTrialQuota = async ({ supabase, userId, action, body }) => {
+  const scenarioId = trimText(body.scenarioId, 160)
+  const position = trimText(body.position, 160)
+
+  if (!FREE_BAR_SERVER_TRIAL_SCENARIO_IDS.has(scenarioId) || !/bar[\s_-]*server/i.test(position)) {
+    throw new InterviewApiError(
+      403,
+      'FREE_TRIAL_BAR_SERVER_ONLY',
+      '免费语音体验仅开放 Bar Server 的 3 个指定场景。',
+    )
+  }
+
+  const { count, error } = await supabase
+    .from('ai_usage_events')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('mode', SCENARIO_TRIAL_MODE)
+    .eq('scenario_id', scenarioId)
+    .eq('action', action)
+
+  if (error) {
+    console.error('Free trial quota lookup failed:', error.message)
+    throw new InterviewApiError(503, 'TRIAL_QUOTA_CHECK_FAILED', '暂时无法核对免费体验次数，请稍后重试。')
+  }
+
+  if ((count || 0) >= FREE_TRIAL_ACTION_LIMIT_PER_SCENARIO) {
+    throw new InterviewApiError(
+      402,
+      'FREE_TRIAL_LIMIT_REACHED',
+      '这个免费场景的体验次数已用完。解锁岗位训练包后可继续练习。',
     )
   }
 }
@@ -693,7 +733,24 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
     const config = getServerConfig(env)
     requireConfig(config)
     const auth = await authenticateRequest({ headers, mode, position: payload.position, config })
+
+    if (mode === PRACTICE_MODE) {
+      throw new InterviewApiError(
+        403,
+        'VOICE_TRAINING_REQUIRES_ACCESS',
+        '公开题库支持浏览和文字自练。语音转写与 AI 反馈请体验 Bar Server 免费场景，或解锁岗位训练包。',
+      )
+    }
+
     enforceRateLimit(auth.user.id, action)
+    if (mode === SCENARIO_TRIAL_MODE) {
+      await enforceFreeScenarioTrialQuota({
+        supabase: auth.supabase,
+        userId: auth.user.id,
+        action,
+        body: payload,
+      })
+    }
     await enforcePersistentQuota({
       supabase: auth.supabase,
       entitlement: auth.entitlement,

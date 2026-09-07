@@ -407,7 +407,7 @@ function Task7InterviewPractice() {
 
     try {
       const result = await transcribeInterviewAudio(blob, {
-        mode: 'practice',
+        mode: hasPaidAiAccess ? 'premium_practice' : 'practice',
         position: targetPosition.nameEn,
         question: questions.find((item) => item.id === questionId)?.question || '',
       });
@@ -436,8 +436,13 @@ function Task7InterviewPractice() {
     setRecorderError('');
 
     if (!isRegistered) {
-      setRecorderError('登录后可使用 AI 语音转写，登录不会影响当前训练进度。');
+      setRecorderError('登录后可保存文字练习。Bar Server 提供 3 个免费语音场景体验。');
       openRegisterModal();
+      return;
+    }
+
+    if (!hasPaidAiAccess) {
+      setRecorderError('当前岗位的语音转写与 AI 反馈属于训练包权益。可先用文字完成练习，或体验 Bar Server 的 3 个免费场景。');
       return;
     }
 
@@ -688,10 +693,16 @@ function Task7InterviewPractice() {
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {practiceMode === 'knowledge'
+          ? hasPaidAiAccess
             ? '本轮固定练习任务5对应的 8 类 Bar Server 基础知识。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案。'
-            : requestedQuestionId
-              ? '你选择的问题会排在本轮第一题，其余题目由通用问题和岗位场景组成。录音会临时用于英文转写，音频本身不会写入长期档案。'
-              : '本轮会根据你的目标岗位安排 8 道题。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案；你可以在评分前修改转写文本。'}
+            : '本轮可先用文字整理任务5对应的 8 类 Bar Server 基础知识。完整语音转写与 AI 训练报告属于岗位训练包。'
+          : requestedQuestionId
+              ? hasPaidAiAccess
+                ? '你选择的问题会排在本轮第一题，其余题目由通用问题和岗位场景组成。录音会临时用于英文转写，音频本身不会写入长期档案。'
+                : '你选择的问题会排在本轮第一题。可以先用文字自练；语音 AI 体验目前只开放 Bar Server 的 3 个免费场景。'
+              : hasPaidAiAccess
+                ? '本轮会根据你的目标岗位安排 8 道题。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入长期档案；你可以在评分前修改转写文本。'
+                : '本轮会根据你的目标岗位安排 8 道题，可先完成文字自练。语音转写和 AI 反馈需要对应岗位训练包。'}
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -757,7 +768,7 @@ function Task7InterviewPractice() {
         onClick={() => setStage('practice')}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
       >
-        开始语音演练
+        {hasPaidAiAccess ? '开始语音演练' : '开始文字练习'}
         <ArrowRight size={18} />
       </button>
     </div>
@@ -796,7 +807,7 @@ function Task7InterviewPractice() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium text-slate-950">录音回答</p>
-                <p className="mt-0.5 text-xs text-slate-500">建议每题 30-60 秒。停止后自动转写，音频不长期保存。</p>
+                <p className="mt-0.5 text-xs text-slate-500">{hasPaidAiAccess ? '建议每题 30-60 秒。停止后自动转写，音频不长期保存。' : '语音转写与 AI 反馈属于岗位训练包；可先使用下方文字回答。'}</p>
               </div>
               {recordingQuestionId === currentQuestion.id ? (
                 <button
@@ -811,10 +822,11 @@ function Task7InterviewPractice() {
                 <button
                   type="button"
                   onClick={() => startRecording(currentQuestion.id)}
+                  disabled={!hasPaidAiAccess}
                   className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                 >
                   <Mic size={16} />
-                  开始录音
+                  {hasPaidAiAccess ? '开始录音' : '需解锁语音训练'}
                 </button>
               )}
             </div>

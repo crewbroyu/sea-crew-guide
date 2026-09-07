@@ -33,7 +33,7 @@ const createRequestId = () => (
   || `ai-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 )
 
-const requestInterviewAi = async (payload) => {
+const requestInterviewAi = async (payload, requestId = createRequestId()) => {
   const accessToken = await getAccessToken()
   const controller = new AbortController()
   const timeoutId = window.setTimeout(() => controller.abort(), 90_000)
@@ -45,7 +45,7 @@ const requestInterviewAi = async (payload) => {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ ...payload, clientRequestId: createRequestId() }),
+      body: JSON.stringify({ ...payload, clientRequestId: requestId }),
       signal: controller.signal,
     })
     const body = await response.json().catch(() => null)
@@ -111,18 +111,18 @@ export const evaluateInterviewWithAi = ({
   scenarioId,
 })
 
-export const continueScenarioRoleplay = ({ scenarioId, firstAnswer }) => requestInterviewAi({
+export const continueScenarioRoleplay = ({ scenarioId, firstAnswer, requestId }) => requestInterviewAi({
   action: 'scenario_turn',
   mode: 'premium_scenario',
   position: 'Bar Server',
   scenarioId,
   firstAnswer,
-})
+}, requestId)
 
-export const evaluateScenarioSimulation = ({ scenarioId, turns }) => requestInterviewAi({
+export const evaluateScenarioSimulation = ({ scenarioId, turns, requestId }) => requestInterviewAi({
   action: 'scenario_evaluate',
   mode: 'premium_scenario',
   position: 'Bar Server',
   scenarioId,
   turns,
-})
+}, requestId)

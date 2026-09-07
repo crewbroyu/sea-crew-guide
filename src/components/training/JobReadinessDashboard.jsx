@@ -12,11 +12,11 @@ export default function JobReadinessDashboard({ profile, onOpenScenario }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium text-blue-700">BAR SERVER READINESS</p>
-          <h2 className="mt-1 text-xl font-semibold text-slate-950">岗位准备度</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-600">来自已完成的岗位场景，不等同于船公司录用结果。</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-950">Job Readiness</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">Based on completed job simulations. It is not a hiring decision.</p>
         </div>
         <div className="rounded-lg bg-blue-50 px-4 py-3 text-center">
-          <p className="text-xs font-medium text-blue-700">当前分数</p>
+          <p className="text-xs font-medium text-blue-700">CURRENT SCORE</p>
           <p className="mt-1 text-2xl font-bold text-blue-950">{readiness || '--'}</p>
         </div>
       </div>
@@ -34,19 +34,19 @@ export default function JobReadinessDashboard({ profile, onOpenScenario }) {
           })}
         </div>
       ) : (
-        <p className="mt-5 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">完成第一个完整场景后，这里会记录你真实的岗位能力变化。</p>
+        <p className="mt-5 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-600">Complete your first full simulation to start tracking your job skills here.</p>
       )}
 
       {weakest && readiness > 0 && (
         <div className="mt-5 rounded-lg border border-amber-100 bg-amber-50 p-4">
-          <p className="text-xs font-semibold text-amber-800">当前最大短板</p>
+          <p className="text-xs font-semibold text-amber-800">CURRENT FOCUS</p>
           <p className="mt-1 text-sm font-semibold text-amber-950">{weakest.label}</p>
-          <p className="mt-1 text-sm leading-6 text-amber-900">{recommended ? `下一步建议训练：${recommended.title}` : '继续完成不同类型的场景，系统会给出更稳定的建议。'}</p>
-          {recommended && onOpenScenario && <button type="button" onClick={() => onOpenScenario(recommended.id)} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-amber-800 hover:text-amber-950">练习弱项 <ArrowRight size={16} /></button>}
+          <p className="mt-1 text-sm leading-6 text-amber-900">{recommended ? `Recommended next: ${recommended.title}` : 'Complete different simulations to receive a more stable recommendation.'}</p>
+          {recommended && onOpenScenario && <button type="button" onClick={() => onOpenScenario(recommended.id)} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-amber-800 hover:text-amber-950">Train this skill <ArrowRight size={16} /></button>}
         </div>
       )}
 
-      {profile?.completed_scenario_count > 0 && <p className="mt-4 flex items-center gap-2 text-xs text-slate-500"><Target size={14} />已完成 {profile.completed_scenario_count} 个不同场景</p>}
+      {profile?.completed_scenario_count > 0 && <p className="mt-4 flex items-center gap-2 text-xs text-slate-500"><Target size={14} />{profile.completed_scenario_count} different simulations completed</p>}
     </section>
   )
 }

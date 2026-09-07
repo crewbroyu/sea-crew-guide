@@ -47,7 +47,62 @@ export const getMyScenarioHistory = async (jobKey = 'bar_server', limit = 30) =>
   return data || []
 }
 
-export const saveScenarioTrainingResult = async ({ scenario, turns, evaluation }) => {
+export const getMyInProgressScenarioSession = async (jobKey = 'bar_server') => {
+  const user = await getCurrentUser()
+  if (!user) return null
+
+  const { data, error } = await supabase
+    .from('scenario_training_sessions')
+    .select('id, scenario_id, scenario_context, turns, created_at')
+    .eq('user_id', user.id)
+    .eq('job_key', jobKey)
+    .eq('status', 'in_progress')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export const createScenarioTrainingDraft = async ({ scenario, turns }) => {
+  const user = await getCurrentUser()
+  if (!user) return null
+
+  const { data, error } = await supabase
+    .from('scenario_training_sessions')
+    .insert({
+      user_id: user.id,
+      job_key: scenario.jobKey,
+      scenario_id: scenario.id,
+      difficulty: scenario.difficulty,
+      scenario_context: scenario,
+      turns,
+      status: 'in_progress',
+    })
+    .select('id, scenario_id, scenario_context, turns, created_at')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export const updateScenarioTrainingDraft = async ({ sessionId, turns }) => {
+  if (!sessionId) return null
+
+  const { data, error } = await supabase
+    .from('scenario_training_sessions')
+    .update({ turns })
+    .eq('id', sessionId)
+    .eq('status', 'in_progress')
+    .select('id')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export const saveScenarioTrainingResult = async ({ sessionId, scenario, turns, evaluation }) => {
   const user = await getCurrentUser()
   if (!user) return null
 
@@ -56,9 +111,7 @@ export const saveScenarioTrainingResult = async ({ scenario, turns, evaluation }
     .slice()
     .sort((left, right) => skillScores[left.key] - skillScores[right.key])[0]?.key || 'english'
 
-  const { data: session, error: sessionError } = await supabase
-    .from('scenario_training_sessions')
-    .insert({
+  const completedFields = {
       user_id: user.id,
       job_key: scenario.jobKey,
       scenario_id: scenario.id,
@@ -74,9 +127,19 @@ export const saveScenarioTrainingResult = async ({ scenario, turns, evaluation }
       better_response: evaluation?.betterResponse || '',
       next_recommendation: evaluation?.nextTrainingRecommendation || '',
       completed_at: new Date().toISOString(),
-    })
-    .select('*')
-    .single()
+    }
+
+  const sessionWrite = sessionId
+    ? supabase
+      .from('scenario_training_sessions')
+      .update(completedFields)
+      .eq('id', sessionId)
+      .eq('status', 'in_progress')
+    : supabase
+      .from('scenario_training_sessions')
+      .insert(completedFields)
+
+  const { data: session, error: sessionError } = await sessionWrite.select('*').single()
 
   if (sessionError) throw sessionError
 

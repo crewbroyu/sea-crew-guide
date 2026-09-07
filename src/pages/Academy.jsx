@@ -3,13 +3,11 @@ import {
   ArrowRight,
   BookOpen,
   BriefcaseBusiness,
-  ClipboardList,
   FileText,
   MapPin,
   MessageSquare,
   Mic2,
   Ship,
-  Sparkles,
 } from 'lucide-react'
 
 const primaryModules = [
@@ -21,15 +19,15 @@ const primaryModules = [
     label: '百科',
   },
   {
-    title: '确定目标岗位',
-    description: '按岗位学习英语、职责、风险和准备路线，把“想上船”变成具体岗位目标。',
+    title: '了解岗位要求',
+    description: '按岗位了解英语、职责、风险和准备重点，再判断自己想申请什么岗位。',
     route: '/academy/position-english',
     icon: BriefcaseBusiness,
     label: '岗位英语',
   },
   {
-    title: '进入面试准备',
-    description: '围绕常见问题、岗位场景和 AI 模拟面试，训练可直接用于面试的表达。',
+    title: '开始面试准备',
+    description: '先看不同岗位的高频问题与考察重点，再进入对应的训练路径。',
     route: '/academy/interview-questions',
     icon: MessageSquare,
     label: '面试',
@@ -57,7 +55,7 @@ const learningSections = [
   },
   {
     title: '面试准备',
-    description: '问题库、场景训练、模拟面试',
+    description: '先看题目，再进入对应岗位的实战训练',
     items: [
       {
         title: '常见面试问题',
@@ -66,24 +64,11 @@ const learningSections = [
         icon: MessageSquare,
       },
       {
-        title: '岗位场景训练',
-        description: '练习客诉、点单、前台、销售等工作场景',
-        route: '/academy/scenarios',
-        icon: ClipboardList,
-      },
-      {
         title: 'Bar Server 场景语音训练',
         description: '免费完成 3 个真实酒吧服务场景，体验录音、反馈与重练',
         route: '/programs/bar-server',
         state: { from: 'academy' },
         icon: Mic2,
-      },
-      {
-        title: 'AI 模拟面试',
-        description: '从学院进入完整模拟面试任务',
-        route: '/tasks/phase2/Task7/mock',
-        state: { from: 'academy' },
-        icon: Sparkles,
       },
     ],
   },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
@@ -59,9 +59,13 @@ const buildSavedAttempt = ({ transcript, durationSeconds, evaluation, attemptNum
 
 export default function BarServerTrial() {
   const navigate = useNavigate()
+  const location = useLocation()
   const access = useEffectiveAccess()
   const { isRegistered, openRegisterModal } = access
   const hasBarServerPack = hasProductEntitlement(access, 'bar_server_pack')
+  const returnDestination = location.state?.from === 'task5'
+    ? { route: '/tasks/phase2/Task5', label: '返回岗位知识准备' }
+    : { route: '/academy/interview-questions?position=bar_server', label: '返回 Bar Server 题库' }
   const savedTrial = useMemo(() => readTrial(), [])
   const initialScenarioIndex = savedTrial?.scenarioIndex || 0
   const initialScenario = barServerTrialScenarios[initialScenarioIndex]
@@ -547,7 +551,7 @@ export default function BarServerTrial() {
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-3xl px-5 pb-7 pt-10">
-          <button type="button" onClick={() => navigate('/jobs')} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-700"><ArrowLeft size={17} />返回求职中心</button>
+          <button type="button" onClick={() => navigate(returnDestination.route)} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-700"><ArrowLeft size={17} />{returnDestination.label}</button>
           <div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Wine size={24} /></div><div><p className="text-sm font-medium text-blue-700">Bar Server 面试准备训练</p><h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">免费完成 3 个真实场景，再决定是否继续</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">每个免费场景都包含语音回答、岗位知识反馈、专业参考答案、针对性重练和前后对比，不用残缺体验催你付费。</p></div></div>
 
           <div className="mt-6 grid grid-cols-3 gap-2 text-center text-xs font-medium">

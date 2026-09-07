@@ -13,7 +13,6 @@ import {
   FileText,
   Globe,
   Map,
-  Store,
   Target,
 } from 'lucide-react'
 
@@ -148,29 +147,6 @@ export default function JobsCenter() {
       </header>
 
       <main className="mx-auto max-w-3xl px-6 pt-6">
-        <section className="mb-6 rounded-lg border border-blue-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-              <Store size={22} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-blue-700">首个岗位训练闭环 · 3 个完整免费场景</p>
-              <h2 className="mt-1 font-semibold text-slate-950">Bar Server 场景语音训练</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                练饮品推荐、客诉补救和安全拒酒；每题都有专业反馈、参考回答与重练对比。
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate('/programs/bar-server')}
-                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-700"
-              >
-                开始 3 个免费场景
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          </div>
-        </section>
-
         <section className="mb-6 grid grid-cols-3 gap-3">
           <div className="rounded-lg border border-slate-200 bg-white p-3 text-center shadow-sm">
             <p className="text-lg font-bold text-blue-700">{snapshot.targetJob ? '已选' : '未选'}</p>

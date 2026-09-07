@@ -597,7 +597,7 @@ export default function Task5Training() {
 
           <button
             type="button"
-            onClick={() => navigate('/programs/bar-server')}
+            onClick={() => navigate('/programs/bar-server', { state: { from: 'task5' } })}
             className="mb-5 flex w-full items-center justify-between rounded-xl border border-blue-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-300"
           >
             <div>

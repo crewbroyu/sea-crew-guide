@@ -72,6 +72,13 @@ const learningSections = [
         icon: ClipboardList,
       },
       {
+        title: 'Bar Server 场景语音训练',
+        description: '免费完成 3 个真实酒吧服务场景，体验录音、反馈与重练',
+        route: '/programs/bar-server',
+        state: { from: 'academy' },
+        icon: Mic2,
+      },
+      {
         title: 'AI 模拟面试',
         description: '从学院进入完整模拟面试任务',
         route: '/tasks/phase2/Task7/mock',

@@ -74,6 +74,18 @@ export default function Task7TrainingCenter() {
       tone: 'blue',
       completed: voiceCompleted,
     },
+    ...(position?.key === 'bar_server' ? [{
+      id: 'job-simulator',
+      title: '岗位场景训练',
+      description: '以 Guest、投诉客人和高压服务场景连续回应，再看六维岗位能力与下一项弱项训练。',
+      meta: 'Bar Server 专属 · 激活权益',
+      action: '进入训练',
+      route: '/programs/bar-server/training',
+      icon: Target,
+      tone: 'amber',
+      premium: true,
+      completed: false,
+    }] : []),
     {
       id: 'ai-mock',
       title: 'AI 模拟面试',

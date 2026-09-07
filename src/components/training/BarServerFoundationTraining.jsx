@@ -20,6 +20,7 @@ export default function BarServerFoundationTraining({
   task6Completed = false,
   onStartTask6,
   onStartTask7,
+  onStartScenarioTraining,
 }) {
   const firstIncompleteDay = useMemo(
     () => barServerFoundationDays.find((day) => !progress[day.id]?.completedAt)?.id
@@ -235,6 +236,12 @@ export default function BarServerFoundationTraining({
           {task6Completed ? '进入任务7知识巩固' : '进入任务6建立回答框架'}
           <ArrowRight size={16} />
         </button>
+        {completedDays === barServerFoundationDays.length && onStartScenarioTraining && (
+          <button type="button" onClick={onStartScenarioTraining} className="mt-3 flex items-center gap-2 text-sm font-semibold text-blue-800">
+            用真实岗位场景检验这 7 天知识
+            <ArrowRight size={16} />
+          </button>
+        )}
       </div>
 
       <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">

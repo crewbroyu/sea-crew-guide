@@ -737,6 +737,7 @@ export default function Task5Training() {
             task6Completed={task6Completed}
             onStartTask6={() => navigate('/tasks/phase2/Task6?source=task5')}
             onStartTask7={() => navigate('/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task5')}
+            onStartScenarioTraining={() => navigate('/programs/bar-server/training')}
           />
         )}
 

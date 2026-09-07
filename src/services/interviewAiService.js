@@ -110,3 +110,19 @@ export const evaluateInterviewWithAi = ({
   answers,
   scenarioId,
 })
+
+export const continueScenarioRoleplay = ({ scenarioId, firstAnswer }) => requestInterviewAi({
+  action: 'scenario_turn',
+  mode: 'premium_scenario',
+  position: 'Bar Server',
+  scenarioId,
+  firstAnswer,
+})
+
+export const evaluateScenarioSimulation = ({ scenarioId, turns }) => requestInterviewAi({
+  action: 'scenario_evaluate',
+  mode: 'premium_scenario',
+  position: 'Bar Server',
+  scenarioId,
+  turns,
+})

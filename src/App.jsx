@@ -66,6 +66,7 @@ const FounderBeta = lazy(() => import('./pages/FounderBeta'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const RetailPreparationPack = lazy(() => import('./pages/programs/RetailPreparationPack'))
 const BarServerTrial = lazy(() => import('./pages/programs/BarServerTrial'))
+const BarServerScenarioTraining = lazy(() => import('./pages/programs/BarServerScenarioTraining'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
 const BoardingMaterials = lazy(() => import('./pages/BoardingMaterials'))
 
@@ -156,6 +157,7 @@ function App() {
               <Route path="/founder-test" element={<RequireActivation productCode="bar_server_pack"><FounderBeta /></RequireActivation>} />
               <Route path="/programs/retail" element={<RetailPreparationPack />} />
               <Route path="/programs/bar-server" element={<BarServerTrial />} />
+              <Route path="/programs/bar-server/training" element={<RequireActivation productCode="bar_server_pack"><BarServerScenarioTraining /></RequireActivation>} />
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />
               <Route path="/generate-codes" element={<RequireAdmin><ActivationCodeGenerator /></RequireAdmin>} />

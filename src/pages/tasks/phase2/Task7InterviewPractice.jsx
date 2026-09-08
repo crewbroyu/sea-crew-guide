@@ -14,6 +14,7 @@ import {
   Target,
 } from 'lucide-react';
 import TaskLayout from '../../../components/TaskLayout';
+import EdgeReadAloudHint from '../../../components/EdgeReadAloudHint';
 import interviewQuestions, { positionConfig } from '../../../data/interviewQuestions';
 import { barServerFoundationDays } from '../../../data/barServerFoundation';
 import useEffectiveAccess from '../../../hooks/useEffectiveAccess';
@@ -787,6 +788,7 @@ function Task7InterviewPractice() {
                 Question {currentQuestion.order}/{questions.length} · {currentQuestion.phase}
               </p>
               <h2 className="mt-2 text-xl font-semibold leading-7 text-slate-950">{currentQuestion.question}</h2>
+              <EdgeReadAloudHint />
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
               {answeredCount}/{questions.length}

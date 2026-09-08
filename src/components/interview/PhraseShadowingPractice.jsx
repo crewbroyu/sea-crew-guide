@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Mic, RotateCcw, Square, Volume2 } from 'lucide-react'
+import EdgeReadAloudHint from '../EdgeReadAloudHint'
 
 const DEFAULT_REQUIRED_PHRASE_REPETITIONS = 3
 const DEFAULT_REQUIRED_FULL_ANSWER_REPETITIONS = 3
@@ -261,6 +262,7 @@ export default function PhraseShadowingPractice({
           <p className="mt-1 text-xs leading-5 text-slate-500">
             {description || (phrases.length ? `每条表达读 ${requiredPhraseRepetitions} 次${referenceAnswer ? `，再把完整回答连续练 ${requiredFullAnswerRepetitions} 次` : ''}。` : `把基于最后一次回答生成的修正版至少完整练 ${requiredFullAnswerRepetitions} 次。`)}录音只保留在当前页面。
           </p>
+          <EdgeReadAloudHint />
         </div>
         <span className="shrink-0 text-sm font-semibold text-blue-700">{completedUnitCount}/{requiredUnitCount} 项</span>
       </div>

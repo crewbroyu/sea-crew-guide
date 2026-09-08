@@ -22,6 +22,7 @@ import {
 import useEffectiveAccess from '../../hooks/useEffectiveAccess'
 import { hasProductEntitlement } from '../../services/activationService'
 import PhraseShadowingPractice from '../../components/interview/PhraseShadowingPractice'
+import EdgeReadAloudHint from '../../components/EdgeReadAloudHint'
 import ScenarioLesson from '../../components/interview/ScenarioLesson'
 import { evaluateInterviewWithAi, transcribeInterviewAudio } from '../../services/interviewAiService'
 import { saveInterviewPracticeRecord } from '../../services/interviewPracticeService'
@@ -382,6 +383,7 @@ export default function BarServerTrial() {
           <p className="text-xs font-semibold uppercase text-blue-700">Guest</p>
           <p className="mt-1 text-base font-medium leading-7 text-blue-950">“{scenario.guestLine}”</p>
         </div>
+        <EdgeReadAloudHint />
         <p className="mt-4 text-sm leading-6 text-slate-700">{scenario.task}</p>
       </section>
 
@@ -423,6 +425,7 @@ export default function BarServerTrial() {
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">建议 30-60 秒</span>
           </div>
           <div className="mt-4 rounded-lg bg-slate-50 p-4"><p className="text-sm font-medium leading-6 text-slate-950">“{scenario.guestLine}”</p></div>
+          <EdgeReadAloudHint />
           {errorMessage && <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm leading-6 text-red-700">{errorMessage}</div>}
 
           <div className="mt-5 rounded-lg border border-slate-200 p-4">

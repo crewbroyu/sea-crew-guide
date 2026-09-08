@@ -1,4 +1,4 @@
-import { createElement, useMemo } from 'react'
+import { createElement, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
@@ -15,6 +15,7 @@ import {
   Map,
   Target,
 } from 'lucide-react'
+import { listJobApplications } from '../services/jobApplicationService'
 
 const primaryActions = [
   {
@@ -80,7 +81,22 @@ function getJobSnapshot() {
 
 export default function JobsCenter() {
   const navigate = useNavigate()
-  const snapshot = useMemo(() => getJobSnapshot(), [])
+  const initialSnapshot = useMemo(() => getJobSnapshot(), [])
+  const [snapshot, setSnapshot] = useState(initialSnapshot)
+
+  useEffect(() => {
+    let isMounted = true
+
+    listJobApplications()
+      .then((applications) => {
+        if (isMounted) {
+          setSnapshot((current) => ({ ...current, applicationCount: applications.length }))
+        }
+      })
+      .catch((error) => console.error('加载申请记录统计失败:', error))
+
+    return () => { isMounted = false }
+  }, [])
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Briefcase, Clock, CheckCircle, AlertCircle, Calendar, Edit, Upload, Trash2 } from 'lucide-react';
+import { deleteJobApplication, listJobApplications, updateJobApplication } from '../services/jobApplicationService';
 
 // 申请状态选项
 const statusOptions = [
@@ -12,16 +13,6 @@ const statusOptions = [
   'Offer',
   '拒信'
 ];
-
-// 获取申请记录从本地存储
-const getApplications = () => {
-  return JSON.parse(localStorage.getItem('job_applications') || '[]');
-};
-
-// 保存申请记录到本地存储
-const saveApplications = (applications) => {
-  localStorage.setItem('job_applications', JSON.stringify(applications));
-};
 
 // 格式化日期
 const formatDate = (dateString) => {
@@ -40,22 +31,27 @@ export default function MyApplications() {
   const [applications, setApplications] = useState([]);
   const [editingApplication, setEditingApplication] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // 加载申请记录
   useEffect(() => {
-    const apps = getApplications();
-    setApplications(apps);
+    let isMounted = true;
 
-    // 检查未完成的申请，添加提醒
-    const incompleteApps = apps.filter(app => app.status === '未完成');
-    if (incompleteApps.length > 0) {
-      // 简单的提醒机制（实际项目中可以使用更复杂的通知系统）
-      setTimeout(() => {
-        if (window.confirm('你有未完成的申请，是否现在去更新状态？')) {
-          // 可以跳转到具体的申请详情
-        }
-      }, 3000);
-    }
+    const loadApplications = async () => {
+      try {
+        const apps = await listJobApplications();
+        if (isMounted) setApplications(apps);
+      } catch (error) {
+        console.error('加载申请记录失败:', error);
+        if (isMounted) setErrorMessage('申请记录暂时无法加载，请稍后刷新重试。');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    loadApplications();
+    return () => { isMounted = false; };
   }, []);
 
   // 计算申请统计
@@ -66,19 +62,14 @@ export default function MyApplications() {
   };
 
   // 处理状态变更
-  const handleStatusChange = (id, newStatus) => {
-    const updatedApplications = applications.map(app => {
-      if (app.id === id) {
-        return {
-          ...app,
-          status: newStatus,
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return app;
-    });
-    setApplications(updatedApplications);
-    saveApplications(updatedApplications);
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      const updatedRecord = await updateJobApplication(id, { status: newStatus });
+      setApplications((current) => current.map((app) => app.id === id ? updatedRecord : app));
+    } catch (error) {
+      console.error('更新申请状态失败:', error);
+      setErrorMessage(error.message || '状态更新失败，请稍后重试。');
+    }
   };
 
   // 开始编辑
@@ -90,33 +81,32 @@ export default function MyApplications() {
   };
 
   // 保存编辑
-  const handleSaveEdit = (id) => {
-    const updatedApplications = applications.map(app => {
-      if (app.id === id) {
-        return {
-          ...app,
-          notes: editForm.notes,
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return app;
-    });
-    setApplications(updatedApplications);
-    saveApplications(updatedApplications);
-    setEditingApplication(null);
+  const handleSaveEdit = async (id) => {
+    try {
+      const updatedRecord = await updateJobApplication(id, { notes: editForm.notes });
+      setApplications((current) => current.map((app) => app.id === id ? updatedRecord : app));
+      setEditingApplication(null);
+    } catch (error) {
+      console.error('保存申请备注失败:', error);
+      setErrorMessage(error.message || '备注保存失败，请稍后重试。');
+    }
   };
 
   // 删除申请记录
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('确定要删除这条申请记录吗？')) {
-      const updatedApplications = applications.filter(app => app.id !== id);
-      setApplications(updatedApplications);
-      saveApplications(updatedApplications);
+      try {
+        await deleteJobApplication(id);
+        setApplications((current) => current.filter((app) => app.id !== id));
+      } catch (error) {
+        console.error('删除申请记录失败:', error);
+        setErrorMessage(error.message || '删除失败，请稍后重试。');
+      }
     }
   };
 
   // 上传截图（模拟）
-  const handleUploadScreenshot = (id) => {
+  const handleUploadScreenshot = () => {
     alert('功能开发中：请上传申请成功页面或邮件确认的截图');
     // 实际项目中这里会实现文件上传功能
   };
@@ -145,6 +135,11 @@ export default function MyApplications() {
       </div>
 
       <div className="px-6 py-4">
+        {errorMessage && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {errorMessage}
+          </div>
+        )}
         {/* 申请统计 */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm p-4 text-center">
@@ -162,7 +157,9 @@ export default function MyApplications() {
         </div>
 
         {/* 申请列表 */}
-        {applications.length === 0 ? (
+        {isLoading ? (
+          <div className="bg-white rounded-xl shadow-sm p-8 text-center text-sm text-gray-500">正在加载申请记录...</div>
+        ) : applications.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm p-8 text-center">
             <Briefcase size={48} className="text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-gray-800 mb-2">暂无申请记录</h3>

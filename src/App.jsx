@@ -41,8 +41,6 @@ const Wiki = lazy(() => import('./pages/academy/Wiki'))
 const WikiArticle = lazy(() => import('./pages/academy/WikiArticle'))
 const PositionEnglish = lazy(() => import('./pages/academy/PositionEnglish'))
 const InterviewQuestions = lazy(() => import('./pages/academy/InterviewQuestions'))
-const ScenarioList = lazy(() => import('./pages/academy/ScenarioList'))
-const ScenarioDetail = lazy(() => import('./pages/academy/ScenarioDetail'))
 const PortDaily = lazy(() => import('./pages/academy/PortDaily'))
 
 const JobsCenter = lazy(() => import('./pages/JobsCenter'))
@@ -135,8 +133,8 @@ function App() {
 
               <Route path="/academy/position-english" element={<PositionEnglish />} />
               <Route path="/academy/interview-questions" element={<InterviewQuestions />} />
-              <Route path="/academy/scenarios" element={<ScenarioList />} />
-              <Route path="/academy/scenarios/detail" element={<ScenarioDetail />} />
+              <Route path="/academy/scenarios" element={<Navigate to="/programs/bar-server" replace />} />
+              <Route path="/academy/scenarios/detail" element={<Navigate to="/programs/bar-server" replace />} />
               <Route path="/academy/port-daily" element={<PortDaily />} />
               <Route path="/jobs" element={<JobsCenter />} />
               <Route path="/jobs/preparation" element={<JobPreparation />} />

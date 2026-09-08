@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ExternalLink, Globe, Star, Briefcase } from 'lucide-react';
 import JobApplicationCard from '../components/JobApplicationCard';
+import { createJobApplication } from '../services/jobApplicationService';
 
 // 邮轮公司列表
 const cruiseCompanies = [
@@ -80,23 +81,6 @@ const cruiseCompanies = [
   }
 ];
 
-// 保存申请记录到本地存储
-const saveApplication = (application) => {
-  const applications = JSON.parse(localStorage.getItem('job_applications') || '[]');
-  const newApplication = {
-    id: Date.now().toString(),
-    companyName: application.companyName,
-    jobTitle: application.jobTitle,
-    notes: application.notes,
-    companyUrl: application.companyUrl,
-    status: '未完成',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  applications.push(newApplication);
-  localStorage.setItem('job_applications', JSON.stringify(applications));
-};
-
 export default function CruiseCompanyJobs() {
   const navigate = useNavigate();
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -105,9 +89,12 @@ export default function CruiseCompanyJobs() {
     setSelectedCompany(company);
   };
 
-  const handleApply = (application) => {
-    // 保存申请记录
-    saveApplication(application);
+  const handleApply = async (application) => {
+    try {
+      await createJobApplication({ ...application, status: '未完成', sourceType: 'cruise_company' });
+    } catch (error) {
+      console.error('保存申请记录失败:', error);
+    }
     // 跳转官网
     window.open(application.companyUrl, '_blank', 'noopener,noreferrer');
     // 关闭申请动作卡

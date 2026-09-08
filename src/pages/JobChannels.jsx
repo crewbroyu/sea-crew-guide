@@ -1,46 +1,9 @@
 // src/pages/JobChannels.jsx
 import { useNavigate } from 'react-router-dom'
-import { useState } from 'react'
 import { ChevronLeft, Globe, Users, Newspaper, User, ArrowRight, Search, Zap, Sparkles, Star, ChevronDown, ChevronUp } from 'lucide-react'
-import JobApplicationCard from '../components/JobApplicationCard'
 
 export default function JobChannels() {
   const navigate = useNavigate()
-  const [showApplicationCard, setShowApplicationCard] = useState(false)
-  const [currentBrand, setCurrentBrand] = useState(null)
-
-  const saveApplication = (applicationData) => {
-    const applicationsKey = 'job_applications'
-    const applications = JSON.parse(localStorage.getItem(applicationsKey) || '[]')
-    
-    applications.push({
-      ...applicationData,
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      status: 'pending'
-    })
-    
-    localStorage.setItem(applicationsKey, JSON.stringify(applications))
-    
-    // 跳转到官网
-    window.open(applicationData.companyUrl, '_blank')
-    setShowApplicationCard(false)
-  }
-
-  const handleApply = (brand) => {
-    setCurrentBrand(brand)
-    setShowApplicationCard(true)
-  }
-
-  const handleCancel = () => {
-    setShowApplicationCard(false)
-    setCurrentBrand(null)
-  }
-
-  const handleJustLooking = () => {
-    setShowApplicationCard(false)
-    setCurrentBrand(null)
-  }
 
   const channels = [
     {
@@ -183,15 +146,6 @@ export default function JobChannels() {
         </div>
       </div>
       
-      {/* 申请记录卡片 */}
-      {showApplicationCard && currentBrand && (
-        <JobApplicationCard
-          company={currentBrand}
-          onApply={saveApplication}
-          onCancel={handleCancel}
-          onJustLooking={handleJustLooking}
-        />
-      )}
     </div>
   )
 }

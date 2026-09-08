@@ -1,13 +1,4 @@
-import { apiClient } from '../lib/apiClient'
 import { supabase } from '../supabase'
-
-export async function getLatestAssessment() {
-  return apiClient.get('/me/assessment/latest')
-}
-
-export async function saveAssessment(payload) {
-  return apiClient.post('/me/assessment', payload)
-}
 
 export const saveAssessmentSubmission = async ({
   userId = null,

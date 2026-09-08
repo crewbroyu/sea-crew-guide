@@ -1,13 +1,15 @@
-# Sea Crew Guide
+# CrewPathGuide
 
-Front-end project for sea-crew career preparation, built with React + Vite.
+CrewPathGuide is a React + Vite web app for cruise-career planning, job preparation, and Bar Server scenario training.
 
 ## Environment
 
 Create `.env.local` with:
 
 ```bash
-VITE_API_BASE_URL=http://localhost:3000
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+DASHSCOPE_API_KEY=your_dashscope_api_key
 ```
 
 ## Scripts
@@ -17,11 +19,8 @@ VITE_API_BASE_URL=http://localhost:3000
 - `npm run lint` run ESLint
 - `npm run preview` preview build output
 
-## Migration Note
+## Architecture
 
-Supabase direct client usage has been removed from the front end.
-The app now uses:
-
-- `src/lib/authClient.js` for authentication
-- `src/lib/apiClient.js` for HTTP API requests
-- `src/services/*` for domain-level data access
+- Supabase provides authentication and persistent user data.
+- Vercel server endpoints provide protected AI calls.
+- `src/services/*` contains client-side domain access helpers.

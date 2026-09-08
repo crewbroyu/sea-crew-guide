@@ -3,26 +3,20 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Star, ArrowRight, Search, Zap, Sparkles } from 'lucide-react'
 import JobApplicationCard from '../components/JobApplicationCard'
 import { useState } from 'react'
+import { createJobApplication } from '../services/jobApplicationService'
 
 export default function BrandPartners() {
   const navigate = useNavigate()
   const [showApplicationCard, setShowApplicationCard] = useState(false)
   const [currentBrand, setCurrentBrand] = useState(null)
 
-  const saveApplication = (applicationData) => {
-    const applicationsKey = 'job_applications'
-    const applications = JSON.parse(localStorage.getItem(applicationsKey) || '[]')
-    
-    applications.push({
-      ...applicationData,
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      status: 'pending'
-    })
-    
-    localStorage.setItem(applicationsKey, JSON.stringify(applications))
-    
-    // 跳转到官网
+  const saveApplication = async (applicationData) => {
+    try {
+      await createJobApplication({ ...applicationData, status: '未完成', sourceType: 'brand_partner' })
+    } catch (error) {
+      console.error('保存申请记录失败:', error)
+    }
+
     window.open(applicationData.companyUrl, '_blank')
     setShowApplicationCard(false)
   }

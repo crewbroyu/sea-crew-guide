@@ -1,5 +1,5 @@
 import { createElement, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, BarChart3, CircleAlert, LoaderCircle, MessageSquareText, RefreshCcw, Users } from 'lucide-react'
+import { ArrowLeft, BarChart3, CircleAlert, FileText, LoaderCircle, MessageSquareText, Mic2, RefreshCcw, UserCheck, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 
@@ -22,6 +22,7 @@ export default function AdminBetaDashboard() {
   const navigate = useNavigate()
   const [events, setEvents] = useState([])
   const [requests, setRequests] = useState([])
+  const [overview, setOverview] = useState(null)
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
 
@@ -30,7 +31,7 @@ export default function AdminBetaDashboard() {
     setError('')
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    const [eventsResult, requestsResult] = await Promise.all([
+    const [eventsResult, requestsResult, overviewResult] = await Promise.all([
       supabase
         .from('product_events')
         .select('id, user_id, anonymous_id, event_name, properties, created_at')
@@ -43,16 +44,18 @@ export default function AdminBetaDashboard() {
         .select('id, category, message, status, created_at')
         .order('created_at', { ascending: false })
         .limit(30),
+      supabase.rpc('get_admin_beta_overview', { input_days: 14 }),
     ])
 
-    if (eventsResult.error || requestsResult.error) {
-      setError(eventsResult.error?.message || requestsResult.error?.message || '内测数据暂时无法加载。')
+    if (eventsResult.error || requestsResult.error || overviewResult.error) {
+      setError(eventsResult.error?.message || requestsResult.error?.message || overviewResult.error?.message || '内测数据暂时无法加载。')
       setStatus('error')
       return
     }
 
     setEvents(eventsResult.data || [])
     setRequests(requestsResult.data || [])
+    setOverview(overviewResult.data || null)
     setStatus('ready')
   }
 
@@ -94,6 +97,48 @@ export default function AdminBetaDashboard() {
         {status === 'loading' && <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-600"><LoaderCircle size={18} className="animate-spin" />正在读取内测数据...</div>}
         {status === 'error' && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"><p>{error}</p><button type="button" onClick={load} className="mt-2 font-semibold underline underline-offset-2">重新读取</button></div>}
         {status === 'ready' && <>
+          <section>
+            <div className="mb-3">
+              <h2 className="font-semibold text-slate-950">用户与训练概览</h2>
+              <p className="mt-1 text-sm text-slate-600">注册总数为历史累计，其余为近 14 天实际入库数据。</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <Metric icon={Users} label="累计注册" value={overview?.registered_total || 0} detail={`近 14 天新增 ${overview?.registered_period || 0}`} />
+              <Metric icon={UserCheck} label="邮箱已确认" value={overview?.confirmed_period || 0} detail="近 14 天完成验证" tone="emerald" />
+              <Metric icon={BarChart3} label="职业测评" value={overview?.assessment_period || 0} detail="近 14 天保存记录" />
+              <Metric icon={FileText} label="AI 职业报告" value={overview?.career_report_period || 0} detail="近 14 天成功生成" />
+              <Metric icon={Mic2} label="场景训练" value={overview?.scenario_session_period || 0} detail="近 14 天完成会话" />
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div>
+              <h2 className="font-semibold text-slate-950">最近注册用户</h2>
+              <p className="mt-1 text-sm text-slate-600">用于确认用户注册后是否继续完成测评、报告和场景训练。</p>
+            </div>
+            {overview?.recent_users?.length ? (
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-[760px] w-full text-left text-sm">
+                  <thead className="border-b border-slate-200 text-xs text-slate-500">
+                    <tr><th className="py-3 pr-4 font-medium">用户</th><th className="py-3 pr-4 font-medium">注册时间</th><th className="py-3 pr-4 font-medium">邮箱</th><th className="py-3 pr-4 font-medium">测评</th><th className="py-3 pr-4 font-medium">AI 报告</th><th className="py-3 font-medium">场景训练</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {overview.recent_users.map((user) => (
+                      <tr key={user.id}>
+                        <td className="py-3 pr-4"><p className="font-medium text-slate-900">{user.email || '未提供邮箱'}</p><p className="mt-1 text-xs text-slate-400">{user.plan === 'premium' ? '付费会员' : '免费用户'}</p></td>
+                        <td className="py-3 pr-4 text-slate-600">{new Date(user.created_at).toLocaleString('zh-CN')}</td>
+                        <td className="py-3 pr-4"><StatusPill active={Boolean(user.email_confirmed_at)} activeText="已确认" inactiveText="未确认" /></td>
+                        <td className="py-3 pr-4 font-medium text-slate-700">{user.assessment_count}</td>
+                        <td className="py-3 pr-4 font-medium text-slate-700">{user.career_report_count}</td>
+                        <td className="py-3 font-medium text-slate-700">{user.scenario_session_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p className="mt-4 text-sm text-slate-500">还没有注册用户。</p>}
+          </section>
+
           <section className="grid gap-3 sm:grid-cols-3">
             <Metric icon={Users} label="体验完成率" value={`${completionRate}%`} detail={`${completed} / ${viewed || 0} 完成`} />
             <Metric icon={MessageSquareText} label="快速反馈" value={countEvents(events, 'quick_feedback_submitted')} detail={`清楚 ${feedbackCount(events, 'clear')} · 犹豫 ${feedbackCount(events, 'uncertain')} · 卡住 ${feedbackCount(events, 'blocked')}`} />
@@ -115,6 +160,10 @@ export default function AdminBetaDashboard() {
       </main>
     </div>
   )
+}
+
+function StatusPill({ active, activeText, inactiveText }) {
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${active ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{active ? activeText : inactiveText}</span>
 }
 
 function Metric({ icon: Icon, label, value, detail, tone = 'blue' }) {

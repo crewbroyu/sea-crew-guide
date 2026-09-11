@@ -49,6 +49,14 @@ globalThis.fetch = async (url) => {
     return Response.json(1)
   }
 
+  if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) {
+    return Response.json({ reservation_id: '00000000-0000-4000-8000-000000000003', unlimited: false })
+  }
+
+  if (target.includes('/rest/v1/rpc/finalize_ai_usage_reservation')) {
+    return Response.json(true)
+  }
+
   if (target.includes('/chat/completions')) {
     providerCalls += 1
     return Response.json({
@@ -72,6 +80,8 @@ globalThis.fetch = async (url) => {
   throw new Error(`Unexpected request: ${target}`)
 }
 
+let requestSequence = 0
+
 const request = (position) => handleInterviewRequest({
   method: 'POST',
   headers: { authorization: 'Bearer entitlement-test-token' },
@@ -79,6 +89,7 @@ const request = (position) => handleInterviewRequest({
     action: 'evaluate',
     mode: 'premium_practice',
     position,
+    clientRequestId: `entitlement-test-${++requestSequence}`,
     questions: [{ id: 'q1', question: 'How do you recommend a drink?', keywords: ['guest', 'preference'] }],
     answers: [{ questionId: 'q1', textAnswer: 'I listen to the guest.', durationSeconds: 8 }],
   },

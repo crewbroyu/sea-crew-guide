@@ -388,6 +388,7 @@ export default function ResultPage({
           <p className="mb-4 text-sm leading-relaxed text-slate-600">
             填写联系方式后，这份结果会保存到后台，后续可用于职业路线、简历建议、面试准备计划和找搭子匹配。
           </p>
+          <p className="mb-4 text-xs leading-5 text-slate-500">不要填写身份证号、银行卡号、密码等敏感信息。保存即表示你了解这些资料会按<a href="/service-info" className="font-medium text-blue-700 underline underline-offset-2">服务与数据说明</a>用于职业路线和训练建议。</p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <input value={contact.name} onChange={(event) => handleContactChange('name', event.target.value)} placeholder="姓名" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />

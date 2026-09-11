@@ -44,7 +44,9 @@ class ErrorBoundary extends Component {
                 页面出错了
               </h2>
               <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>
-                {this.state.error?.message || '发生了未知错误'}
+                {import.meta.env.DEV
+                  ? (this.state.error?.message || '发生了未知错误')
+                  : '这个页面暂时无法继续。重新加载后仍出现问题，请把当前页面提交给支持中心。'}
               </p>
               <button
                 onClick={() => {
@@ -64,6 +66,25 @@ class ErrorBoundary extends Component {
                 }}
               >
                 重新加载
+              </button>
+              <button
+                onClick={() => {
+                  window.location.assign(`/support?category=bug&context=${encodeURIComponent(window.location.pathname)}&error=page_error`);
+                }}
+                style={{
+                  width: '100%',
+                  marginTop: '0.75rem',
+                  padding: '0.625rem 1rem',
+                  background: 'white',
+                  color: '#1d4ed8',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                提交页面问题
               </button>
             </div>
           </div>

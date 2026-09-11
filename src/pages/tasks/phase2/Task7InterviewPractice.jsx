@@ -927,6 +927,13 @@ function Task7InterviewPractice() {
             >
               重新生成报告
             </button>
+            <button
+              type="button"
+              onClick={() => navigate('/support?category=ai_training&context=task7_voice_practice&error=ai_report_error')}
+              className="ml-4 mt-2 font-semibold text-red-800 underline underline-offset-2"
+            >
+              仍无法继续？提交问题
+            </button>
           </div>
         )}
       </div>

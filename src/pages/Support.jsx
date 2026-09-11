@@ -13,16 +13,26 @@ const categories = [
   ['other', '其他'],
 ]
 
+const categoryValues = new Set(categories.map(([value]) => value))
+
 export default function Support() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { isRegistered, openRegisterModal } = useEffectiveAccess()
   const requestedProduct = searchParams.get('product')
   const isBarServerPurchase = requestedProduct === 'bar_server_pack'
+  const context = searchParams.get('context')
+  const errorCode = searchParams.get('error')
   const [category, setCategory] = useState(() => (
-    searchParams.get('category') === 'payment' ? 'payment' : 'ai_training'
+    categoryValues.has(searchParams.get('category')) ? searchParams.get('category') : 'ai_training'
   ))
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(() => {
+    const details = [
+      context ? `页面或环节：${context}` : '',
+      errorCode ? `错误编号：${errorCode}` : '',
+    ].filter(Boolean)
+    return details.length ? `【自动附带信息】\n${details.join('\n')}\n\n我遇到的问题：` : ''
+  })
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState('')
 

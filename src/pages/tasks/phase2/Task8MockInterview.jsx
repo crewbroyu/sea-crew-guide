@@ -1011,6 +1011,13 @@ function Task8MockInterview() {
                     {aiErrorCode === 'AI_QUOTA_EXHAUSTED' ? '查看权益方案' : '重新生成'}
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/support?category=ai_training&context=task8_mock_interview&error=ai_mock_error')}
+                  className="text-sm font-semibold text-blue-700 underline underline-offset-2"
+                >
+                  仍无法继续？提交问题
+                </button>
               </div>
             ) : (
               <div className="space-y-6">

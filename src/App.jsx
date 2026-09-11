@@ -28,6 +28,7 @@ const Task7InterviewPractice = lazy(() => import('./pages/tasks/phase2/Task7Inte
 const Task8MockInterview = lazy(() => import('./pages/tasks/phase2/Task8MockInterview'))
 const Task8RealInterview = lazy(() => import('./pages/tasks/phase2/Task8RealInterview'))
 const ActivationCodeGenerator = lazy(() => import('./pages/ActivationCodeGenerator'))
+const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'))
 
 const Academy = lazy(() => import('./pages/Academy'))
 const ListeningSpeaking = lazy(() => import('./pages/academy/ListeningSpeaking'))
@@ -159,6 +160,7 @@ function App() {
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />
               <Route path="/generate-codes" element={<RequireAdmin><ActivationCodeGenerator /></RequireAdmin>} />
+              <Route path="/admin/beta" element={<RequireAdmin><AdminBetaDashboard /></RequireAdmin>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

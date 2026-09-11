@@ -2,9 +2,11 @@ import { createElement, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Award,
+  BarChart3,
   Bell,
   ChevronRight,
   FileText,
+  KeyRound,
   LogOut,
   MessageSquare,
   Route,
@@ -103,7 +105,7 @@ const planLabels = {
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { userEmail, userName, reset } = useAccessStore()
+  const { userEmail, userName, isAdmin, reset } = useAccessStore()
   const effectiveAccess = useEffectiveAccess()
   const {
     isUnlocked,
@@ -528,6 +530,19 @@ export default function Profile() {
           <MenuButton icon={Shield} label="登船证件" onClick={() => navigate('/tasks/Task10')} />
           <MenuButton icon={Bell} label="站内消息" onClick={() => navigate('/messages')} />
         </section>
+
+        {isAdmin && (
+          <section className="overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
+            <div className="border-b border-blue-100 bg-blue-50 px-4 py-3">
+              <p className="text-xs font-medium text-blue-700">仅管理员可见</p>
+              <h2 className="mt-1 font-bold text-blue-950">管理员工具</h2>
+            </div>
+            <div className="divide-y divide-gray-100">
+              <MenuButton icon={BarChart3} label="内测数据" onClick={() => navigate('/admin/beta')} />
+              <MenuButton icon={KeyRound} label="激活码与开通申请" onClick={() => navigate('/generate-codes')} />
+            </div>
+          </section>
+        )}
 
         <button
           type="button"

@@ -213,35 +213,55 @@ const enforceRateLimit = (userId, action) => {
   current.count += 1
 }
 
-const enforcePersistentQuota = async ({ supabase, entitlement, action, mode }) => {
-  if (!entitlement || !['evaluate', 'scenario_turn', 'scenario_evaluate'].includes(action)) return
+const reservePersistentQuota = async ({ supabase, entitlement, action, mode, body }) => {
+  if (!entitlement || !['evaluate', 'scenario_turn', 'scenario_evaluate'].includes(action)) return null
 
-  const isMock = mode === PREMIUM_MOCK_MODE
-  const limit = isMock ? entitlement.mock_interview_limit : entitlement.ai_feedback_limit
-  if (limit === null || limit === undefined) return
+  const usageAction = mode === PREMIUM_MOCK_MODE ? 'mock_interview' : 'evaluate'
+  const requestId = trimText(body.clientRequestId, 200)
+  if (!requestId) {
+    throw new InterviewApiError(400, 'REQUEST_ID_REQUIRED', '本次训练请求无效，请重新提交。')
+  }
 
-  const usageAction = isMock ? 'mock_interview' : 'evaluate'
-  let query = supabase
-    .from('ai_usage_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', entitlement.user_id)
-    .eq('product_code', BAR_SERVER_PRODUCT_CODE)
-    .eq('action', usageAction)
-
-  if (entitlement.starts_at) query = query.gte('created_at', entitlement.starts_at)
-  const { count, error } = await query
+  const { data, error } = await supabase.rpc('reserve_ai_usage_quota', {
+    input_product_code: BAR_SERVER_PRODUCT_CODE,
+    input_action: usageAction,
+    input_mode: mode,
+    input_scenario_id: trimText(body.scenarioId || body.questions?.[0]?.id, 160) || null,
+    input_request_id: requestId,
+  })
 
   if (error) {
-    console.error('AI quota lookup failed:', error.message)
+    const message = error.message || ''
+    if (message.includes('AI_QUOTA_EXHAUSTED')) {
+      throw new InterviewApiError(
+        402,
+        'AI_QUOTA_EXHAUSTED',
+        usageAction === 'mock_interview' ? '完整模拟面试次数已用完。' : '本岗位包的 AI 反馈次数已用完。',
+      )
+    }
+    if (message.includes('AI_REQUEST_IN_PROGRESS')) {
+      throw new InterviewApiError(409, 'AI_REQUEST_IN_PROGRESS', '上一条 AI 请求仍在处理中，请稍候再试。')
+    }
+    if (message.includes('AI_REQUEST_ALREADY_COMPLETED')) {
+      throw new InterviewApiError(409, 'AI_REQUEST_ALREADY_COMPLETED', '这次训练已完成，请返回查看结果后再开始下一次。')
+    }
+    console.error('AI quota reservation failed:', error.message)
     throw new InterviewApiError(503, 'QUOTA_CHECK_FAILED', '暂时无法核对 AI 使用次数，请稍后重试。')
   }
 
-  if ((count || 0) >= limit) {
-    throw new InterviewApiError(
-      402,
-      'AI_QUOTA_EXHAUSTED',
-      isMock ? '完整模拟面试次数已用完。' : '本岗位包的 AI 反馈次数已用完。',
-    )
+  return data?.reservation_id || null
+}
+
+const finalizePersistentQuota = async ({ supabase, reservationId, completed }) => {
+  if (!reservationId) return
+
+  const { error } = await supabase.rpc('finalize_ai_usage_reservation', {
+    input_reservation_id: reservationId,
+    input_outcome: completed ? 'completed' : 'released',
+  })
+
+  if (error) {
+    console.error('AI quota reservation finalization failed:', error.message)
   }
 }
 
@@ -892,32 +912,43 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
         body: payload,
       })
     }
-    await enforcePersistentQuota({
+    const quotaReservationId = await reservePersistentQuota({
       supabase: auth.supabase,
       entitlement: auth.entitlement,
       action,
       mode,
-    })
-
-    const data = action === 'transcribe'
-      ? await transcribeAudio({ body: payload, config })
-      : action === 'scenario_turn'
-        ? await continueScenarioRoleplay({ body: payload, config })
-        : action === 'scenario_evaluate'
-          ? await evaluateScenarioSimulation({ body: payload, config })
-          : await evaluateInterview({ body: payload, config })
-
-    await recordAiUsage({
-      supabase: auth.supabase,
-      userId: auth.user.id,
-      action,
-      mode,
       body: payload,
-      data,
-      config,
     })
+    let usageRecorded = false
 
-    return { status: 200, body: { success: true, data } }
+    try {
+      const data = action === 'transcribe'
+        ? await transcribeAudio({ body: payload, config })
+        : action === 'scenario_turn'
+          ? await continueScenarioRoleplay({ body: payload, config })
+          : action === 'scenario_evaluate'
+            ? await evaluateScenarioSimulation({ body: payload, config })
+            : await evaluateInterview({ body: payload, config })
+
+      await recordAiUsage({
+        supabase: auth.supabase,
+        userId: auth.user.id,
+        action,
+        mode,
+        body: payload,
+        data,
+        config,
+      })
+      usageRecorded = true
+
+      return { status: 200, body: { success: true, data } }
+    } finally {
+      await finalizePersistentQuota({
+        supabase: auth.supabase,
+        reservationId: quotaReservationId,
+        completed: usageRecorded,
+      })
+    }
   } catch (error) {
     if (error instanceof SyntaxError) {
       return {

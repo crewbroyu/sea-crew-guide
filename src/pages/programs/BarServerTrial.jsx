@@ -23,6 +23,7 @@ import useEffectiveAccess from '../../hooks/useEffectiveAccess'
 import { hasProductEntitlement } from '../../services/activationService'
 import PhraseShadowingPractice from '../../components/interview/PhraseShadowingPractice'
 import EdgeReadAloudHint from '../../components/EdgeReadAloudHint'
+import QuickFeedback from '../../components/QuickFeedback'
 import ScenarioLesson from '../../components/interview/ScenarioLesson'
 import { evaluateInterviewWithAi, transcribeInterviewAudio } from '../../services/interviewAiService'
 import { saveInterviewPracticeRecord } from '../../services/interviewPracticeService'
@@ -426,7 +427,7 @@ export default function BarServerTrial() {
           </div>
           <div className="mt-4 rounded-lg bg-slate-50 p-4"><p className="text-sm font-medium leading-6 text-slate-950">“{scenario.guestLine}”</p></div>
           <EdgeReadAloudHint />
-          {errorMessage && <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm leading-6 text-red-700">{errorMessage}</div>}
+          {errorMessage && <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm leading-6 text-red-700"><p>{errorMessage}</p><button type="button" onClick={() => navigate('/support?category=ai_training&context=bar_server_trial&error=ai_training_error')} className="mt-2 font-semibold underline underline-offset-2">仍无法继续？提交训练问题</button></div>}
 
           <div className="mt-5 rounded-lg border border-slate-200 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -543,6 +544,10 @@ export default function BarServerTrial() {
           <section className="rounded-lg border border-blue-200 bg-blue-50 p-5">
             <div className="flex items-start gap-3"><LockKeyhole size={20} className="mt-0.5 shrink-0 text-blue-700" /><div className="min-w-0 flex-1"><p className="text-xs font-semibold text-blue-700">3 个免费场景已完整完成</p><h2 className="mt-1 font-semibold text-blue-950">当前 Bar Server 场景准备度：{overallReadiness}/100</h2><p className="mt-2 text-sm leading-6 text-blue-900">你已经体验了销售推荐、客诉补救和安全拒酒。后续完整训练将覆盖更多工作场景、岗位知识、高频面试题、完整模拟面试和最终准备度报告。</p><button type="button" onClick={() => navigate('/premium?source=bar-server-trial')} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-800">解锁完整 Bar Server 训练 <ChevronRight size={16} /></button></div></div>
           </section>
+        )}
+
+        {isLastScenario && (
+          <QuickFeedback context="Bar Server 免费 3 场景体验完成页" />
         )}
 
         <button type="button" onClick={resetCurrentScenario} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"><RefreshCcw size={17} />重新体验本场景</button>

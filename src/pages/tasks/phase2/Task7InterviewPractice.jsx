@@ -16,7 +16,7 @@ import {
 import TaskLayout from '../../../components/TaskLayout';
 import EdgeReadAloudHint from '../../../components/EdgeReadAloudHint';
 import interviewQuestions, { positionConfig } from '../../../data/interviewQuestions';
-import { barServerFoundationDays } from '../../../data/barServerFoundation';
+import { barServerFoundationDays, barServerShiftLabs } from '../../../data/barServerFoundation';
 import useEffectiveAccess from '../../../hooks/useEffectiveAccess';
 import { hasProductEntitlement } from '../../../services/activationService';
 import {
@@ -323,12 +323,14 @@ function Task7InterviewPractice() {
   const requestedPosition = normalizeInterviewPosition(searchParams.get('position'), '');
   const requestedQuestionId = searchParams.get('question') || '';
   const source = searchParams.get('source') || '';
+  const foundationDayId = searchParams.get('foundationDay') || '';
   const practiceMode = searchParams.get('mode') === 'knowledge' ? 'knowledge' : 'standard';
   const savedPractice = useMemo(() => readJson(STORAGE_KEY, {}), []);
   const compatiblePractice = savedPractice.version === PRACTICE_VERSION
     && savedPractice.practiceMode === practiceMode
     && (!requestedPosition || savedPractice.targetPositionKey === requestedPosition)
     && (savedPractice.requestedQuestionId || '') === requestedQuestionId
+    && (savedPractice.foundationDayId || '') === foundationDayId
     ? savedPractice
     : {};
   const [targetPositionKey] = useState(() => requestedPosition || getTargetPositionKey());
@@ -344,6 +346,19 @@ function Task7InterviewPractice() {
     () => getPreparationSnapshot(targetPosition.nameEn),
     [targetPosition.nameEn]
   );
+  const foundationBridge = useMemo(() => {
+    if (!foundationDayId) return null;
+    const day = barServerFoundationDays.find((item) => item.id === foundationDayId);
+    const dayProgress = readJson('task5_data', {})?.foundationProgress?.[foundationDayId] || {};
+    const challenge = dayProgress.guestChallenge || {};
+    if (!day || !challenge.completedAt) return null;
+    return {
+      day,
+      prompt: barServerShiftLabs[foundationDayId]?.challenge?.prompt || '',
+      transcript: challenge.transcript || '',
+      attemptCount: Number(challenge.attemptCount || 0),
+    };
+  }, [foundationDayId]);
   const [stage, setStage] = useState(compatiblePractice.stage || 'briefing');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(compatiblePractice.currentQuestionIndex || 0);
   const [answers, setAnswers] = useState(compatiblePractice.answers || {});
@@ -378,8 +393,9 @@ function Task7InterviewPractice() {
       targetPositionKey,
       practiceMode,
       requestedQuestionId,
+      foundationDayId,
     });
-  }, [answers, currentQuestionIndex, evaluation, practiceMode, requestedQuestionId, roundNumber, stage, targetPositionKey]);
+  }, [answers, currentQuestionIndex, evaluation, foundationDayId, practiceMode, requestedQuestionId, roundNumber, stage, targetPositionKey]);
 
   useEffect(() => () => {
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -729,6 +745,18 @@ function Task7InterviewPractice() {
           </div>
         </div>
       </section>
+
+      {foundationBridge && (
+        <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
+          <p className="text-xs font-semibold text-emerald-700">TASK 5 RESULT CARRIED FORWARD</p>
+          <h2 className="mt-1 font-semibold text-emerald-950">Day {foundationBridge.day.day} · Guest Challenge completed</h2>
+          <p className="mt-3 text-sm leading-6 text-emerald-900">Guest: “{foundationBridge.prompt}”</p>
+          <div className="mt-3 rounded-lg bg-white px-4 py-3 text-sm leading-6 text-slate-800">
+            <span className="font-semibold">Your answer:</span> {foundationBridge.transcript}
+          </div>
+          <p className="mt-2 text-xs text-emerald-700">Recorded attempts: {foundationBridge.attemptCount}. Task 7 will now test the same knowledge in an interview-style question.</p>
+        </section>
+      )}
 
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2">

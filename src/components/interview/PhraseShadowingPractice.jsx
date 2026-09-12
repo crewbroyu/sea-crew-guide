@@ -20,12 +20,14 @@ const getMinimumRecordingSeconds = (text, isFullAnswer) => {
 
 export default function PhraseShadowingPractice({
   phrases = [],
+  phraseCues = [],
   referenceAnswer = '',
   practice = {},
   onPracticeChange,
   requiredPhraseRepetitions = DEFAULT_REQUIRED_PHRASE_REPETITIONS,
   requiredFullAnswerRepetitions = DEFAULT_REQUIRED_FULL_ANSWER_REPETITIONS,
   masteryFullAnswerRepetitions = DEFAULT_MASTERY_FULL_ANSWER_REPETITIONS,
+  requireListenBeforeRecord = false,
   title,
   description,
 }) {
@@ -34,6 +36,7 @@ export default function PhraseShadowingPractice({
     legacyCompletedPhrases.map((phrase) => [phrase, 1]),
   )
   const fullAnswerRepetitions = Number(practice.fullAnswerRepetitions || 0)
+  const listenedPhrases = practice.listenedPhrases || []
   const [speakingKey, setSpeakingKey] = useState(null)
   const [recordingKey, setRecordingKey] = useState(null)
   const [recordingUrls, setRecordingUrls] = useState({})
@@ -81,7 +84,11 @@ export default function PhraseShadowingPractice({
     ? Math.round((completedRecordingCount / requiredRecordingCount) * 100)
     : 0
 
-  const emitPracticeChange = (nextPhraseRepetitions, nextFullAnswerRepetitions) => {
+  const emitPracticeChange = (
+    nextPhraseRepetitions,
+    nextFullAnswerRepetitions,
+    nextListenedPhrases = listenedPhrases,
+  ) => {
     const allPhrasesComplete = phrases.every(
       (phrase) => Number(nextPhraseRepetitions[phrase] || 0) >= requiredPhraseRepetitions,
     )
@@ -90,13 +97,14 @@ export default function PhraseShadowingPractice({
     onPracticeChange?.({
       phraseRepetitions: nextPhraseRepetitions,
       fullAnswerRepetitions: nextFullAnswerRepetitions,
+      listenedPhrases: nextListenedPhrases,
       completedAt: completed
         ? ((practice.phraseRepetitions && practice.completedAt) || new Date().toISOString())
         : null,
     })
   }
 
-  const playText = (text, key) => {
+  const playText = (text, key, phrase = '') => {
     setErrorMessage('')
     if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
       setErrorMessage('当前浏览器不支持示范朗读，可以直接录音跟读。')
@@ -116,6 +124,14 @@ export default function PhraseShadowingPractice({
     utterance.onend = () => setSpeakingKey(null)
     utterance.onerror = () => setSpeakingKey(null)
     window.speechSynthesis.speak(utterance)
+
+    if (requireListenBeforeRecord && phrase && !listenedPhrases.includes(phrase)) {
+      emitPracticeChange(
+        phraseRepetitions,
+        fullAnswerRepetitions,
+        [...listenedPhrases, phrase],
+      )
+    }
   }
 
   const handleStartRecording = async ({ text, key, phrase, isFullAnswer = false }) => {
@@ -210,19 +226,22 @@ export default function PhraseShadowingPractice({
     setSpeakingKey(null)
     setRecordingKey(null)
     setErrorMessage('')
-    emitPracticeChange({}, 0)
+    emitPracticeChange({}, 0, [])
   }
 
   const renderRecordingControls = ({ text, key, phrase, isFullAnswer = false }) => {
     const isRecording = recordingKey === key
     const isAnotherRecording = recordingKey !== null && !isRecording
+    const isListenRequired = requireListenBeforeRecord
+      && phrase
+      && !listenedPhrases.includes(phrase)
 
     return (
       <>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => playText(text, key)}
+            onClick={() => playText(text, key, phrase)}
             disabled={recordingKey !== null}
             title="播放示范"
             className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -238,11 +257,11 @@ export default function PhraseShadowingPractice({
             <button
               type="button"
               onClick={() => handleStartRecording({ text, key, phrase, isFullAnswer })}
-              disabled={isAnotherRecording}
-              title={recordingUrls[key] ? '继续跟读' : '开始跟读录音'}
+              disabled={isAnotherRecording || isListenRequired}
+              title={isListenRequired ? '请先听一遍示范' : recordingUrls[key] ? '继续跟读' : '开始跟读录音'}
               className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              <Mic size={14} />{recordingUrls[key] ? '再读一次' : '录音跟读'}
+              <Mic size={14} />{isListenRequired ? '先听示范' : recordingUrls[key] ? '再读一次' : '录音跟读'}
             </button>
           )}
         </div>
@@ -291,7 +310,10 @@ export default function PhraseShadowingPractice({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-medium leading-6 text-slate-800">{phrase}</p>
+                    <div>
+                      {phraseCues[index] && <p className="mb-1 text-xs font-medium text-slate-500">{phraseCues[index]}</p>}
+                      <p className="text-sm font-medium leading-6 text-slate-800">{phrase}</p>
+                    </div>
                     <span className={`shrink-0 text-xs font-semibold ${isCompleted ? 'text-emerald-700' : 'text-slate-500'}`}>{repetitionCount}/{requiredPhraseRepetitions}</span>
                   </div>
                   {renderRecordingControls({ text: phrase, key, phrase })}

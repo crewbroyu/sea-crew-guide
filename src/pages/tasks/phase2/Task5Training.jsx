@@ -736,7 +736,16 @@ export default function Task5Training() {
             onProgressChange={setFoundationProgress}
             task6Completed={task6Completed}
             onStartTask6={() => navigate('/tasks/phase2/Task6?source=task5')}
-            onStartTask7={() => navigate('/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task5')}
+            onStartTask7={({ foundationDayId = '', questionId = '' } = {}) => {
+              const params = new URLSearchParams({
+                mode: 'knowledge',
+                position: 'bar_server',
+                source: 'task5',
+              });
+              if (foundationDayId) params.set('foundationDay', foundationDayId);
+              if (questionId) params.set('question', questionId);
+              navigate(`/tasks/phase2/Task7/voice?${params.toString()}`);
+            }}
             onStartScenarioTraining={() => navigate('/programs/bar-server/training')}
           />
         )}

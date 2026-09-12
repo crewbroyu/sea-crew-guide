@@ -1,4 +1,4 @@
-export const BAR_SERVER_FOUNDATION_VERSION = 2
+export const BAR_SERVER_FOUNDATION_VERSION = 3
 
 // English-first shift labs sit beside the Chinese safety notes below. Keeping
 // them separate makes the speaking layer reusable when more job packs arrive.
@@ -641,5 +641,9 @@ export const barServerFoundationSources = [
   },
 ]
 
+export const isFoundationDayComplete = (dayProgress = {}) =>
+  Number(dayProgress.trainingVersion || 0) >= BAR_SERVER_FOUNDATION_VERSION
+  && Boolean(dayProgress.completedAt)
+
 export const getCompletedFoundationDays = (progress = {}) =>
-  barServerFoundationDays.filter((day) => progress[day.id]?.completedAt).length
+  barServerFoundationDays.filter((day) => isFoundationDayComplete(progress[day.id])).length

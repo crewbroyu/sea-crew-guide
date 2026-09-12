@@ -10,11 +10,15 @@ import {
   MapPin,
   Volume2,
 } from 'lucide-react'
+import PhraseShadowingPractice from '../interview/PhraseShadowingPractice'
+import GuestChallengePractice from './GuestChallengePractice'
 import {
+  BAR_SERVER_FOUNDATION_VERSION,
   barServerFoundationDays,
   barServerFoundationSources,
   barServerShiftLabs,
   getCompletedFoundationDays,
+  isFoundationDayComplete,
 } from '../../data/barServerFoundation'
 
 const speakEnglish = (text) => {
@@ -35,7 +39,7 @@ export default function BarServerFoundationTraining({
   onStartScenarioTraining,
 }) {
   const firstIncompleteDay = useMemo(
-    () => barServerFoundationDays.find((day) => !progress[day.id]?.completedAt)?.id
+    () => barServerFoundationDays.find((day) => !isFoundationDayComplete(progress[day.id]))?.id
       || barServerFoundationDays[0].id,
     [progress],
   )
@@ -46,22 +50,33 @@ export default function BarServerFoundationTraining({
   ).length
   const completionPercent = Math.round((completedDays / barServerFoundationDays.length) * 100)
 
-  const updateDayProgress = (dayId, nextValue) => {
+  const updateDayProgress = (day, nextValue) => {
+    const currentDayProgress = progress[day.id] || {}
+    const mergedProgress = {
+      ...currentDayProgress,
+      ...nextValue,
+      trainingVersion: BAR_SERVER_FOUNDATION_VERSION,
+    }
+    const quizCompleted = mergedProgress.selectedOptionId === day.quiz.correctOptionId
+    const shadowingCompleted = Boolean(mergedProgress.shadowing?.completedAt)
+    const challengeCompleted = Boolean(mergedProgress.guestChallenge?.completedAt)
+    const completed = quizCompleted && shadowingCompleted && challengeCompleted
+
     onProgressChange?.({
       ...progress,
-      [dayId]: {
-        ...(progress[dayId] || {}),
-        ...nextValue,
+      [day.id]: {
+        ...mergedProgress,
+        completedAt: completed
+          ? (currentDayProgress.completedAt || new Date().toISOString())
+          : null,
       },
     })
   }
 
   const selectAnswer = (day, optionId) => {
-    const correct = optionId === day.quiz.correctOptionId
-    updateDayProgress(day.id, {
+    updateDayProgress(day, {
       selectedOptionId: optionId,
       lastAnsweredAt: new Date().toISOString(),
-      ...(correct ? { completedAt: progress[day.id]?.completedAt || new Date().toISOString() } : {}),
     })
   }
 
@@ -103,7 +118,7 @@ export default function BarServerFoundationTraining({
           const dayProgress = progress[day.id] || {}
           const selectedOption = day.quiz.options.find((option) => option.id === dayProgress.selectedOptionId)
           const isCorrect = selectedOption?.id === day.quiz.correctOptionId
-          const isCompleted = Boolean(dayProgress.completedAt)
+          const isCompleted = isFoundationDayComplete(dayProgress)
           const isActive = activeDayId === day.id
 
           return (
@@ -176,36 +191,26 @@ export default function BarServerFoundationTraining({
                         </div>
                       </section>
 
-                      <section className="mt-5">
-                        <p className="text-xs font-semibold text-blue-700">SAY IT LIKE A BAR SERVER</p>
-                        <div className="mt-3 divide-y divide-slate-100 border-y border-slate-100">
-                          {shiftLab.serviceLines.map((item) => (
-                            <div key={item.line} className="flex items-start gap-3 py-3">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-medium text-slate-500">{item.cue}</p>
-                                <p className="mt-1 text-sm font-medium leading-6 text-slate-900">“{item.line}”</p>
-                              </div>
-                              <button type="button" onClick={() => speakEnglish(item.line)} title="Listen to this service line" aria-label="Listen to this service line" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50">
-                                <Volume2 size={17} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
+                      <div className="mt-5">
+                        <PhraseShadowingPractice
+                          phrases={shiftLab.serviceLines.map((item) => item.line)}
+                          phraseCues={shiftLab.serviceLines.map((item) => item.cue)}
+                          practice={dayProgress.shadowing || {}}
+                          onPracticeChange={(shadowing) => updateDayProgress(day, { shadowing })}
+                          requiredPhraseRepetitions={3}
+                          requireListenBeforeRecord
+                          title="LISTEN AND SHADOW"
+                          description="Listen to each service line, then record it three complete times. Recordings stay on this page and do not use your AI quota."
+                        />
+                      </div>
 
-                      <section className="mt-5 bg-slate-950 p-4 text-white sm:rounded-lg">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-xs font-semibold text-blue-300">GUEST CHALLENGE</p>
-                          <span className="text-xs text-slate-400">Role · {shiftLab.challenge.role}</span>
-                        </div>
-                        <p className="mt-3 text-base font-medium leading-7">“{shiftLab.challenge.prompt}”</p>
-                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-700 pt-3">
-                          <p className="text-xs leading-5 text-slate-400">Answer aloud before opening the knowledge notes below.</p>
-                          <button type="button" onClick={() => speakEnglish(shiftLab.challenge.prompt)} title="Listen to the guest" aria-label="Listen to the guest" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-950 transition hover:bg-blue-50">
-                            <Volume2 size={17} />
-                          </button>
-                        </div>
-                      </section>
+                      <GuestChallengePractice
+                        role={shiftLab.challenge.role}
+                        prompt={shiftLab.challenge.prompt}
+                        challenge={dayProgress.guestChallenge || {}}
+                        locked={!dayProgress.shadowing?.completedAt}
+                        onChallengeChange={(guestChallenge) => updateDayProgress(day, { guestChallenge })}
+                      />
                     </>
                   )}
 
@@ -294,7 +299,7 @@ export default function BarServerFoundationTraining({
 
                     {selectedOption && (
                       <div className={`mt-3 rounded-lg p-3 text-sm leading-6 ${isCorrect ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>
-                        <p className="font-semibold">{isCorrect ? '回答正确，今天的知识已完成' : '这个选择还不够稳妥'}</p>
+                        <p className="font-semibold">{isCorrect ? (isCompleted ? '回答正确，今天的训练已完成' : '回答正确，再完成上方口语训练即可完成今天') : '这个选择还不够稳妥'}</p>
                         <p className="mt-1">{day.quiz.explanation}</p>
                       </div>
                     )}
@@ -303,6 +308,19 @@ export default function BarServerFoundationTraining({
                   {isCompleted && dayIndex < barServerFoundationDays.length - 1 && (
                     <button type="button" onClick={() => openNextDay(dayIndex)} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700">
                       进入第 {day.day + 1} 天 <ArrowRight size={16} />
+                    </button>
+                  )}
+
+                  {isCompleted && (
+                    <button
+                      type="button"
+                      onClick={() => onStartTask7?.({
+                        foundationDayId: day.id,
+                        questionId: day.task7QuestionIds?.[0] || '',
+                      })}
+                      className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-800 transition hover:border-blue-300 hover:bg-blue-100"
+                    >
+                      带着 Guest Challenge 结果进入 Task 7 <ArrowRight size={16} />
                     </button>
                   )}
                 </div>

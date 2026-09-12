@@ -7,12 +7,24 @@ import {
   Clock3,
   ExternalLink,
   GraduationCap,
+  MapPin,
+  Volume2,
 } from 'lucide-react'
 import {
   barServerFoundationDays,
   barServerFoundationSources,
+  barServerShiftLabs,
   getCompletedFoundationDays,
 } from '../../data/barServerFoundation'
+
+const speakEnglish = (text) => {
+  if (typeof window === 'undefined' || !window.speechSynthesis || !text) return
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = 'en-US'
+  utterance.rate = 0.88
+  window.speechSynthesis.speak(utterance)
+}
 
 export default function BarServerFoundationTraining({
   progress = {},
@@ -87,6 +99,7 @@ export default function BarServerFoundationTraining({
 
       <div className="mt-5 divide-y divide-slate-200 border-y border-slate-200">
         {barServerFoundationDays.map((day, dayIndex) => {
+          const shiftLab = barServerShiftLabs[day.id]
           const dayProgress = progress[day.id] || {}
           const selectedOption = day.quiz.options.find((option) => option.id === dayProgress.selectedOptionId)
           const isCorrect = selectedOption?.id === day.quiz.correctOptionId
@@ -118,9 +131,83 @@ export default function BarServerFoundationTraining({
               {isActive && (
                 <div className="pb-6 pl-0 sm:pl-12">
                   <div className="rounded-lg bg-blue-50 p-4">
-                    <p className="text-xs font-semibold text-blue-700">今天学完要做到</p>
-                    <p className="mt-1 text-sm font-medium leading-6 text-blue-950">{day.outcome}</p>
+                    <p className="text-xs font-semibold text-blue-700">TODAY&apos;S MISSION</p>
+                    <p className="mt-1 text-sm font-medium leading-6 text-blue-950">{shiftLab?.mission || day.outcome}</p>
                   </div>
+
+                  {shiftLab && (
+                    <>
+                      <section className="mt-5 border-y border-slate-200 py-4">
+                        <div className="flex items-center gap-2 text-blue-700">
+                          <MapPin size={16} />
+                          <h3 className="text-xs font-bold">SHIFT BRIEFING</h3>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-slate-700">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1">{shiftLab.shift.location}</span>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1">{shiftLab.shift.time}</span>
+                        </div>
+                        <p className="mt-3 text-sm leading-6 text-slate-700">{shiftLab.shift.situation}</p>
+                      </section>
+
+                      <section className="mt-5">
+                        <div className="flex items-end justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold text-blue-700">PRONUNCIATION DRILL</p>
+                            <h3 className="mt-1 text-sm font-bold text-slate-950">Bar vocabulary you need on shift</h3>
+                          </div>
+                          <span className="shrink-0 text-xs text-slate-400">Common English IPA</span>
+                        </div>
+                        <div className="mt-3 divide-y divide-slate-100 border-y border-slate-100">
+                          {shiftLab.vocabulary.map((item) => (
+                            <div key={item.term} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                  <p className="font-semibold text-slate-950">{item.term}</p>
+                                  <p className="font-mono text-xs text-blue-700">{item.ipa}</p>
+                                  <p className="text-xs text-slate-500">{item.meaning}</p>
+                                </div>
+                                <p className="mt-1 text-sm leading-6 text-slate-700">{item.example}</p>
+                              </div>
+                              <button type="button" onClick={() => speakEnglish(`${item.term}. ${item.example}`)} title={`Listen to ${item.term}`} aria-label={`Listen to ${item.term}`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50">
+                                <Volume2 size={17} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section className="mt-5">
+                        <p className="text-xs font-semibold text-blue-700">SAY IT LIKE A BAR SERVER</p>
+                        <div className="mt-3 divide-y divide-slate-100 border-y border-slate-100">
+                          {shiftLab.serviceLines.map((item) => (
+                            <div key={item.line} className="flex items-start gap-3 py-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium text-slate-500">{item.cue}</p>
+                                <p className="mt-1 text-sm font-medium leading-6 text-slate-900">“{item.line}”</p>
+                              </div>
+                              <button type="button" onClick={() => speakEnglish(item.line)} title="Listen to this service line" aria-label="Listen to this service line" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50">
+                                <Volume2 size={17} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section className="mt-5 bg-slate-950 p-4 text-white sm:rounded-lg">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold text-blue-300">GUEST CHALLENGE</p>
+                          <span className="text-xs text-slate-400">Role · {shiftLab.challenge.role}</span>
+                        </div>
+                        <p className="mt-3 text-base font-medium leading-7">“{shiftLab.challenge.prompt}”</p>
+                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-700 pt-3">
+                          <p className="text-xs leading-5 text-slate-400">Answer aloud before opening the knowledge notes below.</p>
+                          <button type="button" onClick={() => speakEnglish(shiftLab.challenge.prompt)} title="Listen to the guest" aria-label="Listen to the guest" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-950 transition hover:bg-blue-50">
+                            <Volume2 size={17} />
+                          </button>
+                        </div>
+                      </section>
+                    </>
+                  )}
 
                   {dayProgress.practice && (
                     <div className={`mt-4 rounded-lg border p-4 ${Number(dayProgress.practice.bestScore || 0) >= 70 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>

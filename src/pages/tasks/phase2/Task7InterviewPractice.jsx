@@ -30,17 +30,21 @@ import { normalizeInterviewPosition } from '../../../utils/interviewPosition';
 
 const STORAGE_KEY = 'task7_voice_practice';
 const RESULT_KEY = 'task7_result';
-const PRACTICE_VERSION = 5;
+const PRACTICE_VERSION = 6;
 
 const barKnowledgeQuestionIds = [
   'bs_02',
   'bs_04',
   'bs_05',
   'bs_26',
-  'bs_28',
   'bs_31',
   'bs_33',
   'bs_39',
+  'bs_41',
+  'bs_42',
+  'bs_44',
+  'bs_45',
+  'bs_46',
 ];
 
 const readJson = (key, fallback = null) => {
@@ -755,7 +759,7 @@ function Task7InterviewPractice() {
             <h2 className="font-semibold text-blue-950">本轮训练重点</h2>
             <p className="mt-1 text-sm leading-6 text-blue-900">
               {practiceMode === 'knowledge'
-                ? '依次练基酒、Mojito、neat / on the rocks、饮品推荐、未知配方、开档检查、过敏处理和葡萄酒服务。AI会检查你是否把知识转成了准确的服务动作。'
+                ? '依次练基酒、鸡尾酒、烈酒服务、饮品推荐、开档与过敏处理、葡萄酒服务、Public Health、洗杯、garnish、wine 和 beer。AI会检查你是否把知识转成准确的服务动作。'
                 : requestedQuestionId
                   ? `先完成你从学院选中的问题，再练3道核心题和4道${targetPosition.nameZh}岗位题；重练下一轮会更换其余岗位题。`
                   : `先练自我介绍、上船动机和服务案例，再从 ${targetPosition.nameZh} 的 40 道题库中轮换抽取 5 道岗位题；重练下一轮会自动换题。`}

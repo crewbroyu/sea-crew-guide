@@ -628,7 +628,7 @@ export default function Task5Training() {
                         <h3 className="font-bold text-slate-950">{role.title}</h3>
                         <p className="text-xs text-slate-500">
                           {key === 'barServer'
-                            ? `7 天内部课 ${getCompletedFoundationDays(foundationProgress)}/7 · ${role.courses.length} 个英文资源`
+                            ? `${barServerFoundationDays.length} 天内部课 ${getCompletedFoundationDays(foundationProgress)}/${barServerFoundationDays.length} · ${role.courses.length} 个英文资源`
                             : `${role.courses.length} 个英文资源 · 准备清单 ${prepCount}/${prepTotal}`}
                         </p>
                       </div>
@@ -785,7 +785,7 @@ export default function Task5Training() {
             {isPreparationCompleted()
               ? '完成岗位知识准备，进入 Task6'
               : selectedRole === 'barServer' && getCompletedFoundationDays(foundationProgress) < barServerFoundationDays.length
-                ? `完成 7 天基础训练与清单后进入 Task6（${getCompletedFoundationDays(foundationProgress)}/7）`
+                ? `完成 ${barServerFoundationDays.length} 天基础训练与清单后进入 Task6（${getCompletedFoundationDays(foundationProgress)}/${barServerFoundationDays.length}）`
                 : '完成清单后进入 Task6'}
           </button>
         </div>

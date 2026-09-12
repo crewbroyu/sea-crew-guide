@@ -67,7 +67,7 @@ export default function BarServerFoundationTraining({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-blue-700">Bar Server 内部基础课程</p>
-            <h2 className="mt-1 text-lg font-bold text-slate-950">7 天酒水与服务基础训练</h2>
+            <h2 className="mt-1 text-lg font-bold text-slate-950">{barServerFoundationDays.length} 天酒水、卫生与服务基础训练</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
               每天约 30-60 分钟。先掌握通用知识，再看邮轮公司菜单样本；任务7负责把知识变成英文回答和场景判断。
             </p>
@@ -77,7 +77,7 @@ export default function BarServerFoundationTraining({
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs font-medium text-slate-500">
             <span>基础课程进度</span>
-            <span>已学 {completedDays}/7 · 会说 {masteredDays}/7</span>
+            <span>已学 {completedDays}/{barServerFoundationDays.length} · 会说 {masteredDays}/{barServerFoundationDays.length}</span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
             <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${completionPercent}%` }} />
@@ -229,7 +229,7 @@ export default function BarServerFoundationTraining({
         <p className="text-sm font-semibold text-blue-950">任务5学知识，任务6组答案，任务7练输出</p>
         <p className="mt-1 text-sm leading-6 text-blue-900">
           {task6Completed
-            ? '岗位回答框架已经准备好。现在可以进入任务7，用8道定向题检验知识能不能真正说出来。'
+              ? `岗位回答框架已经准备好。现在可以进入任务7，用定向题检验这 ${barServerFoundationDays.length} 天知识能不能真正说出来。`
             : '完成基础课后，先在任务6把知识与个人经历组织成回答框架，再进入任务7进行语音和AI反馈。'}
         </p>
         <button type="button" onClick={task6Completed ? onStartTask7 : onStartTask6} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-blue-800">
@@ -238,7 +238,7 @@ export default function BarServerFoundationTraining({
         </button>
         {completedDays === barServerFoundationDays.length && onStartScenarioTraining && (
           <button type="button" onClick={onStartScenarioTraining} className="mt-3 flex items-center gap-2 text-sm font-semibold text-blue-800">
-            用真实岗位场景检验这 7 天知识
+            用真实岗位场景检验这 {barServerFoundationDays.length} 天知识
             <ArrowRight size={16} />
           </button>
         )}

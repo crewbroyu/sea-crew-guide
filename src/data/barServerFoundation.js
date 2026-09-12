@@ -1,4 +1,4 @@
-export const BAR_SERVER_FOUNDATION_VERSION = 1
+export const BAR_SERVER_FOUNDATION_VERSION = 2
 
 export const barServerFoundationDays = [
   {
@@ -194,19 +194,24 @@ export const barServerFoundationDays = [
   {
     id: 'wine-beer-zero',
     day: 5,
-    title: '葡萄酒、啤酒与无酒精选择',
-    duration: '35-45 分钟',
-    outcome: '面对不喝鸡尾酒的客人，也能完成基础分类、推荐与安全确认。',
+    title: 'Wine、Beer 与无酒精饮品地图',
+    duration: '45-60 分钟',
+    outcome: '能说出高频葡萄酒和啤酒类型、代表名称与基础推荐逻辑。',
     referenceGroups: [
-      { name: 'Wine', profile: 'sparkling、white、rosé、red', examples: '先问干甜度、酒体、食物搭配和预算' },
-      { name: 'Beer', profile: 'lager、IPA、wheat beer、stout 等', examples: '先问清爽还是浓郁、苦度接受度和本地/进口偏好' },
+      { name: 'Sparkling Wine', profile: '通常酸度较高、带气泡，常见 dry 到 sweet 风格', examples: 'Champagne、Prosecco、Cava；先确认甜度和预算' },
+      { name: 'White Wine', profile: '从轻盈清爽到饱满圆润', examples: 'Sauvignon Blanc、Pinot Grigio、Riesling、Chardonnay' },
+      { name: 'Red Wine', profile: '从轻酒体红果味到饱满单宁与深色水果', examples: 'Pinot Noir、Merlot、Malbec、Cabernet Sauvignon' },
+      { name: 'Rosé / Fortified Wine', profile: 'Rosé 常清爽果香；fortified wine 酒精度更高、服务份量不同', examples: 'Rosé、Port、Sherry、Vermouth' },
+      { name: 'Lager family', profile: '通常清爽、干净、易饮', examples: 'International lager、Pilsner；Pilsner 往往酒花感更明显' },
+      { name: 'Ale family', profile: '风味跨度大，发酵或酒花特征更突出', examples: 'Pale Ale、IPA、Wheat Beer、Stout、Porter' },
       { name: 'Non-alcoholic', profile: 'mocktail、soda、juice、coffee、water', examples: '不能只给果汁；也要询问甜度、气泡和过敏信息' },
     ],
     sections: [
       {
         title: '葡萄酒只需先掌握服务级基础',
         items: [
-          'Sparkling 常用于庆祝或餐前；Sauvignon Blanc 往往偏清爽；Chardonnay 风格跨度较大；Pinot Noir 通常比 Cabernet Sauvignon 更轻。',
+          '先记“类型 + 代表葡萄/名称 + 风味”：Sauvignon Blanc 常偏清爽草本，Riesling 可干可甜，Chardonnay 风格跨度较大。',
+          '红葡萄酒中 Pinot Noir 通常较轻，Merlot 常较圆润，Cabernet Sauvignon 往往更饱满、单宁更明显。不能把这些倾向当成每一瓶酒的绝对答案。',
           '推荐时用 light / full-bodied、dry / sweet、crisp / fruity 等客人容易理解的词，不要假装是侍酒师。',
           '整瓶服务通常涉及展示酒标、确认、按标准开瓶与倒酒，必须遵守所在酒吧流程。',
         ],
@@ -214,7 +219,9 @@ export const barServerFoundationDays = [
       {
         title: '啤酒与无酒精也有推荐逻辑',
         items: [
-          'Lager 通常清爽易饮；IPA 常有更明显的啤酒花苦味与香气；wheat beer 可能有柑橘、香蕉或香料感；stout 更深色浓郁。',
+          'Lager 通常清爽易饮；Pilsner 更突出酒花与苦度；IPA 常有明显的 citrus、tropical、pine 等酒花香气。',
+          'Wheat beer 可能有柑橘、香蕉或香料感；stout / porter 常见 coffee、chocolate、roasted malt 方向。',
+          '客人说品牌名时先确认当前库存、瓶装/罐装/生啤和套餐范围；不知道某款酒时查菜单或问 Bartender，不凭印象编造。',
           '无酒精不等于无风险：仍需确认坚果、乳制品、蛋白、香料或其他潜在过敏原，并核实交叉接触信息。',
           '不要把 non-alcoholic 和 alcohol-free 的法律或公司定义混为一谈，按当前菜单与政策说明。',
         ],
@@ -230,11 +237,100 @@ export const barServerFoundationDays = [
       correctOptionId: 'b',
       explanation: '无酒精推荐同样要从偏好出发，并用具体风味解释选择。',
     },
-    task7QuestionIds: ['bs_33', 'bs_39'],
+    task7QuestionIds: ['bs_39', 'bs_45', 'bs_46'],
+  },
+  {
+    id: 'public-health',
+    day: 6,
+    title: 'Public Health 与酒吧卫生底线',
+    duration: '40-50 分钟',
+    outcome: '能解释个人卫生、疾病报告、交叉污染与食品接触面的基本处理原则。',
+    referenceGroups: [
+      { name: 'Personal hygiene', profile: '正确洗手、干净制服、伤口保护、避免徒手接触即食食品', examples: '开始工作、污染后、如厕后、处理脏杯后都要按船上程序洗手' },
+      { name: 'Illness reporting', profile: '呕吐、腹泻等症状必须立即报告，不带病处理饮品或 garnish', examples: '不要隐瞒症状，也不要自行决定何时恢复食品服务工作' },
+      { name: 'Cross-contamination', profile: '把脏杯、清洁杯、化学品、冰、工具和 garnish 分开', examples: '冰铲有固定洁净存放位置；破杯后的冰槽按程序停用和处理' },
+      { name: 'Clean then sanitize', profile: 'Cleaning 去除污物，sanitizing 在清洁之后降低微生物风险', examples: '浓度、接触时间、温度和检测方法以设备标签及船公司 SOP 为准' },
+    ],
+    sections: [
+      {
+        title: 'Bar Server 每班都要做到的 Public Health 行为',
+        items: [
+          '只从指定区域取冰并使用冰铲；杯子、手和任何脏器具都不能伸进食用冰。',
+          '手接触脸、手机、脏杯、垃圾、清洁布或化学品后，按程序洗手再回到饮品与 garnish 操作。',
+          '食品接触面必须先清洁再消毒；不能用同一块脏布在吧台、杯口和设备间来回擦。',
+          '化学品保持原标签或正确工作标签，远离饮品、冰和 garnish；绝不凭感觉混配浓度。',
+        ],
+      },
+      {
+        title: '面试最看重的不是背数值，而是守程序',
+        items: [
+          '不同船舶设备和 approved chemical 可能不同，回答时说明会检查标签、测试结果和公司标准。',
+          '设备温度、消毒浓度或洗杯结果不达标时，停止使用受影响设备，隔离未确认洁净的物品并通知主管。',
+          '客人呕吐、腹泻或出现血液污染时，不自行用普通抹布处理；保护现场并启动指定的上报与消毒流程。',
+        ],
+      },
+    ],
+    quiz: {
+      question: '洗杯机显示未达到规定运行标准，但酒吧马上要开门，最专业的做法是什么？',
+      options: [
+        { id: 'a', text: '继续使用，反正杯子看起来干净' },
+        { id: 'b', text: '停止使用并保护未确认洁净的杯具，通知主管，按 approved alternative procedure 处理' },
+        { id: 'c', text: '用毛巾把每只杯子擦亮就算消毒完成' },
+      ],
+      correctOptionId: 'b',
+      explanation: '“看起来干净”不代表已经正确消毒。设备不达标时必须按船上流程停止、隔离、上报并使用获批的替代程序。',
+    },
+    task7QuestionIds: ['bs_33', 'bs_36', 'bs_41', 'bs_42'],
+  },
+  {
+    id: 'glassware-garnish',
+    day: 7,
+    title: '杯型、洗杯流程与 Cocktail Garnish',
+    duration: '45-60 分钟',
+    outcome: '能选择常见杯型，说明安全洗杯流程，并正确准备、保存和使用装饰物。',
+    referenceGroups: [
+      { name: 'Highball / Collins', profile: '高直杯，适合较长、含较多 mixer 或气泡的饮品', examples: 'Highball、Tom Collins、Mojito（以公司标准为准）' },
+      { name: 'Rocks / Old Fashioned', profile: '短而宽，适合 rocks 或 spirit-forward 饮品', examples: 'Old Fashioned、whiskey on the rocks' },
+      { name: 'Cocktail / Martini / Coupe', profile: '常用于过滤后、不加冰呈现的鸡尾酒', examples: 'Martini、Cosmopolitan、Daiquiri；拿杯梗或杯底，避免碰杯口' },
+      { name: 'Wine / Flute', profile: '按酒款与当前服务标准选择杯型', examples: 'red、white、sparkling 的杯型与容量可能不同' },
+      { name: 'Beer glassware', profile: 'Pint、Pilsner、Weizen 等用于不同啤酒呈现', examples: '杯型以 venue 配置为准，重点是洁净、无油脂、无裂口' },
+      { name: 'Common garnishes', profile: 'citrus wedge/wheel/twist、cherry、olive、mint、pineapple 等', examples: '装饰应匹配配方和香气，不是随手往杯里塞水果' },
+    ],
+    sections: [
+      {
+        title: '一只杯子从脏到可用的工作逻辑',
+        items: [
+          '先倒空和预处理，再按指定机器或洗涤流程完成 wash、rinse、sanitize；检查设备和化学品状态。',
+          '洗后检查 lipstick、油膜、碎屑、裂纹和缺口；不合格杯具重新处理或报废，不直接交给客人。',
+          '清洁消毒后的杯具应充分 air-dry / drain；不要用潮湿或反复使用的布擦杯口。',
+          '按指定位置倒置或防尘存放，拿杯梗、杯底或下半部，避免触碰客人饮用接触区域。',
+        ],
+      },
+      {
+        title: 'Garnish 既是出品，也是食品安全',
+        items: [
+          '使用新鲜、合格、按程序清洗与切配的原料；砧板、刀具、夹子和容器保持清洁并防止交叉接触。',
+          '按时间与温度要求覆盖、标识、保存和轮换；变色、干枯、受污染或超过规定时间的 garnish 必须丢弃。',
+          '使用夹子或规定工具取用，不徒手反复抓取；过敏或成分不确定时查 approved ingredient information。',
+          '装饰必须与菜单和标准配方一致。客人要求调整时先确认是否影响过敏、安全或出品标准。',
+        ],
+      },
+    ],
+    quiz: {
+      question: '一只刚洗好的酒杯仍有口红印，但高峰期已经没有同款杯子，应该怎么做？',
+      options: [
+        { id: 'a', text: '用围裙擦一下杯口后继续使用' },
+        { id: 'b', text: '重新清洗和消毒，必要时按标准选择获准替代杯型，并通知相关同事' },
+        { id: 'c', text: '把装饰放在有口红印的一侧遮住' },
+      ],
+      correctOptionId: 'b',
+      explanation: '外观不合格的杯具不能直接服务。清洁消毒和杯具完整性优先于速度，替代杯型也必须符合 venue 标准。',
+    },
+    task7QuestionIds: ['bs_31', 'bs_42', 'bs_43', 'bs_44'],
   },
   {
     id: 'cruise-menu-patterns',
-    day: 6,
+    day: 8,
     title: '五家邮轮公司的菜单样本怎么读',
     duration: '45-60 分钟',
     outcome: '理解不同品牌与酒吧场景的菜单侧重点，而不是死背一份会变化的酒单。',
@@ -297,7 +393,7 @@ export const barServerFoundationDays = [
   },
   {
     id: 'service-application',
-    day: 7,
+    day: 9,
     title: '把酒水知识变成服务与面试答案',
     duration: '45-60 分钟',
     outcome: '能完成推荐、客诉、缺货、开档和收档五类关键场景。',
@@ -344,6 +440,16 @@ export const barServerFoundationDays = [
 
 export const barServerFoundationSources = [
   {
+    company: 'CDC Vessel Sanitation Program',
+    label: '2025 Environmental Public Health Standards',
+    url: 'https://www.cdc.gov/vessel-sanitation/media/pdfs/2025/06/2025_VSP_Environmental_Public_Health_Standards-508.pdf',
+  },
+  {
+    company: 'WSET Global',
+    label: 'A beginner’s guide to beer styles',
+    url: 'https://www.wsetglobal.com/knowledge-centre/blog/2023/december/08/a-beginners-guide-to-beer-styles',
+  },
+  {
     company: 'Royal Caribbean',
     label: 'The Lime and Coconut sample menu',
     url: 'https://www.royalcaribbean.com/content/dam/royal/resources/menus/the-lime-and-coconut-menu-sample.pdf',
@@ -372,4 +478,3 @@ export const barServerFoundationSources = [
 
 export const getCompletedFoundationDays = (progress = {}) =>
   barServerFoundationDays.filter((day) => progress[day.id]?.completedAt).length
-

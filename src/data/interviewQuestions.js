@@ -53,7 +53,13 @@ const interviewQuestions = {
       { id: 'bs_37', order: 37, question: "A colleague repeatedly overpours drinks during a busy service. What would you do?", difficulty: "hard", category: "integrity", tip: "Protect guest safety and inventory, address it professionally, and escalate through the correct line", keywords: ["safety", "professional", "inventory", "supervisor", "report"] },
       { id: 'bs_38', order: 38, question: "How do you start natural small talk with guests from different cultures?", difficulty: "medium", category: "communication", tip: "Use open, respectful topics, watch the guest's response, and avoid assumptions", keywords: ["respect", "culture", "listen", "guest", "conversation"] },
       { id: 'bs_39', order: 39, question: "Explain how you would present and serve a bottle of wine at the bar.", difficulty: "hard", category: "demonstration", tip: "Describe the sequence clearly and follow the cruise line's service standard rather than inventing steps", keywords: ["present", "label", "open", "serve", "standard"] },
-      { id: 'bs_40', order: 40, question: "What will help you maintain service quality during a long contract with limited days off?", difficulty: "hard", category: "ship_life", tip: "Show realistic expectations, healthy routines, teamwork, and willingness to ask for support", keywords: ["contract", "routine", "team", "quality", "support"] }
+      { id: 'bs_40', order: 40, question: "What will help you maintain service quality during a long contract with limited days off?", difficulty: "hard", category: "ship_life", tip: "Show realistic expectations, healthy routines, teamwork, and willingness to ask for support", keywords: ["contract", "routine", "team", "quality", "support"] },
+      { id: 'bs_41', order: 41, question: "What public-health practices are you personally responsible for during a bar shift?", difficulty: "hard", category: "health", tip: "Cover hand hygiene, illness reporting, safe ice and garnish handling, cross-contamination prevention, and following the ship's approved sanitation procedures", keywords: ["hygiene", "illness", "ice", "cross-contamination", "procedure"] },
+      { id: 'bs_42', order: 42, question: "Walk me through how you would clean, sanitize, inspect, dry, and store glassware in a cruise-ship bar.", difficulty: "hard", category: "knowledge", tip: "Explain the approved warewashing sequence, equipment checks, inspection for residue or damage, air-drying, protected storage, and what you do when standards are not met", keywords: ["clean", "sanitize", "inspect", "air-dry", "store"] },
+      { id: 'bs_43', order: 43, question: "Which glassware would you select for a Mojito, an Old Fashioned, a Martini, sparkling wine, and a wheat beer, and why?", difficulty: "medium", category: "knowledge", tip: "Name the usual glass family, connect it to drink structure and presentation, and acknowledge that the assigned venue's standard controls", keywords: ["highball", "rocks", "martini", "flute", "weizen"] },
+      { id: 'bs_44', order: 44, question: "How do you prepare, handle, store, and discard cocktail garnishes safely during service?", difficulty: "hard", category: "health", tip: "Discuss approved washing and cutting, clean tools, protected and labelled storage, time or temperature control, utensil use, quality checks, and cross-contact", keywords: ["garnish", "label", "store", "utensil", "cross-contact"] },
+      { id: 'bs_45', order: 45, question: "Name the main wine categories and several common grape varieties a Bar Server should recognize, then explain how you would recommend one.", difficulty: "medium", category: "knowledge", tip: "Cover sparkling, white, rosé, red, and fortified wine; use familiar examples and ask about sweetness, body, pairing, and budget", keywords: ["sparkling", "white", "red", "grape", "recommend"] },
+      { id: 'bs_46', order: 46, question: "What common beer styles should a Bar Server recognize, and how would you explain their differences to a guest?", difficulty: "medium", category: "knowledge", tip: "Compare lager or pilsner, pale ale or IPA, wheat beer, stout or porter using bitterness, body, malt, hop, roast, and refreshment", keywords: ["lager", "IPA", "wheat", "stout", "flavor"] }
     ],
     knowledge: [
       { id: 'bs_k01', content: "Know the main spirit families and the products stocked by your assigned bar" },
@@ -65,7 +71,10 @@ const interviewQuestions = {
       { id: 'bs_k07', content: "Use fresh fruits and garnishes for better drink presentation" },
       { id: 'bs_k08', content: "Know how to use the POS system efficiently" },
       { id: 'bs_k09', content: "Maintain good communication with kitchen and service staff" },
-      { id: 'bs_k10', content: "Always prioritize guest safety over sales targets" }
+      { id: 'bs_k10', content: "Always prioritize guest safety over sales targets" },
+      { id: 'bs_k11', content: "Clean and sanitize glassware through the approved process, inspect it, and let it air-dry before protected storage" },
+      { id: 'bs_k12', content: "Treat ice and cocktail garnishes as food, prevent cross-contamination, and report illness symptoms immediately" },
+      { id: 'bs_k13', content: "Recognize common wine and beer styles, but verify the assigned venue's current brands, menu, and package rules" }
     ]
   },
   restaurant: {

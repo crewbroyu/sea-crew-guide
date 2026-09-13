@@ -19,6 +19,7 @@ import {
 import useEffectiveAccess from '../hooks/useEffectiveAccess'
 import { getScoreData } from '../store/scoreStore'
 import pathData from '../data/pathData'
+import { BAR_SERVER_FOUNDATION_DAY_COUNT } from '../data/barServerFoundationMeta'
 
 const publicLinks = [
   {
@@ -115,10 +116,10 @@ const getHomeSnapshot = () => {
       reason: '先确定岗位方向，后面的简历、知识和面试训练才不会走偏。',
       route: '/assessment',
     }
-  } else if ((currentTask?.id || 1) >= 5 && task5.selectedRole === 'barServer' && foundationCompletedDays < 7) {
+  } else if ((currentTask?.id || 1) >= 5 && task5.selectedRole === 'barServer' && foundationCompletedDays < BAR_SERVER_FOUNDATION_DAY_COUNT) {
     recommendedAction = {
       label: '当前推荐行动',
-      title: `继续 Bar Server 基础训练（${foundationCompletedDays}/7）`,
+      title: `继续 Bar Server 基础训练（${foundationCompletedDays}/${BAR_SERVER_FOUNDATION_DAY_COUNT}）`,
       reason: '先补齐酒水与服务动作，再把知识带进答案卡和语音训练。',
       route: '/tasks/phase2/Task5',
     }

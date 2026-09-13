@@ -1,0 +1,1 @@
+export const BAR_SERVER_FOUNDATION_DAY_COUNT = 9

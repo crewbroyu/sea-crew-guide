@@ -7,6 +7,7 @@ import { getMyInterviewAnswerProfile, upsertMyInterviewAnswerProfile } from '../
 import useEffectiveAccess from '../../../hooks/useEffectiveAccess';
 import { hasProductEntitlement } from '../../../services/activationService';
 import { coachInterviewAnswer } from '../../../services/interviewAiService';
+import { BAR_SERVER_FOUNDATION_DAY_COUNT } from '../../../data/barServerFoundationMeta';
 
 // 封装 localStorage 工具函数
 const STORAGE_KEY = 'task6_data';
@@ -780,7 +781,7 @@ function Task6InterviewSkills() {
           {task5Context.selectedRole === 'barServer' && (
             <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
               <p className="text-xs font-semibold text-blue-700">来自任务5 · Bar Server 基础课</p>
-              <h2 className="mt-1 font-semibold text-blue-950">已学习 {task5Context.foundationCompletedDays}/7 天，先把知识整理成自己的回答</h2>
+              <h2 className="mt-1 font-semibold text-blue-950">已学习 {task5Context.foundationCompletedDays}/{BAR_SERVER_FOUNDATION_DAY_COUNT} 天，先把知识整理成自己的回答</h2>
               <p className="mt-1 text-sm leading-6 text-blue-900">
                 系统已经把基酒、鸡尾酒推荐、服务流程和责任售酒带入第一张答案卡。完成后，任务7会用对应问题检查你能不能真正说出来。
               </p>

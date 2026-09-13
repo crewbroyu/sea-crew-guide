@@ -179,6 +179,8 @@ export default function BarServerScenarioTraining() {
         setStage('result')
       }
     } catch (error) {
+      if (stage === 'first') firstTurnRequestIdRef.current = null
+      else finalEvaluationRequestIdRef.current = null
       setErrorMessage(error.message || 'AI training is temporarily unavailable. Please try again shortly.')
     } finally { setBusy(false) }
   }

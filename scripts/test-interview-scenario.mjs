@@ -108,6 +108,7 @@ assert.deepEqual(feedback.knowledgeNotes, scenarioEvaluation.questionScores[0].k
 assert.deepEqual(feedback.usefulPhrases, scenarioEvaluation.questionScores[0].usefulPhrases)
 assert.deepEqual(feedback.retryChecklist, scenarioEvaluation.questionScores[0].retryChecklist)
 assert.equal(evaluationRequests[0].model, 'qwen3.7-plus')
+assert.equal(evaluationRequests[0].max_completion_tokens, 2500)
 assert.equal(evaluationRequests[0].response_format.type, 'json_schema')
 assert.equal(evaluationRequests[0].response_format.json_schema.strict, true)
 

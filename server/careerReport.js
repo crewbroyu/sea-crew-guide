@@ -11,6 +11,7 @@ import {
 const DEFAULT_TEXT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 const DEFAULT_MODEL = 'qwen3.5-plus'
 const REPORT_LIMIT = 1
+const CAREER_REPORT_MAX_COMPLETION_TOKENS = 2500
 const allowedRoles = [
   { id: 'retail', title: 'Retail Sales Associate' },
   { id: 'front_office', title: 'Guest Service Associate' },
@@ -189,6 +190,7 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
         model: config.model,
         enable_thinking: false,
         temperature: 0.2,
+        max_completion_tokens: CAREER_REPORT_MAX_COMPLETION_TOKENS,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: buildCareerAdvisorSystemPrompt({ roleChoices: allowedRoles.map((role) => `${role.id} (${role.title})`).join('、') }) },

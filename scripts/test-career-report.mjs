@@ -58,7 +58,9 @@ try {
   assert.deepEqual(result.body.data.recommendedPositions.map((item) => item.id), ['bar', 'restaurant', 'retail'])
   assert.equal(result.body.data.applicationRoute.id, 'guide')
   assert.equal(result.body.data.advisorSignals.decisionStage, 'position_selection')
-  assert.ok(calls.some((call) => call.url.includes('/chat/completions')))
+  const modelCall = calls.find((call) => call.url.includes('/chat/completions'))
+  assert.ok(modelCall)
+  assert.equal(JSON.parse(modelCall.options.body).max_completion_tokens, 2500)
   assert.ok(calls.some((call) => call.url.includes('save_ai_advisor_career_report')))
   console.log('Career report API scenarios passed.')
 } finally {

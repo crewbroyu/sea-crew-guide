@@ -16,6 +16,13 @@ const PREMIUM_SCENARIO_MODE = 'premium_scenario'
 const PREMIUM_PRACTICE_MODE = 'premium_practice'
 const PREMIUM_MOCK_MODE = 'premium_mock'
 const BAR_SERVER_PRODUCT_CODE = 'bar_server_pack'
+const OUTPUT_TOKEN_LIMITS = Object.freeze({
+  scenarioFollowUp: 300,
+  scenarioEvaluation: 1800,
+  answerCoach: 1800,
+  singleFeedback: 2500,
+  mockInterview: 6000,
+})
 const FREE_BAR_SERVER_TRIAL_SCENARIO_IDS = new Set([
   'bar_server_drink_recommendation_01',
   'bar_server_complaint_recovery_02',
@@ -251,6 +258,18 @@ const reservePersistentQuota = async ({ supabase, entitlement, action, mode, bod
     if (message.includes('AI_REQUEST_ALREADY_COMPLETED')) {
       throw new InterviewApiError(409, 'AI_REQUEST_ALREADY_COMPLETED', '这次训练已完成，请返回查看结果后再开始下一次。')
     }
+    if (message.includes('AI_REQUEST_PREVIOUSLY_FAILED')) {
+      throw new InterviewApiError(409, 'AI_REQUEST_PREVIOUSLY_FAILED', '上一次请求未完成，请重新发起本次训练。')
+    }
+    if (message.includes('AI_FAILURE_LIMIT_REACHED')) {
+      throw new InterviewApiError(
+        429,
+        'AI_FAILURE_LIMIT_REACHED',
+        isFreeTrial
+          ? '今天的免费 AI 重试次数已达上限，请明天再试。'
+          : '今天的 AI 失败重试次数较多，请稍后再试；成功训练额度不会被扣除。',
+      )
+    }
     console.error('AI quota reservation failed:', error.message)
     throw new InterviewApiError(503, 'QUOTA_CHECK_FAILED', '暂时无法核对 AI 使用次数，请稍后重试。')
   }
@@ -263,7 +282,7 @@ const finalizePersistentQuota = async ({ supabase, reservationId, completed }) =
 
   const { error } = await supabase.rpc('finalize_ai_usage_reservation', {
     input_reservation_id: reservationId,
-    input_outcome: completed ? 'completed' : 'released',
+    input_outcome: completed ? 'completed' : 'failed',
   })
 
   if (error) {
@@ -687,6 +706,9 @@ const evaluateInterview = async ({ body, config }) => {
         : { type: 'json_object' },
       enable_thinking: false,
       temperature: 0.2,
+      max_completion_tokens: body.mode === PREMIUM_MOCK_MODE
+        ? OUTPUT_TOKEN_LIMITS.mockInterview
+        : OUTPUT_TOKEN_LIMITS.singleFeedback,
     }
 
   const maxAttempts = isScenarioTrial ? 2 : 1
@@ -795,6 +817,7 @@ const coachInterviewAnswer = async ({ body, config }) => {
       response_format: { type: 'json_object' },
       enable_thinking: false,
       temperature: 0.2,
+      max_completion_tokens: OUTPUT_TOKEN_LIMITS.answerCoach,
     }),
     signal: AbortSignal.timeout(75_000),
   })
@@ -831,7 +854,7 @@ const getSimulationScenario = (scenarioId) => {
   return scenario
 }
 
-const requestScenarioJson = async ({ config, messages }) => {
+const requestScenarioJson = async ({ config, messages, maxCompletionTokens }) => {
   const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
@@ -841,6 +864,7 @@ const requestScenarioJson = async ({ config, messages }) => {
       response_format: { type: 'json_object' },
       enable_thinking: false,
       temperature: 0.25,
+      max_completion_tokens: maxCompletionTokens,
     }),
     signal: AbortSignal.timeout(75_000),
   })
@@ -858,6 +882,7 @@ const continueScenarioRoleplay = async ({ body, config }) => {
 
   const { result, requestId } = await requestScenarioJson({
     config,
+    maxCompletionTokens: OUTPUT_TOKEN_LIMITS.scenarioFollowUp,
     messages: [
       {
         role: 'system',
@@ -920,6 +945,7 @@ const evaluateScenarioSimulation = async ({ body, config }) => {
 
   const { result, requestId } = await requestScenarioJson({
     config,
+    maxCompletionTokens: OUTPUT_TOKEN_LIMITS.scenarioEvaluation,
     messages: [
       {
         role: 'system',

@@ -1,5 +1,5 @@
 // src/pages/Messages.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, Bell, CheckCircle, AlertCircle, XCircle,
@@ -8,13 +8,13 @@ import {
 
 export default function Messages() {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState([]);
-
-  // 从 localStorage 加载消息
-  useEffect(() => {
-    const savedMessages = JSON.parse(localStorage.getItem('messages') || '[]');
-    setMessages(savedMessages);
-  }, []);
+  const [messages, setMessages] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('messages') || '[]');
+    } catch {
+      return [];
+    }
+  });
 
   // 标记消息为已读
   const markAsRead = (id) => {

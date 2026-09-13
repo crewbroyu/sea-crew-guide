@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function RecordingQuestion({
   question,
-  dimension,
   currentQuestion,
   totalQuestions,
   currentDimension,
@@ -18,26 +17,15 @@ export default function RecordingQuestion({
   const [recordingTime, setRecordingTime] = useState(0)
   const [transcript, setTranscript] = useState('')
   const [wordCount, setWordCount] = useState(0)
-  const [isSupported, setIsSupported] = useState(null)
-  const [audioBlob, setAudioBlob] = useState(null)
   const [score, setScore] = useState(null)
-  const [showFallback, setShowFallback] = useState(false)
+  const [showFallback, setShowFallback] = useState(() => (
+    typeof MediaRecorder === 'undefined'
+    || (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window))
+  ))
   
   const mediaRecorderRef = useRef(null)
-  const audioChunksRef = useRef([])
   const timerRef = useRef(null)
   const recognitionRef = useRef(null)
-  
-  // 检查浏览器支持
-  useEffect(() => {
-    const hasMediaRecorder = typeof MediaRecorder !== 'undefined'
-    const hasSpeechRecognition = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window
-    setIsSupported(hasMediaRecorder && hasSpeechRecognition)
-    
-    if (!hasMediaRecorder || !hasSpeechRecognition) {
-      setShowFallback(true)
-    }
-  }, [])
   
   // 清理
   useEffect(() => {
@@ -57,17 +45,8 @@ export default function RecordingQuestion({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
-      audioChunksRef.current = []
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data)
-        }
-      }
       
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
-        setAudioBlob(audioBlob)
         stream.getTracks().forEach(track => track.stop())
       }
       

@@ -1,5 +1,5 @@
 // src/pages/academy/BoardingWechat.jsx
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, MessageCircle, QrCode, CheckCircle } from 'lucide-react';
 
 export default function BoardingWechat() {
@@ -8,8 +8,7 @@ export default function BoardingWechat() {
   const { task, formData } = location.state || {};
 
   if (!task) {
-    navigate('/academy/boarding');
-    return null;
+    return <Navigate to="/academy/boarding" replace />;
   }
 
   return (

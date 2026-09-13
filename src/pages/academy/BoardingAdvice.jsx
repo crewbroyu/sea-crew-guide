@@ -1,5 +1,5 @@
 // src/pages/academy/BoardingAdvice.jsx
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, MessageCircle, MapPin, UserCheck, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 
@@ -7,17 +7,14 @@ export default function BoardingAdvice() {
   const navigate = useNavigate();
   const location = useLocation();
   const { task } = location.state || {};
-
-  if (!task) {
-    navigate('/academy/boarding');
-    return null;
-  }
-
-  // 表单状态
   const [formData, setFormData] = useState({
     city: '',
     hasInterview: 'no'
   });
+
+  if (!task) {
+    return <Navigate to="/academy/boarding" replace />;
+  }
 
   // 处理表单输入
   const handleInputChange = (e) => {

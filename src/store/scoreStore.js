@@ -3,7 +3,6 @@
 // 重新计算总积分
 const recalculateTotalScore = () => {
   const completedTasks = calculateCompletedTasks()
-  const scoreData = JSON.parse(localStorage.getItem('score_data') || '{}')
   
   // 计算任务完成积分
   let taskScore = 0
@@ -18,7 +17,6 @@ const recalculateTotalScore = () => {
   // 计算打卡积分
   const checkinData = JSON.parse(localStorage.getItem('checkin_data') || '{}')
   const checkinDates = Object.keys(checkinData)
-  const checkinCount = checkinDates.length
   
   let checkinScore = 0
   let continuousDays = 0

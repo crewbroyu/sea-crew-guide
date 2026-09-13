@@ -3,7 +3,6 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function VocabQuestion({
   question,
-  dimension,
   currentQuestion,
   totalQuestions,
   currentDimension,

@@ -1,17 +1,12 @@
 // src/pages/academy/BoardingDetail.jsx
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, AlertCircle, CheckCircle, ExternalLink, Calendar, ArrowRight } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function BoardingDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { module } = location.state || {};
-
-  if (!module) {
-    navigate('/academy/boarding');
-    return null;
-  }
 
   // 任务状态管理
   const [tasks, setTasks] = useState([
@@ -54,64 +49,23 @@ export default function BoardingDetail() {
     }
   ]);
 
-  // 检查任务状态，确保顺序执行
-  useEffect(() => {
-    setTasks(prevTasks => {
-      const updatedTasks = [...prevTasks];
-      let previousCompleted = false;
-
-      for (let i = 0; i < updatedTasks.length; i++) {
-        if (i === 0) {
-          // 第一个任务（海员证）总是可操作的
-          previousCompleted = true;
-        } else {
-          // 只有前一个任务完成了，当前任务才能操作
-          if (updatedTasks[i-1].status === 'completed') {
-            previousCompleted = true;
-          } else {
-            previousCompleted = false;
-            // 如果前一个任务未完成，当前任务状态重置为pending
-            if (updatedTasks[i].status !== 'pending') {
-              updatedTasks[i].status = 'pending';
-            }
-          }
-        }
-      }
-
-      return updatedTasks;
-    });
-  }, []); // 空依赖数组，只在组件挂载时执行一次
-
   // 处理任务状态更新
   const handleStatusUpdate = (taskId, status) => {
     setTasks(prev => {
-      const updatedTasks = prev.map(task => 
+      const updatedTasks = prev.map(task =>
         task.id === taskId ? { ...task, status } : task
       );
-
-      // 检查并更新后续任务的状态
-      let previousCompleted = false;
-      for (let i = 0; i < updatedTasks.length; i++) {
-        if (i === 0) {
-          // 第一个任务（海员证）总是可操作的
-          previousCompleted = true;
-        } else {
-          // 只有前一个任务完成了，当前任务才能操作
-          if (updatedTasks[i-1].status === 'completed') {
-            previousCompleted = true;
-          } else {
-            previousCompleted = false;
-            // 如果前一个任务未完成，当前任务状态重置为pending
-            if (updatedTasks[i].status !== 'pending') {
-              updatedTasks[i].status = 'pending';
-            }
-          }
-        }
-      }
-
-      return updatedTasks;
+      return updatedTasks.map((task, index) => (
+        index === 0 || updatedTasks[index - 1].status === 'completed'
+          ? task
+          : { ...task, status: 'pending' }
+      ));
     });
   };
+
+  if (!module) {
+    return <Navigate to="/academy/boarding" replace />;
+  }
 
   // 处理任务按钮点击
   const handleTaskClick = (task) => {

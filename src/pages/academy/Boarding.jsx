@@ -65,6 +65,8 @@ const boardingModules = [
   }
 ];
 
+const toModuleState = ({ id, title, description, color }) => ({ id, title, description, color });
+
 export default function Boarding() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,7 +80,7 @@ export default function Boarding() {
       console.log('Found module:', module);
       if (module) {
         // 只传递必要的数据，不包含React元素和items
-        const { icon, items, ...moduleData } = module;
+        const moduleData = toModuleState(module);
         console.log('Navigating to detail with module:', moduleData);
         navigate('/academy/boarding/detail', {
           state: { module: moduleData }
@@ -89,7 +91,7 @@ export default function Boarding() {
 
   const handleModuleClick = (module) => {
     // 只传递必要的数据，不包含React元素和items
-    const { icon, items, ...moduleData } = module;
+    const moduleData = toModuleState(module);
     navigate('/academy/boarding/detail', {
       state: { module: moduleData }
     });

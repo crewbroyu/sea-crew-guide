@@ -10,7 +10,6 @@ import RequireLogin from './components/RequireLogin'
 import RequireActivation from './components/RequireActivation'
 import RequireAdmin from './components/RequireAdmin'
 import AdminPreviewBar from './components/AdminPreviewBar'
-import CompletionHint from './components/CompletionHint'
 import DebugPanel from './components/DebugPanel'
 
 // 动态导入大型组件
@@ -92,7 +91,6 @@ function App() {
       <Router>
         <AccessGate />
         <AdminPreviewBar />
-        <CompletionHint />
         {import.meta.env.DEV && <DebugPanel />}
         <div className="min-h-screen bg-gray-50">
           <Suspense fallback={

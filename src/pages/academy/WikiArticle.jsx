@@ -1,6 +1,6 @@
 // src/pages/academy/WikiArticle.jsx
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { ChevronLeft, BookOpen, Clock, Target, Route } from 'lucide-react';
 import { getEncyclopediaArticle } from '../../services/encyclopediaService';
 
@@ -9,25 +9,22 @@ export default function WikiArticle() {
   const location = useLocation();
   const { id } = useParams();
   const [article, setArticle] = useState(location.state?.article || null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => (
+    !location.state?.article && Boolean(id || location.state?.articleId)
+  ));
 
   useEffect(() => {
-    if (!article && (id || location.state?.articleId)) {
-      loadArticle();
-    }
-  }, [article, id, location.state?.articleId]);
+    const articleId = id || location.state?.articleId;
+    if (article || !articleId) return undefined;
 
-  const loadArticle = async () => {
-    try {
-      setLoading(true);
-      const articleData = await getEncyclopediaArticle(id || location.state?.articleId);
-      setArticle(articleData);
-    } catch (error) {
-      console.error('加载文章失败:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    let active = true;
+    getEncyclopediaArticle(articleId)
+      .then((articleData) => { if (active) setArticle(articleData); })
+      .catch((error) => console.error('加载文章失败:', error))
+      .finally(() => { if (active) setLoading(false); });
+
+    return () => { active = false; };
+  }, [article, id, location.state?.articleId]);
 
   if (loading) {
     return (
@@ -38,8 +35,7 @@ export default function WikiArticle() {
   }
 
   if (!article) {
-    navigate('/academy/wiki');
-    return null;
+    return <Navigate to="/academy/wiki" replace />;
   }
 
   return (

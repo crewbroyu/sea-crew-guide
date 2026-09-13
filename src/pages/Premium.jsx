@@ -19,7 +19,7 @@ import { createManualPurchaseRequest, getMyManualPurchaseRequest } from '../serv
 
 const included = [
   {
-    title: '7 天岗位基础训练',
+    title: '9 天岗位基础训练',
     description: '酒水分类、经典饮品、服务流程、安全边界与高频工作判断。',
     icon: Route,
   },
@@ -66,10 +66,7 @@ export default function Premium() {
   useEffect(() => {
     let cancelled = false
 
-    if (!isRegistered || hasBarServerPack) {
-      setPurchaseRequest(null)
-      return () => { cancelled = true }
-    }
+    if (!isRegistered || hasBarServerPack) return () => { cancelled = true }
 
     getMyManualPurchaseRequest('bar_server_pack')
       .then((request) => {
@@ -122,8 +119,9 @@ export default function Premium() {
     }
   }
 
-  const hasOpenPurchaseRequest = purchaseRequest
-    && purchaseRequest.status !== 'cancelled'
+  const visiblePurchaseRequest = isRegistered && !hasBarServerPack ? purchaseRequest : null
+  const hasOpenPurchaseRequest = visiblePurchaseRequest
+    && visiblePurchaseRequest.status !== 'cancelled'
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
@@ -254,7 +252,7 @@ export default function Premium() {
                   disabled={isRequestingPurchase || Boolean(hasOpenPurchaseRequest)}
                   className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-white px-5 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {hasOpenPurchaseRequest ? '已提交申请' : isRequestingPurchase ? '正在提交申请...' : purchaseRequest ? '重新申请人工开通' : '申请人工开通'}
+                  {hasOpenPurchaseRequest ? '已提交申请' : isRequestingPurchase ? '正在提交申请...' : visiblePurchaseRequest ? '重新申请人工开通' : '申请人工开通'}
                 </button>
               )}
             </div>
@@ -269,11 +267,11 @@ export default function Premium() {
               </div>
             </div>
           </div>
-          {purchaseRequest && (
+          {visiblePurchaseRequest && (
             <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
               <p className="font-semibold">人工开通申请已提交</p>
-              <p className="mt-1">订单编号：<span className="font-mono font-semibold">{purchaseRequest.reference_code}</span>。{manualPurchaseStatus[purchaseRequest.status] || '请联系支持确认下一步。'}</p>
-              {purchaseRequest.status === 'requested' && <p className="mt-1">请通过注册邮箱联系支持获取付款方式，并附上这个编号。</p>}
+              <p className="mt-1">订单编号：<span className="font-mono font-semibold">{visiblePurchaseRequest.reference_code}</span>。{manualPurchaseStatus[visiblePurchaseRequest.status] || '请联系支持确认下一步。'}</p>
+              {visiblePurchaseRequest.status === 'requested' && <p className="mt-1">请通过注册邮箱联系支持获取付款方式，并附上这个编号。</p>}
             </div>
           )}
           {purchaseRequestError && (

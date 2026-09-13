@@ -12,37 +12,30 @@ export default function Wiki() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
+    let active = true;
+
+    getEncyclopediaCategories()
+      .then((categoriesData) => {
+        if (!active) return;
+        setCategories(categoriesData);
+        setSelectedCategory(categoriesData[0]?.id || '');
+      })
+      .catch((error) => console.error('加载分类失败:', error))
+      .finally(() => { if (active) setLoading(false); });
+
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    loadArticles();
+    if (!selectedCategory) return undefined;
+
+    let active = true;
+    getEncyclopediaArticles(selectedCategory)
+      .then((articlesData) => { if (active) setArticles(articlesData); })
+      .catch((error) => console.error('加载文章失败:', error));
+
+    return () => { active = false; };
   }, [selectedCategory]);
-
-  const loadData = async () => {
-    try {
-      const categoriesData = await getEncyclopediaCategories();
-      setCategories(categoriesData);
-      if (categoriesData.length > 0) {
-        setSelectedCategory(categoriesData[0].id);
-      }
-    } catch (error) {
-      console.error('加载分类失败:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadArticles = async () => {
-    if (!selectedCategory) return;
-    
-    try {
-      const articlesData = await getEncyclopediaArticles(selectedCategory);
-      setArticles(articlesData);
-    } catch (error) {
-      console.error('加载文章失败:', error);
-    }
-  };
 
   const handleArticleClick = (article) => {
     navigate(`/academy/wiki/${article.slug || article.id}`, {

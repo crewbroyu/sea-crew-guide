@@ -1,32 +1,24 @@
 // src/pages/JobPreparation.jsx
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Check, Briefcase, FileText, BookOpen, ClipboardList } from 'lucide-react'
 
 export default function JobPreparation() {
   const navigate = useNavigate()
-  const [selectedJob, setSelectedJob] = useState('')
-  const [isResumeCompleted, setIsResumeCompleted] = useState(false)
-
-  useEffect(() => {
-    // 从localStorage获取任务2的结果
-    const task2Result = localStorage.getItem('task2_result')
-    if (task2Result) {
-      const result = JSON.parse(task2Result)
-      if (result.selectedTargetJob) {
-        setSelectedJob(result.selectedTargetJob)
-      }
+  const [selectedJob] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('task2_result') || '{}').selectedTargetJob || ''
+    } catch {
+      return ''
     }
-
-    // 从localStorage获取任务4的完成状态
-    const boardingProgress = localStorage.getItem('boarding_progress')
-    if (boardingProgress) {
-      const progress = JSON.parse(boardingProgress)
-      if (progress.task4 && progress.task4.completed) {
-        setIsResumeCompleted(true)
-      }
+  })
+  const [isResumeCompleted] = useState(() => {
+    try {
+      return Boolean(JSON.parse(localStorage.getItem('boarding_progress') || '{}').task4?.completed)
+    } catch {
+      return false
     }
-  }, [])
+  })
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">

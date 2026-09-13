@@ -5,6 +5,7 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronRight, ChevronUp } from 'lucide-react';
 import trainingCourses from '../../../data/trainingCourses';
 import BarServerFoundationTraining from '../../../components/training/BarServerFoundationTraining';
+import RequireActivation from '../../../components/RequireActivation';
 import { barServerFoundationDays, getCompletedFoundationDays } from '../../../data/barServerFoundation';
 import { syncLocalPathProfile } from '../../../services/userPathService';
 import { getMyJobPreparation, upsertMyJobPreparation } from '../../../services/jobPreparationService';
@@ -731,23 +732,34 @@ export default function Task5Training() {
         </div>
 
         {selectedRole === 'barServer' && (
-          <BarServerFoundationTraining
-            progress={foundationProgress}
-            onProgressChange={setFoundationProgress}
-            task6Completed={task6Completed}
-            onStartTask6={() => navigate('/tasks/phase2/Task6?source=task5')}
-            onStartTask7={({ foundationDayId = '', questionId = '' } = {}) => {
-              const params = new URLSearchParams({
-                mode: 'knowledge',
-                position: 'bar_server',
-                source: 'task5',
-              });
-              if (foundationDayId) params.set('foundationDay', foundationDayId);
-              if (questionId) params.set('question', questionId);
-              navigate(`/tasks/phase2/Task7/voice?${params.toString()}`);
-            }}
-            onStartScenarioTraining={() => navigate('/programs/bar-server/training')}
-          />
+          <section className="mb-5">
+            <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-xs font-semibold text-blue-700">Bar Server 单职位全流程包</p>
+              <h2 className="mt-1 text-lg font-bold text-slate-950">9 天岗位基础训练</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                岗位一页纸免费查看；完整酒水、服务、公共卫生与 Guest Challenge 训练需解锁岗位包。
+              </p>
+            </div>
+            <RequireActivation variant="inline" productCode="bar_server_pack">
+              <BarServerFoundationTraining
+                progress={foundationProgress}
+                onProgressChange={setFoundationProgress}
+                task6Completed={task6Completed}
+                onStartTask6={() => navigate('/tasks/phase2/Task6?source=task5')}
+                onStartTask7={({ foundationDayId = '', questionId = '' } = {}) => {
+                  const params = new URLSearchParams({
+                    mode: 'knowledge',
+                    position: 'bar_server',
+                    source: 'task5',
+                  });
+                  if (foundationDayId) params.set('foundationDay', foundationDayId);
+                  if (questionId) params.set('question', questionId);
+                  navigate(`/tasks/phase2/Task7/voice?${params.toString()}`);
+                }}
+                onStartScenarioTraining={() => navigate('/programs/bar-server/training')}
+              />
+            </RequireActivation>
+          </section>
         )}
 
         <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

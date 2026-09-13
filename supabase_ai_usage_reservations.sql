@@ -1,7 +1,27 @@
 -- Atomic AI quota reservations for paid training.
 -- Run this after supabase_products_and_entitlements.sql.
+-- Then run supabase_launch_hardening.sql and supabase_ai_cost_controls.sql.
+-- Do not rerun this baseline after the production hardening scripts: doing so
+-- would replace the expanded action set and failed-attempt controls.
 -- A reservation is counted before the model call, so concurrent requests cannot
 -- both pass the last available quota. Failed model calls are released by the API.
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_constraint constraint_row
+    join pg_class table_row on table_row.oid = constraint_row.conrelid
+    join pg_namespace schema_row on schema_row.oid = table_row.relnamespace
+    where schema_row.nspname = 'public'
+      and table_row.relname = 'ai_usage_reservations'
+      and constraint_row.contype = 'c'
+      and pg_get_constraintdef(constraint_row.oid) like '%scenario_evaluate%'
+  ) then
+    raise exception 'LEGACY_AI_QUOTA_SCRIPT_BLOCKED: production hardening is already installed';
+  end if;
+end;
+$$;
 
 create table if not exists public.ai_usage_reservations (
   id uuid primary key default gen_random_uuid(),

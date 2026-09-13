@@ -74,14 +74,11 @@ export default function Boarding() {
 
   // 如果有moduleId参数，直接跳转到对应模块的详情页面
   useEffect(() => {
-    console.log('Boarding moduleId:', moduleId);
     if (moduleId) {
       const module = boardingModules.find(m => m.id === moduleId);
-      console.log('Found module:', module);
       if (module) {
         // 只传递必要的数据，不包含React元素和items
         const moduleData = toModuleState(module);
-        console.log('Navigating to detail with module:', moduleData);
         navigate('/academy/boarding/detail', {
           state: { module: moduleData }
         });

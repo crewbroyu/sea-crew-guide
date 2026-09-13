@@ -10,9 +10,21 @@ const tabs = [
   { icon: User, label: '我的', to: '/profile' },
 ]
 
-export default function BottomNav() {
+const matchesHiddenPath = (pathname, pattern) => {
+  if (pattern.endsWith('/*')) {
+    const prefix = pattern.slice(0, -2)
+    return pathname === prefix || pathname.startsWith(`${prefix}/`)
+  }
+  return pathname === pattern
+}
+
+export default function BottomNav({ hideNavPages = [] }) {
   const navigate = useNavigate()
   const location = useLocation()
+
+  if (hideNavPages.some((pattern) => matchesHiddenPath(location.pathname, pattern))) {
+    return null
+  }
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 pb-safe z-50">

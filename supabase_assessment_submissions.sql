@@ -30,14 +30,16 @@ create index if not exists assessment_submissions_overall_score_idx
 
 alter table public.assessment_submissions enable row level security;
 
+-- Direct browser inserts stay closed. The authenticated, rate-limited
+-- save_assessment_submission RPC is created by supabase_launch_hardening.sql.
 drop policy if exists "Anyone can submit assessment" on public.assessment_submissions;
-create policy "Anyone can submit assessment"
-on public.assessment_submissions
-for insert
-with check (true);
+drop policy if exists "Users can submit own assessment" on public.assessment_submissions;
+revoke insert on table public.assessment_submissions from anon, authenticated;
+grant select on table public.assessment_submissions to authenticated;
 
 drop policy if exists "Users can read own assessment submissions" on public.assessment_submissions;
 create policy "Users can read own assessment submissions"
 on public.assessment_submissions
 for select
-using (auth.uid() = user_id);
+to authenticated
+using ((select auth.uid()) = user_id);

@@ -111,6 +111,15 @@ export const evaluateInterviewWithAi = ({
   scenarioId,
 })
 
+export const coachInterviewAnswer = ({ position, card, answers, generated }) => requestInterviewAi({
+  action: 'answer_coach',
+  mode: 'premium_practice',
+  position,
+  card,
+  answers,
+  generated,
+})
+
 export const continueScenarioRoleplay = ({ scenarioId, firstAnswer, requestId }) => requestInterviewAi({
   action: 'scenario_turn',
   mode: 'premium_scenario',

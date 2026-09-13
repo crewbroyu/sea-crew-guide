@@ -75,15 +75,68 @@ const serviceLinks = [
   },
 ]
 
+const readLocalJson = (key, fallback = {}) => {
+  try {
+    const value = localStorage.getItem(key)
+    return value ? JSON.parse(value) : fallback
+  } catch (error) {
+    console.warn(`Unable to read ${key}:`, error)
+    return fallback
+  }
+}
+
 const getHomeSnapshot = () => {
-  const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
+  const progress = readLocalJson('boarding_progress')
   const allTasks = pathData.flatMap((stage) => stage.tasks)
   const currentTask = allTasks.find((task) => !progress[`task${task.id}`]?.completed) || allTasks[0]
   const currentStage =
     pathData.find((stage) => stage.tasks.some((task) => task.id === currentTask?.id)) || pathData[0]
   const completedCount = allTasks.filter((task) => progress[`task${task.id}`]?.completed).length
-  const task2Result = JSON.parse(localStorage.getItem('task2_result') || '{}')
+  const task2Result = readLocalJson('task2_result')
   const targetJob = task2Result.selectedTargetJob || task2Result.currentJob?.[0]?.name || ''
+  const assessment = readLocalJson('assessment_result')
+  const task5 = readLocalJson('task5_result', readLocalJson('task5_data'))
+  const task6 = readLocalJson('task6_result')
+  const task7 = readLocalJson('task7_result')
+  const foundationCompletedDays = Number(task5.foundationCompletedDays || 0)
+    || Object.values(task5.foundationProgress || {}).filter((day) => day?.completedAt).length
+
+  let recommendedAction = {
+    label: `第 ${currentTask?.id || 1} 任务`,
+    title: currentTask?.title || '继续申请路线',
+    reason: '完成当前步骤后，系统会更新下一项建议。',
+    route: currentTask?.route || '/tasks',
+  }
+
+  if (!assessment.overallScore && !assessment.aiCareerReport) {
+    recommendedAction = {
+      label: '现在只做这一件事',
+      title: '先完成职业适配测评',
+      reason: '先确定岗位方向，后面的简历、知识和面试训练才不会走偏。',
+      route: '/assessment',
+    }
+  } else if ((currentTask?.id || 1) >= 5 && task5.selectedRole === 'barServer' && foundationCompletedDays < 7) {
+    recommendedAction = {
+      label: '当前推荐行动',
+      title: `继续 Bar Server 基础训练（${foundationCompletedDays}/7）`,
+      reason: '先补齐酒水与服务动作，再把知识带进答案卡和语音训练。',
+      route: '/tasks/phase2/Task5',
+    }
+  } else if ((currentTask?.id || 1) >= 6 && task5.selectedRole === 'barServer' && Number(task6.preparedAnswerCount || 0) < 3) {
+    recommendedAction = {
+      label: '当前推荐行动',
+      title: '完成 3 张个人面试答案卡',
+      reason: '把真实经历整理好，再进入语音训练，AI反馈才会具体。',
+      route: '/tasks/phase2/Task6',
+    }
+  } else if ((currentTask?.id || 1) >= 7 && Number(task7.evaluation?.overallScore || 0) > 0 && Number(task7.evaluation.overallScore) < 70) {
+    recommendedAction = {
+      label: '当前最大短板',
+      title: '专项重练任务7最低分问题',
+      reason: task7.evaluation.priorities?.[0] || '先把最低分问题练到稳定，再进入完整模拟面试。',
+      route: '/tasks/phase2/Task7/voice?position=bar_server',
+    }
+  }
 
   return {
     currentTask,
@@ -92,6 +145,7 @@ const getHomeSnapshot = () => {
     totalTasks: allTasks.length,
     targetJob,
     scoreData: getScoreData(),
+    recommendedAction,
   }
 }
 
@@ -245,6 +299,21 @@ export default function Home() {
 
           {isRegistered ? (
             <>
+              <button
+                type="button"
+                onClick={() => navigate(snapshot.recommendedAction.route)}
+                className="mb-4 flex w-full items-center justify-between rounded-lg bg-blue-600 px-4 py-4 text-left text-white transition hover:bg-blue-700"
+              >
+                <span>
+                  <span className="block text-xs font-medium text-blue-100">
+                    {snapshot.recommendedAction.label}
+                  </span>
+                  <span className="mt-1 block font-semibold">{snapshot.recommendedAction.title}</span>
+                  <span className="mt-1 block text-xs leading-5 text-blue-100">{snapshot.recommendedAction.reason}</span>
+                </span>
+                <ChevronRight size={20} className="shrink-0" />
+              </button>
+
               <div className="mb-4 grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-lg bg-slate-50 p-3">
                   <p className="text-xl font-bold text-blue-700">{snapshot.completedCount}</p>
@@ -260,19 +329,6 @@ export default function Home() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => navigate(snapshot.currentTask?.route || '/tasks')}
-                className="flex w-full items-center justify-between rounded-lg bg-blue-600 px-4 py-3 text-left text-white transition hover:bg-blue-700"
-              >
-                <span>
-                  <span className="block text-sm text-blue-100">
-                    第 {snapshot.currentStage?.id || 1} 阶段 · {snapshot.currentStage?.name}
-                  </span>
-                  <span className="font-semibold">{snapshot.currentTask?.title || '继续申请路线'}</span>
-                </span>
-                <ChevronRight size={20} />
-              </button>
             </>
           ) : (
             <div className="rounded-lg bg-slate-50 p-4">

@@ -30,7 +30,8 @@ import { normalizeInterviewPosition } from '../../../utils/interviewPosition';
 
 const STORAGE_KEY = 'task7_voice_practice';
 const RESULT_KEY = 'task7_result';
-const PRACTICE_VERSION = 6;
+const CUSTOM_QUESTIONS_KEY = 'task7_custom_questions';
+const PRACTICE_VERSION = 7;
 
 const barKnowledgeQuestionIds = [
   'bs_02',
@@ -225,8 +226,20 @@ const buildPracticeQuestions = (
   positionKey,
   roundNumber = 0,
   practiceMode = 'standard',
-  requestedQuestionId = ''
+  requestedQuestionId = '',
+  customQuestions = []
 ) => {
+  if (Array.isArray(customQuestions) && customQuestions.length) {
+    return customQuestions.slice(0, 8).map((item, index) => ({
+      id: item.id || `real-interview-${index + 1}`,
+      question: item.question,
+      order: index + 1,
+      phase: '真实面试复盘',
+      focus: item.focus || '先还原当时的真实回答，再补充具体行动、岗位判断和结果。',
+      keywords: item.keywords || inferQuestionKeywords(item),
+    }));
+  }
+
   const bank = interviewQuestions[positionKey]?.questions || interviewQuestions.retail.questions;
 
   if (practiceMode === 'knowledge' && positionKey === 'bar_server') {
@@ -325,12 +338,26 @@ function Task7InterviewPractice() {
   const source = searchParams.get('source') || '';
   const foundationDayId = searchParams.get('foundationDay') || '';
   const practiceMode = searchParams.get('mode') === 'knowledge' ? 'knowledge' : 'standard';
+  const customQuestionPayload = useMemo(
+    () => ['real-interview', 'academy-listening'].includes(source)
+      ? readJson(CUSTOM_QUESTIONS_KEY, null)
+      : null,
+    [source]
+  );
+  const customQuestions = useMemo(
+    () => Array.isArray(customQuestionPayload?.questions)
+      ? customQuestionPayload.questions.filter((item) => item?.question?.trim())
+      : [],
+    [customQuestionPayload]
+  );
+  const customSessionId = customQuestionPayload?.sessionId || '';
   const savedPractice = useMemo(() => readJson(STORAGE_KEY, {}), []);
   const compatiblePractice = savedPractice.version === PRACTICE_VERSION
     && savedPractice.practiceMode === practiceMode
     && (!requestedPosition || savedPractice.targetPositionKey === requestedPosition)
     && (savedPractice.requestedQuestionId || '') === requestedQuestionId
     && (savedPractice.foundationDayId || '') === foundationDayId
+    && (savedPractice.customSessionId || '') === customSessionId
     ? savedPractice
     : {};
   const [targetPositionKey] = useState(() => requestedPosition || getTargetPositionKey());
@@ -338,9 +365,14 @@ function Task7InterviewPractice() {
   const targetPosition = useMemo(() => getTargetPositionMeta(targetPositionKey), [targetPositionKey]);
   const hasPaidAiAccess = targetPositionKey === 'bar_server'
     && hasProductEntitlement(access, 'bar_server_pack');
+  const [retryQuestions, setRetryQuestions] = useState(compatiblePractice.retryQuestions || null);
+  const [baselineScores, setBaselineScores] = useState(compatiblePractice.baselineScores || {});
+  const [attemptHistory, setAttemptHistory] = useState(compatiblePractice.attemptHistory || []);
   const questions = useMemo(
-    () => buildPracticeQuestions(targetPositionKey, roundNumber, practiceMode, requestedQuestionId),
-    [practiceMode, requestedQuestionId, roundNumber, targetPositionKey]
+    () => retryQuestions?.length
+      ? retryQuestions.map((item, index) => ({ ...item, order: index + 1 }))
+      : buildPracticeQuestions(targetPositionKey, roundNumber, practiceMode, requestedQuestionId, customQuestions),
+    [customQuestions, practiceMode, requestedQuestionId, retryQuestions, roundNumber, targetPositionKey]
   );
   const preparationSnapshot = useMemo(
     () => getPreparationSnapshot(targetPosition.nameEn),
@@ -394,8 +426,12 @@ function Task7InterviewPractice() {
       practiceMode,
       requestedQuestionId,
       foundationDayId,
+      customSessionId,
+      retryQuestions,
+      baselineScores,
+      attemptHistory,
     });
-  }, [answers, currentQuestionIndex, evaluation, foundationDayId, practiceMode, requestedQuestionId, roundNumber, stage, targetPositionKey]);
+  }, [answers, attemptHistory, baselineScores, currentQuestionIndex, customSessionId, evaluation, foundationDayId, practiceMode, requestedQuestionId, retryQuestions, roundNumber, stage, targetPositionKey]);
 
   useEffect(() => () => {
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -611,6 +647,15 @@ function Task7InterviewPractice() {
         answers: normalizedAnswers,
       });
       setEvaluation(evaluationData);
+      setAttemptHistory((current) => [...current, {
+        completedAt: new Date().toISOString(),
+        overallScore: evaluationData.overallScore,
+        questions: questions.map((question, index) => ({
+          id: question.id,
+          question: question.question,
+          score: Number(evaluationData.questionScores?.[index]?.score || 0),
+        })),
+      }].slice(-10));
       await persistKnowledgeMastery(evaluationData);
       setStage('report');
     } catch (error) {
@@ -637,7 +682,29 @@ function Task7InterviewPractice() {
     setEvaluation(null);
     setEvaluationError('');
     setCurrentQuestionIndex(0);
+    setRetryQuestions(null);
+    setBaselineScores({});
     setRoundNumber((number) => number + 1);
+    setStage('practice');
+  };
+
+  const startWeakQuestionRetry = () => {
+    const weakest = (evaluation?.questionScores || [])
+      .map((score, index) => ({
+        ...questions[index],
+        previousScore: Number(score.score || 0),
+      }))
+      .filter((question) => question.question)
+      .sort((left, right) => left.previousScore - right.previousScore)
+      .slice(0, Math.min(3, questions.length));
+
+    if (!weakest.length) return;
+    setBaselineScores(Object.fromEntries(weakest.map((question) => [question.id, question.previousScore])));
+    setRetryQuestions(weakest);
+    setAnswers({});
+    setEvaluation(null);
+    setEvaluationError('');
+    setCurrentQuestionIndex(0);
     setStage('practice');
   };
 
@@ -663,6 +730,8 @@ function Task7InterviewPractice() {
       questions,
       answers: normalizedAnswers,
       evaluation,
+      baselineScores,
+      attemptHistory,
     };
 
     writeJson(RESULT_KEY, taskResult);
@@ -699,6 +768,10 @@ function Task7InterviewPractice() {
         <p className="text-sm font-medium text-blue-700">
           {practiceMode === 'knowledge'
             ? '任务5 → 任务7 · 知识巩固'
+            : source === 'real-interview'
+              ? '任务8 → 任务7 · 真题专项重练'
+            : source === 'academy-listening'
+              ? '海乘学院 → 任务7 · 听说迁移训练'
             : source === 'academy'
               ? '海乘学院 → 任务7 · 正式训练'
               : source === 'scenario'
@@ -708,6 +781,10 @@ function Task7InterviewPractice() {
         <h2 className="mt-2 text-xl font-semibold text-slate-950">
           {practiceMode === 'knowledge'
             ? '把酒水知识说成岗位答案'
+            : source === 'real-interview'
+              ? '把刚遇到的真实问题重新答好'
+            : source === 'academy-listening'
+              ? '把刚练过的服务表达用于面试回答'
             : requestedQuestionId
               ? '从你在题库选择的问题开始'
               : '先把答案说出来，再追求说漂亮'}
@@ -717,6 +794,14 @@ function Task7InterviewPractice() {
           ? hasPaidAiAccess
             ? '本轮固定练习任务5对应的 8 类 Bar Server 基础知识。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案。'
             : '本轮可先用文字整理任务5对应的 8 类 Bar Server 基础知识。完整语音转写与 AI 训练报告属于岗位训练包。'
+          : source === 'real-interview'
+              ? hasPaidAiAccess
+                ? `已带入 ${questions.length} 道真实面试问题。先还原原回答，再用更完整的岗位判断和经历重新作答。`
+                : '真实问题已经带入，可先文字复盘；语音转写和 AI 评分需要对应岗位训练包。'
+          : source === 'academy-listening'
+              ? hasPaidAiAccess
+                ? '学院里的跟读和 Guest Challenge 已完成。现在把同一项服务能力转成一段可被招聘方评估的英文回答。'
+                : '学院训练结果已经带入，可先完成文字回答；语音转写和 AI 评分需要对应岗位训练包。'
           : requestedQuestionId
               ? hasPaidAiAccess
                 ? '你选择的问题会排在本轮第一题，其余题目由通用问题和岗位场景组成。录音会临时用于英文转写，音频本身不会写入长期档案。'
@@ -738,6 +823,10 @@ function Task7InterviewPractice() {
             <p className="text-sm text-slate-500">
               {practiceMode === 'knowledge'
                 ? '8 道岗位知识题'
+                : source === 'real-interview'
+                  ? '来自任务8的真实面试问题'
+                : source === 'academy-listening'
+                  ? '学院挑战对应的迁移题'
                 : requestedQuestionId
                   ? '选中题 + 3 道核心题 + 4 道岗位题'
                   : '3 道核心题 + 5 道岗位题'}
@@ -1028,6 +1117,14 @@ function Task7InterviewPractice() {
                   {item.score}/20
                 </span>
               </div>
+              {Number.isFinite(baselineScores[questions[index]?.id]) && (
+                <p className={`mt-2 text-xs font-semibold ${
+                  item.score - baselineScores[questions[index].id] >= 0 ? 'text-emerald-700' : 'text-red-700'
+                }`}>
+                  对比上次：{item.score - baselineScores[questions[index].id] >= 0 ? '+' : ''}
+                  {item.score - baselineScores[questions[index].id]} 分
+                </p>
+              )}
               {item.improvements?.length > 0 && (
                 <p className="mt-2 text-xs leading-5 text-amber-700">
                   优先调整：{item.improvements.slice(0, 2).join('；')}
@@ -1056,7 +1153,15 @@ function Task7InterviewPractice() {
             ? '分数已经按课程天数回写到任务5。低于70分的知识模块会标记为“建议重练”，你可以回去复习对应内容后再练一轮。'
             : '如果总分低于 70，建议先重练低分题；如果已经超过 70，可以进入完整 AI 模拟，把追问和临场表现练起来。'}
         </p>
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={startWeakQuestionRetry}
+            className="flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-3 text-sm font-semibold text-blue-800"
+          >
+            <Target size={16} />
+            专项重练最低分题
+          </button>
           <button
             type="button"
             onClick={restartPractice}

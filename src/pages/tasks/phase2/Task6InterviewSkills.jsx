@@ -1,8 +1,12 @@
 // src/pages/tasks/phase2/Task6InterviewSkills.jsx
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Mic, Square } from 'lucide-react';
 import { syncLocalPathProfile } from '../../../services/userPathService';
 import { getMyInterviewAnswerProfile, upsertMyInterviewAnswerProfile } from '../../../services/interviewAnswerService';
+import useEffectiveAccess from '../../../hooks/useEffectiveAccess';
+import { hasProductEntitlement } from '../../../services/activationService';
+import { coachInterviewAnswer } from '../../../services/interviewAiService';
 
 // 封装 localStorage 工具函数
 const STORAGE_KEY = 'task6_data';
@@ -43,6 +47,142 @@ const readJson = (key, fallback = {}) => {
     return fallback;
   }
 };
+
+const englishStarters = {
+  spiritFamilies: 'The main spirit families I know include...',
+  recommendation: 'When a guest is not sure what to order, I first...',
+  serviceFlow: 'My service sequence is...',
+  safety: 'For responsible alcohol service, I always...',
+  learning: 'After joining the ship, I would...',
+  context: 'In my previous job, there was a situation where...',
+  guestProblem: 'The guest was unhappy because...',
+  challenge: 'The most difficult part was...',
+  actions: 'The first thing I did was...',
+  result: 'As a result,...',
+  yourRole: 'My responsibility in the team was...',
+  communication: 'I communicated with my team by...',
+  background: 'My relevant experience includes...',
+  positionReason: 'This position fits me because...',
+  cruiseReason: 'I want to work on a cruise ship because...',
+  stability: 'I understand a cruise contract requires...',
+  goal: 'In this role, I want to...',
+  role: 'I am a service-oriented candidate with...',
+  experience: 'My most relevant experience is...',
+  strengths: 'My strongest qualities are...',
+  positionFit: 'These strengths fit this position because...',
+  closing: 'I am ready to...',
+};
+
+function SpeechAnswerField({ value = '', onChange, placeholder, starter, rows = 3 }) {
+  const recognitionRef = useRef(null);
+  const [isListening, setIsListening] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [speechError, setSpeechError] = useState('');
+  const SpeechRecognition = typeof window !== 'undefined'
+    ? window.SpeechRecognition || window.webkitSpeechRecognition
+    : null;
+
+  useEffect(() => () => {
+    recognitionRef.current?.abort?.();
+  }, []);
+
+  const startListening = () => {
+    if (!SpeechRecognition) {
+      setSpeechError('当前浏览器不支持语音识别，请使用最新版 Chrome 或 Edge，或直接输入文字。');
+      return;
+    }
+
+    setSpeechError('');
+    setLiveTranscript('');
+    let finalTranscript = '';
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const transcript = event.results[index][0]?.transcript || '';
+        if (event.results[index].isFinal) finalTranscript += ` ${transcript}`;
+        else interimTranscript += ` ${transcript}`;
+      }
+      setLiveTranscript(`${finalTranscript} ${interimTranscript}`.trim());
+    };
+    recognition.onerror = (event) => {
+      if (event.error !== 'aborted') {
+        setSpeechError(event.error === 'not-allowed'
+          ? '请允许浏览器使用麦克风后重试。'
+          : '没有识别到完整英文，请靠近麦克风再说一次。');
+      }
+    };
+    recognition.onend = () => {
+      const transcript = finalTranscript.trim();
+      if (transcript) onChange([value.trim(), transcript].filter(Boolean).join(' '));
+      setLiveTranscript('');
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    try {
+      recognition.start();
+      setIsListening(true);
+    } catch (error) {
+      console.error('Unable to start browser speech recognition:', error);
+      setSpeechError('语音识别没有成功启动，请稍后再试。');
+    }
+  };
+
+  const stopListening = () => recognitionRef.current?.stop?.();
+
+  return (
+    <>
+      {starter && (
+        <button
+          type="button"
+          onClick={() => onChange(value.trim() ? value : starter.replace(/\.\.\.$/, ''))}
+          className="mt-2 text-left text-xs font-medium leading-5 text-blue-700 hover:text-blue-900"
+        >
+          句子开头：{starter}
+        </button>
+      )}
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="mt-3 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      />
+      {liveTranscript && (
+        <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm leading-6 text-blue-900">{liveTranscript}</p>
+      )}
+      <div className="mt-3 flex items-center justify-between gap-3">
+        {isListening ? (
+          <button
+            type="button"
+            onClick={stopListening}
+            className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-red-600 px-3 text-xs font-semibold text-white"
+          >
+            <Square size={14} /> 停止并填入
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={startListening}
+            disabled={!SpeechRecognition}
+            title={SpeechRecognition ? '用英文说出这条素材' : '当前浏览器不支持语音识别'}
+            className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            <Mic size={14} /> 用英语说
+          </button>
+        )}
+        <span className="text-right text-xs leading-5 text-slate-400">浏览器识别 · 不扣 AI 额度</span>
+      </div>
+      {speechError && <p className="mt-2 text-xs leading-5 text-red-700">{speechError}</p>}
+    </>
+  );
+}
 
 const answerCards = [
   {
@@ -147,6 +287,8 @@ const answerCards = [
 // 主组件
 function Task6InterviewSkills() {
   const navigate = useNavigate();
+  const access = useEffectiveAccess();
+  const { isRegistered, openRegisterModal, openUnlockModal } = access;
   const [task5Context] = useState(() => {
     const task5Result = readJson('task5_result', {});
     const task5Data = readJson('task5_data', {});
@@ -163,6 +305,8 @@ function Task6InterviewSkills() {
     const data = loadFromLocalStorage({});
     return data.answerCardData || {};
   });
+  const [coachingCardId, setCoachingCardId] = useState(null);
+  const [coachError, setCoachError] = useState('');
   
   // 当数据变化时，保存到 localStorage
   useEffect(() => {
@@ -190,8 +334,22 @@ function Task6InterviewSkills() {
       ...prev,
       [cardId]: {
         ...(prev[cardId] || {}),
-        [field]: value
+        [field]: value,
+        aiCoach: null,
       }
+    }));
+  };
+
+  const handleCoachFollowUpChange = (cardId, question, value) => {
+    setAnswerCardData((prev) => ({
+      ...prev,
+      [cardId]: {
+        ...(prev[cardId] || {}),
+        followUpAnswers: {
+          ...(prev[cardId]?.followUpAnswers || {}),
+          [question]: value,
+        },
+      },
     }));
   };
 
@@ -208,6 +366,12 @@ function Task6InterviewSkills() {
 
   const buildAnswerCardOutput = (cardId) => {
     const data = answerCardData[cardId] || {};
+    if (data.aiCoach?.revisedAnswer && data.aiCoach?.conciseAnswer) {
+      return {
+        basic: data.aiCoach.revisedAnswer,
+        concise: data.aiCoach.conciseAnswer,
+      };
+    }
 
     if (cardId === 'bar_knowledge') {
       const spiritFamilies = data.spiritFamilies || 'the main spirit families include vodka, gin, rum, tequila, whiskey, and brandy';
@@ -286,6 +450,53 @@ function Task6InterviewSkills() {
     };
   };
 
+  const runAnswerCoach = async (card) => {
+    if (!isRegistered) {
+      openRegisterModal();
+      return;
+    }
+    if (!hasProductEntitlement(access, 'bar_server_pack')) {
+      openUnlockModal();
+      return;
+    }
+    if (!isAnswerCardCompleted(card)) {
+      setCoachError('请先补全这张答案卡的真实素材，再让 AI 追问和打磨。');
+      return;
+    }
+
+    setCoachingCardId(card.id);
+    setCoachError('');
+    try {
+      const current = answerCardData[card.id] || {};
+      const result = await coachInterviewAnswer({
+        position: 'Bar Server',
+        card: {
+          id: card.id,
+          title: card.title,
+          focusPoints: card.focusPoints,
+          fieldKeys: card.fields.map((field) => field.key),
+        },
+        answers: current,
+        generated: buildAnswerCardOutput(card.id),
+      });
+      setAnswerCardData((prev) => ({
+        ...prev,
+        [card.id]: {
+          ...(prev[card.id] || {}),
+          aiCoach: result,
+        },
+      }));
+    } catch (error) {
+      console.error('AI 答案教练生成失败:', error);
+      if (error.code === 'LOGIN_REQUIRED') openRegisterModal();
+      if (error.code === 'ACTIVATION_REQUIRED') openUnlockModal();
+      if (error.code === 'AI_QUOTA_EXHAUSTED') navigate('/premium?source=task6-ai-coach&position=bar_server');
+      setCoachError(error.message || 'AI 答案教练暂时不可用，请稍后重试。');
+    } finally {
+      setCoachingCardId(null);
+    }
+  };
+
   const completeTask6FromWorkbench = async () => {
     const completedAt = new Date().toISOString();
     const preparedCards = visibleAnswerCards.map(card => ({
@@ -339,6 +550,7 @@ function Task6InterviewSkills() {
     const saved = answerCardData[card.id] || {};
     const generated = buildAnswerCardOutput(card.id);
     const completed = isAnswerCardCompleted(card);
+    const aiCoach = saved.aiCoach || null;
     const followUpQuestions = {
       bar_knowledge: [
         'What basic spirits and classic cocktails do you know?',
@@ -421,16 +633,75 @@ function Task6InterviewSkills() {
             {card.fields.map(field => (
               <div key={field.key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <label className="block text-sm font-semibold text-slate-900">{field.label}</label>
-                <textarea
+                <SpeechAnswerField
                   value={saved[field.key] || ''}
-                  onChange={(event) => handleAnswerCardChange(card.id, field.key, event.target.value)}
+                  onChange={(value) => handleAnswerCardChange(card.id, field.key, value)}
                   placeholder={field.placeholder}
+                  starter={englishStarters[field.key]}
                   rows={3}
-                  className="mt-3 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
             ))}
           </section>
+
+          {task5Context.selectedRole === 'barServer' && (
+            <section className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold text-blue-950">AI 面试教练追问</h2>
+                  <p className="mt-1 text-sm leading-6 text-blue-900">
+                    AI 先找出会影响可信度的缺口，再基于你的真实经历重写。每次生成消耗 1 次 AI 反馈额度。
+                  </p>
+                </div>
+                {aiCoach && <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-blue-700">已打磨</span>}
+              </div>
+
+              {aiCoach?.strengths?.length > 0 && (
+                <div className="mt-4 rounded-lg bg-white/80 p-3 text-sm leading-6 text-slate-700">
+                  <p className="font-semibold text-slate-900">目前可用的素材</p>
+                  {aiCoach.strengths.map((item) => <p key={item} className="mt-1">• {item}</p>)}
+                </div>
+              )}
+
+              {aiCoach?.missingDetails?.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {aiCoach.missingDetails.map((item) => (
+                    <div key={item.question} className="block rounded-lg bg-white p-3">
+                      <span className="text-sm font-semibold text-slate-900">{item.question}</span>
+                      {item.reason && <span className="mt-1 block text-xs leading-5 text-slate-500">{item.reason}</span>}
+                      <SpeechAnswerField
+                        value={saved.followUpAnswers?.[item.question] || ''}
+                        onChange={(value) => handleCoachFollowUpChange(card.id, item.question, value)}
+                        rows={2}
+                        placeholder="只补充真实发生过的细节；没有就直接写没有。"
+                        starter="One detail I can add is..."
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {aiCoach?.nextAction && (
+                <p className="mt-4 rounded-lg bg-white/80 p-3 text-sm leading-6 text-blue-950">
+                  <span className="font-semibold">下一步：</span>{aiCoach.nextAction}
+                </p>
+              )}
+
+              {coachError && <p className="mt-3 text-sm text-red-700">{coachError}</p>}
+              <button
+                type="button"
+                onClick={() => runAnswerCoach(card)}
+                disabled={coachingCardId === card.id}
+                className="mt-4 w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                {coachingCardId === card.id
+                  ? 'AI 正在检查素材...'
+                  : aiCoach?.missingDetails?.length
+                    ? '带着补充重新生成（消耗 1 次）'
+                    : '让 AI 追问并打磨（消耗 1 次）'}
+              </button>
+            </section>
+          )}
 
           <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3">

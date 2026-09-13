@@ -1,110 +1,137 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, ChevronLeft, Mic, Pause, RotateCcw, Volume2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowRight, CheckCircle2, ChevronLeft, RotateCcw } from 'lucide-react'
+import PhraseShadowingPractice from '../../components/interview/PhraseShadowingPractice'
+import GuestChallengePractice from '../../components/training/GuestChallengePractice'
 import { getListeningSpeakingCourse } from '../../data/listeningSpeakingCourses'
 
-const formatSeconds = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+const TASK7_CUSTOM_QUESTIONS_KEY = 'task7_custom_questions'
+
+const readProgress = (key) => {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '{}')
+  } catch (error) {
+    console.warn('Unable to restore listening practice:', error)
+    return {}
+  }
+}
 
 export default function ListeningSpeakingCourse() {
   const navigate = useNavigate()
   const { category: categoryId, course: courseId } = useParams()
   const lesson = getListeningSpeakingCourse(categoryId, courseId)
-  const recorderRef = useRef(null)
-  const streamRef = useRef(null)
-  const chunksRef = useRef([])
-  const timerRef = useRef(null)
-  const audioUrlRef = useRef('')
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const [isRecording, setIsRecording] = useState(false)
-  const [recordingSeconds, setRecordingSeconds] = useState(0)
-  const [audioUrl, setAudioUrl] = useState('')
-  const [recordingCount, setRecordingCount] = useState(0)
-  const [error, setError] = useState('')
+  const storageKey = `listening-speaking:${categoryId}:${courseId}`
+  const [progress, setProgress] = useState(() => readProgress(storageKey))
 
-  useEffect(() => () => {
-    window.speechSynthesis?.cancel()
-    clearInterval(timerRef.current)
-    streamRef.current?.getTracks().forEach((track) => track.stop())
-    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
-  }, [])
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(progress))
+  }, [progress, storageKey])
 
   if (!lesson) return <Navigate to="/academy/listening-speaking" replace />
 
   const { category, course } = lesson
-  const stopSpeech = () => { window.speechSynthesis?.cancel(); setIsSpeaking(false) }
+  const shadowingComplete = Boolean(progress.shadowing?.completedAt)
+  const challengeComplete = Boolean(progress.guestChallenge?.completedAt)
 
-  const playExample = () => {
-    if (!('speechSynthesis' in window)) {
-      setError('当前浏览器不支持朗读示范，请直接阅读文本后练习。')
-      return
-    }
-    if (isSpeaking) { stopSpeech(); return }
-    const utterance = new SpeechSynthesisUtterance(course.transcript)
-    utterance.lang = 'en-US'
-    utterance.rate = 0.85
-    utterance.onend = () => setIsSpeaking(false)
-    utterance.onerror = () => setIsSpeaking(false)
-    setIsSpeaking(true)
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(utterance)
+  const updateProgress = (partial) => {
+    setProgress((current) => ({
+      ...current,
+      ...partial,
+      completedAt: partial.guestChallenge?.completedAt || current.completedAt || null,
+      updatedAt: new Date().toISOString(),
+    }))
   }
 
-  const finishRecording = () => {
-    clearInterval(timerRef.current)
-    setIsRecording(false)
-    streamRef.current?.getTracks().forEach((track) => track.stop())
-    streamRef.current = null
+  const continueToTask7 = () => {
+    localStorage.setItem(TASK7_CUSTOM_QUESTIONS_KEY, JSON.stringify({
+      sessionId: `academy-${course.id}-${Date.now()}`,
+      courseId: course.id,
+      position: course.position || 'bar_server',
+      questions: [{
+        id: `academy-${course.id}`,
+        question: course.transferQuestion,
+        focus: `Use the service language from ${course.title}, then add a clear action and result.`,
+      }],
+      createdAt: new Date().toISOString(),
+    }))
+    navigate(`/tasks/phase2/Task7/voice?mode=standard&position=${course.position || 'bar_server'}&source=academy-listening`)
   }
-
-  const startRecording = async () => {
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      setError('当前浏览器不支持录音，请使用 Chrome、Edge 或 Safari 最新版本。')
-      return
-    }
-    try {
-      setError('')
-      stopSpeech()
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
-      chunksRef.current = []
-      const recorder = new MediaRecorder(stream)
-      recorderRef.current = recorder
-      recorder.ondataavailable = (event) => { if (event.data.size > 0) chunksRef.current.push(event.data) }
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
-        if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
-        const nextAudioUrl = URL.createObjectURL(blob)
-        audioUrlRef.current = nextAudioUrl
-        setAudioUrl(nextAudioUrl)
-        setRecordingCount((count) => {
-          const nextCount = count + 1
-          localStorage.setItem(`listening-speaking:${category.id}:${course.id}`, JSON.stringify({ completedAt: new Date().toISOString(), recordingCount: nextCount }))
-          return nextCount
-        })
-        finishRecording()
-      }
-      setRecordingSeconds(0)
-      recorder.start()
-      setIsRecording(true)
-      timerRef.current = setInterval(() => setRecordingSeconds((seconds) => seconds + 1), 1000)
-    } catch (recordingError) {
-      setError(recordingError.name === 'NotAllowedError' ? '需要允许麦克风权限后才能录音。' : '无法启动录音，请稍后再试。')
-      finishRecording()
-    }
-  }
-
-  const stopRecording = () => { if (recorderRef.current?.state === 'recording') recorderRef.current.stop() }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 pb-6 pt-16">
-        <div className="flex items-center gap-3"><button onClick={() => navigate(`/academy/listening-speaking/${category.id}`)} className="text-white hover:text-blue-200" aria-label="返回课程列表"><ChevronLeft size={24} /></button><div><h1 className="text-2xl font-bold text-white">{course.title}</h1><p className="mt-1 text-sm text-white/80">{category.name} · 短句跟读</p></div></div>
-      </div>
-      <div className="space-y-5 px-6 py-6">
-        <section className="rounded-xl bg-white p-5 shadow-sm"><p className="text-sm font-medium text-blue-700">先听示范</p><p className="mt-3 text-lg leading-8 text-gray-900">{course.transcript}</p><p className="mt-3 text-sm leading-6 text-gray-600">{course.translation}</p><button onClick={playExample} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700">{isSpeaking ? <Pause size={18} /> : <Volume2 size={18} />}{isSpeaking ? '停止朗读' : '朗读示范'}</button></section>
-        <section className="rounded-xl bg-white p-5 shadow-sm"><p className="text-sm font-medium text-emerald-700">再录一遍自己的版本</p><p className="mt-2 text-sm text-gray-600">录音不会上传到服务器，仅用于你在当前浏览器回放。</p>{isRecording ? <div className="mt-5 flex items-center gap-4"><button onClick={stopRecording} className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700" aria-label="停止录音"><Pause size={20} /></button><div><p className="font-medium text-gray-800">正在录音</p><p className="text-sm text-red-600">{formatSeconds(recordingSeconds)}</p></div></div> : <button onClick={startRecording} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-3 font-medium text-white hover:bg-emerald-700"><Mic size={20} />{audioUrl ? '重新录音' : '开始跟读'}</button>}{audioUrl && !isRecording && <div className="mt-4 rounded-lg bg-gray-50 p-3"><audio controls src={audioUrl} className="w-full" /><div className="mt-3 flex items-center gap-2 text-sm text-emerald-700"><CheckCircle2 size={17} /><span>本次跟读已完成{recordingCount > 1 ? `（第 ${recordingCount} 次）` : ''}</span></div></div>}{error && <p className="mt-3 text-sm text-red-600">{error}</p>}</section>
-        <button onClick={() => navigate(`/academy/listening-speaking/${category.id}`)} className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"><RotateCcw size={16} /> 返回课程列表</button>
-      </div>
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <header className="border-b border-slate-200 bg-white px-6 pb-6 pt-12">
+        <div className="mx-auto max-w-2xl">
+          <button
+            type="button"
+            onClick={() => navigate(`/academy/listening-speaking/${category.id}`)}
+            className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-blue-700"
+          >
+            <ChevronLeft size={18} /> 返回课程列表
+          </button>
+          <p className="text-sm font-medium text-blue-700">海乘学院 · {category.name}</p>
+          <h1 className="mt-2 text-2xl font-bold text-slate-950">{course.title}</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            听一句，完整跟读三次，再独立处理一个 Guest Challenge。录音留在当前页面，不消耗 AI 额度。
+          </p>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-2xl space-y-5 px-5 py-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold text-blue-700">必要表达</p>
+          <p className="mt-3 text-lg leading-8 text-slate-950">{course.transcript}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">{course.translation}</p>
+        </section>
+
+        <PhraseShadowingPractice
+          phrases={[course.transcript]}
+          phraseCues={[course.cue]}
+          practice={progress.shadowing || {}}
+          onPracticeChange={(shadowing) => updateProgress({ shadowing })}
+          requiredPhraseRepetitions={3}
+          requireListenBeforeRecord
+          title="听一句，跟读三次"
+          description="先听示范，再完整录三次。每次太短都不会计入进度。"
+        />
+
+        <GuestChallengePractice
+          role={course.challenge.role}
+          prompt={course.challenge.prompt}
+          challenge={progress.guestChallenge || {}}
+          locked={!shadowingComplete}
+          onChallengeChange={(guestChallenge) => updateProgress({ guestChallenge })}
+        />
+
+        {challengeComplete && (
+          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-700" />
+              <div>
+                <h2 className="font-semibold text-emerald-950">本课已完成</h2>
+                <p className="mt-1 text-sm leading-6 text-emerald-900">
+                  下一步不是继续听更多内容，而是把同一项服务能力带进任务7，练成面试时能说清楚的回答。
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={continueToTask7}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              带着结果进入任务7
+              <ArrowRight size={17} />
+            </button>
+          </section>
+        )}
+
+        <button
+          type="button"
+          onClick={() => navigate(`/academy/listening-speaking/${category.id}`)}
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"
+        >
+          <RotateCcw size={16} /> 返回课程列表
+        </button>
+      </main>
     </div>
   )
 }

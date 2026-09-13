@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -21,6 +23,9 @@ import {
   updateRealInterviewRecord,
 } from '../../../services/realInterviewService'
 import { markLocalTaskComplete, syncLocalPathProfile } from '../../../services/userPathService'
+import { normalizeInterviewPosition } from '../../../utils/interviewPosition'
+
+const TASK7_CUSTOM_QUESTIONS_KEY = 'task7_custom_questions'
 
 const statusOptions = [
   { value: 'scheduled', label: '已预约' },
@@ -111,6 +116,7 @@ const statusTone = {
 }
 
 export default function Task8RealInterview() {
+  const navigate = useNavigate()
   const [records, setRecords] = useState([])
   const [form, setForm] = useState(createEmptyForm)
   const [editingId, setEditingId] = useState(null)
@@ -229,6 +235,27 @@ export default function Task8RealInterview() {
       console.error('删除真实面试记录失败:', deleteError)
       setError('删除失败，请稍后重试。')
     }
+  }
+
+  const practiceRealInterviewQuestions = (record) => {
+    const questions = (Array.isArray(record.questions) ? record.questions : [])
+      .map((item, index) => ({
+        id: `real-${record.id}-${index + 1}`,
+        question: typeof item === 'string' ? item.trim() : item?.question?.trim(),
+      }))
+      .filter((item) => item.question)
+
+    if (!questions.length) return
+    const position = normalizeInterviewPosition(record.target_position, 'bar_server')
+    localStorage.setItem(TASK7_CUSTOM_QUESTIONS_KEY, JSON.stringify({
+      sessionId: `${record.id}-${Date.now()}`,
+      recordId: record.id,
+      company: record.cruise_company,
+      position,
+      questions,
+      createdAt: new Date().toISOString(),
+    }))
+    navigate(`/tasks/phase2/Task7/voice?mode=standard&position=${position}&source=real-interview`)
   }
 
   const completeTask8 = async () => {
@@ -570,6 +597,31 @@ export default function Task8RealInterview() {
                       <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm leading-6 text-slate-700">
                         {record.next_action && <p><span className="font-semibold">下一步：</span>{record.next_action}</p>}
                         {record.interviewer_feedback && <p><span className="font-semibold">反馈：</span>{record.interviewer_feedback}</p>}
+                      </div>
+                    )}
+
+                    {questionCount > 0 && (
+                      <div className="mt-4 border-t border-slate-100 pt-4">
+                        <details>
+                          <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+                            查看本场 {questionCount} 道真实问题
+                          </summary>
+                          <ol className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                            {record.questions.map((item, index) => (
+                              <li key={`${record.id}-${index}`}>
+                                {index + 1}. {typeof item === 'string' ? item : item.question}
+                              </li>
+                            ))}
+                          </ol>
+                        </details>
+                        <button
+                          type="button"
+                          onClick={() => practiceRealInterviewQuestions(record)}
+                          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                        >
+                          把这些真题带回任务7专项重练
+                          <ArrowRight size={16} />
+                        </button>
                       </div>
                     )}
                   </article>

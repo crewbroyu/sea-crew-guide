@@ -165,6 +165,84 @@ export const barServerShiftLabs = {
   },
 }
 
+export const barServerFoundationVisuals = {
+  'spirit-map': [
+    {
+      image: '/images/bar-server/foundation/base-spirits-map.webp',
+      alt: 'Six base spirit families shown from left to right: vodka, gin, rum, tequila, whiskey and brandy',
+      title: 'Recognize the six base-spirit families',
+      description: 'Use the visual cues to identify the category, then connect it to flavor and familiar drinks.',
+      items: [
+        { name: 'Vodka', ipa: '/ˈvɒdkə/', detail: 'Neutral, clean · Vodka Soda, Moscow Mule' },
+        { name: 'Gin', ipa: '/dʒɪn/', detail: 'Juniper, botanical · G&T, Martini' },
+        { name: 'Rum', ipa: '/rʌm/', detail: 'Sugarcane, light to rich · Mojito, Daiquiri' },
+        { name: 'Tequila', ipa: '/təˈkiːlə/', detail: 'Agave, earthy · Margarita, Paloma' },
+        { name: 'Whisk(e)y', ipa: '/ˈwɪski/', detail: 'Grain and oak · Old Fashioned, Manhattan' },
+        { name: 'Brandy', ipa: '/ˈbrændi/', detail: 'Distilled wine · Sidecar, neat service' },
+      ],
+    },
+  ],
+  'classic-cocktails': [
+    {
+      image: '/images/bar-server/foundation/classic-cocktails-refreshing.webp',
+      alt: 'Mojito, Margarita, Daiquiri and Pina Colada shown from left to right',
+      title: 'Refreshing & tropical classics',
+      description: 'Learn the structure, not a ship-specific measurement. Always follow the current approved recipe.',
+      items: [
+        { name: 'Mojito', ipa: '/moʊˈhiːtoʊ/', detail: 'Rum + lime + mint + sugar + soda' },
+        { name: 'Margarita', ipa: '/ˌmɑːrɡəˈriːtə/', detail: 'Tequila + orange liqueur + lime' },
+        { name: 'Daiquiri', ipa: '/ˈdaɪkəri/', detail: 'Rum + lime + sugar' },
+        { name: 'Piña Colada', ipa: '/ˌpiːnjə kəˈlɑːdə/', detail: 'Rum + pineapple + coconut' },
+      ],
+    },
+    {
+      image: '/images/bar-server/foundation/classic-cocktails-spirit-forward.webp',
+      alt: 'Dry Martini, Negroni, Old Fashioned and Manhattan shown from left to right',
+      title: 'Classic & spirit-forward drinks',
+      description: 'These drinks are stronger in character. Ask about dryness, bitterness and the guest’s preferred spirit.',
+      items: [
+        { name: 'Dry Martini', ipa: '/draɪ mɑːrˈtiːni/', detail: 'Gin or vodka + dry vermouth' },
+        { name: 'Negroni', ipa: '/neɪˈɡroʊni/', detail: 'Gin + Campari + sweet vermouth' },
+        { name: 'Old Fashioned', ipa: '/ˌoʊld ˈfæʃənd/', detail: 'Whiskey + sweetener + bitters' },
+        { name: 'Manhattan', ipa: '/mænˈhætən/', detail: 'Whiskey + sweet vermouth + bitters' },
+      ],
+    },
+    {
+      image: '/images/bar-server/foundation/classic-cocktails-modern.webp',
+      alt: 'Aperol Spritz, Gin and Tonic, Moscow Mule and Cosmopolitan shown from left to right',
+      title: 'Popular modern bar calls',
+      description: 'Notice how bubbles, mixers and citrus change length, sweetness and service style.',
+      items: [
+        { name: 'Aperol Spritz', ipa: '/ˈæpərɒl sprɪts/', detail: 'Aperol + Prosecco + soda' },
+        { name: 'Gin & Tonic', ipa: '/dʒɪn ən ˈtɒnɪk/', detail: 'Gin + tonic water + citrus garnish' },
+        { name: 'Moscow Mule', ipa: '/ˌmɒskoʊ ˈmjuːl/', detail: 'Vodka + ginger beer + lime' },
+        { name: 'Cosmopolitan', ipa: '/ˌkɒzməˈpɒlɪtən/', detail: 'Vodka + orange liqueur + cranberry + lime' },
+      ],
+    },
+  ],
+  'glassware-garnish': [
+    {
+      image: '/images/bar-server/foundation/glassware-lineup.webp',
+      alt: 'Ten common bar glasses shown from left to right for visual identification',
+      title: 'Identify common glassware by shape',
+      description: 'Venue standards decide the final glass. Your first job is to recognize the family and handle it safely.',
+      compact: true,
+      items: [
+        { name: 'Rocks', ipa: '/rɒks/', detail: 'Short, wide · spirit-forward drinks' },
+        { name: 'Highball', ipa: '/ˈhaɪbɔːl/', detail: 'Tall · spirit plus mixer' },
+        { name: 'Collins', ipa: '/ˈkɒlɪnz/', detail: 'Tall and narrow · long drinks' },
+        { name: 'Martini', ipa: '/mɑːrˈtiːni/', detail: 'V-shaped stemware' },
+        { name: 'Coupe', ipa: '/kuːp/', detail: 'Shallow bowl · up drinks' },
+        { name: 'Hurricane', ipa: '/ˈhɜːrɪkeɪn/', detail: 'Curved · tropical drinks' },
+        { name: 'Red wine', ipa: '/red waɪn/', detail: 'Larger bowl' },
+        { name: 'White wine', ipa: '/waɪt waɪn/', detail: 'Smaller wine bowl' },
+        { name: 'Flute', ipa: '/fluːt/', detail: 'Narrow · sparkling wine' },
+        { name: 'Pilsner', ipa: '/ˈpɪlznər/', detail: 'Tall · beer presentation' },
+      ],
+    },
+  ],
+}
+
 export const barServerFoundationDays = [
   {
     id: 'service-role',

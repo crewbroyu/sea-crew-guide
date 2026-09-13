@@ -16,6 +16,7 @@ import {
   BAR_SERVER_FOUNDATION_VERSION,
   barServerFoundationDays,
   barServerFoundationSources,
+  barServerFoundationVisuals,
   barServerShiftLabs,
   getCompletedFoundationDays,
   isFoundationDayComplete,
@@ -28,6 +29,51 @@ const speakEnglish = (text) => {
   utterance.lang = 'en-US'
   utterance.rate = 0.88
   window.speechSynthesis.speak(utterance)
+}
+
+function VisualKnowledgeMap({ visual }) {
+  return (
+    <figure className="mt-5 overflow-hidden border-y border-slate-200 py-4">
+      <div>
+        <p className="text-xs font-semibold text-blue-700">VISUAL KNOWLEDGE MAP</p>
+        <h3 className="mt-1 text-sm font-bold text-slate-950">{visual.title}</h3>
+        <p className="mt-1 text-xs leading-5 text-slate-500">{visual.description}</p>
+      </div>
+
+      <div className="relative mt-3 overflow-hidden rounded-lg bg-slate-100">
+        <img
+          src={visual.image}
+          alt={visual.alt}
+          loading="lazy"
+          decoding="async"
+          className="aspect-video w-full object-cover"
+        />
+        {visual.items.map((item, index) => (
+          <span
+            key={item.name}
+            aria-hidden="true"
+            className="absolute top-2 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border border-white/80 bg-slate-950/80 text-[11px] font-bold text-white shadow-sm backdrop-blur-sm"
+            style={{ left: `${((index + 0.5) / visual.items.length) * 100}%` }}
+          >
+            {index + 1}
+          </span>
+        ))}
+      </div>
+
+      <figcaption className={`mt-3 grid gap-x-4 ${visual.compact ? 'grid-cols-2 sm:grid-cols-5' : visual.items.length > 4 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+        {visual.items.map((item, index) => (
+          <div key={item.name} className="min-w-0 border-t border-slate-100 py-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs font-bold text-blue-700">{index + 1}</span>
+              <p className="text-sm font-semibold text-slate-950">{item.name}</p>
+            </div>
+            {item.ipa && <p className="mt-1 font-mono text-[11px] text-blue-700">{item.ipa}</p>}
+            <p className="mt-1 text-xs leading-5 text-slate-600">{item.detail}</p>
+          </div>
+        ))}
+      </figcaption>
+    </figure>
+  )
 }
 
 export default function BarServerFoundationTraining({
@@ -115,6 +161,7 @@ export default function BarServerFoundationTraining({
       <div className="mt-5 divide-y divide-slate-200 border-y border-slate-200">
         {barServerFoundationDays.map((day, dayIndex) => {
           const shiftLab = barServerShiftLabs[day.id]
+          const visualLessons = barServerFoundationVisuals[day.id] || []
           const dayProgress = progress[day.id] || {}
           const selectedOption = day.quiz.options.find((option) => option.id === dayProgress.selectedOptionId)
           const isCorrect = selectedOption?.id === day.quiz.correctOptionId
@@ -213,6 +260,10 @@ export default function BarServerFoundationTraining({
                       />
                     </>
                   )}
+
+                  {visualLessons.map((visual) => (
+                    <VisualKnowledgeMap key={visual.image} visual={visual} />
+                  ))}
 
                   {dayProgress.practice && (
                     <div className={`mt-4 rounded-lg border p-4 ${Number(dayProgress.practice.bestScore || 0) >= 70 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>

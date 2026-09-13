@@ -41,7 +41,7 @@ const included = [
 ]
 
 const freeItems = ['浏览海乘百科和岗位内容', '完成基础职业测评', '查看基础岗位推荐', '试学岗位英语和面试题库']
-const premiumItems = ['完整 Bar Server 岗位基础训练', '全部岗位题库与语音演练', 'AI逐题反馈与完整模拟面试', '训练记录、短板和准备度报告']
+const premiumItems = ['完整 Bar Server 岗位基础训练', '360 次语音转写与 120 次 AI 反馈', '10 次完整 AI 模拟面试', '训练记录、短板和准备度报告']
 
 const manualPurchaseStatus = {
   requested: '申请已提交，等待确认付款方式',

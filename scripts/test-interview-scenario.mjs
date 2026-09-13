@@ -25,6 +25,8 @@ const scenarioEvaluation = {
 let providerEvaluation = scenarioEvaluation
 let evaluationRequestCount = 0
 const evaluationRequests = []
+const quotaReservations = []
+let scenarioRequestSequence = 0
 
 globalThis.fetch = async (url, options) => {
   const target = String(url)
@@ -42,6 +44,15 @@ globalThis.fetch = async (url, options) => {
 
   if (target.includes('/rest/v1/rpc/record_ai_usage_event')) {
     return new Response('1', { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }
+
+  if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) {
+    quotaReservations.push(JSON.parse(options?.body || '{}'))
+    return Response.json({ reservation_id: '00000000-0000-4000-8000-000000000003', unlimited: false })
+  }
+
+  if (target.includes('/rest/v1/rpc/finalize_ai_usage_reservation')) {
+    return Response.json(true)
   }
 
   if (target.includes('/rest/v1/ai_usage_events')) {
@@ -67,6 +78,7 @@ const evaluateScenario = () => handleInterviewRequest({
     mode: 'scenario_trial',
     position: 'Bar Server',
     scenarioId: 'bar_server_drink_recommendation_01',
+    clientRequestId: `scenario-test-${++scenarioRequestSequence}`,
     questions: [{
       id: 'bar_server_drink_recommendation_01',
       question: 'What would you recommend?',
@@ -87,6 +99,9 @@ const result = await evaluateScenario()
 
 assert.equal(result.status, 200)
 assert.equal(result.body.success, true)
+assert.equal(quotaReservations[0].input_product_code, 'bar_server_pack')
+assert.equal(quotaReservations[0].input_action, 'evaluate')
+assert.equal(quotaReservations[0].input_mode, 'scenario_trial')
 const feedback = result.body.data.questionScores[0]
 assert.equal(feedback.improvedAnswer, scenarioEvaluation.questionScores[0].improvedAnswer)
 assert.deepEqual(feedback.knowledgeNotes, scenarioEvaluation.questionScores[0].knowledgeNotes)
@@ -119,6 +134,15 @@ globalThis.fetch = async (url, options) => {
 
   if (target.includes('/rest/v1/rpc/record_ai_usage_event')) {
     return new Response('2', { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }
+
+
+  if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) {
+    return Response.json({ reservation_id: '00000000-0000-4000-8000-000000000004', unlimited: false })
+  }
+
+  if (target.includes('/rest/v1/rpc/finalize_ai_usage_reservation')) {
+    return Response.json(true)
   }
 
   if (target.includes('/rest/v1/ai_usage_events')) {

@@ -172,7 +172,7 @@ export default function ResultPage({
   onRestart,
 }) {
   const navigate = useNavigate()
-  const { userId, userEmail } = useAccessStore()
+  const { userId, userEmail, openRegisterModal } = useAccessStore()
   const [contact, setContact] = useState({
     name: '',
     phone: '',
@@ -249,6 +249,11 @@ export default function ResultPage({
   }
 
   const handleSaveSubmission = async () => {
+    if (!userId) {
+      openRegisterModal()
+      return
+    }
+
     if (!contact.name.trim() && !contact.phone.trim() && !contact.wechat.trim() && !contact.email.trim()) {
       setSaveState('error')
       setSaveMessage('请至少填写一种联系方式，方便后续查看和跟进测评结果。')
@@ -259,7 +264,6 @@ export default function ResultPage({
       setSaveState('saving')
       setSaveMessage('')
       await saveAssessmentSubmission({
-        userId,
         contact,
         serviceBackground,
         answers,
@@ -281,7 +285,9 @@ export default function ResultPage({
     } catch (error) {
       console.error('保存测评结果失败:', error)
       setSaveState('error')
-      setSaveMessage('保存失败。请确认 Supabase 已创建 assessment_submissions 表和 insert policy。')
+      setSaveMessage(error?.message?.includes('ASSESSMENT_RATE_LIMITED')
+        ? '保存次数过于频繁，请稍后再试。'
+        : '暂时无法保存测评结果，请稍后重试。')
     }
   }
 
@@ -417,7 +423,11 @@ export default function ResultPage({
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             <Save size={18} />
-            {saveState === 'saving' ? '保存中...' : saveState === 'saved' ? '已保存报告' : '保存我的测评报告'}
+            {saveState === 'saving'
+              ? '保存中...'
+              : saveState === 'saved'
+                ? '已保存报告'
+                : userId ? '保存我的测评报告' : '登录后保存测评报告'}
           </button>
         </section>
 

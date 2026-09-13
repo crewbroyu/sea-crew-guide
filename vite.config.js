@@ -105,5 +105,19 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined
+            if (id.includes('@supabase')) return 'supabase'
+            if (id.includes('recharts')) return 'charts'
+            if (id.includes('framer-motion')) return 'motion'
+            if (id.includes('react')) return 'react'
+            return 'vendor'
+          },
+        },
+      },
+    },
   }
 })

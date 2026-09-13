@@ -169,7 +169,8 @@ export default function Task7TrainingCenter() {
           {position?.key === 'bar_server' && usage?.active && (
             <div className="mt-3 rounded-lg border border-amber-100 bg-amber-50 p-3">
               <p className="text-xs font-semibold text-amber-800">Bar Server 权益与 AI 额度</p>
-              <div className="mt-2 grid grid-cols-2 gap-3 text-sm text-amber-950">
+              <div className="mt-2 grid gap-3 text-sm text-amber-950 sm:grid-cols-3">
+                <p>语音转写：{usage.transcription.limit === null ? '不限次' : `${usage.transcription.remaining}/${usage.transcription.limit} 剩余`}</p>
                 <p>逐题反馈：{usage.feedback.limit === null ? '不限次' : `${usage.feedback.remaining}/${usage.feedback.limit} 剩余`}</p>
                 <p>AI 模拟面试：{usage.mockInterview.limit === null ? '不限次' : `${usage.mockInterview.remaining}/${usage.mockInterview.limit} 剩余`}</p>
               </div>

@@ -26,7 +26,8 @@ const sections = [
     icon: CreditCard,
     items: [
       'Bar Server 单职位全流程包的正式参考价为 ¥199 / 180 天；测试期通过人工确认和激活码开通，页面不会自动扣款。',
-      '付款前请先确认产品、有效期、包含的 AI 额度和收款信息；激活码仅限对应账户使用。',
+      '标准岗位包包含 360 次语音转写、120 次 AI 反馈和 10 次完整模拟面试；以账户权益页面显示的实际额度为准。',
+      '付款前请先确认产品、有效期、AI 额度和收款信息；激活码仅限对应账户使用。',
       '遇到登录、权益、付款或训练问题，可在支持中心提交记录，或使用注册邮箱联系人工支持。',
     ],
   },
@@ -74,7 +75,7 @@ export default function ServiceInfo() {
           </section>
         ))}
 
-        <p className="px-1 text-xs leading-5 text-slate-500">版本：测试期 1.0 · 更新于 2026-09-07</p>
+        <p className="px-1 text-xs leading-5 text-slate-500">版本：测试期 1.0 · 更新于 2026-09-13</p>
       </main>
     </div>
   )

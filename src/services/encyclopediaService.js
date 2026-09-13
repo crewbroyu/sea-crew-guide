@@ -1,4 +1,15 @@
 import { supabase } from '../supabase'
+import DOMPurify from 'dompurify'
+
+const sanitizeArticleHtml = (content) => DOMPurify.sanitize(content, {
+  ALLOWED_TAGS: [
+    'p', 'br', 'hr', 'h2', 'h3', 'h4', 'strong', 'em', 'u', 's',
+    'ul', 'ol', 'li', 'blockquote', 'a', 'code', 'pre',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+  ],
+  ALLOWED_ATTR: ['href', 'title', 'colspan', 'rowspan'],
+  ALLOW_DATA_ATTR: false,
+})
 
 const fallbackArticles = [
   {
@@ -44,7 +55,7 @@ const mapArticle = (article) => ({
   category: article.category,
   categoryName: article.category,
   summary: article.excerpt || '',
-  content: formatContent(article.content || ''),
+  content: sanitizeArticleHtml(formatContent(article.content || '')),
   coverImageUrl: article.cover_image_url,
   createdAt: article.published_at || article.created_at,
   updatedAt: article.updated_at,

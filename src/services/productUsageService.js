@@ -22,7 +22,7 @@ export const getMyProductUsage = async (productCode) => {
   if (!isCurrentEntitlement(entitlement)) return { active: false, productCode }
 
   const usageSince = entitlement.starts_at || new Date(0).toISOString()
-  const [feedbackResult, mockResult] = await Promise.all([
+  const [feedbackResult, mockResult, transcriptionResult] = await Promise.all([
     supabase
       .from('ai_usage_events')
       .select('id', { count: 'exact', head: true })
@@ -37,13 +37,25 @@ export const getMyProductUsage = async (productCode) => {
       .eq('product_code', productCode)
       .eq('action', 'mock_interview')
       .gte('created_at', usageSince),
+    supabase
+      .from('ai_usage_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('product_code', productCode)
+      .eq('action', 'transcribe')
+      .gte('created_at', usageSince),
   ])
 
   if (feedbackResult.error) throw feedbackResult.error
   if (mockResult.error) throw mockResult.error
+  if (transcriptionResult.error) throw transcriptionResult.error
 
   const feedbackUsed = feedbackResult.count || 0
   const mockUsed = mockResult.count || 0
+  const transcriptionUsed = transcriptionResult.count || 0
+  const transcriptionLimit = entitlement.ai_feedback_limit === null
+    ? null
+    : Number(entitlement.ai_feedback_limit || 0) * 3
 
   return {
     active: true,
@@ -53,6 +65,11 @@ export const getMyProductUsage = async (productCode) => {
       used: feedbackUsed,
       limit: entitlement.ai_feedback_limit,
       remaining: remaining(entitlement.ai_feedback_limit, feedbackUsed),
+    },
+    transcription: {
+      used: transcriptionUsed,
+      limit: transcriptionLimit,
+      remaining: remaining(transcriptionLimit, transcriptionUsed),
     },
     mockInterview: {
       used: mockUsed,

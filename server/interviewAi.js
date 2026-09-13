@@ -21,8 +21,6 @@ const FREE_BAR_SERVER_TRIAL_SCENARIO_IDS = new Set([
   'bar_server_complaint_recovery_02',
   'bar_server_responsible_service_03',
 ])
-const FREE_TRIAL_ACTION_LIMIT_PER_SCENARIO = 2
-
 const usageBuckets = globalThis.__crewPathInterviewUsage || new Map()
 globalThis.__crewPathInterviewUsage = usageBuckets
 
@@ -166,13 +164,14 @@ const authenticateRequest = async ({ headers, mode, position, config }) => {
 }
 
 const getUsageAction = (action, mode) => {
+  if (mode === SCENARIO_TRIAL_MODE) return action
   if (mode === PREMIUM_MOCK_MODE && action === 'evaluate') return 'mock_interview'
   return ['scenario_turn', 'scenario_evaluate', 'answer_coach'].includes(action) ? 'evaluate' : action
 }
 
 const recordAiUsage = async ({ supabase, userId, action, mode, body, data, config }) => {
   const { error } = await supabase.rpc('record_ai_usage_event', {
-    input_product_code: [PREMIUM_SCENARIO_MODE, PREMIUM_PRACTICE_MODE, PREMIUM_MOCK_MODE].includes(mode)
+    input_product_code: [SCENARIO_TRIAL_MODE, PREMIUM_SCENARIO_MODE, PREMIUM_PRACTICE_MODE, PREMIUM_MOCK_MODE].includes(mode)
       ? BAR_SERVER_PRODUCT_CODE
       : null,
     input_action: getUsageAction(action, mode),
@@ -189,7 +188,7 @@ const recordAiUsage = async ({ supabase, userId, action, mode, body, data, confi
 
   if (error) {
     console.error('AI usage persistence failed:', { userId, mode, action, message: error.message })
-    if ([PREMIUM_SCENARIO_MODE, PREMIUM_PRACTICE_MODE, PREMIUM_MOCK_MODE].includes(mode)) {
+    if ([SCENARIO_TRIAL_MODE, PREMIUM_SCENARIO_MODE, PREMIUM_PRACTICE_MODE, PREMIUM_MOCK_MODE].includes(mode)) {
       throw new InterviewApiError(503, 'USAGE_RECORD_FAILED', 'AI 结果已生成，但使用记录未保存。请稍后重新提交。')
     }
   }
@@ -214,9 +213,10 @@ const enforceRateLimit = (userId, action) => {
 }
 
 const reservePersistentQuota = async ({ supabase, entitlement, action, mode, body }) => {
-  if (!entitlement || !['evaluate', 'scenario_turn', 'scenario_evaluate', 'answer_coach'].includes(action)) return null
+  const isFreeTrial = mode === SCENARIO_TRIAL_MODE
+  if (!isFreeTrial && !entitlement) return null
 
-  const usageAction = mode === PREMIUM_MOCK_MODE ? 'mock_interview' : 'evaluate'
+  const usageAction = getUsageAction(action, mode)
   const requestId = trimText(body.clientRequestId, 200)
   if (!requestId) {
     throw new InterviewApiError(400, 'REQUEST_ID_REQUIRED', '本次训练请求无效，请重新提交。')
@@ -236,7 +236,13 @@ const reservePersistentQuota = async ({ supabase, entitlement, action, mode, bod
       throw new InterviewApiError(
         402,
         'AI_QUOTA_EXHAUSTED',
-        usageAction === 'mock_interview' ? '完整模拟面试次数已用完。' : '本岗位包的 AI 反馈次数已用完。',
+        usageAction === 'mock_interview'
+          ? '完整模拟面试次数已用完。'
+          : usageAction === 'transcribe'
+            ? '语音转写次数已用完，你仍可手动输入英文答案。'
+            : isFreeTrial
+              ? '这个免费场景的体验次数已用完。解锁岗位训练包后可继续练习。'
+              : '本岗位包的 AI 反馈次数已用完。',
       )
     }
     if (message.includes('AI_REQUEST_IN_PROGRESS')) {
@@ -265,7 +271,7 @@ const finalizePersistentQuota = async ({ supabase, reservationId, completed }) =
   }
 }
 
-const enforceFreeScenarioTrialQuota = async ({ supabase, userId, action, body }) => {
+const validateFreeScenarioTrial = ({ body }) => {
   const scenarioId = trimText(body.scenarioId, 160)
   const position = trimText(body.position, 160)
 
@@ -274,27 +280,6 @@ const enforceFreeScenarioTrialQuota = async ({ supabase, userId, action, body })
       403,
       'FREE_TRIAL_BAR_SERVER_ONLY',
       '免费语音体验仅开放 Bar Server 的 3 个指定场景。',
-    )
-  }
-
-  const { count, error } = await supabase
-    .from('ai_usage_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('mode', SCENARIO_TRIAL_MODE)
-    .eq('scenario_id', scenarioId)
-    .eq('action', action)
-
-  if (error) {
-    console.error('Free trial quota lookup failed:', error.message)
-    throw new InterviewApiError(503, 'TRIAL_QUOTA_CHECK_FAILED', '暂时无法核对免费体验次数，请稍后重试。')
-  }
-
-  if ((count || 0) >= FREE_TRIAL_ACTION_LIMIT_PER_SCENARIO) {
-    throw new InterviewApiError(
-      402,
-      'FREE_TRIAL_LIMIT_REACHED',
-      '这个免费场景的体验次数已用完。解锁岗位训练包后可继续练习。',
     )
   }
 }
@@ -1005,12 +990,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
 
     enforceRateLimit(auth.user.id, action)
     if (mode === SCENARIO_TRIAL_MODE) {
-      await enforceFreeScenarioTrialQuota({
-        supabase: auth.supabase,
-        userId: auth.user.id,
-        action,
-        body: payload,
-      })
+      validateFreeScenarioTrial({ body: payload })
     }
     const quotaReservationId = await reservePersistentQuota({
       supabase: auth.supabase,

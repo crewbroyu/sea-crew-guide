@@ -1,7 +1,6 @@
 import { supabase } from '../supabase'
 
 export const saveAssessmentSubmission = async ({
-  userId = null,
   contact = {},
   serviceBackground = null,
   answers = {},
@@ -11,8 +10,14 @@ export const saveAssessmentSubmission = async ({
   conclusion = null,
   recommendations = [],
 }) => {
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user?.id) {
+    const error = new Error('请先登录后再保存职业测评。')
+    error.code = 'LOGIN_REQUIRED'
+    throw error
+  }
+
   const payload = {
-    user_id: userId,
     name: contact.name || null,
     phone: contact.phone || null,
     wechat: contact.wechat || null,
@@ -27,9 +32,9 @@ export const saveAssessmentSubmission = async ({
     recommendations: conclusion ? { conclusion, jobs: recommendations } : recommendations,
   }
 
-  const { error } = await supabase
-    .from('assessment_submissions')
-    .insert(payload)
+  const { error } = await supabase.rpc('save_assessment_submission', {
+    input_payload: payload,
+  })
 
   if (error) throw error
   return { saved: true }

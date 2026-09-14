@@ -56,7 +56,8 @@ export default function Task7TrainingCenter() {
       description: '先看高频真题与考察重点，建立岗位回答框架。',
       meta: '适合第一次准备',
       action: '查看题库',
-      route: '/academy/interview-questions',
+      route: `/academy/interview-questions${position?.key ? `?position=${position.key}` : ''}`,
+      area: '海乘学院',
       icon: BookOpenCheck,
       tone: 'slate',
       completed: false,
@@ -69,7 +70,8 @@ export default function Task7TrainingCenter() {
         ? `最近得分 ${voiceResult.evaluation.overallScore}/100`
         : '8 道题 · 可反复练习',
       action: voiceCompleted ? '继续练习' : '开始练习',
-      route: '/tasks/phase2/Task7/voice',
+      route: `/tasks/phase2/Task7/voice${position?.key ? `?position=${position.key}` : ''}`,
+      area: '海乘学院',
       icon: Mic,
       tone: 'blue',
       completed: voiceCompleted,
@@ -81,6 +83,7 @@ export default function Task7TrainingCenter() {
       meta: 'Bar Server 专属 · 激活权益',
       action: '进入训练',
       route: '/programs/bar-server/training',
+      area: '海乘学院',
       icon: Target,
       tone: 'amber',
       premium: true,
@@ -93,6 +96,7 @@ export default function Task7TrainingCenter() {
       meta: '激活权益 · 约 10-15 分钟',
       action: mockCompleted ? '再次模拟' : '进入模拟',
       route: '/tasks/phase2/Task7/mock',
+      area: '求职中心',
       icon: Sparkles,
       tone: 'amber',
       premium: true,
@@ -114,9 +118,9 @@ export default function Task7TrainingCenter() {
           </button>
 
           <p className="text-sm font-medium text-blue-700">任务 7/12 · 拿到 Offer</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">面试训练中心</h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">岗位训练与面试枢纽</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            从看题、单题开口到完整模拟都在这里完成。任务8将用于记录真正发生的船公司面试。
+            路径负责安排顺序：岗位题库、单题口语和工作场景进入学院，完整 AI 模拟进入求职中心。
           </p>
         </div>
       </header>
@@ -209,6 +213,7 @@ export default function Task7TrainingCenter() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-slate-950">{mode.title}</h3>
+                      <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{mode.area}</span>
                       {mode.premium && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
                           <Crown size={12} /> 激活

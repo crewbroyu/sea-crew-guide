@@ -335,7 +335,7 @@ const Task3 = () => {
     localStorage.setItem('boarding_progress', JSON.stringify(boardingProgress))
 
     syncLocalPathProfile({
-      application_method: recommended.title,
+      application_method: result.recommendedPath,
       career_stage: 'position_planning',
       application_stage: 'route_selected',
       last_completed_task_id: 3,
@@ -595,7 +595,7 @@ const Task3 = () => {
             }}
             className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-200"
           >
-            查看申请资料与岗位内容
+            浏览目标岗位课程
           </button>
         </div>
       </div>

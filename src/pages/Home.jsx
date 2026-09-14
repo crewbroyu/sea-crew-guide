@@ -31,7 +31,7 @@ const publicLinks = [
   {
     label: '岗位介绍',
     description: '免税店、餐厅、前台、客房等方向',
-    route: '/jobs',
+    route: '/academy/position-english',
     icon: Briefcase,
   },
   {
@@ -51,14 +51,14 @@ const publicLinks = [
 const routeSteps = [
   { label: '判断适不适合', description: '完成职业适配测评', route: '/assessment', icon: UserCheck },
   { label: '选目标岗位', description: '匹配岗位和风险', route: '/tasks/Task2', icon: Target },
-  { label: '准备材料', description: '简历、英语和面试', route: '/tasks', icon: FileText },
-  { label: '开始申请', description: '渠道、证件和登船', route: '/jobs/channels', icon: ClipboardCheck },
+  { label: '训练岗位能力', description: '课程、口语和工作场景', route: '/academy/position-english', icon: GraduationCap },
+  { label: '面试并开始申请', description: '准备答案、模拟面试和投递', route: '/jobs', icon: ClipboardCheck },
 ]
 
 const serviceLinks = [
   {
-    label: '生成职业路线',
-    description: '了解完整路线报告、简历优化和 AI 面试训练',
+    label: '完整岗位训练',
+    description: '查看深度岗位课程、AI反馈和模拟面试权益',
     icon: Sparkles,
     route: '/premium',
   },

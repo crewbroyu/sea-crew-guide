@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Target,
 } from 'lucide-react'
+import { getJobPreferenceLabel, getJobPreferences, sortByJobPreference } from '../../utils/jobPreferences'
 
 const positions = [
   {
@@ -32,6 +33,8 @@ const positions = [
         url: 'https://alison.com/course/retail-management-merchandising-sales-and-customer-communications',
       },
     ],
+    foundationAvailable: true,
+    preparationRoute: '/programs/retail',
   },
   {
     key: 'front_office',
@@ -53,6 +56,7 @@ const positions = [
         url: 'https://alison.com/course/english-for-tourism',
       },
     ],
+    foundationAvailable: true,
   },
   {
     key: 'restaurant',
@@ -74,6 +78,7 @@ const positions = [
         url: 'https://alison.com/course/food-and-beverage-restaurant-service-advanced-waiter-s-training',
       },
     ],
+    foundationAvailable: true,
   },
   {
     key: 'bar_server',
@@ -95,6 +100,8 @@ const positions = [
         url: 'https://alison.com/course/food-and-beverage-service',
       },
     ],
+    foundationAvailable: true,
+    fullPackAvailable: true,
   },
   {
     key: 'housekeeping',
@@ -116,6 +123,7 @@ const positions = [
         url: 'https://alison.com/course/housekeeping-tasks-and-procedures',
       },
     ],
+    foundationAvailable: true,
   },
   {
     key: 'youth_staff',
@@ -137,6 +145,26 @@ const positions = [
         url: 'https://alison.com/course/basics-of-youth-work-and-leadership',
       },
     ],
+    foundationAvailable: true,
+  },
+  {
+    key: 'kitchen',
+    name: '厨房帮厨 / Kitchen Steward',
+    level: '英语要求基础',
+    fit: '适合能接受后场高强度、重视食品安全和团队协作的人。',
+    risk: '工作节奏快、环境辛苦，必须严格遵守食品卫生与设备安全流程。',
+    focus: ['食品安全', '厨房指令', 'PPE 与设备安全', '团队交接'],
+    plan: ['先学食品卫生', '补厨房操作英语', '练主管汇报', '准备高强度协作案例'],
+    resources: [
+      {
+        title: 'Food Safety and Hygiene',
+        provider: 'Alison',
+        type: '免费课程',
+        description: '学习食品污染、个人卫生与厨房安全的基础规则。',
+        url: 'https://alison.com/course/food-safety-and-hygiene',
+      },
+    ],
+    foundationAvailable: true,
   },
   {
     key: 'spa',
@@ -147,6 +175,7 @@ const positions = [
     focus: ['服务介绍', '禁忌询问', '疗程推荐', '销售套餐'],
     plan: ['整理专业经历', '补咨询类英语', '练推荐与禁忌说明', '准备证书和案例'],
     resources: [],
+    foundationAvailable: false,
   },
   {
     key: 'utility',
@@ -157,6 +186,7 @@ const positions = [
     focus: ['安全规则', '清洁流程', '团队协作', '简单汇报'],
     plan: ['先掌握安全和清洁词汇', '练主管沟通', '补基础服务表达', '规划后续转岗方向'],
     resources: [],
+    foundationAvailable: true,
   },
 ]
 
@@ -177,10 +207,58 @@ const CourseCard = ({ resource }) => (
   </a>
 )
 
+const barServerTrainingPath = [
+  {
+    task: '任务5',
+    area: '海乘学院',
+    title: '岗位基础课',
+    description: '学习酒水、杯具、卫生、服务流程与负责任售酒。',
+    route: '/tasks/phase2/Task5?position=bar_server&source=academy',
+  },
+  {
+    task: '任务6',
+    area: '求职中心',
+    title: '把经历变成英文回答',
+    description: '整理服务案例、岗位动机和高压工作经历。',
+    route: '/tasks/phase2/Task6?source=task5',
+  },
+  {
+    task: '岗位模拟',
+    area: '海乘学院',
+    title: '真实工作场景训练',
+    description: '扮演 Bar Server 与客人连续对话，获得反馈后重练。',
+    route: '/programs/bar-server',
+  },
+  {
+    task: '任务7',
+    area: '海乘学院',
+    title: '岗位题库与单题口语',
+    description: '用真实岗位题检查知识、服务判断和英文表达。',
+    route: '/academy/interview-questions?position=bar_server',
+  },
+  {
+    task: '面试前',
+    area: '求职中心',
+    title: 'AI 模拟面试',
+    description: '把岗位能力转换成招聘官听得懂的完整回答。',
+    route: '/tasks/phase2/Task7/mock',
+  },
+]
+
 export default function PositionEnglish() {
   const navigate = useNavigate()
-  const [activeKey, setActiveKey] = useState('retail')
+  const [searchParams] = useSearchParams()
+  const preferences = useMemo(() => getJobPreferences(), [])
+  const orderedPositions = useMemo(() => sortByJobPreference(positions, preferences), [preferences])
+  const requestedKey = searchParams.get('position')
+  const initialKey = positions.some((position) => position.key === requestedKey)
+    ? requestedKey
+    : positions.some((position) => position.key === preferences.primaryKey)
+      ? preferences.primaryKey
+      : 'retail'
+  const [activeKey, setActiveKey] = useState(initialKey)
   const activePosition = positions.find(position => position.key === activeKey) || positions[0]
+  const activePreference = getJobPreferenceLabel(activeKey, preferences)
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
@@ -211,7 +289,9 @@ export default function PositionEnglish() {
             <h2 className="font-semibold text-slate-950">选择目标岗位</h2>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {positions.map(position => (
+            {orderedPositions.map(position => {
+              const preferenceLabel = getJobPreferenceLabel(position.key, preferences)
+              return (
               <button
                 key={position.key}
                 type="button"
@@ -222,16 +302,22 @@ export default function PositionEnglish() {
                     : 'border border-slate-200 bg-white text-slate-700 hover:border-blue-200'
                 }`}
               >
-                {position.name}
+                <span>{position.name}</span>
+                {preferenceLabel && (
+                  <span className={`ml-2 rounded px-1.5 py-0.5 text-[11px] ${
+                    activeKey === position.key ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700'
+                  }`}>{preferenceLabel}</span>
+                )}
               </button>
-            ))}
+              )
+            })}
           </div>
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-5">
             <section className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-              <p className="text-sm font-medium text-blue-700">当前岗位</p>
+              <p className="text-sm font-medium text-blue-700">{activePreference ? `当前岗位 · ${activePreference}` : '浏览其他岗位'}</p>
               <h2 className="mt-1 text-xl font-semibold text-slate-950">{activePosition.name}</h2>
               <p className="mt-3 text-sm leading-6 text-slate-700">{activePosition.fit}</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -245,6 +331,71 @@ export default function PositionEnglish() {
                 </div>
               </div>
             </section>
+
+            {activeKey === 'bar_server' && (
+              <section className="overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
+                <div className="border-b border-blue-100 bg-blue-50 px-5 py-4">
+                  <p className="text-xs font-semibold text-blue-700">首个完整岗位包</p>
+                  <h3 className="mt-1 font-semibold text-slate-950">Bar Server 不是一组面试题，而是一条完整训练路径</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">先学会怎么做这份工作，再练怎么回答，最后进入模拟面试。</p>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {barServerTrainingPath.map((step, index) => (
+                    <button
+                      key={step.title}
+                      type="button"
+                      onClick={() => navigate(step.route)}
+                      className="flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-slate-50"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm font-semibold text-blue-700">{index + 1}</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-blue-700">{step.task} · {step.area}</p>
+                        <p className="mt-0.5 font-semibold text-slate-950">{step.title}</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-600">{step.description}</p>
+                      </div>
+                      <ArrowRight size={17} className="mt-2 shrink-0 text-slate-400" />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {activeKey !== 'bar_server' && (
+              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-xs font-semibold text-blue-700">任务5 · 岗位基础准备</p>
+                <h3 className="mt-1 font-semibold text-slate-950">
+                  {activePosition.foundationAvailable ? '基础培训任务已开放' : '基础培训课程制作中'}
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  {activePosition.foundationAvailable
+                    ? '可以浏览岗位提纲、准备清单和学习资源；切换浏览不会锁住你的主申岗位。'
+                    : '当前仍可查看岗位要求、英语重点和公开信息，完整基础课程上线后会接入同一任务路径。'}
+                </p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  {activePosition.foundationAvailable && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/tasks/phase2/Task5?position=${activeKey}&source=academy`)}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+                    >
+                      进入基础培训任务<ArrowRight size={16} />
+                    </button>
+                  )}
+                  {activePosition.preparationRoute && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(activePosition.preparationRoute)}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                    >
+                      查看岗位准备页<ArrowRight size={16} />
+                    </button>
+                  )}
+                </div>
+                <div className="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
+                  完整岗位包：<span className="font-semibold text-slate-800">课程制作中</span>。基础内容和公开题库仍可正常浏览。
+                </div>
+              </section>
+            )}
 
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
@@ -306,12 +457,23 @@ export default function PositionEnglish() {
               <div className="mt-4 space-y-3">
                 <button
                   type="button"
-                  onClick={() => navigate('/academy/interview-questions')}
-                  className="flex w-full items-center justify-between rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  onClick={() => navigate(`/academy/interview-questions?position=${activePosition.key}`)}
+                  disabled={activeKey === 'spa'}
+                  className="flex w-full items-center justify-between rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  练习岗位面试问题
+                  {activeKey === 'bar_server' ? '进入 Bar Server 公开题库' : activeKey === 'spa' ? '岗位题库制作中' : '练习岗位面试问题'}
                   <ArrowRight size={17} />
                 </button>
+                {activeKey === 'bar_server' && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/programs/bar-server')}
+                    className="flex w-full items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                  >
+                    查看完整岗位包
+                    <ArrowRight size={17} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => navigate('/tasks/Task2')}

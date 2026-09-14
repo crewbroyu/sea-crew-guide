@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, Filter, Search, Target, Volume2, X } from 'lucide-react'
 import interviewQuestions, { positionConfig } from '../../data/interviewQuestions'
 import { normalizeInterviewPosition } from '../../utils/interviewPosition'
+import { getJobPreferenceLabel, getJobPreferences, sortByJobPreference } from '../../utils/jobPreferences'
 
 const categoryLabels = {
   all: '全部',
@@ -66,6 +67,11 @@ export default function InterviewQuestions() {
   const [selectedQuestion, setSelectedQuestion] = useState(null)
   const [showPositionModal, setShowPositionModal] = useState(false)
   const [speaking, setSpeaking] = useState(false)
+  const preferences = useMemo(() => getJobPreferences(), [])
+  const orderedPositionConfig = useMemo(
+    () => sortByJobPreference(positionConfig, preferences),
+    [preferences],
+  )
 
   const currentData = positionKey ? interviewQuestions[positionKey] : null
   const currentPosition = positionConfig.find((item) => item.key === positionKey)
@@ -136,13 +142,16 @@ export default function InterviewQuestions() {
         </header>
 
         <main className="mx-auto grid max-w-5xl gap-3 px-5 py-6 md:grid-cols-2">
-          {positionConfig.map((position) => (
+          {orderedPositionConfig.map((position) => {
+            const preferenceLabel = getJobPreferenceLabel(position.key, preferences)
+            return (
             <button key={position.key} type="button" onClick={() => selectPosition(position.key)} className="rounded-lg border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-blue-300">
-              <h2 className="font-semibold text-slate-950">{position.nameZh}</h2>
+              <div className="flex items-start justify-between gap-3"><h2 className="font-semibold text-slate-950">{position.nameZh}</h2>{preferenceLabel && <span className="rounded bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">{preferenceLabel}</span>}</div>
               <p className="mt-1 text-sm text-slate-500">{position.nameEn}</p>
               <p className="mt-3 text-sm text-slate-600">{interviewQuestions[position.key]?.questions.length || 0} 道岗位题</p>
             </button>
-          ))}
+            )
+          })}
         </main>
       </div>
     )
@@ -183,6 +192,22 @@ export default function InterviewQuestions() {
       </header>
 
       <main className="mx-auto max-w-5xl px-5 py-6">
+        {positionKey === 'bar_server' && (
+          <section className="mb-6 border-l-4 border-blue-600 bg-white px-5 py-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold text-blue-700">Bar Server 完整岗位包 · 任务7</p>
+                <h2 className="mt-1 font-semibold text-slate-950">这里是岗位题库，不是全部训练</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">前面先完成岗位基础课和工作场景训练，再用这些问题把岗位知识转成面试表达。</p>
+              </div>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <button type="button" onClick={() => navigate('/tasks/phase2/Task5?position=bar_server&source=academy')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50">岗位基础课<ArrowRight size={16} /></button>
+                <button type="button" onClick={() => navigate('/programs/bar-server')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">完整训练路径<ArrowRight size={16} /></button>
+              </div>
+            </div>
+          </section>
+        )}
+
         <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
           {availableCategories.map((item) => (
             <button key={item} type="button" onClick={() => setCategory(item)} className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition ${category === item ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>
@@ -193,7 +218,7 @@ export default function InterviewQuestions() {
 
         <div className="mb-4 flex items-center justify-between gap-3 text-sm text-slate-500">
           <span className="inline-flex items-center gap-2"><Filter size={15} />{filteredQuestions.length} 道问题</span>
-          <button type="button" onClick={() => navigate('/tasks/phase2/Task5')} className="font-semibold text-blue-700">岗位知识在任务5</button>
+          <button type="button" onClick={() => navigate(`/tasks/phase2/Task5?position=${positionKey}&source=academy`)} className="font-semibold text-blue-700">岗位知识在任务5</button>
         </div>
 
         <section className="grid gap-3">
@@ -226,11 +251,14 @@ export default function InterviewQuestions() {
               <button type="button" onClick={() => setShowPositionModal(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              {positionConfig.map((position) => (
+              {orderedPositionConfig.map((position) => {
+                const preferenceLabel = getJobPreferenceLabel(position.key, preferences)
+                return (
                 <button key={position.key} type="button" onClick={() => selectPosition(position.key)} className={`rounded-lg border p-4 text-left ${positionKey === position.key ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white'}`}>
-                  <p className="font-semibold text-slate-950">{position.nameZh}</p><p className="mt-1 text-sm text-slate-500">{position.nameEn}</p>
+                  <div className="flex items-start justify-between gap-2"><p className="font-semibold text-slate-950">{position.nameZh}</p>{preferenceLabel && <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold text-blue-700">{preferenceLabel}</span>}</div><p className="mt-1 text-sm text-slate-500">{position.nameEn}</p>
                 </button>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 // src/pages/tasks/phase2/Task5Training.jsx
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronRight, ChevronUp } from 'lucide-react';
 import trainingCourses from '../../../data/trainingCourses';
@@ -25,7 +25,7 @@ const readJson = (key, fallback = null) => {
 const getTimestamp = () => new Date().getTime();
 
 const mapTargetPositionToRole = (position = '') => {
-  const normalized = position.toLowerCase();
+  const normalized = String(position || '').toLowerCase();
   if (normalized.includes('retail') || normalized.includes('shop') || normalized.includes('sales') || normalized.includes('jewelry')) return 'retail';
   if (normalized.includes('bar') || normalized.includes('bartender')) return 'barServer';
   if (normalized.includes('restaurant') || normalized.includes('waiter') || normalized.includes('buffet')) return 'waiter';
@@ -204,9 +204,11 @@ const rolePreparation = {
 
 export default function Task5Training() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedRole, setSelectedRole] = useState(() => {
     const task2Result = readJson('task2_result', {});
-    return mapTargetPositionToRole(task2Result.selectedTargetJob || task2Result.target_position)
+    return mapTargetPositionToRole(searchParams.get('position'))
+      || mapTargetPositionToRole(task2Result.selectedTargetJob || task2Result.target_position)
       || loadFromLocalStorage({}).selectedRole
       || null;
   });

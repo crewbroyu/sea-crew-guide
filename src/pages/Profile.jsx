@@ -65,6 +65,8 @@ const interviewStatusLabels = {
 const applicationMethods = [
   { value: '', label: '还不确定' },
   { value: 'diy', label: 'DIY 申请' },
+  { value: 'guided', label: '指导型 DIY' },
+  { value: 'agent', label: '中介辅助' },
   { value: 'agency', label: '中介' },
   { value: 'first_agent', label: '一代/官方合作方' },
   { value: 'company_site', label: '船公司官网' },
@@ -179,14 +181,17 @@ export default function Profile() {
     if (!pathProfile?.latest_assessment_score) {
       return { label: '完成海乘适配测评', route: '/assessment' }
     }
-    if (!isUnlocked) {
-      return { label: '解锁完整职业路线和 AI 面试', route: '/premium' }
-    }
     if (!pathProfile?.target_position) {
       return { label: '选择目标岗位', route: '/tasks/Task2' }
     }
+    if (!pathProfile?.application_method) {
+      return { label: '确定申请路线', route: '/tasks/Task3' }
+    }
     if (pathProfile?.resume_status !== 'draft_ready') {
       return { label: '制作英文简历', route: '/tasks/phase2/Task4' }
+    }
+    if (!isUnlocked) {
+      return { label: '查看目标岗位完整训练', route: '/premium' }
     }
     if (!['ai_mock_done', 'real_interview_recorded'].includes(pathProfile?.interview_status)) {
       return { label: '进入面试训练', route: '/tasks/phase2/Task7' }
@@ -201,19 +206,49 @@ export default function Profile() {
     if (!pathProfile?.latest_assessment_score) {
       return {
         title: '先完成职业适配测评',
-        description: '测评会生成岗位推荐和短板，后续才能判断该卖路线报告、简历优化还是面试训练。',
+        description: '测评会生成岗位建议和当前短板，后续任务才能围绕你的真实情况安排。',
         route: '/assessment',
         cta: '开始测评',
         tone: 'blue',
       }
     }
 
+    if (!pathProfile?.target_position) {
+      return {
+        title: '先确定主申岗位',
+        description: '测评提供建议，任务2负责由你确认主申和备选岗位。完成后课程与题库才会按岗位排序。',
+        route: '/tasks/Task2',
+        cta: '选择岗位',
+        tone: 'blue',
+      }
+    }
+
+    if (!pathProfile?.application_method) {
+      return {
+        title: '确定申请路线',
+        description: '根据预算、时间和执行能力，判断更适合 DIY、指导型 DIY 还是中介辅助。',
+        route: '/tasks/Task3',
+        cta: '判断路线',
+        tone: 'blue',
+      }
+    }
+
+    if (pathProfile?.resume_status !== 'draft_ready') {
+      return {
+        title: '下一步适合做英文简历',
+        description: '目标岗位确定后，简历是进入投递和面试前最重要的材料，需要先把经历翻译成岗位能力。',
+        route: '/tasks/phase2/Task4',
+        cta: '制作简历',
+        tone: 'blue',
+      }
+    }
+
     if (!isUnlocked) {
       return {
-        title: '推荐解锁完整职业路线',
-        description: '你已经留下了测评或申请状态，下一步应该把岗位、简历、面试和申请渠道合成一条可执行路线。',
+        title: '查看目标岗位完整训练',
+        description: '免费决策与简历准备已经完成，可以根据主申岗位决定是否解锁深度课程、AI反馈和模拟面试。',
         route: '/premium',
-        cta: '查看激活权益',
+        cta: '查看岗位包',
         tone: 'amber',
       }
     }
@@ -225,16 +260,6 @@ export default function Profile() {
         route: '/tasks/phase2/Task7/mock',
         cta: '继续练面试',
         tone: 'amber',
-      }
-    }
-
-    if (pathProfile?.resume_status !== 'draft_ready') {
-      return {
-        title: '下一步适合做英文简历',
-        description: '目标岗位确定后，简历是进入投递和面试前最重要的材料，需要先把经历翻译成岗位能力。',
-        route: '/tasks/phase2/Task4',
-        cta: '制作简历',
-        tone: 'blue',
       }
     }
 
@@ -266,6 +291,41 @@ export default function Profile() {
       tone: 'green',
     }
   }, [isUnlocked, latestInterviewRecord, pathProfile])
+
+  const applicationMethodLabel = applicationMethods.find((item) => item.value === pathProfile?.application_method)?.label
+    || pathProfile?.application_method
+    || '未确定'
+  const displayedApplicationMethods = form.application_method
+    && !applicationMethods.some((item) => item.value === form.application_method)
+    ? [...applicationMethods, { value: form.application_method, label: form.application_method }]
+    : applicationMethods
+
+  const coreArtifacts = [
+    {
+      label: '职业测评报告',
+      value: pathProfile?.latest_assessment_score ? `${pathProfile.latest_assessment_score}/100` : '未完成',
+      icon: Award,
+      route: '/assessment',
+    },
+    {
+      label: '主申岗位',
+      value: pathProfile?.target_position || '未选择',
+      icon: Target,
+      route: '/tasks/Task2',
+    },
+    {
+      label: '申请路线',
+      value: applicationMethodLabel,
+      icon: Route,
+      route: '/tasks/Task3',
+    },
+    {
+      label: '英文简历',
+      value: resumeStatusLabels[pathProfile?.resume_status] || '未开始',
+      icon: FileText,
+      route: '/tasks/phase2/Task4',
+    },
+  ]
 
   const handleChange = (field, value) => {
     setForm((prev) => ({
@@ -367,6 +427,27 @@ export default function Profile() {
           </div>
         </section>
 
+        <section className="bg-white rounded-xl shadow-sm p-4">
+          <div className="mb-4">
+            <h2 className="font-bold text-gray-900">我的核心成果</h2>
+            <p className="mt-1 text-xs leading-5 text-gray-500">前三个决策任务和英文简历会沉淀在这里，随时可以查看或修改。</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {coreArtifacts.map((artifact) => (
+              <button
+                key={artifact.label}
+                type="button"
+                onClick={() => navigate(artifact.route)}
+                className="min-w-0 rounded-lg bg-gray-50 p-3 text-left transition hover:bg-blue-50"
+              >
+                {createElement(artifact.icon, { size: 18, className: 'mb-2 text-blue-700' })}
+                <p className="text-xs text-gray-500">{artifact.label}</p>
+                <p className="mt-1 truncate text-sm font-semibold text-gray-900">{artifact.value}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+
         {interviewHistory.length > 0 && (
           <section className="bg-white rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between gap-3">
@@ -412,10 +493,10 @@ export default function Profile() {
                   ? 'text-emerald-700'
                   : 'text-blue-700'
             }`}>
-              {createElement(isUnlocked ? Target : Shield, { size: 20 })}
+              {createElement(serviceRecommendation.tone === 'amber' ? Shield : Target, { size: 20 })}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-gray-500">推荐服务</p>
+              <p className="text-xs font-medium text-gray-500">当前建议</p>
               <h2 className="mt-1 font-bold text-gray-950">{serviceRecommendation.title}</h2>
               <p className="mt-1 text-sm leading-6 text-gray-700">{serviceRecommendation.description}</p>
               <button
@@ -473,7 +554,7 @@ export default function Profile() {
                 onChange={(event) => handleChange('application_method', event.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
-                {applicationMethods.map((item) => (
+                {displayedApplicationMethods.map((item) => (
                   <option key={item.value} value={item.value}>{item.label}</option>
                 ))}
               </select>
@@ -514,19 +595,17 @@ export default function Profile() {
         </section>
 
         <section className="bg-white rounded-xl shadow-sm p-4">
-          <h2 className="font-bold text-gray-900 mb-3">当前状态</h2>
+          <h2 className="font-bold text-gray-900 mb-3">后续申请状态</h2>
           <div className="grid grid-cols-2 gap-3">
-            <StatusCard icon={Target} label="目标岗位" value={pathProfile?.target_position || '未选择'} />
             <StatusCard icon={Route} label="申请阶段" value={applicationStageLabels[pathProfile?.application_stage] || '了解中'} />
-            <StatusCard icon={FileText} label="简历状态" value={resumeStatusLabels[pathProfile?.resume_status] || '未开始'} />
             <StatusCard icon={MessageSquare} label="面试状态" value={interviewStatusLabels[pathProfile?.interview_status] || '未开始'} />
             <StatusCard icon={Users} label="同行者" value={pathProfile?.buddy_opt_in ? '已开启' : '未开启'} />
-            <StatusCard icon={Award} label="测评分数" value={pathProfile?.latest_assessment_score ? `${pathProfile.latest_assessment_score}/100` : '未测评'} />
+            <StatusCard icon={Shield} label="岗位权益" value={hasBarServerPack ? 'Bar Server 已开通' : '免费版'} />
           </div>
         </section>
 
         <section className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
-          <MenuButton icon={FileText} label="个人简历" onClick={() => navigate('/resume')} />
+          <MenuButton icon={FileText} label="查看个人简历" onClick={() => navigate('/resume')} />
           <MenuButton icon={Shield} label="登船证件" onClick={() => navigate('/tasks/Task10')} />
           <MenuButton icon={Bell} label="站内消息" onClick={() => navigate('/messages')} />
         </section>

@@ -41,16 +41,16 @@ const pathData = [
       },
       {
         id: 5,
-        title: '学习岗位知识',
-        subtitle: '围绕目标岗位完成一页纸、准备清单和补充资源',
+        title: '完成目标岗位基础训练',
+        subtitle: '进入学院学习岗位知识、英语表达和基础服务动作',
         route: '/tasks/phase2/Task5',
         completionType: 'upload',
         timeLimit: 30,
       },
       {
         id: 6,
-        title: '面试技巧学习',
-        subtitle: '把真实经历打磨成可用于 AI 模拟面试的答案卡',
+        title: '准备个人面试答案',
+        subtitle: '在求职中心把真实经历打磨成可用于模拟面试的答案卡',
         route: '/tasks/phase2/Task6',
         completionType: 'auto',
       },
@@ -63,8 +63,8 @@ const pathData = [
     tasks: [
       {
         id: 7,
-        title: '面试训练中心',
-        subtitle: '集中完成题库学习、单题语音练习和完整 AI 模拟',
+        title: '完成岗位口语与 AI 模拟',
+        subtitle: '从路径进入学院单题训练和求职中心完整模拟',
         route: '/tasks/phase2/Task7',
         completionType: 'auto',
       },

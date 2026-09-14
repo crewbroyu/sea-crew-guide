@@ -13,7 +13,6 @@ import AdminPreviewBar from './components/AdminPreviewBar'
 import DebugPanel from './components/DebugPanel'
 
 // 动态导入大型组件
-const Task1 = lazy(() => import('./pages/tasks/Task1'))
 const Task2 = lazy(() => import('./pages/tasks/Task2'))
 const Task3 = lazy(() => import('./pages/tasks/Task3'))
 const Task10 = lazy(() => import('./pages/tasks/Task10'))
@@ -44,7 +43,6 @@ const InterviewQuestions = lazy(() => import('./pages/academy/InterviewQuestions
 const PortDaily = lazy(() => import('./pages/academy/PortDaily'))
 
 const JobsCenter = lazy(() => import('./pages/JobsCenter'))
-const JobPreparation = lazy(() => import('./pages/JobPreparation'))
 const JobChannels = lazy(() => import('./pages/JobChannels'))
 const CruiseCompanyJobs = lazy(() => import('./pages/CruiseCompanyJobs'))
 const CruiseJobPlatforms = lazy(() => import('./pages/CruiseJobPlatforms'))
@@ -105,7 +103,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/tasks" element={<Tasks />} />
-              <Route path="/tasks/Task1" element={<Task1 />} />
+              <Route path="/tasks/Task1" element={<Navigate to="/assessment" replace />} />
               <Route path="/tasks/Task2" element={<Task2 />} />
               <Route path="/tasks/Task3" element={<Task3 />} />
               <Route path="/tasks/Task10" element={<RequireLogin><Task10 /></RequireLogin>} />
@@ -136,7 +134,7 @@ function App() {
               <Route path="/academy/scenarios/detail" element={<Navigate to="/programs/bar-server" replace />} />
               <Route path="/academy/port-daily" element={<PortDaily />} />
               <Route path="/jobs" element={<JobsCenter />} />
-              <Route path="/jobs/preparation" element={<JobPreparation />} />
+              <Route path="/jobs/preparation" element={<Navigate to="/academy/position-english" replace />} />
               <Route path="/jobs/channels" element={<JobChannels />} />
               <Route path="/jobs/company-jobs" element={<CruiseCompanyJobs />} />
               <Route path="/jobs/platforms" element={<CruiseJobPlatforms />} />

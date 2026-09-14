@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
@@ -8,7 +9,10 @@ import {
   MessageSquare,
   Mic2,
   Ship,
+  Target,
 } from 'lucide-react'
+import { getInterviewPositionMeta } from '../utils/interviewPosition'
+import { getJobPreferences } from '../utils/jobPreferences'
 
 const primaryModules = [
   {
@@ -19,55 +23,43 @@ const primaryModules = [
     label: '百科',
   },
   {
-    title: '了解岗位要求',
-    description: '按岗位了解英语、职责、风险和准备重点，再判断自己想申请什么岗位。',
+    title: '选择岗位课程',
+    description: '查看各岗位的职责、英语重点和训练内容；主申岗位会优先显示。',
     route: '/academy/position-english',
     icon: BriefcaseBusiness,
-    label: '岗位英语',
+    label: '岗位课程',
   },
   {
-    title: '开始面试准备',
-    description: '先看不同岗位的高频问题与考察重点，再进入对应的训练路径。',
+    title: '练岗位问答与口语',
+    description: '查看岗位高频问题，听题并完成单题口语训练；完整 AI 模拟面试在求职中心。',
     route: '/academy/interview-questions',
     icon: MessageSquare,
-    label: '面试',
+    label: '岗位问答',
   },
 ]
 
 const learningSections = [
   {
-    title: '英语训练',
-    description: '听说练习、岗位表达、船上服务场景',
+    title: '岗位课程与训练',
+    description: '从必要知识和英语表达，练到真实工作场景',
     items: [
       {
-        title: '岗位英语课程',
-        description: '按目标岗位学习常用表达和服务话术',
+        title: '岗位英语与训练路径',
+        description: '按目标岗位查看英语重点；Bar Server 已接入完整岗位包',
         route: '/academy/position-english',
         icon: BookOpen,
+      },
+      {
+        title: 'Bar Server 完整岗位训练',
+        description: '从基础课、表达跟读和工作场景，练到岗位题库与单题口语',
+        route: '/programs/bar-server',
+        state: { from: 'academy' },
+        icon: Mic2,
       },
       {
         title: '听说训练',
         description: '按场景练习听力、跟读和口语表达',
         route: '/academy/listening-speaking',
-        icon: Mic2,
-      },
-    ],
-  },
-  {
-    title: '面试准备',
-    description: '先看题目，再进入对应岗位的实战训练',
-    items: [
-      {
-        title: '常见面试问题',
-        description: '按岗位查看高频问题和回答思路',
-        route: '/academy/interview-questions',
-        icon: MessageSquare,
-      },
-      {
-        title: 'Bar Server 场景语音训练',
-        description: '免费完成 3 个真实酒吧服务场景，体验录音、反馈与重练',
-        route: '/programs/bar-server',
-        state: { from: 'academy' },
         icon: Mic2,
       },
     ],
@@ -154,6 +146,8 @@ const ModuleButton = ({ item, onOpen, compact = false }) => {
 
 export default function Academy() {
   const navigate = useNavigate()
+  const preferences = useMemo(() => getJobPreferences(), [])
+  const primaryPosition = getInterviewPositionMeta(preferences.primaryKey)
 
   const openModule = (item) => {
     navigate(item.route, item.state ? { state: item.state } : undefined)
@@ -168,17 +162,41 @@ export default function Academy() {
             把资料学习变成岗位准备
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            这里不是单纯堆课程，而是围绕岗位认知、英语表达、面试准备和登船材料，帮你一步步减少申请试错。
+            在这里学习岗位知识、英语表达和真实工作场景。完整 AI 模拟面试与申请跟进统一放在求职中心。
           </p>
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-5 py-6">
+        {preferences.primaryKey && (
+          <section className="mb-6 border-l-4 border-blue-600 bg-white px-5 py-5 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Target size={20} className="mt-0.5 shrink-0 text-blue-700" />
+                <div>
+                  <p className="text-xs font-semibold text-blue-700">当前主申岗位</p>
+                  <h2 className="mt-1 font-semibold text-slate-950">{primaryPosition ? `${primaryPosition.nameZh} · ${primaryPosition.nameEn}` : preferences.primaryKey}</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    学院会优先显示你的主申与备选岗位，其他岗位仍然可以自由查看。
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(`/academy/position-english?position=${preferences.primaryKey}`)}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                继续岗位准备<ArrowRight size={17} />
+              </button>
+            </div>
+          </section>
+        )}
+
         <section className="mb-8">
           <div className="mb-4 flex items-end justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-slate-500">推荐学习顺序</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-950">先判断，再准备，再训练</h2>
+              <h2 className="mt-1 text-lg font-semibold text-slate-950">先了解，再学习，再开口</h2>
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-3">

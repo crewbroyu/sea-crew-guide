@@ -10,10 +10,9 @@ import { getCompletedRetailDays, getRetailFoundationProgress, retailFoundationDa
 const PRODUCT_CODE = 'retail_sales_pack'
 
 const stages = [
-  { title: '岗位基础课', description: '8 天完成岗位、销售流程、产品、KPI、异议、POS、库存与服务补救。', icon: BookOpenCheck },
-  { title: '每日开口训练', description: '每个知识点立即听一句、跟读三次，再完成 Guest Challenge。', icon: Mic },
-  { title: '邮轮零售模拟器', description: '与 Guest 连续对话，从自然接待一路练到 Sea Day 高压销售。', icon: Sparkles },
-  { title: '题库与面试转换', description: '把岗位能力转成真实可讲的面试证据，再进入 AI 模拟面试。', icon: FileText },
+  { title: 'A · 岗位基础课', description: '8 天完成岗位、销售流程、产品、KPI、异议、POS、库存与服务补救。跟读和 Guest Challenge 是每天基础课的练习环节，不是另一门课。', icon: BookOpenCheck },
+  { title: 'B · 工作场景实训', description: '与 Guest 连续对话，从自然接待一路练到 Sea Day 高压销售，单独记录岗位能力成绩。', icon: Sparkles },
+  { title: 'C · 面试表达训练', description: '用题库和单题口语把岗位能力转成真实可讲的面试证据，再进入 AI 模拟面试。', icon: FileText },
 ]
 
 export default function RetailPreparationPack() {
@@ -67,7 +66,7 @@ export default function RetailPreparationPack() {
             <section>
               <p className="text-sm font-medium text-blue-700">完整训练闭环</p>
               <h2 className="mt-1 text-xl font-semibold text-slate-950">从会介绍，到能成交，再到能通过面试</h2>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">{stages.map((stage) => { const Icon = stage.icon; return <article key={stage.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Icon size={20} /></div><h3 className="mt-4 font-semibold text-slate-950">{stage.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{stage.description}</p></article> })}</div>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">{stages.map((stage) => { const Icon = stage.icon; return <article key={stage.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Icon size={20} /></div><h3 className="mt-4 font-semibold text-slate-950">{stage.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{stage.description}</p></article> })}</div>
             </section>
 
             <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

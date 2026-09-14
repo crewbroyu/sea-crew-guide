@@ -16,22 +16,22 @@ import { getJobPreferences } from '../utils/jobPreferences'
 
 const primaryModules = [
   {
-    title: '先看懂海乘行业',
+    title: '行业基础资料',
     description: '从入门认知、岗位区别、工资合同和登船流程开始，先判断这条路值不值得走。',
     route: '/academy/wiki',
     icon: BookOpen,
     label: '百科',
   },
   {
-    title: '选择岗位课程',
-    description: '查看各岗位的职责、英语重点和训练内容；主申岗位会优先显示。',
+    title: '岗位课程目录',
+    description: '先选岗位，再按基础课程、工作场景和面试表达的顺序学习。',
     route: '/academy/position-english',
     icon: BriefcaseBusiness,
     label: '岗位课程',
   },
   {
-    title: '练岗位问答与口语',
-    description: '查看岗位高频问题，听题并完成单题口语训练；完整 AI 模拟面试在求职中心。',
+    title: '公开面试题库',
+    description: '课程学完后，用岗位高频问题检查能否向招聘官讲清楚。',
     route: '/academy/interview-questions',
     icon: MessageSquare,
     label: '岗位问答',
@@ -40,34 +40,22 @@ const primaryModules = [
 
 const learningSections = [
   {
-    title: '岗位课程与训练',
-    description: '从必要知识和英语表达，练到真实工作场景',
+    title: '已上线的完整岗位课程',
+    description: '每个岗位包都有独立总目录，基础课程与工作场景分开进入',
     items: [
       {
-        title: '岗位英语与训练路径',
-        description: '按目标岗位查看英语重点；Bar Server 与 Retail 已接入完整岗位包',
-        route: '/academy/position-english',
-        icon: BookOpen,
-      },
-      {
-        title: 'Bar Server 完整岗位训练',
-        description: '从基础课、表达跟读和工作场景，练到岗位题库与单题口语',
+        title: 'Bar Server 岗位课程',
+        description: '9 天基础课程、4 级工作场景，以及独立的面试表达训练',
         route: '/programs/bar-server',
         state: { from: 'academy' },
         icon: Mic2,
       },
       {
-        title: 'Retail Sales Associate 完整岗位训练',
-        description: '从需求发现、产品表达和销售动作，练到异议、POS、库存与 Sea Day 场景',
+        title: 'Retail Sales Associate 岗位课程',
+        description: '8 天基础课程、5 级工作场景，以及独立的销售面试表达训练',
         route: '/programs/retail',
         state: { from: 'academy' },
         icon: BriefcaseBusiness,
-      },
-      {
-        title: '听说训练',
-        description: '按场景练习听力、跟读和口语表达',
-        route: '/academy/listening-speaking',
-        icon: Mic2,
       },
     ],
   },
@@ -166,10 +154,10 @@ export default function Academy() {
         <div className="mx-auto max-w-5xl px-5 pb-6 pt-12">
           <p className="text-sm font-medium text-blue-700">海乘学院</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">
-            把资料学习变成岗位准备
+            课程、实训和面试准备，各自解决一件事
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            在这里学习岗位知识、英语表达和真实工作场景。完整 AI 模拟面试与申请跟进统一放在求职中心。
+            基础课程学习岗位知识，工作场景训练实际服务能力，面试题库负责把能力说出来。完整 AI 模拟面试与申请跟进统一放在求职中心。
           </p>
         </div>
       </header>
@@ -203,7 +191,7 @@ export default function Academy() {
           <div className="mb-4 flex items-end justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-slate-500">推荐学习顺序</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-950">先了解，再学习，再开口</h2>
+              <h2 className="mt-1 text-lg font-semibold text-slate-950">先了解行业，再进入岗位课程，最后练面试表达</h2>
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-3">

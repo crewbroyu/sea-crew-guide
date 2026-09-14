@@ -41,9 +41,9 @@ const publicLinks = [
     icon: Map,
   },
   {
-    label: '英语预习',
-    description: '先试学岗位英语和服务表达',
-    route: '/academy/listening-speaking',
+    label: '岗位课程',
+    description: '按岗位学习知识、表达和真实工作场景',
+    route: '/academy/position-english',
     icon: GraduationCap,
   },
 ]

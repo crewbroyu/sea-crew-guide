@@ -29,9 +29,6 @@ const ActivationCodeGenerator = lazy(() => import('./pages/ActivationCodeGenerat
 const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'))
 
 const Academy = lazy(() => import('./pages/Academy'))
-const ListeningSpeaking = lazy(() => import('./pages/academy/ListeningSpeaking'))
-const ListeningSpeakingCategory = lazy(() => import('./pages/academy/ListeningSpeakingCategory'))
-const ListeningSpeakingCourse = lazy(() => import('./pages/academy/ListeningSpeakingCourse'))
 const Boarding = lazy(() => import('./pages/academy/Boarding'))
 const BoardingDetail = lazy(() => import('./pages/academy/BoardingDetail'))
 const BoardingAdvice = lazy(() => import('./pages/academy/BoardingAdvice'))
@@ -62,6 +59,7 @@ const FounderBeta = lazy(() => import('./pages/FounderBeta'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const RetailPreparationPack = lazy(() => import('./pages/programs/RetailPreparationPack'))
 const RetailScenarioTraining = lazy(() => import('./pages/programs/RetailScenarioTraining'))
+const BarServerPreparationPack = lazy(() => import('./pages/programs/BarServerPreparationPack'))
 const BarServerTrial = lazy(() => import('./pages/programs/BarServerTrial'))
 const BarServerScenarioTraining = lazy(() => import('./pages/programs/BarServerScenarioTraining'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
@@ -119,9 +117,7 @@ function App() {
               <Route path="/tasks/phase2/Task8" element={<RequireLogin><Task8RealInterview /></RequireLogin>} />
               <Route path="/tasks/phase2/Task9" element={<Navigate to="/my-offer" replace />} />
               <Route path="/academy" element={<Academy />} />
-              <Route path="/academy/listening-speaking" element={<ListeningSpeaking />} />
-              <Route path="/academy/listening-speaking/:category" element={<ListeningSpeakingCategory />} />
-              <Route path="/academy/listening-speaking/:category/:course" element={<ListeningSpeakingCourse />} />
+              <Route path="/academy/listening-speaking/*" element={<Navigate to="/academy/position-english?position=bar_server" replace />} />
               <Route path="/academy/boarding" element={<Boarding />} />
               <Route path="/academy/boarding/detail" element={<BoardingDetail />} />
               <Route path="/academy/boarding/advice" element={<BoardingAdvice />} />
@@ -131,8 +127,8 @@ function App() {
 
               <Route path="/academy/position-english" element={<PositionEnglish />} />
               <Route path="/academy/interview-questions" element={<InterviewQuestions />} />
-              <Route path="/academy/scenarios" element={<Navigate to="/programs/bar-server" replace />} />
-              <Route path="/academy/scenarios/detail" element={<Navigate to="/programs/bar-server" replace />} />
+              <Route path="/academy/scenarios" element={<Navigate to="/academy/position-english" replace />} />
+              <Route path="/academy/scenarios/detail" element={<Navigate to="/academy/position-english" replace />} />
               <Route path="/academy/port-daily" element={<PortDaily />} />
               <Route path="/jobs" element={<JobsCenter />} />
               <Route path="/jobs/preparation" element={<Navigate to="/academy/position-english" replace />} />
@@ -153,7 +149,8 @@ function App() {
               <Route path="/founder-test" element={<RequireActivation productCode="bar_server_pack"><FounderBeta /></RequireActivation>} />
               <Route path="/programs/retail" element={<RetailPreparationPack />} />
               <Route path="/programs/retail/training" element={<RequireActivation productCode="retail_sales_pack"><RetailScenarioTraining /></RequireActivation>} />
-              <Route path="/programs/bar-server" element={<BarServerTrial />} />
+              <Route path="/programs/bar-server" element={<BarServerPreparationPack />} />
+              <Route path="/programs/bar-server/trial" element={<BarServerTrial />} />
               <Route path="/programs/bar-server/training" element={<RequireActivation productCode="bar_server_pack"><BarServerScenarioTraining /></RequireActivation>} />
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />

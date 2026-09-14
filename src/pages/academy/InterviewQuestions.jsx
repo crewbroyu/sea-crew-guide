@@ -21,7 +21,7 @@ const categoryLabels = {
   safeguarding: '安全照护',
   safety: '安全规范',
   sales: '销售能力',
-  scenario: '岗位场景',
+  scenario: '情境判断题',
   security: '安保意识',
   service_judgment: '服务判断',
   ship_life: '船上适应',
@@ -119,16 +119,9 @@ export default function InterviewQuestions() {
   }
 
   const startTraining = (questionId = '') => {
-    if (positionKey === 'bar_server') {
-      navigate('/programs/bar-server')
-      return
-    }
-    if (positionKey === 'retail') {
-      navigate('/programs/retail')
-      return
-    }
-
-    setSelectedQuestion(questionId ? questions.find((question) => question.id === questionId) || null : null)
+    const params = new URLSearchParams({ position: positionKey, source: 'academy' })
+    if (questionId) params.set('question', questionId)
+    navigate(`/tasks/phase2/Task7/voice?${params.toString()}`)
   }
 
   if (!positionKey || !currentData) {
@@ -184,15 +177,9 @@ export default function InterviewQuestions() {
               <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="搜索问题或考察重点" className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
             </label>
-            {positionKey === 'bar_server' ? (
-              <button type="button" onClick={() => startTraining()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700">
-                免费体验 3 个场景<ArrowRight size={17} />
-              </button>
-            ) : positionKey === 'retail' ? (
-              <button type="button" onClick={() => startTraining()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700">进入 Retail 岗位包<ArrowRight size={17} /></button>
-            ) : (
-              <div className="flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-center text-xs leading-5 text-slate-500">该岗位语音训练包正在准备<br />当前可免费浏览与文字自练</div>
-            )}
+            <button type="button" onClick={() => startTraining()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700">
+              开始单题语音练习<ArrowRight size={17} />
+            </button>
           </div>
         </div>
       </header>
@@ -285,15 +272,9 @@ export default function InterviewQuestions() {
             {selectedQuestion.keywords?.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{selectedQuestion.keywords.map((keyword) => <span key={keyword} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{keyword}</span>)}</div>}
 
             <button type="button" onClick={() => speakQuestion(selectedQuestion.question)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"><Volume2 size={17} />{speaking ? '停止朗读' : '听问题'}</button>
-            {positionKey === 'bar_server' ? (
-              <button type="button" onClick={() => startTraining(selectedQuestion.id)} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"><Target size={17} />免费体验 3 个 Bar Server 场景</button>
-            ) : positionKey === 'retail' ? (
-              <button type="button" onClick={() => startTraining(selectedQuestion.id)} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"><Target size={17} />进入 Retail 完整训练路径</button>
-            ) : (
-              <div className="mt-4 flex items-start gap-2 rounded-lg bg-slate-100 p-3 text-sm leading-6 text-slate-700"><CheckCircle2 size={17} className="mt-0.5 shrink-0 text-slate-600" />当前可免费浏览题目、考察重点并收听英文问题。该岗位的语音转写与 AI 反馈训练包正在准备。</div>
-            )}
+            <button type="button" onClick={() => startTraining(selectedQuestion.id)} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"><Target size={17} />用这道题练一次英文回答</button>
 
-            {positionKey === 'bar_server' && <div className="mt-4 flex items-start gap-2 rounded-lg bg-emerald-50 p-3 text-sm leading-6 text-emerald-900"><CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-700" />登录后可免费完成 3 个 Bar Server 场景：录音、转写、专业反馈与重练。后续完整训练需解锁岗位包。</div>}
+            <div className="mt-4 flex items-start gap-2 rounded-lg bg-slate-100 p-3 text-sm leading-6 text-slate-700"><CheckCircle2 size={17} className="mt-0.5 shrink-0 text-slate-600" />这里练的是如何回答招聘官。与客人连续对话的工作场景实训，请从该岗位的完整课程目录进入。</div>
           </div>
         </div>
       )}

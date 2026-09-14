@@ -210,6 +210,7 @@ const CourseCard = ({ resource }) => (
 
 const barServerTrainingPath = [
   {
+    phase: 'foundation',
     task: '任务5',
     area: '海乘学院',
     title: '岗位基础课',
@@ -217,6 +218,15 @@ const barServerTrainingPath = [
     route: '/tasks/phase2/Task5?position=bar_server&source=academy',
   },
   {
+    phase: 'scenario',
+    task: '岗位模拟',
+    area: '海乘学院',
+    title: '真实工作场景训练',
+    description: '扮演 Bar Server 与客人连续对话，获得反馈后重练。',
+    route: '/programs/bar-server/training',
+  },
+  {
+    phase: 'interview',
     task: '任务6',
     area: '求职中心',
     title: '把经历变成英文回答',
@@ -224,13 +234,7 @@ const barServerTrainingPath = [
     route: '/tasks/phase2/Task6?source=task5',
   },
   {
-    task: '岗位模拟',
-    area: '海乘学院',
-    title: '真实工作场景训练',
-    description: '扮演 Bar Server 与客人连续对话，获得反馈后重练。',
-    route: '/programs/bar-server',
-  },
-  {
+    phase: 'interview',
     task: '任务7',
     area: '海乘学院',
     title: '岗位题库与单题口语',
@@ -238,6 +242,7 @@ const barServerTrainingPath = [
     route: '/academy/interview-questions?position=bar_server',
   },
   {
+    phase: 'interview',
     task: '面试前',
     area: '求职中心',
     title: 'AI 模拟面试',
@@ -247,11 +252,17 @@ const barServerTrainingPath = [
 ]
 
 const retailTrainingPath = [
-  { task: '任务5', area: '海乘学院', title: '8 天邮轮零售基础课', description: '学习接待、需求发现、产品表达、KPI、异议、POS、库存与防损。', route: '/tasks/phase2/Task5?position=retail&source=academy' },
-  { task: '任务6', area: '求职中心', title: '把销售经历变成英文回答', description: '整理业绩、需求发现、异议处理和高压服务案例。', route: '/tasks/phase2/Task6?source=task5' },
-  { task: '岗位模拟', area: '海乘学院', title: '5 级邮轮零售工作模拟', description: '与客人连续对话，并按六项岗位能力保存训练结果。', route: '/programs/retail/training' },
-  { task: '任务7', area: '海乘学院', title: 'Retail 题库与单题练习', description: '检查岗位理解、销售判断和英文表达。', route: '/academy/interview-questions?position=retail' },
-  { task: '面试前', area: '求职中心', title: 'AI 模拟面试', description: '把真实销售能力转成招聘官听得懂的个人案例。', route: '/tasks/phase2/Task7/mock?position=retail' },
+  { phase: 'foundation', task: '任务5', area: '海乘学院', title: '8 天邮轮零售基础课', description: '学习接待、需求发现、产品表达、KPI、异议、POS、库存与防损。', route: '/tasks/phase2/Task5?position=retail&source=academy' },
+  { phase: 'scenario', task: '岗位模拟', area: '海乘学院', title: '5 级邮轮零售工作模拟', description: '与客人连续对话，并按六项岗位能力保存训练结果。', route: '/programs/retail/training' },
+  { phase: 'interview', task: '任务6', area: '求职中心', title: '把销售经历变成英文回答', description: '整理业绩、需求发现、异议处理和高压服务案例。', route: '/tasks/phase2/Task6?source=task5' },
+  { phase: 'interview', task: '任务7', area: '海乘学院', title: 'Retail 题库与单题练习', description: '检查岗位理解、销售判断和英文表达。', route: '/academy/interview-questions?position=retail' },
+  { phase: 'interview', task: '面试前', area: '求职中心', title: 'AI 模拟面试', description: '把真实销售能力转成招聘官听得懂的个人案例。', route: '/tasks/phase2/Task7/mock?position=retail' },
+]
+
+const trainingPhaseMeta = [
+  { key: 'foundation', label: 'A · 岗位基础课程', description: '学习必须掌握的岗位知识与工作表达。' },
+  { key: 'scenario', label: 'B · 工作场景实训', description: '扮演真实岗位角色，检查能不能把工作做好。' },
+  { key: 'interview', label: 'C · 面试表达训练', description: '把已经具备的能力整理成招聘回答；不再重复教基础知识。' },
 ]
 
 export default function PositionEnglish() {
@@ -282,12 +293,12 @@ export default function PositionEnglish() {
             <ArrowLeft size={16} />
             返回学院
           </button>
-          <p className="text-sm font-medium text-blue-700">岗位英语</p>
+          <p className="text-sm font-medium text-blue-700">岗位课程目录</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">
-            按目标岗位准备英语和面试表达
+            先选岗位，再进入对应课程体系
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            不同岗位需要的英语完全不同。先选目标岗位，再看你该补哪些表达、服务场景和面试案例。
+            基础知识、工作场景和面试表达分开组织。切换岗位只是在浏览课程，不会覆盖你的主申岗位。
           </p>
         </div>
       </header>
@@ -349,23 +360,27 @@ export default function PositionEnglish() {
                   <h3 className="mt-1 font-semibold text-slate-950">{activePosition.name} 不是一组面试题，而是一条完整训练路径</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-600">先学会怎么做这份工作，再练怎么回答，最后进入模拟面试。</p>
                 </div>
-                <div className="divide-y divide-slate-100">
-                  {completeTrainingPath.map((step, index) => (
-                    <button
-                      key={step.title}
-                      type="button"
-                      onClick={() => navigate(step.route)}
-                      className="flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-slate-50"
-                    >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-sm font-semibold text-blue-700">{index + 1}</div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-blue-700">{step.task} · {step.area}</p>
-                        <p className="mt-0.5 font-semibold text-slate-950">{step.title}</p>
-                        <p className="mt-1 text-sm leading-5 text-slate-600">{step.description}</p>
+                <div className="divide-y divide-slate-200">
+                  {trainingPhaseMeta.map((phase) => {
+                    const phaseSteps = completeTrainingPath.filter((step) => step.phase === phase.key)
+                    return (
+                      <div key={phase.key}>
+                        <div className="bg-slate-50 px-5 py-3">
+                          <p className="text-xs font-bold text-slate-800">{phase.label}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">{phase.description}</p>
+                        </div>
+                        <div className="divide-y divide-slate-100">
+                          {phaseSteps.map((step) => (
+                            <button key={step.title} type="button" onClick={() => navigate(step.route)} className="flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-slate-50">
+                              <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold ${phase.key === 'foundation' ? 'bg-blue-50 text-blue-700' : phase.key === 'scenario' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>{phase.key === 'foundation' ? '学' : phase.key === 'scenario' ? '练' : '答'}</div>
+                              <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-blue-700">{step.task} · {step.area}</p><p className="mt-0.5 font-semibold text-slate-950">{step.title}</p><p className="mt-1 text-sm leading-5 text-slate-600">{step.description}</p></div>
+                              <ArrowRight size={17} className="mt-2 shrink-0 text-slate-400" />
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <ArrowRight size={17} className="mt-2 shrink-0 text-slate-400" />
-                    </button>
-                  ))}
+                    )
+                  })}
                 </div>
               </section>
             )}
@@ -444,7 +459,7 @@ export default function PositionEnglish() {
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="font-semibold text-slate-950">外部课程资源</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                这些是辅助学习资源，需要到外部平台自行注册。你的核心任务仍然是把表达练成面试可用。
+                这些是辅助学习资源，需要到外部平台自行注册。正式学习仍以本页的基础课、工作场景和面试表达三阶段为准。
               </p>
               <div className="mt-4 space-y-3">
                 {activePosition.resources.length > 0 ? (

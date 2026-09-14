@@ -123,6 +123,10 @@ export default function InterviewQuestions() {
       navigate('/programs/bar-server')
       return
     }
+    if (positionKey === 'retail') {
+      navigate('/programs/retail')
+      return
+    }
 
     setSelectedQuestion(questionId ? questions.find((question) => question.id === questionId) || null : null)
   }
@@ -169,7 +173,7 @@ export default function InterviewQuestions() {
             <div>
               <p className="text-sm font-medium text-blue-700">公开岗位题库</p>
               <h1 className="mt-2 text-2xl font-semibold text-slate-950">{currentPosition?.nameZh} · {currentPosition?.nameEn}</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{questions.length} 道岗位训练题，可免费查看考察重点与英文问题。语音 AI 体验当前仅开放 Bar Server。</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{questions.length} 道岗位训练题，可免费查看考察重点与英文问题。Bar Server 与 Retail 已接入完整岗位训练路径。</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">题目结合公开岗位指南与从业者经验编辑，不把个别公司的面试流程当作行业通用规则。</p>
             </div>
             <button type="button" onClick={() => setShowPositionModal(true)} className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">切换岗位</button>
@@ -184,6 +188,8 @@ export default function InterviewQuestions() {
               <button type="button" onClick={() => startTraining()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700">
                 免费体验 3 个场景<ArrowRight size={17} />
               </button>
+            ) : positionKey === 'retail' ? (
+              <button type="button" onClick={() => startTraining()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700">进入 Retail 岗位包<ArrowRight size={17} /></button>
             ) : (
               <div className="flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-center text-xs leading-5 text-slate-500">该岗位语音训练包正在准备<br />当前可免费浏览与文字自练</div>
             )}
@@ -192,17 +198,17 @@ export default function InterviewQuestions() {
       </header>
 
       <main className="mx-auto max-w-5xl px-5 py-6">
-        {positionKey === 'bar_server' && (
+        {['bar_server', 'retail'].includes(positionKey) && (
           <section className="mb-6 border-l-4 border-blue-600 bg-white px-5 py-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-xs font-semibold text-blue-700">Bar Server 完整岗位包 · 任务7</p>
+                <p className="text-xs font-semibold text-blue-700">{positionKey === 'bar_server' ? 'Bar Server' : 'Retail Sales Associate'} 完整岗位包 · 任务7</p>
                 <h2 className="mt-1 font-semibold text-slate-950">这里是岗位题库，不是全部训练</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">前面先完成岗位基础课和工作场景训练，再用这些问题把岗位知识转成面试表达。</p>
               </div>
               <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-                <button type="button" onClick={() => navigate('/tasks/phase2/Task5?position=bar_server&source=academy')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50">岗位基础课<ArrowRight size={16} /></button>
-                <button type="button" onClick={() => navigate('/programs/bar-server')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">完整训练路径<ArrowRight size={16} /></button>
+                <button type="button" onClick={() => navigate(`/tasks/phase2/Task5?position=${positionKey}&source=academy`)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50">岗位基础课<ArrowRight size={16} /></button>
+                <button type="button" onClick={() => navigate(positionKey === 'bar_server' ? '/programs/bar-server' : '/programs/retail')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">完整训练路径<ArrowRight size={16} /></button>
               </div>
             </div>
           </section>
@@ -281,6 +287,8 @@ export default function InterviewQuestions() {
             <button type="button" onClick={() => speakQuestion(selectedQuestion.question)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"><Volume2 size={17} />{speaking ? '停止朗读' : '听问题'}</button>
             {positionKey === 'bar_server' ? (
               <button type="button" onClick={() => startTraining(selectedQuestion.id)} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"><Target size={17} />免费体验 3 个 Bar Server 场景</button>
+            ) : positionKey === 'retail' ? (
+              <button type="button" onClick={() => startTraining(selectedQuestion.id)} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"><Target size={17} />进入 Retail 完整训练路径</button>
             ) : (
               <div className="mt-4 flex items-start gap-2 rounded-lg bg-slate-100 p-3 text-sm leading-6 text-slate-700"><CheckCircle2 size={17} className="mt-0.5 shrink-0 text-slate-600" />当前可免费浏览题目、考察重点并收听英文问题。该岗位的语音转写与 AI 反馈训练包正在准备。</div>
             )}

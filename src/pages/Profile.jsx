@@ -118,6 +118,11 @@ export default function Profile() {
     isPreviewing,
   } = effectiveAccess
   const hasBarServerPack = hasProductEntitlement(effectiveAccess, 'bar_server_pack')
+  const hasRetailSalesPack = hasProductEntitlement(effectiveAccess, 'retail_sales_pack')
+  const activePackNames = [
+    hasBarServerPack ? 'Bar Server' : '',
+    hasRetailSalesPack ? 'Retail Sales' : '',
+  ].filter(Boolean)
   const [pathProfile, setPathProfile] = useState(() => buildLocalPathProfile())
   const [latestInterviewRecord, setLatestInterviewRecord] = useState(null)
   const [interviewHistory, setInterviewHistory] = useState([])
@@ -385,6 +390,7 @@ export default function Profile() {
               <span className="rounded-full bg-white/15 px-2 py-1 text-white">{roleLabels[effectiveRole] || effectiveRole}</span>
               <span className="rounded-full bg-white/15 px-2 py-1 text-white">{planLabels[effectivePlan] || effectivePlan}</span>
               {hasBarServerPack && <span className="rounded-full bg-emerald-400/25 px-2 py-1 text-white">Bar Server 完整包</span>}
+              {hasRetailSalesPack && <span className="rounded-full bg-emerald-400/25 px-2 py-1 text-white">Retail Sales 完整包</span>}
               {crewVerificationStatus === 'verified' && <span className="rounded-full bg-emerald-400/25 px-2 py-1 text-white">Crew 已认证</span>}
               {mentorStatus === 'active' && <span className="rounded-full bg-emerald-400/25 px-2 py-1 text-white">Mentor 已启用</span>}
               {isPreviewing && <span className="rounded-full bg-amber-300/25 px-2 py-1 text-white">预览模式</span>}
@@ -600,7 +606,7 @@ export default function Profile() {
             <StatusCard icon={Route} label="申请阶段" value={applicationStageLabels[pathProfile?.application_stage] || '了解中'} />
             <StatusCard icon={MessageSquare} label="面试状态" value={interviewStatusLabels[pathProfile?.interview_status] || '未开始'} />
             <StatusCard icon={Users} label="同行者" value={pathProfile?.buddy_opt_in ? '已开启' : '未开启'} />
-            <StatusCard icon={Shield} label="岗位权益" value={hasBarServerPack ? 'Bar Server 已开通' : '免费版'} />
+            <StatusCard icon={Shield} label="岗位权益" value={activePackNames.length ? `${activePackNames.join('、')} 已开通` : '免费版'} />
           </div>
         </section>
 

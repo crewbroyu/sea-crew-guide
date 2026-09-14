@@ -5,8 +5,10 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronRight, ChevronUp } from 'lucide-react';
 import trainingCourses from '../../../data/trainingCourses';
 import BarServerFoundationTraining from '../../../components/training/BarServerFoundationTraining';
+import RetailFoundationTraining from '../../../components/training/RetailFoundationTraining';
 import RequireActivation from '../../../components/RequireActivation';
 import { barServerFoundationDays, getCompletedFoundationDays } from '../../../data/barServerFoundation';
+import { getCompletedRetailDays, getRetailFoundationProgress, retailFoundationDays } from '../../../data/retailFoundation';
 import { syncLocalPathProfile } from '../../../services/userPathService';
 import { getMyJobPreparation, upsertMyJobPreparation } from '../../../services/jobPreparationService';
 
@@ -226,6 +228,7 @@ export default function Task5Training() {
     const data = loadFromLocalStorage({});
     return data.foundationProgress || {};
   });
+  const [retailFoundationProgress, setRetailFoundationProgress] = useState(() => getRetailFoundationProgress());
   const [expandedCourse, setExpandedCourse] = useState(null);
 
   // 学习计时相关状态
@@ -293,6 +296,7 @@ export default function Task5Training() {
         setCompletedCourses(courses);
         setLearningRecords(records);
         setFoundationProgress(records.barServerFoundation || {});
+        setRetailFoundationProgress(records.retailFoundation || getRetailFoundationProgress());
         setCompletedCourseDetails(profile.completed_course_details || {});
       })
       .catch((error) => console.error('恢复云端岗位准备资料失败:', error));
@@ -460,8 +464,11 @@ export default function Task5Training() {
     const checklist = rolePreparation[selectedRole]?.checklist || [];
     const checks = preparationChecks[selectedRole] || {};
     const checklistCompleted = checklist.length > 0 && checklist.every((_, index) => checks[index]);
-    const foundationCompleted = selectedRole !== 'barServer'
-      || getCompletedFoundationDays(foundationProgress) === barServerFoundationDays.length;
+    const foundationCompleted = selectedRole === 'barServer'
+      ? getCompletedFoundationDays(foundationProgress) === barServerFoundationDays.length
+      : selectedRole === 'retail'
+        ? getCompletedRetailDays(retailFoundationProgress) === retailFoundationDays.length
+        : true;
     return checklistCompleted && foundationCompleted;
   };
 
@@ -478,7 +485,9 @@ export default function Task5Training() {
       })) || [];
     const persistedLearningRecords = selectedRole === 'barServer'
       ? { ...learningRecords, barServerFoundation: foundationProgress }
-      : learningRecords;
+      : selectedRole === 'retail'
+        ? { ...learningRecords, retailFoundation: retailFoundationProgress }
+        : learningRecords;
     const taskResult = {
       taskId: 5,
       completedAt: new Date().toISOString(),
@@ -490,8 +499,10 @@ export default function Task5Training() {
         })),
       completedResources,
       learningRecords: persistedLearningRecords,
-      foundationProgress: selectedRole === 'barServer' ? foundationProgress : {},
-      foundationCompletedDays: selectedRole === 'barServer' ? getCompletedFoundationDays(foundationProgress) : 0,
+      foundationProgress: selectedRole === 'barServer' ? foundationProgress : selectedRole === 'retail' ? retailFoundationProgress : {},
+      foundationCompletedDays: selectedRole === 'barServer'
+        ? getCompletedFoundationDays(foundationProgress)
+        : selectedRole === 'retail' ? getCompletedRetailDays(retailFoundationProgress) : 0,
       completedCourseDetails,
     };
     localStorage.setItem('task5_result', JSON.stringify(taskResult));
@@ -632,7 +643,9 @@ export default function Task5Training() {
                         <p className="text-xs text-slate-500">
                           {key === 'barServer'
                             ? `${barServerFoundationDays.length} 天内部课 ${getCompletedFoundationDays(foundationProgress)}/${barServerFoundationDays.length} · ${role.courses.length} 个英文资源`
-                            : `${role.courses.length} 个英文资源 · 准备清单 ${prepCount}/${prepTotal}`}
+                            : key === 'retail'
+                              ? `${retailFoundationDays.length} 天内部课 ${getCompletedRetailDays(retailFoundationProgress)}/${retailFoundationDays.length} · ${role.courses.length} 个英文资源`
+                              : `${role.courses.length} 个英文资源 · 准备清单 ${prepCount}/${prepTotal}`}
                         </p>
                       </div>
                     </div>
@@ -733,6 +746,24 @@ export default function Task5Training() {
           </div>
         </div>
 
+        {selectedRole === 'retail' && (
+          <section className="mb-5">
+            <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-xs font-semibold text-blue-700">Retail Sales Associate 单职位全流程包</p>
+              <h2 className="mt-1 text-lg font-bold text-slate-950">8 天邮轮零售基础训练</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">从接近客人、需求发现和产品讲解，练到 KPI、异议、POS、库存、防损与服务补救。</p>
+            </div>
+            <RequireActivation variant="inline" productCode="retail_sales_pack">
+              <RetailFoundationTraining
+                initialProgress={retailFoundationProgress}
+                onProgressChange={setRetailFoundationProgress}
+                onStartQuestions={() => navigate('/academy/interview-questions?position=retail')}
+                onStartSimulation={() => navigate('/programs/retail/training')}
+              />
+            </RequireActivation>
+          </section>
+        )}
+
         {selectedRole === 'barServer' && (
           <section className="mb-5">
             <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
@@ -809,6 +840,8 @@ export default function Task5Training() {
               ? '完成岗位知识准备，进入 Task6'
               : selectedRole === 'barServer' && getCompletedFoundationDays(foundationProgress) < barServerFoundationDays.length
                 ? `完成 ${barServerFoundationDays.length} 天基础训练与清单后进入 Task6（${getCompletedFoundationDays(foundationProgress)}/${barServerFoundationDays.length}）`
+                : selectedRole === 'retail' && getCompletedRetailDays(retailFoundationProgress) < retailFoundationDays.length
+                  ? `完成 ${retailFoundationDays.length} 天基础训练与清单后进入 Task6（${getCompletedRetailDays(retailFoundationProgress)}/${retailFoundationDays.length}）`
                 : '完成清单后进入 Task6'}
           </button>
         </div>

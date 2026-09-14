@@ -18,6 +18,7 @@ let entitlementResponse = {
   ai_feedback_limit: 120,
   mock_interview_limit: 10,
 }
+let retailEntitlementResponse = null
 
 globalThis.fetch = async (url) => {
   const target = String(url)
@@ -38,7 +39,7 @@ globalThis.fetch = async (url) => {
   }
 
   if (target.includes('/rest/v1/user_entitlements')) {
-    return Response.json(entitlementResponse)
+    return Response.json(target.includes('retail_sales_pack') ? retailEntitlementResponse : entitlementResponse)
   }
 
   if (target.includes('/rest/v1/ai_usage_events')) {
@@ -111,6 +112,15 @@ assert.equal(denied.status, 403)
 assert.equal(denied.body.error.code, 'ACTIVATION_REQUIRED')
 assert.equal(providerCalls, 1)
 
+retailEntitlementResponse = {
+  ...entitlementResponse,
+  product_code: 'retail_sales_pack',
+}
+const retailAllowed = await request('Retail Sales Associate')
+assert.equal(retailAllowed.status, 200)
+assert.equal(retailAllowed.body.success, true)
+assert.equal(providerCalls, 2)
+
 entitlementResponse = null
 accessResponse = {
   unlocked: true,
@@ -122,6 +132,6 @@ accessResponse = {
 const legacyDenied = await request('Bar Server')
 assert.equal(legacyDenied.status, 403)
 assert.equal(legacyDenied.body.error.code, 'ACTIVATION_REQUIRED')
-assert.equal(providerCalls, 1)
+assert.equal(providerCalls, 2)
 
 console.log('Product entitlement access contract passed.')

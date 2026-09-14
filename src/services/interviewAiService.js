@@ -120,18 +120,18 @@ export const coachInterviewAnswer = ({ position, card, answers, generated }) => 
   generated,
 })
 
-export const continueScenarioRoleplay = ({ scenarioId, firstAnswer, requestId }) => requestInterviewAi({
+export const continueScenarioRoleplay = ({ scenarioId, firstAnswer, position = 'Bar Server', requestId }) => requestInterviewAi({
   action: 'scenario_turn',
   mode: 'premium_scenario',
-  position: 'Bar Server',
+  position,
   scenarioId,
   firstAnswer,
 }, requestId)
 
-export const evaluateScenarioSimulation = ({ scenarioId, turns, requestId }) => requestInterviewAi({
+export const evaluateScenarioSimulation = ({ scenarioId, turns, position = 'Bar Server', requestId }) => requestInterviewAi({
   action: 'scenario_evaluate',
   mode: 'premium_scenario',
-  position: 'Bar Server',
+  position,
   scenarioId,
   turns,
 }, requestId)

@@ -39,10 +39,13 @@ export default function Task7TrainingCenter() {
   const [usage, setUsage] = useState(null)
 
   useEffect(() => {
-    if (position?.key !== 'bar_server') return undefined
+    const productCode = position?.key === 'bar_server'
+      ? 'bar_server_pack'
+      : position?.key === 'retail' ? 'retail_sales_pack' : null
+    if (!productCode) return undefined
 
     let active = true
-    getMyProductUsage('bar_server_pack')
+    getMyProductUsage(productCode)
       .then((nextUsage) => { if (active) setUsage(nextUsage) })
       .catch((error) => console.warn('Unable to load AI usage status:', error))
 
@@ -76,13 +79,13 @@ export default function Task7TrainingCenter() {
       tone: 'blue',
       completed: voiceCompleted,
     },
-    ...(position?.key === 'bar_server' ? [{
+    ...(['bar_server', 'retail'].includes(position?.key) ? [{
       id: 'job-simulator',
       title: '岗位场景训练',
-      description: '以 Guest、投诉客人和高压服务场景连续回应，再看六维岗位能力与下一项弱项训练。',
-      meta: 'Bar Server 专属 · 激活权益',
+      description: '以 Guest、投诉客人和高压工作场景连续回应，再看六维岗位能力与下一项弱项训练。',
+      meta: `${position.key === 'retail' ? 'Retail Sales Associate' : 'Bar Server'} 专属 · 激活权益`,
       action: '进入训练',
-      route: '/programs/bar-server/training',
+      route: position.key === 'retail' ? '/programs/retail/training' : '/programs/bar-server/training',
       area: '海乘学院',
       icon: Target,
       tone: 'amber',
@@ -95,7 +98,7 @@ export default function Task7TrainingCenter() {
       description: '连续完成一轮英文面试，训练追问节奏和临场表达。',
       meta: '激活权益 · 约 10-15 分钟',
       action: mockCompleted ? '再次模拟' : '进入模拟',
-      route: '/tasks/phase2/Task7/mock',
+      route: `/tasks/phase2/Task7/mock${position?.key ? `?position=${position.key}` : ''}`,
       area: '求职中心',
       icon: Sparkles,
       tone: 'amber',
@@ -170,9 +173,9 @@ export default function Task7TrainingCenter() {
             </div>
           </div>
 
-          {position?.key === 'bar_server' && usage?.active && (
+          {['bar_server', 'retail'].includes(position?.key) && usage?.active && (
             <div className="mt-3 rounded-lg border border-amber-100 bg-amber-50 p-3">
-              <p className="text-xs font-semibold text-amber-800">Bar Server 权益与 AI 额度</p>
+              <p className="text-xs font-semibold text-amber-800">{position.key === 'retail' ? 'Retail Sales Associate' : 'Bar Server'} 权益与 AI 额度</p>
               <div className="mt-2 grid gap-3 text-sm text-amber-950 sm:grid-cols-3">
                 <p>语音转写：{usage.transcription.limit === null ? '不限次' : `${usage.transcription.remaining}/${usage.transcription.limit} 剩余`}</p>
                 <p>逐题反馈：{usage.feedback.limit === null ? '不限次' : `${usage.feedback.remaining}/${usage.feedback.limit} 剩余`}</p>

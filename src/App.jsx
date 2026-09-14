@@ -61,6 +61,7 @@ const ServiceInfo = lazy(() => import('./pages/ServiceInfo'))
 const FounderBeta = lazy(() => import('./pages/FounderBeta'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const RetailPreparationPack = lazy(() => import('./pages/programs/RetailPreparationPack'))
+const RetailScenarioTraining = lazy(() => import('./pages/programs/RetailScenarioTraining'))
 const BarServerTrial = lazy(() => import('./pages/programs/BarServerTrial'))
 const BarServerScenarioTraining = lazy(() => import('./pages/programs/BarServerScenarioTraining'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
@@ -151,6 +152,7 @@ function App() {
               <Route path="/service-info" element={<ServiceInfo />} />
               <Route path="/founder-test" element={<RequireActivation productCode="bar_server_pack"><FounderBeta /></RequireActivation>} />
               <Route path="/programs/retail" element={<RetailPreparationPack />} />
+              <Route path="/programs/retail/training" element={<RequireActivation productCode="retail_sales_pack"><RetailScenarioTraining /></RequireActivation>} />
               <Route path="/programs/bar-server" element={<BarServerTrial />} />
               <Route path="/programs/bar-server/training" element={<RequireActivation productCode="bar_server_pack"><BarServerScenarioTraining /></RequireActivation>} />
               <Route path="/assessment" element={<AssessmentContainer />} />

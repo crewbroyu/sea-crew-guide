@@ -108,6 +108,10 @@ function Task8MockInterview() {
   const navigate = useNavigate();
   const location = useLocation();
   const { openRegisterModal, openUnlockModal } = useAccessStore();
+  const requestedPosition = normalizeInterviewPosition(
+    new URLSearchParams(location.search).get('position'),
+    ''
+  );
 
   // ===== 判断来源 =====
   const fromAcademy = location.state?.from === 'academy';
@@ -123,7 +127,7 @@ function Task8MockInterview() {
   const [task2Position] = useState(readTask2Position);
   const [stage, setStage] = useState('ready');
   const [selectedPosition, setSelectedPosition] = useState(() =>
-    fromAcademy ? null : task2Position || readSavedInterviewPosition()
+    requestedPosition || (fromAcademy ? null : task2Position || readSavedInterviewPosition())
   );
   const [showPositionSelector, setShowPositionSelector] = useState(false);
   const [extractedQuestions, setExtractedQuestions] = useState(() =>
@@ -772,7 +776,14 @@ function Task8MockInterview() {
                 </div>
               )}
 
-              <RequireActivation variant="inline" productCode={selectedPosition === 'bar_server' ? 'bar_server_pack' : undefined}>
+              <RequireActivation
+                variant="inline"
+                productCode={selectedPosition === 'bar_server'
+                  ? 'bar_server_pack'
+                  : selectedPosition === 'retail'
+                    ? 'retail_sales_pack'
+                    : undefined}
+              >
               <button
                 onClick={startInterview}
                 disabled={!selectedPosition}

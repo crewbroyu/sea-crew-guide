@@ -1,17 +1,19 @@
 import { ArrowRight, Target } from 'lucide-react'
-import { BAR_SERVER_SKILLS, getScenarioById } from '../../data/jobScenarioCatalog'
+import { getJobSimulator, getJobSkills, getScenarioById } from '../../data/jobScenarioCatalog'
 
-export default function JobReadinessDashboard({ profile, onOpenScenario }) {
+export default function JobReadinessDashboard({ profile, onOpenScenario, jobKey = 'bar_server' }) {
+  const simulator = getJobSimulator(jobKey)
+  const skills = getJobSkills(jobKey)
   const scores = profile?.skill_scores || profile?.skillScores || {}
   const readiness = Number(profile?.readiness_score ?? profile?.readinessScore ?? 0)
-  const weakest = BAR_SERVER_SKILLS.find(({ key }) => key === profile?.weakest_skill || key === profile?.weakestSkill)
+  const weakest = skills.find(({ key }) => key === profile?.weakest_skill || key === profile?.weakestSkill)
   const recommended = getScenarioById(profile?.recommended_scenario_id || profile?.recommendedScenario?.id)
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-medium text-blue-700">BAR SERVER READINESS</p>
+          <p className="text-xs font-medium text-blue-700">{simulator.label} READINESS</p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">Job Readiness</h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">Based on completed job simulations. It is not a hiring decision.</p>
         </div>
@@ -23,7 +25,7 @@ export default function JobReadinessDashboard({ profile, onOpenScenario }) {
 
       {readiness > 0 ? (
         <div className="mt-5 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-          {BAR_SERVER_SKILLS.map(({ key, label }) => {
+          {skills.map(({ key, label }) => {
             const score = Number(scores[key] || 0)
             return (
               <div key={key}>

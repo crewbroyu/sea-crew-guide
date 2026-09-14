@@ -45,7 +45,7 @@ const learningSections = [
     items: [
       {
         title: '岗位英语与训练路径',
-        description: '按目标岗位查看英语重点；Bar Server 已接入完整岗位包',
+        description: '按目标岗位查看英语重点；Bar Server 与 Retail 已接入完整岗位包',
         route: '/academy/position-english',
         icon: BookOpen,
       },
@@ -55,6 +55,13 @@ const learningSections = [
         route: '/programs/bar-server',
         state: { from: 'academy' },
         icon: Mic2,
+      },
+      {
+        title: 'Retail Sales Associate 完整岗位训练',
+        description: '从需求发现、产品表达和销售动作，练到异议、POS、库存与 Sea Day 场景',
+        route: '/programs/retail',
+        state: { from: 'academy' },
+        icon: BriefcaseBusiness,
       },
       {
         title: '听说训练',

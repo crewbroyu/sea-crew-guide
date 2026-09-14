@@ -31,6 +31,46 @@ const simulationKnowledge = {
     salesGoal: 'Not applicable. Safety overrides sales.',
     knowledge: ['A beverage package never overrides responsible-service policy.', 'Use neutral language rather than calling a guest drunk to their face.', 'Notify a supervisor early and request security or medical support if needed.'],
   },
+  retail_sim_guest_approach: {
+    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Guest',
+    openingLine: "Thanks, I'm just looking. I don't really need anything today.",
+    followUpFocus: 'Test whether the associate can discover a purpose, recipient, category, or preference without becoming pushy.',
+    serviceGoal: 'Welcome the guest, respect their space, and create a natural reason to continue.',
+    salesGoal: 'Discover one useful preference without starting a product pitch.',
+    knowledge: ['Offer specific help and remain available.', 'Use one relevant open question.', 'Respect a clear decision not to engage.'],
+  },
+  retail_sim_fragrance_discovery: {
+    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Gift Shopper',
+    openingLine: "I need a fragrance for my partner, but I have no idea what to choose. They usually like something fresh.",
+    followUpFocus: 'Ask about budget, scent family, current fragrance, or occasion before testing a comparison and close.',
+    serviceGoal: 'Discover the need and present one suitable option with honest feature-to-benefit language.',
+    salesGoal: 'Offer a relevant comparison or gift addition only after establishing fit.',
+    knowledge: ['Ask about scent family, occasion, current favourites, and budget.', 'Describe notes rather than promising a reaction.', 'Never invent longevity, stock, or savings.'],
+  },
+  retail_sim_price_objection: {
+    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Price-conscious Guest',
+    openingLine: 'I found what looks like the same watch online for less. Why should I buy it here?',
+    followUpFocus: 'Challenge the associate on price matching, warranty, authenticity, or customs allowance.',
+    serviceGoal: 'Acknowledge the comparison, verify facts, and protect trust.',
+    salesGoal: 'Clarify value and buying conditions, then close only when the concern is resolved.',
+    knowledge: ['Do not guarantee the lowest price or a customs outcome.', 'Compare exact model, warranty, currency, tax, and seller status.', 'Use approved price information only.'],
+  },
+  retail_sim_return_policy: {
+    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Complaining Guest',
+    openingLine: 'This skincare set irritated my skin. I opened it yesterday and I want a full refund now.',
+    followUpFocus: 'Test empathy, policy boundaries, escalation, and whether the associate avoids medical claims.',
+    serviceGoal: 'Listen, inspect facts, explain only verified policy, and involve the correct authority.',
+    salesGoal: 'Restore trust. Do not turn the complaint into an upsell.',
+    knowledge: ['Check receipt, condition, purchase details, and current policy.', 'Do not promise a refund before authorisation.', 'Avoid medical advice and document the concern.'],
+  },
+  retail_sim_sea_day: {
+    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Event Guest',
+    openingLine: 'The sign says buy two and save twenty percent. Does that include this brand, and can I mix the products?',
+    followUpFocus: 'Add a waiting guest, an uncertain exclusion, or a stock issue and test prioritisation plus an accurate close.',
+    serviceGoal: 'Prioritise guests, explain the promotion accurately, and keep the floor controlled.',
+    salesGoal: 'Use needs-based cross-selling while protecting service and transaction accuracy.',
+    knowledge: ['Acknowledge waiting guests.', 'Confirm eligibility and exclusions in approved material.', 'Protect merchandise, payment accuracy, and team communication.'],
+  },
 }
 
 export const getBarServerSimulationKnowledge = (scenarioId) => simulationKnowledge[scenarioId] || null

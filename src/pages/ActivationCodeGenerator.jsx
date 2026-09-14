@@ -8,6 +8,7 @@ export default function ActivationCodeGenerator() {
   const [generatedCodes, setGeneratedCodes] = useState([]);
   const [count, setCount] = useState(1);
   const [codeType, setCodeType] = useState('manual_paid');
+  const [productCode, setProductCode] = useState('bar_server_pack');
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState('');
   const [existingCodes, setExistingCodes] = useState([]);
@@ -29,7 +30,7 @@ export default function ActivationCodeGenerator() {
     setMessage('正在生成并保存...');
     
     try {
-      const result = await insertBatchCodes(count, codeType);
+      const result = await insertBatchCodes(count, codeType, productCode);
       setGeneratedCodes(result.codes.map(c => c.code));
       setMessage(`成功保存 ${result.count} 个激活码到数据库`);
     } catch (error) {
@@ -108,6 +109,14 @@ export default function ActivationCodeGenerator() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">岗位产品</label>
+              <select value={productCode} onChange={(event) => setProductCode(event.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <option value="bar_server_pack">Bar Server 完整包</option>
+                <option value="retail_sales_pack">Retail Sales Associate 完整包</option>
+              </select>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">发放类型</label>
               <select
                 value={codeType}
@@ -162,7 +171,7 @@ export default function ActivationCodeGenerator() {
               </div>
             </div>
           )}
-          <p className="mt-5 text-sm leading-6 text-gray-500">当前生成的码固定开通 Bar Server 单职位全流程包，有效期 180 天。请在确认到账后再把单条码发给对应用户。</p>
+          <p className="mt-5 text-sm leading-6 text-gray-500">激活码会开通上方选择的单职位全流程包，有效期 180 天。请在确认到账后再把单条码发给对应用户。</p>
         </div>
 
         {existingCodes.length > 0 && (
@@ -176,6 +185,7 @@ export default function ActivationCodeGenerator() {
                   <tr className="bg-gray-50">
                     <th className="px-4 py-2 text-left">激活码</th>
                     <th className="px-4 py-2 text-left">类型</th>
+                    <th className="px-4 py-2 text-left">岗位产品</th>
                     <th className="px-4 py-2 text-left">是否已使用</th>
                     <th className="px-4 py-2 text-left">使用者</th>
                     <th className="px-4 py-2 text-left">使用时间</th>
@@ -186,6 +196,7 @@ export default function ActivationCodeGenerator() {
                     <tr key={code.code} className="border-t">
                       <td className="px-4 py-2 font-mono">{code.code}</td>
                       <td className="px-4 py-2">{code.type || '-'}</td>
+                      <td className="px-4 py-2">{code.product_code || 'bar_server_pack'}</td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-1 rounded text-xs ${code.is_used ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                           {code.is_used ? '已使用' : '未使用'}

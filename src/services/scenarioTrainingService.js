@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { BAR_SERVER_SKILLS, getScenarioForWeakSkill } from '../data/jobScenarioCatalog'
+import { getJobSkills, getScenarioForWeakSkill } from '../data/jobScenarioCatalog'
 
 const getCurrentUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser()
@@ -9,10 +9,10 @@ const getCurrentUser = async () => {
 
 const clampScore = (value) => Math.round(Math.max(0, Math.min(100, Number(value) || 0)))
 
-export const emptySkillScores = () => Object.fromEntries(BAR_SERVER_SKILLS.map(({ key }) => [key, 0]))
+export const emptySkillScores = (jobKey = 'bar_server') => Object.fromEntries(getJobSkills(jobKey).map(({ key }) => [key, 0]))
 
-export const normalizeSkillScores = (value) => Object.fromEntries(
-  BAR_SERVER_SKILLS.map(({ key }) => [key, clampScore(value?.[key])]),
+export const normalizeSkillScores = (value, jobKey = 'bar_server') => Object.fromEntries(
+  getJobSkills(jobKey).map(({ key }) => [key, clampScore(value?.[key])]),
 )
 
 export const getMyScenarioProfile = async (jobKey = 'bar_server') => {
@@ -106,8 +106,10 @@ export const saveScenarioTrainingResult = async ({ sessionId, scenario, turns, e
   const user = await getCurrentUser()
   if (!user) return null
 
-  const skillScores = normalizeSkillScores(evaluation?.skillScores)
-  const weakestSkill = BAR_SERVER_SKILLS
+  const jobKey = scenario.jobKey || 'bar_server'
+  const skills = getJobSkills(jobKey)
+  const skillScores = normalizeSkillScores(evaluation?.skillScores, jobKey)
+  const weakestSkill = skills
     .slice()
     .sort((left, right) => skillScores[left.key] - skillScores[right.key])[0]?.key || 'english'
 
@@ -147,18 +149,18 @@ export const saveScenarioTrainingResult = async ({ sessionId, scenario, turns, e
   const completedScenarioIds = [...new Set(history.map((item) => item.scenario_id))]
   const latestScores = skillScores
   const previousProfile = await getMyScenarioProfile(scenario.jobKey)
-  const previousScores = normalizeSkillScores(previousProfile?.skill_scores)
+  const previousScores = normalizeSkillScores(previousProfile?.skill_scores, jobKey)
   const hasPreviousProfile = Boolean(previousProfile?.updated_at)
-  const blendedScores = Object.fromEntries(BAR_SERVER_SKILLS.map(({ key }) => [
+  const blendedScores = Object.fromEntries(skills.map(({ key }) => [
     key,
     hasPreviousProfile ? Math.round(previousScores[key] * 0.65 + latestScores[key] * 0.35) : latestScores[key],
   ]))
-  const nextWeakestSkill = BAR_SERVER_SKILLS
+  const nextWeakestSkill = skills
     .slice()
     .sort((left, right) => blendedScores[left.key] - blendedScores[right.key])[0]?.key || weakestSkill
-  const recommendedScenario = getScenarioForWeakSkill(nextWeakestSkill, completedScenarioIds)
+  const recommendedScenario = getScenarioForWeakSkill(nextWeakestSkill, completedScenarioIds, jobKey)
   const readinessScore = Math.round(
-    BAR_SERVER_SKILLS.reduce((total, { key }) => total + blendedScores[key], 0) / BAR_SERVER_SKILLS.length,
+    skills.reduce((total, { key }) => total + blendedScores[key], 0) / skills.length,
   )
 
   const { error: profileError } = await supabase

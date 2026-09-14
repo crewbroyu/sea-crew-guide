@@ -363,8 +363,14 @@ function Task7InterviewPractice() {
   const [targetPositionKey] = useState(() => requestedPosition || getTargetPositionKey());
   const [roundNumber, setRoundNumber] = useState(compatiblePractice.roundNumber || 0);
   const targetPosition = useMemo(() => getTargetPositionMeta(targetPositionKey), [targetPositionKey]);
-  const hasPaidAiAccess = targetPositionKey === 'bar_server'
-    && hasProductEntitlement(access, 'bar_server_pack');
+  const targetProductCode = targetPositionKey === 'bar_server'
+    ? 'bar_server_pack'
+    : targetPositionKey === 'retail'
+      ? 'retail_sales_pack'
+      : null;
+  const hasPaidAiAccess = Boolean(
+    targetProductCode && hasProductEntitlement(access, targetProductCode)
+  );
   const [retryQuestions, setRetryQuestions] = useState(compatiblePractice.retryQuestions || null);
   const [baselineScores, setBaselineScores] = useState(compatiblePractice.baselineScores || {});
   const [attemptHistory, setAttemptHistory] = useState(compatiblePractice.attemptHistory || []);
@@ -493,13 +499,13 @@ function Task7InterviewPractice() {
     setRecorderError('');
 
     if (!isRegistered) {
-      setRecorderError('登录后可保存文字练习。Bar Server 提供 3 个免费语音场景体验。');
+      setRecorderError('登录后可保存文字练习。Bar Server 另提供 3 个免费语音场景体验。');
       openRegisterModal();
       return;
     }
 
     if (!hasPaidAiAccess) {
-      setRecorderError('当前岗位的语音转写与 AI 反馈属于训练包权益。可先用文字完成练习，或体验 Bar Server 的 3 个免费场景。');
+      setRecorderError('当前岗位的语音转写与 AI 反馈属于对应岗位训练包权益。可先用文字完成练习。');
       return;
     }
 
@@ -805,7 +811,7 @@ function Task7InterviewPractice() {
           : requestedQuestionId
               ? hasPaidAiAccess
                 ? '你选择的问题会排在本轮第一题，其余题目由通用问题和岗位场景组成。录音会临时用于英文转写，音频本身不会写入长期档案。'
-                : '你选择的问题会排在本轮第一题。可以先用文字自练；语音 AI 体验目前只开放 Bar Server 的 3 个免费场景。'
+                : '你选择的问题会排在本轮第一题。可以先用文字自练；语音转写与 AI 报告需解锁对应岗位训练包。'
               : hasPaidAiAccess
                 ? '本轮会根据你的目标岗位安排 8 道题。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入长期档案；你可以在评分前修改转写文本。'
                 : '本轮会根据你的目标岗位安排 8 道题，可先完成文字自练。语音转写和 AI 反馈需要对应岗位训练包。'}

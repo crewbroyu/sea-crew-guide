@@ -34,6 +34,7 @@ const positions = [
       },
     ],
     foundationAvailable: true,
+    fullPackAvailable: true,
     preparationRoute: '/programs/retail',
   },
   {
@@ -245,6 +246,14 @@ const barServerTrainingPath = [
   },
 ]
 
+const retailTrainingPath = [
+  { task: '任务5', area: '海乘学院', title: '8 天邮轮零售基础课', description: '学习接待、需求发现、产品表达、KPI、异议、POS、库存与防损。', route: '/tasks/phase2/Task5?position=retail&source=academy' },
+  { task: '任务6', area: '求职中心', title: '把销售经历变成英文回答', description: '整理业绩、需求发现、异议处理和高压服务案例。', route: '/tasks/phase2/Task6?source=task5' },
+  { task: '岗位模拟', area: '海乘学院', title: '5 级邮轮零售工作模拟', description: '与客人连续对话，并按六项岗位能力保存训练结果。', route: '/programs/retail/training' },
+  { task: '任务7', area: '海乘学院', title: 'Retail 题库与单题练习', description: '检查岗位理解、销售判断和英文表达。', route: '/academy/interview-questions?position=retail' },
+  { task: '面试前', area: '求职中心', title: 'AI 模拟面试', description: '把真实销售能力转成招聘官听得懂的个人案例。', route: '/tasks/phase2/Task7/mock?position=retail' },
+]
+
 export default function PositionEnglish() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -259,6 +268,7 @@ export default function PositionEnglish() {
   const [activeKey, setActiveKey] = useState(initialKey)
   const activePosition = positions.find(position => position.key === activeKey) || positions[0]
   const activePreference = getJobPreferenceLabel(activeKey, preferences)
+  const completeTrainingPath = activeKey === 'bar_server' ? barServerTrainingPath : activeKey === 'retail' ? retailTrainingPath : null
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
@@ -332,15 +342,15 @@ export default function PositionEnglish() {
               </div>
             </section>
 
-            {activeKey === 'bar_server' && (
+            {completeTrainingPath && (
               <section className="overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
                 <div className="border-b border-blue-100 bg-blue-50 px-5 py-4">
-                  <p className="text-xs font-semibold text-blue-700">首个完整岗位包</p>
-                  <h3 className="mt-1 font-semibold text-slate-950">Bar Server 不是一组面试题，而是一条完整训练路径</h3>
+                  <p className="text-xs font-semibold text-blue-700">{activeKey === 'bar_server' ? '首个完整岗位包' : '第二个完整岗位包 · 内测中'}</p>
+                  <h3 className="mt-1 font-semibold text-slate-950">{activePosition.name} 不是一组面试题，而是一条完整训练路径</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-600">先学会怎么做这份工作，再练怎么回答，最后进入模拟面试。</p>
                 </div>
                 <div className="divide-y divide-slate-100">
-                  {barServerTrainingPath.map((step, index) => (
+                  {completeTrainingPath.map((step, index) => (
                     <button
                       key={step.title}
                       type="button"
@@ -360,7 +370,7 @@ export default function PositionEnglish() {
               </section>
             )}
 
-            {activeKey !== 'bar_server' && (
+            {!completeTrainingPath && (
               <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-xs font-semibold text-blue-700">任务5 · 岗位基础准备</p>
                 <h3 className="mt-1 font-semibold text-slate-950">
@@ -464,10 +474,10 @@ export default function PositionEnglish() {
                   {activeKey === 'bar_server' ? '进入 Bar Server 公开题库' : activeKey === 'spa' ? '岗位题库制作中' : '练习岗位面试问题'}
                   <ArrowRight size={17} />
                 </button>
-                {activeKey === 'bar_server' && (
+                {completeTrainingPath && (
                   <button
                     type="button"
-                    onClick={() => navigate('/programs/bar-server')}
+                    onClick={() => navigate(activePosition.preparationRoute || '/programs/bar-server')}
                     className="flex w-full items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
                   >
                     查看完整岗位包

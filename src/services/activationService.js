@@ -13,7 +13,7 @@ export const generateCode = () => {
   return `CREW-${result}`;
 };
 
-export const generateBatchCodes = async (count = 50, type = 'manual_paid') => {
+export const generateBatchCodes = async (count = 50, type = 'manual_paid', productCode = 'bar_server_pack') => {
   const generatedCodes = new Set();
   const codes = [];
 
@@ -26,7 +26,7 @@ export const generateBatchCodes = async (count = 50, type = 'manual_paid') => {
         code: newCode,
         is_used: false,
         type,
-        product_code: 'bar_server_pack',
+        product_code: productCode,
         access_days: 180,
       });
     }
@@ -35,8 +35,8 @@ export const generateBatchCodes = async (count = 50, type = 'manual_paid') => {
   return codes;
 };
 
-export const insertBatchCodes = async (count = 50, type = 'manual_paid') => {
-  const codes = await generateBatchCodes(count, type);
+export const insertBatchCodes = async (count = 50, type = 'manual_paid', productCode = 'bar_server_pack') => {
+  const codes = await generateBatchCodes(count, type, productCode);
   const { error } = await supabase.from('activation_codes').insert(codes);
 
   if (error) {

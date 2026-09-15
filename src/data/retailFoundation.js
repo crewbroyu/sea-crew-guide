@@ -26,6 +26,7 @@ export const retailFoundationDays = [
       { cue: 'Acknowledge a waiting guest', line: 'Good evening. I will be with you shortly. Thank you for waiting.' },
     ],
     challenge: { role: 'Guest', prompt: "I'm just looking. I don't need any help right now." },
+    quiz: { question: 'What is the best next move when a guest says they are just looking?', options: [{ id: 'a', text: 'Start a detailed product pitch immediately.' }, { id: 'b', text: 'Respect their space, offer specific help and remain available.' }, { id: 'c', text: 'Ignore the guest for the rest of the visit.' }], correctOptionId: 'b', explanation: 'A professional approach protects the guest’s space while leaving a natural path back into conversation.' },
   },
   {
     id: 'retail-discovery', day: 2, duration: '30-40 min', title: 'Needs Discovery Before Recommendation',
@@ -44,6 +45,7 @@ export const retailFoundationDays = [
       { cue: 'Confirm your understanding', line: 'So you are looking for a fresh, everyday gift within this range. Have I understood correctly?' },
     ],
     challenge: { role: 'Gift Shopper', prompt: 'I need a gift for my sister, but I really do not know what she would like.' },
+    quiz: { question: 'Which discovery sequence gives the most useful recommendation?', options: [{ id: 'a', text: 'Show the highest-priced item first.' }, { id: 'b', text: 'Ask about recipient, preference, occasion and budget, then summarise.' }, { id: 'c', text: 'Ask only how much the guest can spend.' }], correctOptionId: 'b', explanation: 'Good discovery combines practical and emotional needs before any recommendation.' },
   },
   {
     id: 'retail-product-story', day: 3, duration: '35-45 min', title: 'Product Knowledge and Feature-to-Benefit Storytelling',
@@ -62,6 +64,7 @@ export const retailFoundationDays = [
       { cue: 'Stay inside your knowledge', line: 'I do not want to give you inaccurate information, so let me verify that detail for you.' },
     ],
     challenge: { role: 'Guest', prompt: 'What makes this fragrance different from the one beside it?' },
+    quiz: { question: 'What turns a product feature into a useful sales explanation?', options: [{ id: 'a', text: 'Connect the feature to the guest’s stated need.' }, { id: 'b', text: 'Call every item premium and amazing.' }, { id: 'c', text: 'Promise performance that is not in approved information.' }], correctOptionId: 'a', explanation: 'Feature-to-benefit language explains why a verified detail matters to this particular guest.' },
   },
   {
     id: 'retail-demonstration', day: 4, duration: '30-40 min', title: 'Demonstration, Comparison and Buying Signals',
@@ -80,6 +83,7 @@ export const retailFoundationDays = [
       { cue: 'Use a choice close', line: 'Would you prefer the classic design or the lighter everyday option?' },
     ],
     challenge: { role: 'Guest', prompt: 'I like both watches. I cannot decide which one is better for daily use.' },
+    quiz: { question: 'A guest asks about warranty and availability. What may this indicate?', options: [{ id: 'a', text: 'A buying signal that should be clarified.' }, { id: 'b', text: 'Permission to pressure the guest.' }, { id: 'c', text: 'The guest is no longer interested.' }], correctOptionId: 'a', explanation: 'Buying signals are reasons to clarify and help the guest decide, never permission to apply pressure.' },
   },
   {
     id: 'retail-upsell-kpi', day: 5, duration: '35-45 min', title: 'Upselling, Cross-selling and Retail KPIs',
@@ -98,6 +102,7 @@ export const retailFoundationDays = [
       { cue: 'Respect a decline', line: 'Of course. We will keep it to the item you selected.' },
     ],
     challenge: { role: 'Guest', prompt: 'I have chosen this fragrance. I do not want the sales pitch, though.' },
+    quiz: { question: 'When is cross-selling appropriate?', options: [{ id: 'a', text: 'Every time, even after a clear refusal.' }, { id: 'b', text: 'When the additional item has a clear reason connected to the guest’s purchase.' }, { id: 'c', text: 'Only when it is the most expensive item.' }], correctOptionId: 'b', explanation: 'Relevant additions can create value; repeated pressure damages trust and guest experience.' },
   },
   {
     id: 'retail-objections', day: 6, duration: '35-45 min', title: 'Objections, Promotions and Duty-free Accuracy',
@@ -116,6 +121,7 @@ export const retailFoundationDays = [
       { cue: 'Check resolution', line: 'Does that answer your concern, or would you like me to verify another detail?' },
     ],
     challenge: { role: 'Price-conscious Guest', prompt: 'The sign says duty-free, so this must be cheaper than everywhere else, right?' },
+    quiz: { question: 'Which statement about duty-free selling is safe and accurate?', options: [{ id: 'a', text: 'It is always the lowest price in the world.' }, { id: 'b', text: 'Every traveller has unlimited customs allowance.' }, { id: 'c', text: 'Price, tax and customs conditions must be checked against approved information.' }], correctOptionId: 'c', explanation: 'Retail staff should never guarantee savings or personal customs outcomes without verified information.' },
   },
   {
     id: 'retail-operations', day: 7, duration: '35-45 min', title: 'POS, Stock, Visual Standards and Loss Prevention',
@@ -134,6 +140,7 @@ export const retailFoundationDays = [
       { cue: 'Escalate discreetly', line: 'I need my supervisor to verify this transaction before we continue.' },
     ],
     challenge: { role: 'Guest', prompt: 'The payment looked unsuccessful. Just run my card again quickly because I am late.' },
+    quiz: { question: 'What should you do before retrying an uncertain card transaction?', options: [{ id: 'a', text: 'Verify the transaction status through the approved POS process.' }, { id: 'b', text: 'Run it repeatedly until one attempt works.' }, { id: 'c', text: 'Write down the card details for later.' }], correctOptionId: 'a', explanation: 'Verification prevents duplicate charges and protects payment accuracy and guest data.' },
   },
   {
     id: 'retail-service-recovery', day: 8, duration: '40-50 min', title: 'Returns, Complaints and Full Sea-day Handover',
@@ -152,6 +159,7 @@ export const retailFoundationDays = [
       { cue: 'Give a clean handover', line: 'The guest purchased this yesterday, has the receipt, and reports a reaction. I have not made a medical or refund promise.' },
     ],
     challenge: { role: 'Complaining Guest', prompt: 'This opened skincare set irritated my skin. I want a full refund right now.' },
+    quiz: { question: 'What is the correct first response to an opened-product complaint?', options: [{ id: 'a', text: 'Promise a full refund immediately.' }, { id: 'b', text: 'Acknowledge the concern, collect verified facts and involve the authorised person.' }, { id: 'c', text: 'Diagnose the cause of the skin reaction.' }], correctOptionId: 'b', explanation: 'Service recovery begins with listening and facts while staying inside policy and authority.' },
   },
 ]
 

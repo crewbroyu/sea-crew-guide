@@ -18,7 +18,7 @@ const courseSections = [
     title: '岗位基础课程',
     description: '9 天掌握酒水、杯具、服务流程、公共卫生和负责任售酒。每个知识点都带跟读与 Guest Challenge。',
     icon: BookOpenCheck,
-    route: '/tasks/phase2/Task5?position=bar_server&source=academy',
+    route: '/programs/bar-server/foundation',
     action: '进入 9 天基础课',
   },
   {

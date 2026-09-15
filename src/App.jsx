@@ -62,6 +62,7 @@ const RetailScenarioTraining = lazy(() => import('./pages/programs/RetailScenari
 const BarServerPreparationPack = lazy(() => import('./pages/programs/BarServerPreparationPack'))
 const BarServerTrial = lazy(() => import('./pages/programs/BarServerTrial'))
 const BarServerScenarioTraining = lazy(() => import('./pages/programs/BarServerScenarioTraining'))
+const FoundationCourse = lazy(() => import('./pages/programs/FoundationCourse'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
 const BoardingMaterials = lazy(() => import('./pages/BoardingMaterials'))
 
@@ -152,6 +153,8 @@ function App() {
               <Route path="/programs/bar-server" element={<BarServerPreparationPack />} />
               <Route path="/programs/bar-server/trial" element={<BarServerTrial />} />
               <Route path="/programs/bar-server/training" element={<RequireActivation productCode="bar_server_pack"><BarServerScenarioTraining /></RequireActivation>} />
+              <Route path="/programs/:jobSlug/foundation" element={<FoundationCourse />} />
+              <Route path="/programs/:jobSlug/foundation/:dayId" element={<FoundationCourse />} />
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />
               <Route path="/generate-codes" element={<RequireAdmin><ActivationCodeGenerator /></RequireAdmin>} />

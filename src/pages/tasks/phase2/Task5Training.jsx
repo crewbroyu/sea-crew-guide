@@ -4,8 +4,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronRight, ChevronUp } from 'lucide-react';
 import trainingCourses from '../../../data/trainingCourses';
-import BarServerFoundationTraining from '../../../components/training/BarServerFoundationTraining';
-import RetailFoundationTraining from '../../../components/training/RetailFoundationTraining';
 import RequireActivation from '../../../components/RequireActivation';
 import { barServerFoundationDays, getCompletedFoundationDays } from '../../../data/barServerFoundation';
 import { getCompletedRetailDays, getRetailFoundationProgress, retailFoundationDays } from '../../../data/retailFoundation';
@@ -552,11 +550,6 @@ export default function Task5Training() {
   const roles = Object.entries(trainingCourses);
   const currentRole = selectedRole ? trainingCourses[selectedRole] : null;
   const currentPreparation = selectedRole ? rolePreparation[selectedRole] : null;
-  const task6Completed = Boolean(
-    readJson('task6_result', {})?.completedAt
-    || readJson('boarding_progress', {})?.task6?.completed
-  );
-
   const getCompletedCount = (roleKey) => {
     return trainingCourses[roleKey].courses.filter(c => completedCourses[c.id]).length;
   };
@@ -754,12 +747,9 @@ export default function Task5Training() {
               <p className="mt-1 text-sm leading-6 text-slate-600">从接近客人、需求发现和产品讲解，练到 KPI、异议、POS、库存、防损与服务补救。</p>
             </div>
             <RequireActivation variant="inline" productCode="retail_sales_pack">
-              <RetailFoundationTraining
-                initialProgress={retailFoundationProgress}
-                onProgressChange={setRetailFoundationProgress}
-                onStartQuestions={() => navigate('/academy/interview-questions?position=retail')}
-                onStartSimulation={() => navigate('/programs/retail/training')}
-              />
+              <button type="button" onClick={() => navigate('/programs/retail/foundation')} className="flex min-h-12 w-full items-center justify-between rounded-lg border border-blue-200 bg-white px-4 text-left text-sm font-semibold text-blue-700">
+                <span>打开独立课程目录 · 已完成 {getCompletedRetailDays(retailFoundationProgress)}/{retailFoundationDays.length} 天</span><ChevronRight size={18} />
+              </button>
             </RequireActivation>
           </section>
         )}
@@ -774,23 +764,9 @@ export default function Task5Training() {
               </p>
             </div>
             <RequireActivation variant="inline" productCode="bar_server_pack">
-              <BarServerFoundationTraining
-                progress={foundationProgress}
-                onProgressChange={setFoundationProgress}
-                task6Completed={task6Completed}
-                onStartTask6={() => navigate('/tasks/phase2/Task6?source=task5')}
-                onStartTask7={({ foundationDayId = '', questionId = '' } = {}) => {
-                  const params = new URLSearchParams({
-                    mode: 'knowledge',
-                    position: 'bar_server',
-                    source: 'task5',
-                  });
-                  if (foundationDayId) params.set('foundationDay', foundationDayId);
-                  if (questionId) params.set('question', questionId);
-                  navigate(`/tasks/phase2/Task7/voice?${params.toString()}`);
-                }}
-                onStartScenarioTraining={() => navigate('/programs/bar-server/training')}
-              />
+              <button type="button" onClick={() => navigate('/programs/bar-server/foundation')} className="flex min-h-12 w-full items-center justify-between rounded-lg border border-blue-200 bg-white px-4 text-left text-sm font-semibold text-blue-700">
+                <span>打开独立课程目录 · 已完成 {getCompletedFoundationDays(foundationProgress)}/{barServerFoundationDays.length} 天</span><ChevronRight size={18} />
+              </button>
             </RequireActivation>
           </section>
         )}

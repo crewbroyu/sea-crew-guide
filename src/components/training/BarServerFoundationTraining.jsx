@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   ArrowRight,
+  Bookmark,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react'
 import PhraseShadowingPractice from '../interview/PhraseShadowingPractice'
 import GuestChallengePractice from './GuestChallengePractice'
+import FoundationLessonNavigation from './FoundationLessonNavigation'
 import {
   BAR_SERVER_FOUNDATION_VERSION,
   barServerFoundationDays,
@@ -83,13 +85,24 @@ export default function BarServerFoundationTraining({
   onStartTask6,
   onStartTask7,
   onStartScenarioTraining,
+  onlyDayId = '',
+  showCourseHeader = true,
+  savedLines = [],
+  onToggleSavedLine,
 }) {
+  const visibleDays = useMemo(
+    () => onlyDayId ? barServerFoundationDays.filter((day) => day.id === onlyDayId) : barServerFoundationDays,
+    [onlyDayId],
+  )
   const firstIncompleteDay = useMemo(
-    () => barServerFoundationDays.find((day) => !isFoundationDayComplete(progress[day.id]))?.id
+    () => visibleDays.find((day) => !isFoundationDayComplete(progress[day.id]))?.id
+      || visibleDays[0]?.id
       || barServerFoundationDays[0].id,
-    [progress],
+    [progress, visibleDays],
   )
   const [activeDayId, setActiveDayId] = useState(firstIncompleteDay)
+  const [lessonStep, setLessonStep] = useState(0)
+
   const completedDays = getCompletedFoundationDays(progress)
   const masteredDays = barServerFoundationDays.filter(
     (day) => Number(progress[day.id]?.practice?.bestScore || 0) >= 70,
@@ -131,9 +144,11 @@ export default function BarServerFoundationTraining({
     if (nextDay) setActiveDayId(nextDay.id)
   }
 
+  const showLessonStep = (step) => !onlyDayId || lessonStep === step
+
   return (
     <section className="mb-5 border-y border-slate-200 bg-white py-5 sm:rounded-lg sm:border sm:p-5 sm:shadow-sm">
-      <div className="px-0">
+      {showCourseHeader && <div className="px-0">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
             <GraduationCap size={21} />
@@ -156,10 +171,11 @@ export default function BarServerFoundationTraining({
             <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${completionPercent}%` }} />
           </div>
         </div>
-      </div>
+      </div>}
 
       <div className="mt-5 divide-y divide-slate-200 border-y border-slate-200">
-        {barServerFoundationDays.map((day, dayIndex) => {
+        {visibleDays.map((day) => {
+          const dayIndex = barServerFoundationDays.findIndex((item) => item.id === day.id)
           const shiftLab = barServerShiftLabs[day.id]
           const visualLessons = barServerFoundationVisuals[day.id] || []
           const dayProgress = progress[day.id] || {}
@@ -170,9 +186,9 @@ export default function BarServerFoundationTraining({
 
           return (
             <article key={day.id} className="py-1">
-              <button
+              {!onlyDayId && <button
                 type="button"
-                onClick={() => setActiveDayId(isActive ? '' : day.id)}
+                onClick={() => { if (!onlyDayId) setActiveDayId(isActive ? '' : day.id) }}
                 className="flex min-h-16 w-full items-center gap-3 py-3 text-left"
               >
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${isCompleted ? 'bg-emerald-50 text-emerald-700' : isActive ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
@@ -187,19 +203,29 @@ export default function BarServerFoundationTraining({
                       : '口头运用待任务7训练'}
                   </span>
                 </span>
-                <ChevronDown size={18} className={`shrink-0 text-slate-400 transition ${isActive ? 'rotate-180' : ''}`} />
-              </button>
+                {!onlyDayId && <ChevronDown size={18} className={`shrink-0 text-slate-400 transition ${isActive ? 'rotate-180' : ''}`} />}
+              </button>}
 
               {isActive && (
                 <div className="pb-6 pl-0 sm:pl-12">
-                  <div className="rounded-lg bg-blue-50 p-4">
+                  {onlyDayId && (
+                    <FoundationLessonNavigation
+                      activeStep={lessonStep}
+                      onStepChange={setLessonStep}
+                      canAdvance={lessonStep === 3 ? Boolean(dayProgress.shadowing?.completedAt) : lessonStep === 4 ? Boolean(dayProgress.guestChallenge?.completedAt) : true}
+                      completed={isCompleted}
+                      showControls={false}
+                    />
+                  )}
+
+                  {showLessonStep(0) && <div className="rounded-lg bg-blue-50 p-4">
                     <p className="text-xs font-semibold text-blue-700">TODAY&apos;S MISSION</p>
                     <p className="mt-1 text-sm font-medium leading-6 text-blue-950">{shiftLab?.mission || day.outcome}</p>
-                  </div>
+                  </div>}
 
                   {shiftLab && (
                     <>
-                      <section className="mt-5 border-y border-slate-200 py-4">
+                      {showLessonStep(0) && <section className="mt-5 border-y border-slate-200 py-4">
                         <div className="flex items-center gap-2 text-blue-700">
                           <MapPin size={16} />
                           <h3 className="text-xs font-bold">SHIFT BRIEFING</h3>
@@ -209,9 +235,9 @@ export default function BarServerFoundationTraining({
                           <span className="rounded-full bg-slate-100 px-2.5 py-1">{shiftLab.shift.time}</span>
                         </div>
                         <p className="mt-3 text-sm leading-6 text-slate-700">{shiftLab.shift.situation}</p>
-                      </section>
+                      </section>}
 
-                      <section className="mt-5">
+                      {showLessonStep(1) && <section className="mt-5">
                         <div className="flex items-end justify-between gap-3">
                           <div>
                             <p className="text-xs font-semibold text-blue-700">PRONUNCIATION DRILL</p>
@@ -230,15 +256,20 @@ export default function BarServerFoundationTraining({
                                 </div>
                                 <p className="mt-1 text-sm leading-6 text-slate-700">{item.example}</p>
                               </div>
-                              <button type="button" onClick={() => speakEnglish(`${item.term}. ${item.example}`)} title={`Listen to ${item.term}`} aria-label={`Listen to ${item.term}`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50">
-                                <Volume2 size={17} />
-                              </button>
+                              <div className="flex gap-2">
+                                <button type="button" onClick={() => speakEnglish(`${item.term}. ${item.example}`)} title={`Listen to ${item.term}`} aria-label={`Listen to ${item.term}`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50">
+                                  <Volume2 size={17} />
+                                </button>
+                                <button type="button" onClick={() => onToggleSavedLine?.({ text: item.example, cue: `Vocabulary · ${item.term}`, day: day.day, dayId: day.id })} title="Save this example" aria-label={`Save example for ${item.term}`} className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition ${savedLines.some((line) => line.text === item.example) ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                                  <Bookmark size={17} fill={savedLines.some((line) => line.text === item.example) ? 'currentColor' : 'none'} />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
-                      </section>
+                      </section>}
 
-                      <div className="mt-5">
+                      {showLessonStep(3) && <div className="mt-5">
                         <PhraseShadowingPractice
                           phrases={shiftLab.serviceLines.map((item) => item.line)}
                           phraseCues={shiftLab.serviceLines.map((item) => item.cue)}
@@ -248,24 +279,26 @@ export default function BarServerFoundationTraining({
                           requireListenBeforeRecord
                           title="LISTEN AND SHADOW"
                           description="Listen to each service line, then record it three complete times. Recordings stay on this page and do not use your AI quota."
+                          savedLines={savedLines}
+                          onToggleSavedLine={(text, cue) => onToggleSavedLine?.({ text, cue, day: day.day, dayId: day.id })}
                         />
-                      </div>
+                      </div>}
 
-                      <GuestChallengePractice
+                      {showLessonStep(4) && <GuestChallengePractice
                         role={shiftLab.challenge.role}
                         prompt={shiftLab.challenge.prompt}
                         challenge={dayProgress.guestChallenge || {}}
                         locked={!dayProgress.shadowing?.completedAt}
                         onChallengeChange={(guestChallenge) => updateDayProgress(day, { guestChallenge })}
-                      />
+                      />}
                     </>
                   )}
 
-                  {visualLessons.map((visual) => (
+                  {showLessonStep(2) && visualLessons.map((visual) => (
                     <VisualKnowledgeMap key={visual.image} visual={visual} />
                   ))}
 
-                  {dayProgress.practice && (
+                  {showLessonStep(5) && dayProgress.practice && (
                     <div className={`mt-4 rounded-lg border p-4 ${Number(dayProgress.practice.bestScore || 0) >= 70 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
                       <div className="flex items-center justify-between gap-3">
                         <p className={`text-sm font-semibold ${Number(dayProgress.practice.bestScore || 0) >= 70 ? 'text-emerald-900' : 'text-amber-950'}`}>任务7口头运用</p>
@@ -279,7 +312,7 @@ export default function BarServerFoundationTraining({
                     </div>
                   )}
 
-                  {day.referenceGroups?.length > 0 && (
+                  {showLessonStep(2) && day.referenceGroups?.length > 0 && (
                     <div className="mt-5">
                       <h3 className="text-sm font-bold text-slate-950">核心知识地图</h3>
                       <div className="mt-3 divide-y divide-slate-100 border-y border-slate-100">
@@ -294,7 +327,7 @@ export default function BarServerFoundationTraining({
                     </div>
                   )}
 
-                  {day.cruiseLinePatterns?.length > 0 && (
+                  {showLessonStep(2) && day.cruiseLinePatterns?.length > 0 && (
                     <div className="mt-5">
                       <h3 className="text-sm font-bold text-slate-950">公开菜单样本对照</h3>
                       <p className="mt-1 text-xs leading-5 text-slate-500">用于理解品牌与 venue 风格，不代表所有船舶当前供应。</p>
@@ -310,7 +343,7 @@ export default function BarServerFoundationTraining({
                     </div>
                   )}
 
-                  <div className="mt-5 space-y-5">
+                  {showLessonStep(2) && <div className="mt-5 space-y-5">
                     {day.sections.map((section) => (
                       <section key={section.title}>
                         <div className="flex items-center gap-2">
@@ -322,9 +355,9 @@ export default function BarServerFoundationTraining({
                         </ul>
                       </section>
                     ))}
-                  </div>
+                  </div>}
 
-                  <section className="mt-6 rounded-lg border border-slate-200 p-4">
+                  {showLessonStep(5) && <section className="mt-6 rounded-lg border border-slate-200 p-4">
                     <div className="flex items-center gap-2 text-slate-700">
                       <Clock3 size={16} />
                       <p className="text-xs font-semibold">完成检查</p>
@@ -354,15 +387,15 @@ export default function BarServerFoundationTraining({
                         <p className="mt-1">{day.quiz.explanation}</p>
                       </div>
                     )}
-                  </section>
+                  </section>}
 
-                  {isCompleted && dayIndex < barServerFoundationDays.length - 1 && (
+                  {!onlyDayId && isCompleted && dayIndex < barServerFoundationDays.length - 1 && (
                     <button type="button" onClick={() => openNextDay(dayIndex)} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700">
                       进入第 {day.day + 1} 天 <ArrowRight size={16} />
                     </button>
                   )}
 
-                  {isCompleted && (
+                  {showLessonStep(5) && isCompleted && (
                     <button
                       type="button"
                       onClick={() => onStartTask7?.({
@@ -374,6 +407,16 @@ export default function BarServerFoundationTraining({
                       带着 Guest Challenge 结果进入 Task 7 <ArrowRight size={16} />
                     </button>
                   )}
+
+                  {onlyDayId && (
+                    <FoundationLessonNavigation
+                      activeStep={lessonStep}
+                      onStepChange={setLessonStep}
+                      canAdvance={lessonStep === 3 ? Boolean(dayProgress.shadowing?.completedAt) : lessonStep === 4 ? Boolean(dayProgress.guestChallenge?.completedAt) : true}
+                      completed={isCompleted}
+                      showProgress={false}
+                    />
+                  )}
                 </div>
               )}
             </article>
@@ -381,7 +424,7 @@ export default function BarServerFoundationTraining({
         })}
       </div>
 
-      <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
+      {!onlyDayId && <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
         <p className="text-sm font-semibold text-blue-950">任务5学知识，任务6组答案，任务7练输出</p>
         <p className="mt-1 text-sm leading-6 text-blue-900">
           {task6Completed
@@ -398,9 +441,9 @@ export default function BarServerFoundationTraining({
             <ArrowRight size={16} />
           </button>
         )}
-      </div>
+      </div>}
 
-      <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      {!onlyDayId && <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
         <summary className="cursor-pointer text-xs font-semibold text-slate-700">公开菜单参考来源与更新说明</summary>
         <p className="mt-2 text-xs leading-5 text-slate-500">菜单、品牌、价格、套餐与政策会变化，实际上船后必须以当前船舶和 assigned venue 的资料为准。</p>
         <div className="mt-3 space-y-2">
@@ -411,7 +454,7 @@ export default function BarServerFoundationTraining({
             </a>
           ))}
         </div>
-      </details>
+      </details>}
     </section>
   )
 }

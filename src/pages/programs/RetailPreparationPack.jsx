@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, BookOpenCheck, CheckCircle2, FileText, Mic, ShoppingBag, Sparkles, Target } from 'lucide-react'
-import RequireActivation from '../../components/RequireActivation'
-import RetailFoundationTraining from '../../components/training/RetailFoundationTraining'
 import useEffectiveAccess from '../../hooks/useEffectiveAccess'
 import { hasProductEntitlement } from '../../services/activationService'
 import { getCompletedRetailDays, getRetailFoundationProgress, retailFoundationDays } from '../../data/retailFoundation'
@@ -20,15 +18,11 @@ export default function RetailPreparationPack() {
   const access = useEffectiveAccess()
   const hasPack = hasProductEntitlement(access, PRODUCT_CODE)
   const [activeView, setActiveView] = useState('overview')
-  const [foundationProgress, setFoundationProgress] = useState(() => getRetailFoundationProgress())
+  const [foundationProgress] = useState(() => getRetailFoundationProgress())
   const completedDays = useMemo(() => getCompletedRetailDays(foundationProgress), [foundationProgress])
 
   const startTraining = () => {
-    if (!hasPack) {
-      access.isRegistered ? access.openUnlockModal() : access.openRegisterModal()
-      return
-    }
-    setActiveView('course')
+    navigate('/programs/retail/foundation')
   }
 
   return (
@@ -50,7 +44,7 @@ export default function RetailPreparationPack() {
           </div>
 
           <div className="mt-6 flex gap-2 overflow-x-auto border-b border-slate-200">
-            {[['overview', '岗位包首页'], ['course', '8 天基础课'], ['simulator', '岗位模拟器']].map(([key, label]) => <button key={key} type="button" onClick={() => key === 'course' && !hasPack ? startTraining() : setActiveView(key)} className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold ${activeView === key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500'}`}>{label}</button>)}
+            {[['overview', '岗位包首页'], ['course', '8 天基础课'], ['simulator', '岗位模拟器']].map(([key, label]) => <button key={key} type="button" onClick={() => key === 'course' ? startTraining() : setActiveView(key)} className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold ${activeView === key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500'}`}>{label}</button>)}
           </div>
         </div>
       </header>
@@ -70,7 +64,7 @@ export default function RetailPreparationPack() {
             </section>
 
             <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center"><div><p className="text-xs font-semibold text-blue-700">YOUR NEXT STEP</p><h2 className="mt-1 font-semibold text-slate-950">先完成 Day 1，再决定这个岗位是否适合你</h2><p className="mt-2 text-sm leading-6 text-slate-600">第二岗位包目前用于内部验收，尚未在公开价格页销售。管理员可直接体验；正式销售前会单独确认定价与权益。</p></div><button type="button" onClick={startTraining} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white">{hasPack ? '开始 8 天基础课' : '登录并验证岗位权益'}<ArrowRight size={17} /></button></div>
+              <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center"><div><p className="text-xs font-semibold text-blue-700">YOUR NEXT STEP</p><h2 className="mt-1 font-semibold text-slate-950">先完成 Day 1，再决定这个岗位是否适合你</h2><p className="mt-2 text-sm leading-6 text-slate-600">Day 1 可免费体验完整学习流程；Day 2 起需要对应岗位包权益。第二岗位包仍处于内部验收阶段。</p></div><button type="button" onClick={startTraining} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white">{hasPack ? '继续 8 天基础课' : '免费体验 Day 1'}<ArrowRight size={17} /></button></div>
             </section>
 
             <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -81,8 +75,6 @@ export default function RetailPreparationPack() {
             </section>
           </div>
         )}
-
-        {activeView === 'course' && <RequireActivation variant="inline" productCode={PRODUCT_CODE}><RetailFoundationTraining initialProgress={foundationProgress} onProgressChange={setFoundationProgress} onStartQuestions={() => navigate('/academy/interview-questions?position=retail')} onStartSimulation={() => navigate('/programs/retail/training')} /></RequireActivation>}
 
         {activeView === 'simulator' && (
           <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">

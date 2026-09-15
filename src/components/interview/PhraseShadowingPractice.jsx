@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Mic, RotateCcw, Square, Volume2 } from 'lucide-react'
+import { Bookmark, Check, Mic, RotateCcw, Square, Volume2 } from 'lucide-react'
 import EdgeReadAloudHint from '../EdgeReadAloudHint'
 
 const DEFAULT_REQUIRED_PHRASE_REPETITIONS = 3
@@ -30,6 +30,8 @@ export default function PhraseShadowingPractice({
   requireListenBeforeRecord = false,
   title,
   description,
+  savedLines = [],
+  onToggleSavedLine,
 }) {
   const legacyCompletedPhrases = practice.completedPhrases || []
   const phraseRepetitions = practice.phraseRepetitions || Object.fromEntries(
@@ -301,6 +303,7 @@ export default function PhraseShadowingPractice({
           const repetitionCount = Number(phraseRepetitions[phrase] || 0)
           const isCompleted = repetitionCount >= requiredPhraseRepetitions
           const key = `phrase-${index}`
+          const isSaved = savedLines.some((item) => item.text === phrase)
 
           return (
             <div key={phrase} className="py-4">
@@ -314,7 +317,7 @@ export default function PhraseShadowingPractice({
                       {phraseCues[index] && <p className="mb-1 text-xs font-medium text-slate-500">{phraseCues[index]}</p>}
                       <p className="text-sm font-medium leading-6 text-slate-800">{phrase}</p>
                     </div>
-                    <span className={`shrink-0 text-xs font-semibold ${isCompleted ? 'text-emerald-700' : 'text-slate-500'}`}>{repetitionCount}/{requiredPhraseRepetitions}</span>
+                    <div className="flex shrink-0 items-center gap-2"><span className={`text-xs font-semibold ${isCompleted ? 'text-emerald-700' : 'text-slate-500'}`}>{repetitionCount}/{requiredPhraseRepetitions}</span>{onToggleSavedLine && <button type="button" onClick={() => onToggleSavedLine(phrase, phraseCues[index])} title={isSaved ? '取消收藏' : '收藏表达'} className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${isSaved ? 'bg-blue-50 text-blue-700' : 'text-slate-400 hover:bg-slate-100'}`}><Bookmark size={15} fill={isSaved ? 'currentColor' : 'none'} /></button>}</div>
                   </div>
                   {renderRecordingControls({ text: phrase, key, phrase })}
                 </div>

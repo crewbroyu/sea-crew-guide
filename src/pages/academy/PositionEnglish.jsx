@@ -215,7 +215,7 @@ const barServerTrainingPath = [
     area: '海乘学院',
     title: '岗位基础课',
     description: '学习酒水、杯具、卫生、服务流程与负责任售酒。',
-    route: '/tasks/phase2/Task5?position=bar_server&source=academy',
+    route: '/programs/bar-server/foundation',
   },
   {
     phase: 'scenario',
@@ -252,7 +252,7 @@ const barServerTrainingPath = [
 ]
 
 const retailTrainingPath = [
-  { phase: 'foundation', task: '任务5', area: '海乘学院', title: '8 天邮轮零售基础课', description: '学习接待、需求发现、产品表达、KPI、异议、POS、库存与防损。', route: '/tasks/phase2/Task5?position=retail&source=academy' },
+  { phase: 'foundation', task: '任务5', area: '海乘学院', title: '8 天邮轮零售基础课', description: '学习接待、需求发现、产品表达、KPI、异议、POS、库存与防损。', route: '/programs/retail/foundation' },
   { phase: 'scenario', task: '岗位模拟', area: '海乘学院', title: '5 级邮轮零售工作模拟', description: '与客人连续对话，并按六项岗位能力保存训练结果。', route: '/programs/retail/training' },
   { phase: 'interview', task: '任务6', area: '求职中心', title: '把销售经历变成英文回答', description: '整理业绩、需求发现、异议处理和高压服务案例。', route: '/tasks/phase2/Task6?source=task5' },
   { phase: 'interview', task: '任务7', area: '海乘学院', title: 'Retail 题库与单题练习', description: '检查岗位理解、销售判断和英文表达。', route: '/academy/interview-questions?position=retail' },

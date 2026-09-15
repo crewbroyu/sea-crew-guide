@@ -21,6 +21,7 @@ const initialState = {
   accessChecked: false,
   isCheckingAccess: true,
   showRegisterModal: false,
+  authModalMode: 'register',
   showUnlockModal: false,
 };
 
@@ -90,7 +91,8 @@ export const useAccessStore = create((set, get) => ({
     });
   },
 
-  openRegisterModal: () => set({ showRegisterModal: true, showUnlockModal: false }),
+  openRegisterModal: () => set({ showRegisterModal: true, authModalMode: 'register', showUnlockModal: false }),
+  openLoginModal: () => set({ showRegisterModal: true, authModalMode: 'login', showUnlockModal: false }),
   closeRegisterModal: () => set({ showRegisterModal: false }),
   openUnlockModal: () => set({ showUnlockModal: true, showRegisterModal: false }),
   closeUnlockModal: () => set({ showUnlockModal: false }),

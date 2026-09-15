@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAccessStore } from '../store/accessStore';
 import { supabase } from '../supabase';
 import { activationService } from '../services/activationService';
@@ -74,13 +75,21 @@ const removePersistedBlobUrls = () => {
 };
 
 export default function AccessGate() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
+    authChecked,
+    authModalMode,
+    isCheckingAuth,
+    isRegistered,
+    showRegisterModal,
     register,
     reset,
     setAccessStatus,
     setCheckingAuth,
     setCheckingAccess,
     closeRegisterModal,
+    openLoginModal,
   } = useAccessStore();
   const hasCheckedAuth = useRef(false);
 
@@ -169,9 +178,26 @@ export default function AccessGate() {
     };
   }, [refreshAccessForUser]);
 
+  useEffect(() => {
+    if (!authChecked || isCheckingAuth) return;
+
+    const params = new URLSearchParams(location.search);
+    if (params.get('auth') !== 'login') return;
+
+    if (!isRegistered) {
+      openLoginModal();
+    }
+
+    params.delete('auth');
+    navigate({
+      pathname: location.pathname,
+      search: params.toString() ? `?${params.toString()}` : '',
+    }, { replace: true });
+  }, [authChecked, isCheckingAuth, isRegistered, location.pathname, location.search, navigate, openLoginModal]);
+
   return (
     <>
-      <RegisterModal />
+      <RegisterModal key={`${authModalMode}:${showRegisterModal}`} />
       <UnlockModal />
     </>
   );

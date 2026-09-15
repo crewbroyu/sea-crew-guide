@@ -3,11 +3,11 @@ import { useAccessStore } from '../store/accessStore';
 import { getAuthCallbackUrl, supabase } from '../supabase';
 
 export default function RegisterModal() {
-  const { showRegisterModal, closeRegisterModal, register } = useAccessStore();
+  const { showRegisterModal, authModalMode, closeRegisterModal, register } = useAccessStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [mode, setMode] = useState('register'); // 'register' or 'login'
+  const [mode, setMode] = useState(() => authModalMode === 'login' ? 'login' : 'register');
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState('');
@@ -131,11 +131,14 @@ export default function RegisterModal() {
       }
     } catch (error) {
       console.error('Auth error:', error);
-      if (error.message?.includes('Email already registered')) {
+      if (/already registered|already been registered/i.test(error.message || '')) {
         setError('该邮箱已注册，请直接登录');
         setMode('login');
       } else if (error.message?.includes('Invalid login credentials')) {
         setError('邮箱或密码错误');
+      } else if (/email not confirmed/i.test(error.message || '')) {
+        setConfirmationEmail(email.trim());
+        setError('该邮箱还未完成验证。请使用最新一封验证邮件，或点击下方重新发送。');
       } else {
         setError(error.message || '操作失败，请重试');
       }

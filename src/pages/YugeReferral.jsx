@@ -1,6 +1,7 @@
 // src/pages/YugeReferral.jsx
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, User, FileText, MessageSquare, Users, Award, CheckCircle } from 'lucide-react'
+import { ChevronLeft, User, FileText, MessageSquare, Users, Award } from 'lucide-react'
+import { SUPPORT_EMAIL, SUPPORT_WECHAT_ID } from '../config/contact'
 
 const services = [
   {
@@ -103,21 +104,17 @@ export default function YugeReferral() {
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-4">联系方式</h3>
           
-          {/* 微信二维码 */}
           <div className="flex flex-col items-center mb-6">
-            <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-gray-400 rounded mx-auto mb-2 flex items-center justify-center">
-                  <CheckCircle size={24} className="text-white" />
-                </div>
-                <p className="text-gray-500 text-sm">微信二维码</p>
-              </div>
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-50">
+              <MessageSquare size={36} className="text-amber-600" />
             </div>
+            <p className="mt-3 text-sm text-gray-500">在微信中搜索下方微信号</p>
           </div>
           
           <div className="text-center">
-            <p className="text-gray-600 mb-2">微信号：<span className="font-medium text-gray-800">YugeCruise</span></p>
+            <p className="text-gray-600 mb-2">微信号：<span className="select-all font-mono font-semibold text-gray-800">{SUPPORT_WECHAT_ID}</span></p>
             <p className="text-amber-700 text-sm">添加时请备注：海乘求职</p>
+            <p className="mt-3 text-xs leading-5 text-gray-500">搜索不到时可邮件联系 <a className="text-blue-700 underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a></p>
           </div>
         </div>
 

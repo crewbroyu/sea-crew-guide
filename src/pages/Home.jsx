@@ -20,6 +20,7 @@ import useEffectiveAccess from '../hooks/useEffectiveAccess'
 import { getScoreData } from '../store/scoreStore'
 import pathData from '../data/pathData'
 import { BAR_SERVER_FOUNDATION_DAY_COUNT } from '../data/barServerFoundationMeta'
+import { SUPPORT_EMAIL, SUPPORT_WECHAT_ID } from '../config/contact'
 
 const publicLinks = [
   {
@@ -408,11 +409,12 @@ export default function Home() {
               </button>
             </div>
             <p className="text-sm leading-relaxed text-slate-600">
-              这里建议后续放你的微信号或二维码。当前首页先把咨询作为最后一步，不在用户还没了解清楚时过早打扰。
+              微信号：<span className="select-all font-mono font-semibold text-slate-900">{SUPPORT_WECHAT_ID}</span>，添加时请备注“CrewPathGuide + 咨询事项”。
             </p>
             <div className="mt-5 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
               适合咨询的问题：岗位选择、简历方向、申请渠道、时间规划。
             </div>
+            <p className="mt-4 text-xs leading-5 text-slate-500">微信搜索不到时，请邮件联系 <a className="text-blue-700 underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>。</p>
           </div>
         </div>
       )}

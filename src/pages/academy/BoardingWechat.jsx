@@ -1,6 +1,7 @@
 // src/pages/academy/BoardingWechat.jsx
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, MessageCircle, QrCode, CheckCircle } from 'lucide-react';
+import { ChevronLeft, MessageCircle, CheckCircle } from 'lucide-react';
+import { SUPPORT_EMAIL, SUPPORT_WECHAT_ID } from '../../config/contact';
 
 export default function BoardingWechat() {
   const navigate = useNavigate();
@@ -44,12 +45,12 @@ export default function BoardingWechat() {
       <div className="px-6 py-6 space-y-6">
         {/* 微信信息 */}
         <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col items-center">
-          <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-            <QrCode size={160} className="text-gray-400" />
+          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-50">
+            <MessageCircle size={38} className="text-green-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">扫码添加微信</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">在微信中搜索添加</h2>
           <p className="text-gray-600 text-center mb-4">
-            微信号：crewbroyu
+            微信号：<span className="select-all font-mono font-semibold text-gray-800">{SUPPORT_WECHAT_ID}</span>
           </p>
           <div className="flex items-center gap-2 text-green-600 mb-6">
             <CheckCircle size={18} />
@@ -64,6 +65,11 @@ export default function BoardingWechat() {
             <span className="text-sm font-medium">24小时内回复，解决您的疑问</span>
           </div>
         </div>
+
+        <p className="text-center text-sm leading-6 text-gray-500">
+          如果微信搜索不到，请邮件联系{' '}
+          <a className="text-blue-700 underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+        </p>
         
         {/* 提示信息 */}
         <div className="bg-amber-50 border-l-4 border-amber-500 p-4">

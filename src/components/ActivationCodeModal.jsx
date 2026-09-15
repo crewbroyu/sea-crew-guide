@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { activationService } from '../services/activationService';
+import { SUPPORT_WECHAT_ID } from '../config/contact';
 
 export default function ActivationCodeModal({ isOpen, onClose, onSuccess }) {
   const [code, setCode] = useState('');
@@ -63,7 +64,7 @@ export default function ActivationCodeModal({ isOpen, onClose, onSuccess }) {
               </div>
               <div className="mt-2 text-gray-500">
                 <p>Get your code via WeChat</p>
-                <p>添加微信获取激活码</p>
+                <p>微信号：<span className="select-all font-mono font-semibold">{SUPPORT_WECHAT_ID}</span></p>
               </div>
             </div>
 

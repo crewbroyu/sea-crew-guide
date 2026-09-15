@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAccessStore } from '../store/accessStore';
 import { activationService, hasProductEntitlement } from '../services/activationService';
+import { SUPPORT_WECHAT_ID } from '../config/contact';
 
 export default function UnlockModal() {
   const {
@@ -131,7 +132,7 @@ export default function UnlockModal() {
 
               <div className="text-center text-gray-500 text-sm">
                 <p>Get your code via WeChat</p>
-                <p className="text-xs mt-1">添加微信获取激活码</p>
+                <p className="text-xs mt-1">微信号：<span className="select-all font-mono font-semibold">{SUPPORT_WECHAT_ID}</span></p>
               </div>
               
               <div className="mt-6 text-center">

@@ -1,5 +1,5 @@
 import { createElement, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, BarChart3, CircleAlert, FileText, LoaderCircle, MessageSquareText, Mic2, RefreshCcw, UserCheck, Users } from 'lucide-react'
+import { Activity, ArrowLeft, BarChart3, CircleAlert, Clock3, Coins, FileText, LoaderCircle, MessageSquareText, Mic2, RefreshCcw, UserCheck, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
 
@@ -23,6 +23,7 @@ export default function AdminBetaDashboard() {
   const [events, setEvents] = useState([])
   const [requests, setRequests] = useState([])
   const [overview, setOverview] = useState(null)
+  const [aiOverview, setAiOverview] = useState(null)
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
 
@@ -31,7 +32,7 @@ export default function AdminBetaDashboard() {
     setError('')
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    const [eventsResult, requestsResult, overviewResult] = await Promise.all([
+    const [eventsResult, requestsResult, overviewResult, aiOverviewResult] = await Promise.all([
       supabase
         .from('product_events')
         .select('id, user_id, anonymous_id, event_name, properties, created_at')
@@ -45,6 +46,7 @@ export default function AdminBetaDashboard() {
         .order('created_at', { ascending: false })
         .limit(30),
       supabase.rpc('get_admin_beta_overview', { input_days: 14 }),
+      supabase.rpc('get_admin_ai_operations_overview', { input_days: 14 }),
     ])
 
     if (eventsResult.error || requestsResult.error || overviewResult.error) {
@@ -56,6 +58,7 @@ export default function AdminBetaDashboard() {
     setEvents(eventsResult.data || [])
     setRequests(requestsResult.data || [])
     setOverview(overviewResult.data || null)
+    setAiOverview(aiOverviewResult.error ? null : aiOverviewResult.data || null)
     setStatus('ready')
   }
 
@@ -143,6 +146,25 @@ export default function AdminBetaDashboard() {
             <Metric icon={Users} label="体验完成率" value={`${completionRate}%`} detail={`${completed} / ${viewed || 0} 完成`} />
             <Metric icon={MessageSquareText} label="快速反馈" value={countEvents(events, 'quick_feedback_submitted')} detail={`清楚 ${feedbackCount(events, 'clear')} · 犹豫 ${feedbackCount(events, 'uncertain')} · 卡住 ${feedbackCount(events, 'blocked')}`} />
             <Metric icon={CircleAlert} label="待处理支持单" value={openRequests.length} detail={`共读取 ${requests.length} 条最近记录`} tone={openRequests.length ? 'amber' : 'emerald'} />
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2"><Activity size={19} className="text-blue-700" /><h2 className="font-semibold text-slate-950">AI 运行健康度</h2></div>
+            <p className="mt-1 text-sm text-slate-600">近 14 天，只统计动作、耗时、错误码和成本估算，不保存录音或完整回答。</p>
+            {aiOverview ? <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Metric icon={Activity} label="成功率" value={`${aiOverview.success_rate || 0}%`} detail={`${aiOverview.success_count || 0} 成功 · ${aiOverview.failure_count || 0} 失败`} tone={Number(aiOverview.success_rate) >= 95 ? 'emerald' : 'amber'} />
+                <Metric icon={Mic2} label="ASR 总时长" value={`${aiOverview.asr_seconds || 0}s`} detail="成功转写累计秒数" />
+                <Metric icon={Clock3} label="平均耗时" value={`${aiOverview.average_latency_ms || 0}ms`} detail={`${aiOverview.request_count || 0} 次请求`} />
+                <Metric icon={Coins} label="ASR 估算" value={`¥${Number(aiOverview.estimated_cost_cny || 0).toFixed(4)}`} detail="以当前配置单价估算" />
+              </div>
+              <div className="mt-4 rounded-lg bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">失败码 Top 5</p>
+                {aiOverview.top_errors?.length
+                  ? <div className="mt-3 flex flex-wrap gap-2">{aiOverview.top_errors.map((item) => <span key={item.error_code} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700">{item.error_code} · {item.count}</span>)}</div>
+                  : <p className="mt-2 text-sm text-slate-500">当前统计期没有 AI 失败记录。</p>}
+              </div>
+            </> : <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">运行 `supabase_ai_observability_and_career_guard.sql` 后，这里会开始显示成功率、ASR 秒数、耗时与失败码。</div>}
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

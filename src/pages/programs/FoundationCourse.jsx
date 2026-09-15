@@ -1,12 +1,13 @@
 import { createElement, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Bookmark, CheckCircle2, ClipboardCheck, Dumbbell, LockKeyhole, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Bookmark, CheckCircle2, CircleAlert, ClipboardCheck, Dumbbell, LockKeyhole, Sparkles } from 'lucide-react'
 import RequireActivation from '../../components/RequireActivation'
 import BarServerFoundationTraining from '../../components/training/BarServerFoundationTraining'
 import RetailFoundationTraining from '../../components/training/RetailFoundationTraining'
 import { getFoundationCourse } from '../../data/foundationCourseCatalog'
 import { getJobSkills, getScenarioById } from '../../data/jobScenarioCatalog'
 import { getMyScenarioProfile } from '../../services/scenarioTrainingService'
+import { getMyFoundationCourseState, upsertMyFoundationCourseState } from '../../services/jobPreparationService'
 import {
   findContinueFoundationDay,
   getFoundationCompletedCount,
@@ -37,6 +38,23 @@ const getRecommendedStart = (course, answers) => {
   return { score: correct, total: questionCount, dayId: firstGap?.id || course.days[0].id, label: `建议从 Day ${firstGap?.day || 1} 开始打好基础` }
 }
 
+const mergeObjects = (cloudValue, localValue) => {
+  if (!cloudValue || typeof cloudValue !== 'object' || Array.isArray(cloudValue)) return localValue ?? cloudValue
+  if (!localValue || typeof localValue !== 'object' || Array.isArray(localValue)) return localValue ?? cloudValue
+  return Object.fromEntries([...new Set([...Object.keys(cloudValue), ...Object.keys(localValue)])].map((key) => [
+    key,
+    mergeObjects(cloudValue[key], localValue[key]),
+  ]))
+}
+
+const mergeSavedLines = (cloudLines = [], localLines = []) => {
+  const byText = new Map()
+  ;[...cloudLines, ...localLines].forEach((line) => {
+    if (line?.text) byText.set(line.text, line)
+  })
+  return [...byText.values()].slice(0, 100)
+}
+
 export default function FoundationCourse() {
   const { jobSlug, dayId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -47,6 +65,7 @@ export default function FoundationCourse() {
   const [placementAnswers, setPlacementAnswers] = useState({})
   const [placement, setPlacement] = useState(() => course ? readFoundationPlacement(course.jobKey) : null)
   const [scenarioProfile, setScenarioProfile] = useState(null)
+  const [cloudReady, setCloudReady] = useState(false)
   const view = searchParams.get('view') || 'course'
 
   useEffect(() => {
@@ -58,12 +77,50 @@ export default function FoundationCourse() {
     return () => { active = false }
   }, [course])
 
+  useEffect(() => {
+    if (!course) return
+    let active = true
+    getMyFoundationCourseState(course.jobKey)
+      .then((cloudState) => {
+        if (!active || !cloudState || cloudState.version !== course.version) return
+        const mergedProgress = mergeObjects(cloudState.progress || {}, readFoundationProgress(course.jobKey))
+        const mergedLines = mergeSavedLines(cloudState.savedLines, readSavedFoundationLines(course.jobKey))
+        const localPlacement = readFoundationPlacement(course.jobKey)
+        const mergedPlacement = localPlacement || cloudState.placement || null
+        setProgress(mergedProgress)
+        setSavedLines(mergedLines)
+        setPlacement(mergedPlacement)
+        writeFoundationProgress(course.jobKey, mergedProgress)
+        writeSavedFoundationLines(course.jobKey, mergedLines)
+        if (mergedPlacement) writeFoundationPlacement(course.jobKey, mergedPlacement)
+      })
+      .catch((error) => console.warn('Unable to restore foundation course state:', error))
+      .finally(() => { if (active) setCloudReady(true) })
+    return () => { active = false }
+  }, [course])
+
+  useEffect(() => {
+    if (!course || !cloudReady) return undefined
+    const timeout = window.setTimeout(() => {
+      upsertMyFoundationCourseState({
+        jobKey: course.jobKey,
+        roleKey: course.roleKey,
+        roleTitle: course.title,
+        version: course.version,
+        progress,
+        savedLines,
+        placement,
+      }).catch((error) => console.warn('Unable to sync foundation course state:', error))
+    }, 800)
+    return () => window.clearTimeout(timeout)
+  }, [cloudReady, course, placement, progress, savedLines])
+
   const completedCount = course ? getFoundationCompletedCount(course, progress) : 0
   const continueDay = course ? findContinueFoundationDay(course, progress) : null
   const selectedDay = course?.days.find((day) => day.id === dayId) || null
   const dayIndex = selectedDay ? course.days.indexOf(selectedDay) : -1
   const nextDay = dayIndex >= 0 ? course.days[dayIndex + 1] : null
-  const weakestSkillLabel = getJobSkills(course.jobKey).find((skill) => skill.key === scenarioProfile?.weakest_skill)?.label
+  const weakestSkillLabel = getJobSkills(course?.jobKey).find((skill) => skill.key === scenarioProfile?.weakest_skill)?.label
     || scenarioProfile?.weakest_skill
   const recommendedScenario = getScenarioById(scenarioProfile?.recommended_scenario_id)
 
@@ -80,7 +137,18 @@ export default function FoundationCourse() {
     })
   }, [course, progress])
 
-  if (!course) return null
+  if (!course || (dayId && !selectedDay)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-5">
+        <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm">
+          <CircleAlert size={32} className="mx-auto text-amber-600" />
+          <h1 className="mt-4 text-xl font-semibold text-slate-950">没有找到这节课程</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">课程地址可能已经更新。请返回海乘学院重新选择岗位课程。</p>
+          <button type="button" onClick={() => navigate('/academy/position-english')} className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white">返回岗位课程</button>
+        </section>
+      </div>
+    )
+  }
 
   const updateProgress = (next) => {
     setProgress(next)

@@ -92,7 +92,7 @@ export default function Task7TrainingCenter() {
       premium: true,
       completed: false,
     }] : []),
-    {
+    ...(['bar_server', 'retail'].includes(position?.key) ? [{
       id: 'ai-mock',
       title: 'AI 模拟面试',
       description: '连续完成一轮英文面试，训练追问节奏和临场表达。',
@@ -104,7 +104,18 @@ export default function Task7TrainingCenter() {
       tone: 'amber',
       premium: true,
       completed: mockCompleted,
-    },
+    }] : [{
+      id: 'ai-mock-coming-soon',
+      title: 'AI 模拟面试',
+      description: '该岗位的完整连续模拟仍在制作中，公开题库和文字练习可以正常使用。',
+      meta: '课程制作中',
+      action: '查看公开题库',
+      route: `/academy/interview-questions${position?.key ? `?position=${position.key}` : ''}`,
+      area: '求职中心',
+      icon: Sparkles,
+      tone: 'slate',
+      completed: false,
+    }]),
   ]
 
   return (
@@ -120,7 +131,7 @@ export default function Task7TrainingCenter() {
             返回路线
           </button>
 
-          <p className="text-sm font-medium text-blue-700">任务 7/12 · 拿到 Offer</p>
+          <p className="text-sm font-medium text-blue-700">任务 7/12 · 面试与 Offer</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">岗位训练与面试枢纽</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
             路径负责安排顺序：岗位题库、单题口语和工作场景进入学院，完整 AI 模拟进入求职中心。

@@ -28,7 +28,7 @@ const stageMeta = {
     icon: FileText,
   },
   3: {
-    label: '拿到 Offer',
+    label: '面试与 Offer',
     summary: '完成模拟训练，跟进真实面试并记录结果。',
     icon: MessageSquare,
   },

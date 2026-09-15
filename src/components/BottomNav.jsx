@@ -18,6 +18,14 @@ const matchesHiddenPath = (pathname, pattern) => {
   return pathname === pattern
 }
 
+const isTabActive = (pathname, to) => {
+  if (to === '/') return pathname === '/'
+  if (to === '/academy') return pathname === '/academy'
+    || pathname.startsWith('/academy/')
+    || pathname.startsWith('/programs/')
+  return pathname === to || pathname.startsWith(`${to}/`)
+}
+
 export default function BottomNav({ hideNavPages = [] }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -30,7 +38,7 @@ export default function BottomNav({ hideNavPages = [] }) {
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 pb-safe z-50">
       <div className="flex justify-around">
         {tabs.map(({ icon, label, to }) => {
-          const isActive = location.pathname === to
+          const isActive = isTabActive(location.pathname, to)
           return (
             <button
               key={to}

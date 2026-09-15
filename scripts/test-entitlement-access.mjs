@@ -50,6 +50,10 @@ globalThis.fetch = async (url) => {
     return Response.json(1)
   }
 
+  if (target.includes('/rest/v1/rpc/record_ai_operation_log')) {
+    return Response.json(1)
+  }
+
   if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) {
     return Response.json({ reservation_id: '00000000-0000-4000-8000-000000000003', unlimited: false })
   }
@@ -121,6 +125,11 @@ assert.equal(retailAllowed.status, 200)
 assert.equal(retailAllowed.body.success, true)
 assert.equal(providerCalls, 2)
 
+const unsupported = await request('Guest Services')
+assert.equal(unsupported.status, 403)
+assert.equal(unsupported.body.error.code, 'POSITION_AI_NOT_AVAILABLE')
+assert.equal(providerCalls, 2)
+
 entitlementResponse = null
 accessResponse = {
   unlocked: true,
@@ -132,6 +141,38 @@ accessResponse = {
 const legacyDenied = await request('Bar Server')
 assert.equal(legacyDenied.status, 403)
 assert.equal(legacyDenied.body.error.code, 'ACTIVATION_REQUIRED')
+assert.equal(providerCalls, 2)
+
+accessResponse = { ...accessResponse, unlocked: false, plan: 'free' }
+entitlementResponse = {
+  user_id: '00000000-0000-4000-8000-000000000002',
+  product_code: 'bar_server_pack',
+  status: 'active',
+  starts_at: '2026-01-01T00:00:00.000Z',
+  expires_at: '2027-01-01T00:00:00.000Z',
+  ai_feedback_limit: 120,
+  mock_interview_limit: 10,
+}
+const mismatchedAudio = await handleInterviewRequest({
+  method: 'POST',
+  headers: { authorization: 'Bearer entitlement-test-token' },
+  body: {
+    action: 'transcribe',
+    mode: 'premium_practice',
+    position: 'Bar Server',
+    clientRequestId: `entitlement-test-${++requestSequence}`,
+    durationSeconds: 1,
+    mimeType: 'audio/webm',
+    audioData: `data:audio/webm;base64,${'A'.repeat(130_000)}`,
+  },
+  env: {
+    DASHSCOPE_API_KEY: 'test-key',
+    SUPABASE_URL: 'https://supabase.test',
+    SUPABASE_ANON_KEY: 'test-anon-key',
+  },
+})
+assert.equal(mismatchedAudio.status, 413)
+assert.equal(mismatchedAudio.body.error.code, 'AUDIO_DURATION_MISMATCH')
 assert.equal(providerCalls, 2)
 
 console.log('Product entitlement access contract passed.')

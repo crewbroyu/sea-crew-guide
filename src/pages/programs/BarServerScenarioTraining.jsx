@@ -118,7 +118,7 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
         try {
           const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || 'audio/webm' })
           const prompt = stage === 'first' ? scenario.openingLine : turns.find((turn) => turn.role !== 'trainee' && turn.isFollowUp)?.content
-          const transcription = await transcribeInterviewAudio(blob, { mode: 'premium_scenario', position: simulator.position, question: prompt, scenarioId: scenario.id })
+          const transcription = await transcribeInterviewAudio(blob, { mode: 'premium_scenario', position: simulator.position, question: prompt, scenarioId: scenario.id, durationSeconds: Math.max(1, secondsRef.current) })
           setAnswer(transcription.transcript)
         } catch (error) {
           setErrorMessage(error.message || 'Transcription failed. Record again or type your answer.')

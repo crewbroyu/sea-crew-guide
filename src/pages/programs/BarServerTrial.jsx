@@ -66,7 +66,7 @@ export default function BarServerTrial() {
   const { isRegistered, openRegisterModal } = access
   const hasBarServerPack = hasProductEntitlement(access, 'bar_server_pack')
   const returnDestination = location.state?.from === 'task5'
-    ? { route: '/tasks/phase2/Task5', label: '返回岗位知识准备' }
+    ? { route: '/programs/bar-server/foundation', label: '返回岗位基础课' }
     : { route: '/academy/interview-questions?position=bar_server', label: '返回 Bar Server 题库' }
   const savedTrial = useMemo(() => readTrial(), [])
   const initialScenarioIndex = savedTrial?.scenarioIndex || 0
@@ -244,6 +244,7 @@ export default function BarServerTrial() {
             position: 'Bar Server',
             question: scenario.interviewerQuestion,
             scenarioId: scenario.id,
+            durationSeconds: Math.max(1, recordingSecondsRef.current),
           })
           setTranscript(result.transcript)
           setRecordingStatus('ready')
@@ -538,7 +539,7 @@ export default function BarServerTrial() {
           <button type="button" onClick={goToNextScenario} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">进入免费场景 {scenarioIndex + 2}/{barServerTrialScenarios.length} <ArrowRight size={18} /></button>
         ) : hasBarServerPack ? (
           <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-            <div className="flex items-start gap-3"><CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-700" /><div className="min-w-0 flex-1"><p className="text-xs font-semibold text-emerald-700">Bar Server 单职位全流程包已解锁</p><h2 className="mt-1 font-semibold text-emerald-950">免费体验完成，继续进入完整准备路径</h2><p className="mt-2 text-sm leading-6 text-emerald-900">先补齐基础知识，再用连续岗位场景检验能否真正服务客人；之后再进入题库和模拟面试。</p><div className="mt-4 grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => navigate('/tasks/phase2/Task5')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800">岗位基础课 <ChevronRight size={16} /></button><button type="button" onClick={() => navigate('/programs/bar-server/training')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">岗位场景训练 <ChevronRight size={16} /></button><button type="button" onClick={() => navigate('/tasks/phase2/Task7/voice?position=bar_server')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">岗位题库 <ChevronRight size={16} /></button></div></div></div>
+            <div className="flex items-start gap-3"><CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-700" /><div className="min-w-0 flex-1"><p className="text-xs font-semibold text-emerald-700">Bar Server 单职位全流程包已解锁</p><h2 className="mt-1 font-semibold text-emerald-950">免费体验完成，继续进入完整准备路径</h2><p className="mt-2 text-sm leading-6 text-emerald-900">先补齐基础知识，再用连续岗位场景检验能否真正服务客人；之后再进入题库和模拟面试。</p><div className="mt-4 grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => navigate('/programs/bar-server/foundation')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800">岗位基础课 <ChevronRight size={16} /></button><button type="button" onClick={() => navigate('/programs/bar-server/training')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">岗位场景训练 <ChevronRight size={16} /></button><button type="button" onClick={() => navigate('/tasks/phase2/Task7/voice?position=bar_server')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">岗位题库 <ChevronRight size={16} /></button></div></div></div>
           </section>
         ) : (
           <section className="rounded-lg border border-blue-200 bg-blue-50 p-5">

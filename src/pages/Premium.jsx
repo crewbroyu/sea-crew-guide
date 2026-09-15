@@ -58,6 +58,7 @@ export default function Premium() {
   const [purchaseRequest, setPurchaseRequest] = useState(null)
   const [isRequestingPurchase, setIsRequestingPurchase] = useState(false)
   const [purchaseRequestError, setPurchaseRequestError] = useState('')
+  const [acceptedPurchaseRules, setAcceptedPurchaseRules] = useState(false)
 
   useEffect(() => {
     trackProductEvent('product_page_viewed', { properties: { hasAccess: hasBarServerPack } })
@@ -88,12 +89,17 @@ export default function Premium() {
       return
     }
 
+    if (!acceptedPurchaseRules) {
+      setPurchaseRequestError('请先确认岗位包交付与退款规则。')
+      return
+    }
+
     if (!hasBarServerPack) {
       openUnlockModal()
       return
     }
 
-    navigate('/tasks/phase2/Task5')
+    navigate('/programs/bar-server/foundation')
   }
 
   const handleManualPurchase = async () => {
@@ -246,14 +252,20 @@ export default function Premium() {
                 <ArrowRight size={17} />
               </button>
               {!hasBarServerPack && (
-                <button
-                  type="button"
-                  onClick={handleManualPurchase}
-                  disabled={isRequestingPurchase || Boolean(hasOpenPurchaseRequest)}
-                  className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-white px-5 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {hasOpenPurchaseRequest ? '已提交申请' : isRequestingPurchase ? '正在提交申请...' : visiblePurchaseRequest ? '重新申请人工开通' : '申请人工开通'}
-                </button>
+                <>
+                  <label className="flex items-start gap-2 text-xs leading-5 text-slate-600">
+                    <input type="checkbox" checked={acceptedPurchaseRules} onChange={(event) => { setAcceptedPurchaseRules(event.target.checked); setPurchaseRequestError('') }} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600" />
+                    <span>我已确认 ¥199 / 180 天、AI 额度，并阅读<a href="/legal/purchase" target="_blank" rel="noreferrer" className="ml-1 font-semibold text-blue-700 underline">交付与退款规则</a></span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleManualPurchase}
+                    disabled={isRequestingPurchase || Boolean(hasOpenPurchaseRequest)}
+                    className="inline-flex items-center justify-center rounded-lg border border-blue-200 bg-white px-5 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {hasOpenPurchaseRequest ? '已提交申请' : isRequestingPurchase ? '正在提交申请...' : visiblePurchaseRequest ? '重新申请人工开通' : '申请人工开通'}
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -283,6 +295,8 @@ export default function Premium() {
           <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-blue-700">
             <button type="button" onClick={() => navigate('/support')} className="underline underline-offset-2">权益或训练遇到问题？联系支持</button>
             <button type="button" onClick={() => navigate('/service-info')} className="underline underline-offset-2">服务与数据说明</button>
+            <button type="button" onClick={() => navigate('/legal/terms')} className="underline underline-offset-2">用户协议</button>
+            <button type="button" onClick={() => navigate('/legal/privacy')} className="underline underline-offset-2">隐私政策</button>
           </div>
         </section>
       </main>

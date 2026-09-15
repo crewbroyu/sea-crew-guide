@@ -81,7 +81,7 @@ export default function BarServerPreparationPack() {
         </section>
 
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
-          <div className="flex items-start gap-3"><Target size={20} className="mt-0.5 shrink-0 text-amber-700" /><div><p className="text-xs font-semibold text-amber-800">免费体验，不是正式课程目录</p><h2 className="mt-1 font-semibold text-amber-950">还没决定购买？先完成 3 个体验场景</h2><p className="mt-2 text-sm leading-6 text-amber-900">体验课用于判断这种训练方式是否适合你；完整学习仍从任务5基础课程开始。</p></div></div>
+          <div className="flex items-start gap-3"><Target size={20} className="mt-0.5 shrink-0 text-amber-700" /><div><p className="text-xs font-semibold text-amber-800">免费体验，不是正式课程目录</p><h2 className="mt-1 font-semibold text-amber-950">还没决定购买？先完成 3 个体验场景</h2><p className="mt-2 text-sm leading-6 text-amber-900">体验课用于判断这种训练方式是否适合你；完整学习从上方 9 天岗位基础课程开始。</p></div></div>
           <button type="button" onClick={() => navigate('/programs/bar-server/trial')} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-amber-700 px-4 text-sm font-semibold text-white hover:bg-amber-800"><Mic size={17} />进入 3 个免费场景</button>
         </section>
 

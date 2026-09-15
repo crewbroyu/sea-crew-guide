@@ -18,6 +18,8 @@ export const generateCareerReport = async ({ profile, assessment }) => {
 
   const controller = new AbortController()
   const timeoutId = window.setTimeout(() => controller.abort(), 90_000)
+  const clientRequestId = globalThis.crypto?.randomUUID?.()
+    || `career-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
   try {
     const response = await fetch('/api/career-report', {
@@ -26,7 +28,7 @@ export const generateCareerReport = async ({ profile, assessment }) => {
         Authorization: `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ profile, assessment }),
+      body: JSON.stringify({ profile, assessment, clientRequestId }),
       signal: controller.signal,
     })
     const body = await response.json().catch(() => null)

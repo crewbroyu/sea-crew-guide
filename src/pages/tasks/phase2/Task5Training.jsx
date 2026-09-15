@@ -229,6 +229,14 @@ export default function Task5Training() {
   const [retailFoundationProgress, setRetailFoundationProgress] = useState(() => getRetailFoundationProgress());
   const [expandedCourse, setExpandedCourse] = useState(null);
 
+  useEffect(() => {
+    if (selectedRole === 'barServer') {
+      navigate('/programs/bar-server/foundation', { replace: true });
+    } else if (selectedRole === 'retail') {
+      navigate('/programs/retail/foundation', { replace: true });
+    }
+  }, [navigate, selectedRole]);
+
   // 学习计时相关状态
   const [activeTimer, setActiveTimer] = useState(null); // { courseId, startTime, elapsedTime, courseName }
   const timerIntervalRef = useRef(null);

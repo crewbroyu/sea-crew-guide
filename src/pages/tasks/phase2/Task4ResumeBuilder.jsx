@@ -136,7 +136,7 @@ export default function Task4ResumeBuilder() {
         <div className="mx-auto max-w-3xl">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/tasks')}
             className="mb-5 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
           >
             <ArrowLeft size={16} />

@@ -45,6 +45,9 @@ globalThis.fetch = async (url, options) => {
   if (target.includes('/rest/v1/rpc/record_ai_usage_event')) {
     return new Response('1', { status: 200, headers: { 'Content-Type': 'application/json' } })
   }
+  if (target.includes('/rest/v1/rpc/record_ai_operation_log')) {
+    return Response.json(1)
+  }
 
   if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) {
     quotaReservations.push(JSON.parse(options?.body || '{}'))
@@ -135,6 +138,9 @@ globalThis.fetch = async (url, options) => {
 
   if (target.includes('/rest/v1/rpc/record_ai_usage_event')) {
     return new Response('2', { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }
+  if (target.includes('/rest/v1/rpc/record_ai_operation_log')) {
+    return Response.json(1)
   }
 
 

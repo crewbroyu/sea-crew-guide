@@ -37,6 +37,14 @@ const POSITION_NAMES = {
   utility: '后勤清洁',
 };
 
+const AI_ENABLED_POSITIONS = new Set(['bar_server', 'retail']);
+const isAiInterviewAvailable = (position) => AI_ENABLED_POSITIONS.has(position);
+const getProductCode = (position) => position === 'bar_server'
+  ? 'bar_server_pack'
+  : position === 'retail'
+    ? 'retail_sales_pack'
+    : null;
+
 const RESTAURANT_SERVER_QUESTIONS = [
   { id: 1, question: 'Tell me about yourself and why you want to work as a restaurant server.', keywords: ['customer', 'service', 'experience', 'team', 'enjoy', 'people', 'communication'] },
   { id: 2, question: 'What does good customer service mean to you?', keywords: ['attentive', 'responsive', 'friendly', 'professional', 'satisfaction', 'expectations'] },
@@ -232,6 +240,12 @@ function Task8MockInterview() {
   const startInterview = async () => {
     setAiError('');
     textOnlyModeRef.current = false;
+
+    if (!isAiInterviewAvailable(selectedPosition)) {
+      setAiError('该岗位的完整 AI 模拟面试仍在制作中。请先到海乘学院浏览公开题库并进行文字练习。');
+      setAiErrorCode('POSITION_AI_NOT_AVAILABLE');
+      return;
+    }
 
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       setBrowserSupported(false);
@@ -441,6 +455,7 @@ function Task8MockInterview() {
         mode: 'premium_mock',
         position: POSITION_NAMES[selectedPosition] || selectedPosition,
         question: question?.question || '',
+        durationSeconds: Math.max(1, recordingTimeRef.current),
       });
       setRecognizedText(result.transcript);
       recognizedTextRef.current = result.transcript;
@@ -589,18 +604,21 @@ function Task8MockInterview() {
             <h2 className="text-xl font-bold text-gray-800">选择目标职位</h2>
             <p className="text-gray-600">请选择你要练习的职位方向</p>
             <div className="space-y-3">
-              {positionConfig.map((position) => (
+              {positionConfig.map((position) => {
+                const available = isAiInterviewAvailable(position.key);
+                return (
                 <button
                   key={position.key}
+                  disabled={!available}
                   onClick={() => {
                     selectPosition(position.key);
                   }}
-                  className="w-full py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
+                  className={`w-full py-3 rounded-lg font-medium flex items-center justify-between gap-2 ${available ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-slate-100 text-slate-500'}`}
                 >
-                  <span>{position.icon}</span>
-                  <span>{position.nameZh} ({position.nameEn})</span>
+                  <span className="flex items-center gap-2"><span>{position.icon}</span><span>{position.nameZh} ({position.nameEn})</span></span>
+                  {!available && <span className="text-xs">制作中</span>}
                 </button>
-              ))}
+              )})}
             </div>
             {task2Position && (
               <button
@@ -670,14 +688,19 @@ function Task8MockInterview() {
               <p className="text-gray-600 text-center mb-6">请选择你要面试的职位</p>
               
               <div className="space-y-3 mb-6">
-                {Object.entries(POSITION_NAMES).map(([key, name]) => (
+                {Object.entries(POSITION_NAMES).map(([key, name]) => {
+                  const available = isAiInterviewAvailable(key);
+                  return (
                   <button
                     key={key}
+                    disabled={!available}
                     onClick={() => {
                       selectPosition(key);
                       setShowPositionSelector(false);
                     }}
-                    className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                    className={`w-full p-4 rounded-xl border-2 text-left transition-all ${!available
+                      ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
+                      :
                       selectedPosition === key 
                         ? 'border-blue-500 bg-blue-50' 
                         : 'border-gray-200 hover:border-blue-300'
@@ -685,12 +708,13 @@ function Task8MockInterview() {
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-gray-800">{name}</span>
+                      {!available && <span className="text-xs font-medium text-slate-500">制作中</span>}
                       {selectedPosition === key && (
                         <CheckCircle size={20} className="text-blue-500" />
                       )}
                     </div>
                   </button>
-                ))}
+                )})}
               </div>
               
               <button
@@ -776,13 +800,9 @@ function Task8MockInterview() {
                 </div>
               )}
 
-              <RequireActivation
+              {isAiInterviewAvailable(selectedPosition) ? <RequireActivation
                 variant="inline"
-                productCode={selectedPosition === 'bar_server'
-                  ? 'bar_server_pack'
-                  : selectedPosition === 'retail'
-                    ? 'retail_sales_pack'
-                    : undefined}
+                productCode={getProductCode(selectedPosition)}
               >
               <button
                 onClick={startInterview}
@@ -795,7 +815,11 @@ function Task8MockInterview() {
               >
                 开始面试
               </button>
-              </RequireActivation>
+              </RequireActivation> : (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                  该岗位的完整 AI 模拟面试仍在制作中。公开题库和文字练习不受影响。
+                </div>
+              )}
             </div>
           )}
         </div>

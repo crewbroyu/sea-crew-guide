@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 
 const MAX_AUDIO_BYTES = 2_500_000
+const MAX_AUDIO_DURATION_SECONDS = 120
 
 export class InterviewAiError extends Error {
   constructor(code, message, status = 0) {
@@ -75,6 +76,7 @@ export const transcribeInterviewAudio = async (audioBlob, {
   position = '',
   question = '',
   scenarioId = '',
+  durationSeconds = 0,
 } = {}) => {
   if (!(audioBlob instanceof Blob) || audioBlob.size === 0) {
     throw new InterviewAiError('INVALID_AUDIO', '没有读取到有效录音。')
@@ -82,6 +84,11 @@ export const transcribeInterviewAudio = async (audioBlob, {
 
   if (audioBlob.size > MAX_AUDIO_BYTES) {
     throw new InterviewAiError('AUDIO_TOO_LARGE', '录音文件过大，请将单题回答控制在 2 分钟内。', 413)
+  }
+
+  const normalizedDuration = Math.ceil(Number(durationSeconds) || 0)
+  if (normalizedDuration < 1 || normalizedDuration > MAX_AUDIO_DURATION_SECONDS) {
+    throw new InterviewAiError('AUDIO_DURATION_INVALID', '单题录音必须控制在 2 分钟内。', 413)
   }
 
   const audioData = await blobToDataUrl(audioBlob)
@@ -92,6 +99,7 @@ export const transcribeInterviewAudio = async (audioBlob, {
     question,
     scenarioId,
     mimeType: audioBlob.type || 'audio/webm',
+    durationSeconds: normalizedDuration,
     audioData,
   })
 }

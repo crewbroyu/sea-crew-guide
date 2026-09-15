@@ -11,6 +11,7 @@ import RequireActivation from './components/RequireActivation'
 import RequireAdmin from './components/RequireAdmin'
 import AdminPreviewBar from './components/AdminPreviewBar'
 import DebugPanel from './components/DebugPanel'
+import RouteMetadata from './components/RouteMetadata'
 
 // 动态导入大型组件
 const Task2 = lazy(() => import('./pages/tasks/Task2'))
@@ -65,6 +66,8 @@ const BarServerScenarioTraining = lazy(() => import('./pages/programs/BarServerS
 const FoundationCourse = lazy(() => import('./pages/programs/FoundationCourse'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
 const BoardingMaterials = lazy(() => import('./pages/BoardingMaterials'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+const LegalDocument = lazy(() => import('./pages/LegalDocument'))
 
 function App() {
   const hideNavPages = [
@@ -87,6 +90,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
+        <RouteMetadata />
         <AccessGate />
         <AdminPreviewBar />
         {import.meta.env.DEV && <DebugPanel />}
@@ -147,6 +151,7 @@ function App() {
               <Route path="/premium" element={<Premium />} />
               <Route path="/support" element={<Support />} />
               <Route path="/service-info" element={<ServiceInfo />} />
+              <Route path="/legal/:document" element={<LegalDocument />} />
               <Route path="/founder-test" element={<RequireActivation productCode="bar_server_pack"><FounderBeta /></RequireActivation>} />
               <Route path="/programs/retail" element={<RetailPreparationPack />} />
               <Route path="/programs/retail/training" element={<RequireActivation productCode="retail_sales_pack"><RetailScenarioTraining /></RequireActivation>} />
@@ -159,7 +164,7 @@ function App() {
               <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />
               <Route path="/generate-codes" element={<RequireAdmin><ActivationCodeGenerator /></RequireAdmin>} />
               <Route path="/admin/beta" element={<RequireAdmin><AdminBetaDashboard /></RequireAdmin>} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
           <BottomNav hideNavPages={hideNavPages} />

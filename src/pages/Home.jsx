@@ -20,6 +20,7 @@ import useEffectiveAccess from '../hooks/useEffectiveAccess'
 import { getScoreData } from '../store/scoreStore'
 import pathData from '../data/pathData'
 import { BAR_SERVER_FOUNDATION_DAY_COUNT } from '../data/barServerFoundationMeta'
+import { retailFoundationDays } from '../data/retailFoundation'
 import { SUPPORT_EMAIL, SUPPORT_WECHAT_ID } from '../config/contact'
 
 const publicLinks = [
@@ -122,7 +123,14 @@ const getHomeSnapshot = () => {
       label: '当前推荐行动',
       title: `继续 Bar Server 基础训练（${foundationCompletedDays}/${BAR_SERVER_FOUNDATION_DAY_COUNT}）`,
       reason: '先补齐酒水与服务动作，再把知识带进答案卡和语音训练。',
-      route: '/tasks/phase2/Task5',
+      route: '/programs/bar-server/foundation',
+    }
+  } else if ((currentTask?.id || 1) >= 5 && task5.selectedRole === 'retail' && foundationCompletedDays < retailFoundationDays.length) {
+    recommendedAction = {
+      label: '当前推荐行动',
+      title: `继续 Retail Sales 基础训练（${foundationCompletedDays}/${retailFoundationDays.length}）`,
+      reason: '先练需求发现、产品匹配和合规销售，再进入答案卡与岗位模拟。',
+      route: '/programs/retail/foundation',
     }
   } else if ((currentTask?.id || 1) >= 6 && task5.selectedRole === 'barServer' && Number(task6.preparedAnswerCount || 0) < 3) {
     recommendedAction = {

@@ -8,6 +8,7 @@ import useEffectiveAccess from '../../../hooks/useEffectiveAccess';
 import { hasProductEntitlement } from '../../../services/activationService';
 import { coachInterviewAnswer } from '../../../services/interviewAiService';
 import { BAR_SERVER_FOUNDATION_DAY_COUNT } from '../../../data/barServerFoundationMeta';
+import { retailFoundationDays } from '../../../data/retailFoundation';
 
 // 封装 localStorage 工具函数
 const STORAGE_KEY = 'task6_data';
@@ -72,6 +73,34 @@ const englishStarters = {
   strengths: 'My strongest qualities are...',
   positionFit: 'These strengths fit this position because...',
   closing: 'I am ready to...',
+  discovery: 'To understand the guest, I first ask... ',
+  productMatch: 'I recommend a product only after... ',
+  salesFlow: 'My retail service sequence is... ',
+  compliance: 'For an accurate and compliant sale, I always... ',
+};
+
+const JOB_AI_CONFIG = {
+  barServer: {
+    position: 'Bar Server',
+    productCode: 'bar_server_pack',
+    premiumPosition: 'bar_server',
+    nextRoute: '/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task6',
+    knowledgeLabel: '岗位知识回答',
+  },
+  retail: {
+    position: 'Retail Sales Associate',
+    productCode: 'retail_sales_pack',
+    premiumPosition: 'retail',
+    nextRoute: '/tasks/phase2/Task7/voice?mode=knowledge&position=retail&source=task6',
+    knowledgeLabel: '销售知识回答',
+  },
+};
+
+const mapPositionToTaskRole = (position = '') => {
+  const normalized = String(position || '').toLowerCase();
+  if (/retail|shop|sales|jewelry|免税|零售/.test(normalized)) return 'retail';
+  if (/bar|bartender|酒吧|调酒/.test(normalized)) return 'barServer';
+  return null;
 };
 
 function SpeechAnswerField({ value = '', onChange, placeholder, starter, rows = 3 }) {
@@ -204,6 +233,23 @@ const answerCards = [
     ],
   },
   {
+    id: 'retail_knowledge',
+    title: '我的 Retail Sales 岗位知识回答',
+    description: '把需求发现、产品匹配、合规销售和门店操作整理成一段能在面试里说清楚的回答。',
+    status: 'available',
+    roles: ['retail'],
+    focusPoints: ['先发现需求再推荐', '不虚构折扣、免税额度或产品功效', '兼顾宾客体验、KPI 与防损'],
+    referenceCase: '使用基础课的 Approach → Discover → Recommend → Confirm → Close 流程，说明你怎样理解客人、比较选项、处理异议并准确完成 POS 交易。',
+    avoidAnswer: 'I can sell anything to every customer.',
+    fields: [
+      { key: 'discovery', label: '你会怎样发现客人的真实需求？', placeholder: '例如先问用途、预算、偏好、收礼对象和购买时间。' },
+      { key: 'productMatch', label: '你会怎样匹配并讲解产品？', placeholder: '说明怎样比较两个合适选项，而不是堆砌品牌和夸大功效。' },
+      { key: 'salesFlow', label: '你理解的完整零售服务流程是什么？', placeholder: '从接近、需求发现、推荐、异议处理、成交到售后和交接。' },
+      { key: 'compliance', label: '免税、价格、库存或产品信息不确定时怎么处理？', placeholder: '说明核实规则、保护客人信息、POS 准确性和防损边界。' },
+      { key: 'learning', label: '上船后你会怎样快速学习产品和销售目标？', placeholder: '例如学习 approved product facts、promotions、allowances、POS 和 daily targets。' },
+    ],
+  },
+  {
     id: 'service_case',
     title: '我的服务案例',
     description: '准备一个处理客人问题的故事，面试里最常被追问。',
@@ -293,9 +339,13 @@ function Task6InterviewSkills() {
   const [task5Context] = useState(() => {
     const task5Result = readJson('task5_result', {});
     const task5Data = readJson('task5_data', {});
+    const task2Result = readJson('task2_result', {});
     const foundationProgress = task5Result.foundationProgress || task5Data.foundationProgress || {};
     return {
-      selectedRole: task5Result.selectedRole || task5Data.selectedRole || null,
+      selectedRole: task5Result.selectedRole
+        || task5Data.selectedRole
+        || mapPositionToTaskRole(task2Result.selectedTargetJob || task2Result.target_position)
+        || null,
       foundationProgress,
       foundationCompletedDays: task5Result.foundationCompletedDays
         || Object.values(foundationProgress).filter((day) => day?.completedAt).length,
@@ -363,6 +413,7 @@ function Task6InterviewSkills() {
   const visibleAnswerCards = answerCards.filter(
     (card) => !card.roles || card.roles.includes(task5Context.selectedRole),
   );
+  const jobAiConfig = JOB_AI_CONFIG[task5Context.selectedRole] || null;
   const preparedAnswerCount = visibleAnswerCards.filter(card => isAnswerCardCompleted(card)).length;
 
   const buildAnswerCardOutput = (cardId) => {
@@ -384,6 +435,19 @@ function Task6InterviewSkills() {
       return {
         basic: `I have built a practical foundation in bar service. ${spiritFamilies}. When a guest is unsure, ${recommendation}. During service, ${serviceFlow}. For safety and accuracy, ${safety}. After joining the ship, ${learning}.`,
         concise: `I understand the main spirit families and common cocktail styles. When recommending a drink, ${recommendation}. I always follow responsible-service rules and verify information instead of guessing. Onboard, ${learning}.`,
+      };
+    }
+
+    if (cardId === 'retail_knowledge') {
+      const discovery = data.discovery || 'I ask about the guest’s purpose, budget, preferences, and timing before suggesting anything';
+      const productMatch = data.productMatch || 'I compare suitable options with accurate product facts and explain the value in clear language';
+      const salesFlow = data.salesFlow || 'I approach professionally, discover the need, recommend relevant options, handle concerns, confirm the choice, and complete the transaction accurately';
+      const compliance = data.compliance || 'I verify promotions, duty-free allowances, prices, stock, and product claims instead of guessing, and I follow POS and loss-prevention procedures';
+      const learning = data.learning || 'I will study approved product facts, current promotions, guest allowances, POS steps, daily targets, and loss-prevention rules';
+
+      return {
+        basic: `I have built a practical foundation in cruise retail. ${discovery}. Then ${productMatch}. During service, ${salesFlow}. For an accurate and compliant sale, ${compliance}. After joining the ship, ${learning}.`,
+        concise: `I use a guest-first sales process. ${discovery}, then ${productMatch}. I never guess about prices, promotions, allowances, or product claims. Onboard, ${learning}.`,
       };
     }
 
@@ -456,7 +520,11 @@ function Task6InterviewSkills() {
       openRegisterModal();
       return;
     }
-    if (!hasProductEntitlement(access, 'bar_server_pack')) {
+    if (!jobAiConfig) {
+      setCoachError('该岗位的 AI 答案教练仍在制作中。你可以继续完成文字答案卡和浏览公开题库。');
+      return;
+    }
+    if (!hasProductEntitlement(access, jobAiConfig.productCode)) {
       openUnlockModal();
       return;
     }
@@ -470,7 +538,7 @@ function Task6InterviewSkills() {
     try {
       const current = answerCardData[card.id] || {};
       const result = await coachInterviewAnswer({
-        position: 'Bar Server',
+        position: jobAiConfig.position,
         card: {
           id: card.id,
           title: card.title,
@@ -491,7 +559,7 @@ function Task6InterviewSkills() {
       console.error('AI 答案教练生成失败:', error);
       if (error.code === 'LOGIN_REQUIRED') openRegisterModal();
       if (error.code === 'ACTIVATION_REQUIRED') openUnlockModal();
-      if (error.code === 'AI_QUOTA_EXHAUSTED') navigate('/premium?source=task6-ai-coach&position=bar_server');
+      if (error.code === 'AI_QUOTA_EXHAUSTED') navigate(`/premium?source=task6-ai-coach&position=${jobAiConfig?.premiumPosition || ''}`);
       setCoachError(error.message || 'AI 答案教练暂时不可用，请稍后重试。');
     } finally {
       setCoachingCardId(null);
@@ -512,7 +580,7 @@ function Task6InterviewSkills() {
       completedAt,
       preparedAnswerCount,
       answerCards: preparedCards,
-      task5KnowledgeContext: task5Context.selectedRole === 'barServer' ? task5Context : null,
+      task5KnowledgeContext: jobAiConfig ? task5Context : null,
     };
     localStorage.setItem('task6_result', JSON.stringify(taskResult));
 
@@ -538,9 +606,7 @@ function Task6InterviewSkills() {
     });
 
     navigate(
-      task5Context.selectedRole === 'barServer'
-        ? '/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task6'
-        : '/tasks?justCompleted=6'
+      jobAiConfig?.nextRoute || '/tasks?justCompleted=6'
     );
   };
   
@@ -557,6 +623,11 @@ function Task6InterviewSkills() {
         'What basic spirits and classic cocktails do you know?',
         'How would you recommend a drink to an undecided guest?',
         'What would you do if you did not know a cocktail recipe or package rule?',
+      ],
+      retail_knowledge: [
+        'How do you discover what a guest actually needs before recommending a product?',
+        'How do you balance guest experience with sales targets?',
+        'What would you do if you were unsure about a promotion, allowance, price, or product claim?',
       ],
       service_case: [
         'What exactly did you do first?',
@@ -645,7 +716,7 @@ function Task6InterviewSkills() {
             ))}
           </section>
 
-          {task5Context.selectedRole === 'barServer' && (
+          {jobAiConfig && (
             <section className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -772,18 +843,20 @@ function Task6InterviewSkills() {
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs text-slate-500">下一步</p>
-              <p className="mt-1 text-sm font-semibold text-slate-950">{task5Context.selectedRole === 'barServer' ? '岗位知识回答' : '服务案例'}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-950">{jobAiConfig?.knowledgeLabel || '服务案例'}</p>
             </div>
           </div>
         </div>
         
         <div className="px-6 py-5">
-          {task5Context.selectedRole === 'barServer' && (
+          {(task5Context.selectedRole === 'barServer' || task5Context.selectedRole === 'retail') && (
             <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
-              <p className="text-xs font-semibold text-blue-700">来自任务5 · Bar Server 基础课</p>
-              <h2 className="mt-1 font-semibold text-blue-950">已学习 {task5Context.foundationCompletedDays}/{BAR_SERVER_FOUNDATION_DAY_COUNT} 天，先把知识整理成自己的回答</h2>
+              <p className="text-xs font-semibold text-blue-700">来自任务5 · {jobAiConfig?.position} 基础课</p>
+              <h2 className="mt-1 font-semibold text-blue-950">已学习 {task5Context.foundationCompletedDays}/{task5Context.selectedRole === 'retail' ? retailFoundationDays.length : BAR_SERVER_FOUNDATION_DAY_COUNT} 天，先把知识整理成自己的回答</h2>
               <p className="mt-1 text-sm leading-6 text-blue-900">
-                系统已经把基酒、鸡尾酒推荐、服务流程和责任售酒带入第一张答案卡。完成后，任务7会用对应问题检查你能不能真正说出来。
+                {task5Context.selectedRole === 'retail'
+                  ? '系统已经把需求发现、产品匹配、销售流程和合规边界带入第一张答案卡。完成后，任务7会用对应问题检查你能不能真正说出来。'
+                  : '系统已经把基酒、鸡尾酒推荐、服务流程和责任售酒带入第一张答案卡。完成后，任务7会用对应问题检查你能不能真正说出来。'}
               </p>
             </section>
           )}
@@ -845,8 +918,8 @@ function Task6InterviewSkills() {
               <div>
                 <h2 className="font-bold text-slate-950">进入下一步前，请先准备 3 个可用回答</h2>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
-                  {task5Context.selectedRole === 'barServer'
-                    ? '建议优先完成岗位知识回答、服务案例和压力案例，它们会直接进入任务7的知识与场景训练。'
+                  {jobAiConfig
+                    ? `建议优先完成${jobAiConfig.knowledgeLabel}、服务案例和压力案例，它们会直接进入任务7的知识与场景训练。`
                     : '这三个回答会直接服务于后面的 AI 模拟面试：服务案例、压力案例和岗位动机。'}
                 </p>
               </div>

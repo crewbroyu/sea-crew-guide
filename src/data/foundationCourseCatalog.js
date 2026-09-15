@@ -1,5 +1,5 @@
-import { barServerFoundationDays } from './barServerFoundation'
-import { retailFoundationDays } from './retailFoundation'
+import { BAR_SERVER_FOUNDATION_VERSION, barServerFoundationDays } from './barServerFoundation'
+import { RETAIL_FOUNDATION_VERSION, retailFoundationDays } from './retailFoundation'
 
 export const FOUNDATION_COURSES = {
   'bar-server': {
@@ -7,6 +7,7 @@ export const FOUNDATION_COURSES = {
     jobKey: 'bar_server',
     roleKey: 'barServer',
     productCode: 'bar_server_pack',
+    version: BAR_SERVER_FOUNDATION_VERSION,
     label: 'BAR SERVER',
     title: 'Bar Server 岗位基础课',
     description: '从酒水、杯具和卫生开始，练到能在真实邮轮酒吧班次中开口服务。',
@@ -21,6 +22,7 @@ export const FOUNDATION_COURSES = {
     jobKey: 'retail',
     roleKey: 'retail',
     productCode: 'retail_sales_pack',
+    version: RETAIL_FOUNDATION_VERSION,
     label: 'RETAIL SALES ASSOCIATE',
     title: 'Retail Sales Associate 岗位基础课',
     description: '从接近客人、需求发现和产品讲解，练到 KPI、异议、POS、防损与服务补救。',

@@ -11,6 +11,7 @@ export default function RegisterModal() {
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   function resetForm() {
     setEmail('');
@@ -18,6 +19,7 @@ export default function RegisterModal() {
     setName('');
     setError('');
     setConfirmationEmail('');
+    setAcceptedTerms(false);
     setMode('register');
   }
 
@@ -89,6 +91,11 @@ export default function RegisterModal() {
       setError('请输入姓名');
       return;
     }
+
+    if (mode === 'register' && !acceptedTerms) {
+      setError('请先阅读并同意用户协议和隐私政策');
+      return;
+    }
     
     setIsProcessing(true);
     
@@ -103,6 +110,8 @@ export default function RegisterModal() {
           options: {
             data: {
               name: name.trim(),
+              terms_version: '1.0-2026-09-15',
+              terms_accepted_at: new Date().toISOString(),
             },
             emailRedirectTo: getAuthCallbackUrl(),
           },
@@ -178,6 +187,8 @@ export default function RegisterModal() {
       
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 mx-4">
         <button
+          type="button"
+          aria-label="关闭注册或登录窗口"
           onClick={closeRegisterModal}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
         >
@@ -252,6 +263,18 @@ export default function RegisterModal() {
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             />
           </div>
+
+          {mode === 'register' && (
+            <label className="flex items-start gap-3 rounded-lg bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-600">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => { setAcceptedTerms(event.target.checked); setError(''); }}
+                className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
+              />
+              <span>我已阅读并同意 <a href="/legal/terms" target="_blank" rel="noreferrer" className="font-semibold text-blue-700 underline">用户协议</a> 和 <a href="/legal/privacy" target="_blank" rel="noreferrer" className="font-semibold text-blue-700 underline">隐私政策</a>。</span>
+            </label>
+          )}
 
           {error && (
             <div className="text-red-600 text-sm text-center">{error}</div>

@@ -12,6 +12,12 @@ global.fetch = async (url, options = {}) => {
   if (String(url).includes('/rest/v1/career_reports')) {
     return new Response('', { status: 200, headers: { 'content-range': '0-0/0' } })
   }
+  if (String(url).includes('/rest/v1/rpc/reserve_career_report_generation')) {
+    return new Response(JSON.stringify({ reservation_id: '33333333-3333-4333-8333-333333333333' }), { status: 200 })
+  }
+  if (String(url).includes('/rest/v1/rpc/finalize_career_report_generation')) {
+    return new Response(JSON.stringify(true), { status: 200 })
+  }
   if (String(url).includes('/chat/completions')) {
     return new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify({
@@ -45,6 +51,7 @@ try {
     method: 'POST',
     headers: { authorization: 'Bearer mock-token' },
     body: {
+      clientRequestId: 'career-report-test-1',
       profile: {
         ageRange: '21_25', education: 'diploma', englishLevel: 'service', experience: 'restaurant_bar', goal: 'income', timeline: '3_6_months', budget: '500_2000', salesTolerance: 'open', workIntensity: 'high', workSummary: '餐饮服务经验。',
       },

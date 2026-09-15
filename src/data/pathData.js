@@ -58,13 +58,13 @@ const pathData = [
   },
   {
     id: 3,
-    name: '拿到Offer',
+    name: '面试与 Offer',
     icon: '🎯',
     tasks: [
       {
         id: 7,
-        title: '完成岗位口语与 AI 模拟',
-        subtitle: '从路径进入学院单题训练和求职中心完整模拟',
+        title: '完成岗位口语训练',
+        subtitle: '在学院完成单题口语；岗位包用户可继续进入求职中心完整 AI 模拟',
         route: '/tasks/phase2/Task7',
         completionType: 'auto',
       },

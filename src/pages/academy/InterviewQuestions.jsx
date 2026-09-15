@@ -58,6 +58,12 @@ const getDifficultyClass = (difficulty) => {
   return 'bg-rose-50 text-rose-700'
 }
 
+const getFoundationRoute = (positionKey) => {
+  if (positionKey === 'bar_server') return '/programs/bar-server/foundation'
+  if (positionKey === 'retail') return '/programs/retail/foundation'
+  return `/tasks/phase2/Task5?position=${positionKey}&source=academy`
+}
+
 export default function InterviewQuestions() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -194,7 +200,7 @@ export default function InterviewQuestions() {
                 <p className="mt-2 text-sm leading-6 text-slate-600">前面先完成岗位基础课和工作场景训练，再用这些问题把岗位知识转成面试表达。</p>
               </div>
               <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-                <button type="button" onClick={() => navigate(`/tasks/phase2/Task5?position=${positionKey}&source=academy`)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50">岗位基础课<ArrowRight size={16} /></button>
+                <button type="button" onClick={() => navigate(getFoundationRoute(positionKey))} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50">岗位基础课<ArrowRight size={16} /></button>
                 <button type="button" onClick={() => navigate(positionKey === 'bar_server' ? '/programs/bar-server' : '/programs/retail')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">完整训练路径<ArrowRight size={16} /></button>
               </div>
             </div>
@@ -211,7 +217,7 @@ export default function InterviewQuestions() {
 
         <div className="mb-4 flex items-center justify-between gap-3 text-sm text-slate-500">
           <span className="inline-flex items-center gap-2"><Filter size={15} />{filteredQuestions.length} 道问题</span>
-          <button type="button" onClick={() => navigate(`/tasks/phase2/Task5?position=${positionKey}&source=academy`)} className="font-semibold text-blue-700">岗位知识在任务5</button>
+          <button type="button" onClick={() => navigate(getFoundationRoute(positionKey))} className="font-semibold text-blue-700">查看岗位基础课</button>
         </div>
 
         <section className="grid gap-3">

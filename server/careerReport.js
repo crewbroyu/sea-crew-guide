@@ -10,7 +10,6 @@ import {
 
 const DEFAULT_TEXT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 const DEFAULT_MODEL = 'qwen3.5-plus'
-const REPORT_LIMIT = 1
 const CAREER_REPORT_MAX_COMPLETION_TOKENS = 2500
 const allowedRoles = [
   { id: 'retail', title: 'Retail Sales Associate' },
@@ -62,6 +61,35 @@ const authenticateRequest = async ({ headers, config }) => {
   const { data: { user }, error } = await supabase.auth.getUser(token)
   if (error || !user?.id) throw new CareerReportApiError(401, 'LOGIN_REQUIRED', '登录状态已失效，请重新登录。')
   return { user, supabase }
+}
+
+const reserveCareerReport = async ({ supabase, requestId }) => {
+  const { data, error } = await supabase.rpc('reserve_career_report_generation', {
+    input_request_id: requestId,
+  })
+
+  if (error) {
+    const message = error.message || ''
+    if (message.includes('CAREER_REPORT_ALREADY_GENERATED')) {
+      throw new CareerReportApiError(429, 'RATE_LIMITED', '免费职业评估已生成，请先根据报告完成岗位确认。')
+    }
+    if (message.includes('CAREER_REPORT_IN_PROGRESS')) {
+      throw new CareerReportApiError(409, 'REPORT_IN_PROGRESS', '职业报告正在生成，请不要重复提交。')
+    }
+    console.error('Career report reservation failed:', message)
+    throw new CareerReportApiError(503, 'REPORT_STORAGE_UNAVAILABLE', '职业报告存储尚未配置，请稍后再试。')
+  }
+
+  return data?.reservation_id || null
+}
+
+const finalizeCareerReport = async ({ supabase, reservationId, completed }) => {
+  if (!reservationId) return
+  const { error } = await supabase.rpc('finalize_career_report_generation', {
+    input_reservation_id: reservationId,
+    input_outcome: completed ? 'completed' : 'failed',
+  })
+  if (error) console.error('Career report reservation finalization failed:', error.message)
 }
 
 const redactSensitiveText = (value) => trimText(value, 1000)
@@ -169,18 +197,13 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
 
     const config = getConfig(env)
     requireConfig(config)
+    const requestId = trimText(payload.clientRequestId, 200)
+    if (!requestId) throw new CareerReportApiError(400, 'REQUEST_ID_REQUIRED', '本次职业评估请求无效，请重新提交。')
     const { supabase } = await authenticateRequest({ headers, config })
-    const { count, error: reportCountError } = await supabase
-      .from('career_reports')
-      .select('id', { count: 'exact', head: true })
+    const reservationId = await reserveCareerReport({ supabase, requestId })
+    let completed = false
 
-    if (reportCountError) {
-      console.error('Career report quota lookup failed:', reportCountError.message)
-      throw new CareerReportApiError(503, 'REPORT_STORAGE_UNAVAILABLE', '职业报告存储尚未配置，请稍后再试。')
-    }
-    if ((count || 0) >= REPORT_LIMIT) {
-      throw new CareerReportApiError(429, 'RATE_LIMITED', '免费职业评估已生成，请先根据报告完成岗位确认。')
-    }
+    try {
     const assessment = payload.assessment || {}
     const fallbackRecommendations = Array.isArray(assessment.ruleRecommendations) ? assessment.ruleRecommendations.slice(0, 3) : []
     const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
@@ -199,9 +222,9 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
       }),
       signal: AbortSignal.timeout(75_000),
     })
-    const rawReport = await parseProviderResponse(response)
-    const report = buildReport(rawReport, fallbackRecommendations)
-    const { error } = await supabase.rpc('save_ai_advisor_career_report', {
+      const rawReport = await parseProviderResponse(response)
+      const report = buildReport(rawReport, fallbackRecommendations)
+      const { error } = await supabase.rpc('save_ai_advisor_career_report', {
       input_profile: profile,
       input_assessment: assessment,
       input_report: report,
@@ -212,12 +235,16 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
       input_missing_information: report.advisorSignals.missingInformation,
       input_risk_flags: report.advisorSignals.riskFlags,
       input_framework_version: AI_CREW_YUGE_FRAMEWORK_VERSION,
-    })
-    if (error) {
-      console.error('Career report persistence failed:', error.message)
-      throw new CareerReportApiError(503, 'REPORT_SAVE_FAILED', '报告已生成，但暂时无法保存，请稍后重新生成。')
+      })
+      if (error) {
+        console.error('Career report persistence failed:', error.message)
+        throw new CareerReportApiError(503, 'REPORT_SAVE_FAILED', '报告已生成，但暂时无法保存，请稍后重新生成。')
+      }
+      completed = true
+      return { status: 200, body: { success: true, data: report } }
+    } finally {
+      await finalizeCareerReport({ supabase, reservationId, completed })
     }
-    return { status: 200, body: { success: true, data: report } }
   } catch (error) {
     if (error instanceof SyntaxError) return { status: 400, body: { success: false, error: { code: 'INVALID_JSON', message: '请求格式无效。' } } }
     if (error instanceof CareerReportApiError) return { status: error.status, body: { success: false, error: { code: error.code, message: error.message } } }

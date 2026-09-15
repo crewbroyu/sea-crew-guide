@@ -51,7 +51,7 @@ export default function ServiceInfo() {
         <div className="mx-auto max-w-3xl px-5 pb-7 pt-12">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             className="mb-5 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700"
           >
             <ArrowLeft size={16} />返回
@@ -76,6 +76,11 @@ export default function ServiceInfo() {
         ))}
 
         <p className="px-1 text-xs leading-5 text-slate-500">版本：测试期 1.0 · 更新于 2026-09-13</p>
+        <div className="flex flex-wrap gap-x-4 gap-y-2 px-1 text-sm font-semibold text-blue-700">
+          <button type="button" onClick={() => navigate('/legal/terms')} className="underline underline-offset-2">用户协议</button>
+          <button type="button" onClick={() => navigate('/legal/privacy')} className="underline underline-offset-2">隐私政策</button>
+          <button type="button" onClick={() => navigate('/legal/purchase')} className="underline underline-offset-2">交付与退款规则</button>
+        </div>
       </main>
     </div>
   )

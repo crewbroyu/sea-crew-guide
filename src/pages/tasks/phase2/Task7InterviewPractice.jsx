@@ -409,6 +409,7 @@ function Task7InterviewPractice() {
   const streamRef = useRef(null);
   const chunksRef = useRef([]);
   const startedAtRef = useRef(null);
+  const recordingTimeoutRef = useRef(null);
   const audioUrlsRef = useRef(new Set());
   const audioBlobsRef = useRef(new Map());
   const transcriptionSequenceRef = useRef(new Map());
@@ -440,6 +441,7 @@ function Task7InterviewPractice() {
   }, [answers, attemptHistory, baselineScores, currentQuestionIndex, customSessionId, evaluation, foundationDayId, practiceMode, requestedQuestionId, retryQuestions, roundNumber, stage, targetPositionKey]);
 
   useEffect(() => () => {
+    if (recordingTimeoutRef.current) window.clearTimeout(recordingTimeoutRef.current);
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
@@ -460,7 +462,7 @@ function Task7InterviewPractice() {
     }));
   };
 
-  const transcribeRecording = async (questionId, blob) => {
+  const transcribeRecording = async (questionId, blob, durationSeconds) => {
     const sequence = (transcriptionSequenceRef.current.get(questionId) || 0) + 1;
     transcriptionSequenceRef.current.set(questionId, sequence);
     updateAnswer(questionId, {
@@ -473,6 +475,7 @@ function Task7InterviewPractice() {
         mode: hasPaidAiAccess ? 'premium_practice' : 'practice',
         position: targetPosition.nameEn,
         question: questions.find((item) => item.id === questionId)?.question || '',
+        durationSeconds,
       });
       if (transcriptionSequenceRef.current.get(questionId) !== sequence) return;
 
@@ -536,6 +539,8 @@ function Task7InterviewPractice() {
         }
       };
       recorder.onstop = async () => {
+        if (recordingTimeoutRef.current) window.clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || 'audio/webm' });
         const previousUrl = answers[questionId]?.audioUrl;
         if (previousUrl) {
@@ -557,11 +562,14 @@ function Task7InterviewPractice() {
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
         setRecordingQuestionId(null);
-        await transcribeRecording(questionId, blob);
+        await transcribeRecording(questionId, blob, durationSeconds);
       };
 
       recorder.start();
       setRecordingQuestionId(questionId);
+      recordingTimeoutRef.current = window.setTimeout(() => {
+        if (recorder.state === 'recording') recorder.stop();
+      }, 120_000);
     } catch (error) {
       console.error('录音启动失败:', error);
       setRecorderError('无法打开麦克风权限，请检查浏览器授权，或先使用文字回答。');
@@ -578,7 +586,7 @@ function Task7InterviewPractice() {
   const retryTranscription = (questionId) => {
     const blob = audioBlobsRef.current.get(questionId);
     if (blob) {
-      transcribeRecording(questionId, blob);
+      transcribeRecording(questionId, blob, answers[questionId]?.durationSeconds || 1);
     } else {
       updateAnswer(questionId, {
         transcriptionError: '当前录音已失效，请重新录制。',
@@ -1178,10 +1186,14 @@ function Task7InterviewPractice() {
           </button>
           <button
             type="button"
-            onClick={() => navigate(practiceMode === 'knowledge' ? '/tasks/phase2/Task5' : '/tasks/phase2/Task7/mock')}
+            onClick={() => navigate(practiceMode === 'knowledge'
+              ? targetPositionKey === 'retail'
+                ? '/programs/retail/foundation?view=practice'
+                : '/programs/bar-server/foundation?view=practice'
+              : `/tasks/phase2/Task7/mock?position=${targetPositionKey}`)}
             className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
           >
-            {practiceMode === 'knowledge' ? '查看任务5能力状态' : '完整 AI 模拟'}
+            {practiceMode === 'knowledge' ? '查看基础课弱项训练' : '完整 AI 模拟'}
             <ArrowRight size={16} />
           </button>
         </div>

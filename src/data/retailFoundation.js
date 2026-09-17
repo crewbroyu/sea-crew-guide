@@ -57,7 +57,7 @@ export const retailFoundationDays = [
       { term: 'fragrance notes', ipa: '/ˈfreɪɡrəns noʊts/', meaning: '香调', example: 'This fragrance opens with fresh citrus notes.' },
       { term: 'warranty', ipa: '/ˈwɔːrənti/', meaning: '保修', example: 'Let me confirm the authorised warranty terms for this model.' },
     ],
-    knowledge: ['Learn category basics for fragrance, beauty, watches, jewellery, liquor, fashion and logo merchandise.', 'Use feature, evidence and benefit; avoid empty words such as amazing or best.', 'Never invent ingredients, performance, authenticity documents, warranty, stock or medical effects.'],
+    knowledge: ['Build breadth across fragrance, beauty, watches, fashion jewellery, apparel, bags, liquor, Logo Shop, General Store and travel accessories; use the Product Knowledge Library for category drills.', 'Use feature, verified evidence and benefit; avoid empty words such as amazing or best.', 'For an unfamiliar product, read the label or product card, confirm the exact model or variant, and ask the trained category specialist.', 'Never invent ingredients, materials, performance, authenticity documents, warranty, stock, customs or medical effects.'],
     serviceLines: [
       { cue: 'Connect a feature to a need', line: 'Because you prefer something fresh for daytime, this lighter citrus profile may suit you better.' },
       { cue: 'Compare clearly', line: 'This option is more understated, while the other has a stronger evening character.' },
@@ -133,7 +133,7 @@ export const retailFoundationDays = [
       { term: 'visual merchandising', ipa: '/ˈvɪʒuəl ˈmɜːrtʃəndaɪzɪŋ/', meaning: '视觉陈列', example: 'Visual merchandising keeps the store clear and easy to shop.' },
       { term: 'loss prevention', ipa: '/lɒs prɪˈvenʃən/', meaning: '商品与资金损失预防', example: 'Loss prevention protects guests, colleagues and merchandise.' },
     ],
-    knowledge: ['Follow the approved POS flow for item, quantity, price, promotion, payment and receipt.', 'Never share login credentials, photograph payment details or improvise around a system control.', 'Report discrepancies, suspicious behaviour and damaged stock discreetly through the correct chain.'],
+    knowledge: ['Follow the approved POS flow for item, quantity, price, promotion, payment and receipt.', 'Store operations also include receiving, checking delivery documents, SKU placement, back-stock organisation, replenishment, cycle counts, full stocktakes, transfers and damage control.', 'Keep similar sizes, shades, fragrances and model references separated. Use the exact barcode or SKU instead of recognising stock by appearance alone.', 'For dated products, follow the employer rotation rule; questionable, opened, leaking or damaged goods belong in the approved holding area, not back on sale.', 'Never share login credentials, photograph payment details or improvise around a system control.', 'Report discrepancies, suspicious behaviour and damaged stock discreetly through the correct chain; never alter a count just to match the system.'],
     serviceLines: [
       { cue: 'Confirm the transaction', line: 'Let me confirm the items and the promotion before I process the payment.' },
       { cue: 'Handle a system delay', line: 'The transaction is still processing. I will verify the status before trying it again.' },

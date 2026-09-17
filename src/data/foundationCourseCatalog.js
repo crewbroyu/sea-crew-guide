@@ -25,7 +25,7 @@ export const FOUNDATION_COURSES = {
     version: RETAIL_FOUNDATION_VERSION,
     label: 'RETAIL SALES ASSOCIATE',
     title: 'Retail Sales Associate 岗位基础课',
-    description: '从接近客人、需求发现和产品讲解，练到 KPI、异议、POS、防损与服务补救。',
+    description: '从接近客人、需求发现和产品讲解，练到 KPI、异议、POS、仓储、防损与服务补救，并配套跨品类产品知识库。',
     freeDayCount: 1,
     days: retailFoundationDays,
     packRoute: '/programs/retail',

@@ -1,9 +1,10 @@
 import { createElement, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Bookmark, CheckCircle2, CircleAlert, ClipboardCheck, Dumbbell, LockKeyhole, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Bookmark, BookOpen, CheckCircle2, CircleAlert, ClipboardCheck, Dumbbell, LockKeyhole, Sparkles } from 'lucide-react'
 import RequireActivation from '../../components/RequireActivation'
 import BarServerFoundationTraining from '../../components/training/BarServerFoundationTraining'
 import RetailFoundationTraining from '../../components/training/RetailFoundationTraining'
+import RetailKnowledgeLibrary from '../../components/training/RetailKnowledgeLibrary'
 import { getFoundationCourse } from '../../data/foundationCourseCatalog'
 import { getJobSkills, getScenarioById } from '../../data/jobScenarioCatalog'
 import { getMyScenarioProfile } from '../../services/scenarioTrainingService'
@@ -21,7 +22,7 @@ import {
   writeSavedFoundationLines,
 } from '../../services/foundationProgressService'
 
-const viewOptions = [
+const baseViewOptions = [
   { key: 'course', label: '课程目录', icon: ClipboardCheck },
   { key: 'practice', label: '弱项训练', icon: Dumbbell },
   { key: 'placement', label: '入门检查', icon: Sparkles },
@@ -67,6 +68,9 @@ export default function FoundationCourse() {
   const [scenarioProfile, setScenarioProfile] = useState(null)
   const [cloudReady, setCloudReady] = useState(false)
   const view = searchParams.get('view') || 'course'
+  const viewOptions = course?.jobKey === 'retail'
+    ? [baseViewOptions[0], { key: 'knowledge', label: '产品知识库', icon: BookOpen }, ...baseViewOptions.slice(1)]
+    : baseViewOptions
 
   useEffect(() => {
     if (!course) return
@@ -199,9 +203,11 @@ export default function FoundationCourse() {
         <div className="min-h-screen bg-slate-50 pb-24">
           <header className="border-b border-slate-200 bg-white"><div className="mx-auto max-w-4xl px-5 pb-6 pt-10"><button type="button" onClick={() => navigate(course.packRoute)} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600"><ArrowLeft size={17} />返回岗位包</button><p className="mt-5 text-xs font-semibold text-blue-700">{course.label} · FOUNDATION</p><h1 className="mt-2 text-2xl font-semibold text-slate-950">{course.title}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{course.description}</p><div className="mt-5 flex items-center justify-between text-xs text-slate-500"><span>课程进度</span><span>{completedCount}/{course.days.length} 天</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${(completedCount / course.days.length) * 100}%` }} /></div></div></header>
           <main className="mx-auto max-w-4xl px-5 py-6">
-            <nav className="grid grid-cols-3 gap-2 rounded-lg border border-slate-200 bg-white p-1">{viewOptions.map(({ key, label, icon }) => <button key={key} type="button" onClick={() => setSearchParams(key === 'course' ? {} : { view: key })} className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-2 text-xs font-semibold sm:text-sm ${view === key ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{createElement(icon, { size: 16 })}{label}</button>)}</nav>
+            <nav className={`grid gap-2 rounded-lg border border-slate-200 bg-white p-1 ${course.jobKey === 'retail' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>{viewOptions.map(({ key, label, icon }) => <button key={key} type="button" onClick={() => setSearchParams(key === 'course' ? {} : { view: key })} className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-2 text-xs font-semibold sm:text-sm ${view === key ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{createElement(icon, { size: 16 })}{label}</button>)}</nav>
 
             {view === 'course' && <div className="mt-6 space-y-5"><section className="flex flex-col gap-4 rounded-lg border border-blue-200 bg-blue-50 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold text-blue-700">YOUR NEXT STEP</p><h2 className="mt-1 font-semibold text-blue-950">{completedCount === course.days.length ? '基础课已完成，可复习或进入岗位模拟' : `继续 Day ${continueDay.day} · ${continueDay.title}`}</h2></div><button type="button" onClick={() => navigate(`/programs/${course.slug}/foundation/${continueDay.id}`)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white">{completedCount ? '继续学习' : '开始课程'}<ArrowRight size={16} /></button></section><section className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">{course.days.map((day, index) => { const done = isFoundationDayFinished(course.jobKey, progress, day.id); const free = index < course.freeDayCount; return <button key={day.id} type="button" onClick={() => navigate(`/programs/${course.slug}/foundation/${day.id}`)} className="flex min-h-20 w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${done ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{done ? <CheckCircle2 size={18} /> : day.day}</span><span className="min-w-0 flex-1"><span className="block text-xs text-slate-500">DAY {day.day} · {day.duration}{free ? ' · 免费体验' : ''}</span><span className="mt-1 block font-semibold text-slate-900">{day.title}</span></span>{free || done ? <ArrowRight size={17} className="shrink-0 text-slate-400" /> : <LockKeyhole size={16} className="shrink-0 text-slate-400" />}</button> })}</section></div>}
+
+            {view === 'knowledge' && course.jobKey === 'retail' && <RequireActivation productCode={course.productCode}><RetailKnowledgeLibrary /></RequireActivation>}
 
             {view === 'practice' && <div className="mt-6 space-y-5"><section className="rounded-lg border border-slate-200 bg-white p-5"><p className="text-xs font-semibold text-blue-700">PERSONAL PRACTICE HUB</p><h2 className="mt-1 text-xl font-semibold text-slate-950">只练现在最需要的内容</h2>{scenarioProfile?.weakest_skill && <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"><div className="flex items-center justify-between gap-3"><span>岗位模拟当前最弱项：<strong>{weakestSkillLabel}</strong></span><span className="shrink-0 font-semibold">{scenarioProfile.readiness_score || 0}/100</span></div>{recommendedScenario && <p className="mt-2 text-xs leading-5">下一场建议：{recommendedScenario.title}</p>}</div>}<div className="mt-4 space-y-2">{reviewItems.length ? reviewItems.slice(0, 8).map((item, index) => <button key={`${item.day.id}-${item.reason}-${index}`} type="button" onClick={() => navigate(`/programs/${course.slug}/foundation/${item.day.id}`)} className="flex w-full items-center justify-between rounded-lg border border-slate-200 p-3 text-left"><span><span className="block text-xs text-slate-500">Day {item.day.day}</span><span className="mt-1 block text-sm font-medium text-slate-900">{item.reason}</span></span><ArrowRight size={16} className="text-slate-400" /></button>) : <p className="mt-4 text-sm text-slate-500">暂时没有弱项记录。完成跟读、Guest Challenge 或岗位模拟后，系统会自动归纳。</p>}</div></section><section className="rounded-lg border border-slate-200 bg-white p-5"><div className="flex items-center gap-2"><Bookmark size={17} className="text-blue-700" /><h2 className="font-semibold text-slate-950">已收藏表达</h2></div>{savedLines.length ? <div className="mt-3 divide-y divide-slate-100">{savedLines.map((line) => <div key={line.text} className="py-3"><p className="text-sm font-medium leading-6 text-slate-800">{line.text}</p><p className="mt-1 text-xs text-slate-500">Day {line.day || '-'} · {line.cue || '服务表达'}</p></div>)}</div> : <p className="mt-3 text-sm text-slate-500">在单日课程中收藏想反复练习的句子。</p>}</section><button type="button" onClick={() => navigate(course.simulatorRoute)} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 text-sm font-semibold text-white">{recommendedScenario ? '练习岗位模拟推荐场景' : '进入岗位模拟训练'}<Sparkles size={17} /></button></div>}
 

@@ -9,6 +9,22 @@ export class CareerReportError extends Error {
   }
 }
 
+export const getLatestCareerReport = async () => {
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user?.id) return null
+
+  const { data, error } = await supabase
+    .from('career_reports')
+    .select('profile, report, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw new CareerReportError('REPORT_LOAD_FAILED', '暂时无法读取已生成的职业评估。')
+  return data?.report ? data : null
+}
+
 export const generateCareerReport = async ({ profile, assessment }) => {
   const { data: { session }, error } = await supabase.auth.getSession()
 

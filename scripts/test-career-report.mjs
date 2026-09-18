@@ -3,6 +3,7 @@ import { handleCareerReportRequest } from '../server/careerReport.js'
 
 const originalFetch = global.fetch
 const calls = []
+let existingCareerRecord = null
 
 global.fetch = async (url, options = {}) => {
   calls.push({ url: String(url), options })
@@ -10,7 +11,10 @@ global.fetch = async (url, options = {}) => {
     return new Response(JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', email: 'test@example.com' }), { status: 200 })
   }
   if (String(url).includes('/rest/v1/career_reports')) {
-    return new Response('', { status: 200, headers: { 'content-range': '0-0/0' } })
+    if (existingCareerRecord) {
+      return new Response(JSON.stringify(existingCareerRecord), { status: 200, headers: { 'content-type': 'application/json' } })
+    }
+    return new Response(JSON.stringify([]), { status: 200, headers: { 'content-range': '*/0', 'content-type': 'application/json' } })
   }
   if (String(url).includes('/rest/v1/rpc/reserve_career_report_generation')) {
     return new Response(JSON.stringify({ reservation_id: '33333333-3333-4333-8333-333333333333' }), { status: 200 })
@@ -84,6 +88,30 @@ try {
   assert.equal(JSON.parse(modelCall.options.body).max_completion_tokens, 2500)
   assert.ok(JSON.parse(modelCall.options.body).messages[0].content.includes('不替用户做最终决定'))
   assert.ok(calls.some((call) => call.url.includes('save_ai_advisor_career_report')))
+
+  const modelCallCount = calls.filter((call) => call.url.includes('/chat/completions')).length
+  existingCareerRecord = {
+    profile: {
+      englishLevel: 'service', experience: 'restaurant_bar', goal: 'income', timeline: '3_6_months', workIntensity: 'high',
+    },
+    report: result.body.data,
+    created_at: new Date().toISOString(),
+  }
+  const restored = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-test-2',
+      profile: {
+        ageRange: '21_25', education: 'diploma', englishLevel: 'service', experience: 'restaurant_bar', goal: 'income', timeline: '3_6_months', budget: '500_2000', salesTolerance: 'open', workIntensity: 'high', workSummary: '餐饮服务经验。',
+      },
+      assessment: { overallScore: 68, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(restored.status, 200)
+  assert.equal(restored.body.meta.reusedExistingReport, true)
+  assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length, modelCallCount)
   console.log('Career report API scenarios passed.')
 } finally {
   global.fetch = originalFetch

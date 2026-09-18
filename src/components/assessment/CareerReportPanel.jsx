@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, ListChecks, LoaderCircle, Scale, Sparkles, UserRoundCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAccessStore } from '../../store/accessStore'
 import useEffectiveAccess from '../../hooks/useEffectiveAccess'
-import { CareerReportError, generateCareerReport } from '../../services/careerReportService'
+import { CareerReportError, generateCareerReport, getLatestCareerReport } from '../../services/careerReportService'
 
 const roleLabels = {
   retail: 'Retail Sales Associate',
@@ -62,6 +62,30 @@ const SelectField = ({ label, value, options, onChange }) => (
   </label>
 )
 
+const saveReportLocally = ({ nextReport, profile, fallbackRecommendations }) => {
+  try {
+    const current = JSON.parse(localStorage.getItem('assessment_result') || '{}')
+    const recommendations = nextReport.recommendedPositions.map((position) => ({
+      id: position.id,
+      title: roleLabels[position.id] || position.title,
+      matchScore: position.matchScore,
+      strengths: position.reasons,
+      risks: position.risks,
+      nextSteps: position.nextSteps,
+    }))
+
+    localStorage.setItem('assessment_result', JSON.stringify({
+      ...current,
+      careerProfile: profile,
+      careerReport: nextReport,
+      recommendations: recommendations.length ? recommendations : fallbackRecommendations,
+      recommended_application_route: nextReport.applicationRoute?.id || null,
+    }))
+  } catch (error) {
+    console.warn('Unable to save career report locally:', error)
+  }
+}
+
 export default function CareerReportPanel({ assessment, fallbackRecommendations, onReportGenerated }) {
   const navigate = useNavigate()
   const { openRegisterModal } = useAccessStore()
@@ -88,28 +112,40 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
   const updateProfile = (field, value) => setProfile((current) => ({ ...current, [field]: value }))
 
   const persistReport = (nextReport) => {
-    try {
-      const current = JSON.parse(localStorage.getItem('assessment_result') || '{}')
-      const recommendations = nextReport.recommendedPositions.map((position) => ({
-        id: position.id,
-        title: roleLabels[position.id] || position.title,
-        matchScore: position.matchScore,
-        strengths: position.reasons,
-        risks: position.risks,
-        nextSteps: position.nextSteps,
-      }))
-
-      localStorage.setItem('assessment_result', JSON.stringify({
-        ...current,
-        careerProfile: profile,
-        careerReport: nextReport,
-        recommendations: recommendations.length ? recommendations : fallbackRecommendations,
-        recommended_application_route: nextReport.applicationRoute?.id || null,
-      }))
-    } catch (error) {
-      console.warn('Unable to save career report locally:', error)
-    }
+    saveReportLocally({ nextReport, profile, fallbackRecommendations })
   }
+
+  useEffect(() => {
+    if (!isRegistered || report) return undefined
+    let cancelled = false
+
+    const restoreReport = async () => {
+      try {
+        setState('restoring')
+        const saved = await getLatestCareerReport()
+        if (cancelled) return
+        if (!saved?.report) {
+          setState('idle')
+          return
+        }
+
+        const restoredProfile = { ...initialProfile, ...(saved.profile || {}) }
+        setProfile(restoredProfile)
+        setReport(saved.report)
+        saveReportLocally({ nextReport: saved.report, profile: restoredProfile, fallbackRecommendations })
+        onReportGenerated?.(saved.report)
+        setState('success')
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('Unable to restore existing career report:', error)
+          setState('idle')
+        }
+      }
+    }
+
+    restoreReport()
+    return () => { cancelled = true }
+  }, [fallbackRecommendations, isRegistered, onReportGenerated, report])
 
   const handleGenerate = async () => {
     if (!isRegistered) {
@@ -179,9 +215,9 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
               <textarea value={profile.workSummary} maxLength={1000} onChange={(event) => updateProfile('workSummary', event.target.value)} placeholder="例如：做过两年餐饮服务，英语能点单但不敢长句表达；希望半年内上船，愿意接受晚班。请不要填写姓名、电话或微信。" className="min-h-28 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
             </label>
             {message && <p className="mt-3 text-sm text-red-600">{message}</p>}
-            <button type="button" onClick={handleGenerate} disabled={state === 'loading'} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
-              {state === 'loading' ? <LoaderCircle size={18} className="animate-spin" /> : <Sparkles size={18} />}
-              {state === 'loading' ? '正在生成职业评估...' : isRegistered ? '生成我的免费职业评估' : '登录后生成免费职业评估'}
+            <button type="button" onClick={handleGenerate} disabled={state === 'loading' || state === 'restoring'} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+              {state === 'loading' || state === 'restoring' ? <LoaderCircle size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              {state === 'restoring' ? '正在读取已有报告...' : state === 'loading' ? '正在生成职业评估...' : isRegistered ? '生成我的免费职业评估' : '登录后生成免费职业评估'}
             </button>
           </>
         )}

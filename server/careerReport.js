@@ -92,6 +92,21 @@ const finalizeCareerReport = async ({ supabase, reservationId, completed }) => {
   if (error) console.error('Career report reservation finalization failed:', error.message)
 }
 
+const getExistingCareerReport = async (supabase) => {
+  const { data, error } = await supabase
+    .from('career_reports')
+    .select('profile, report, created_at')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Existing career report lookup failed:', error.message)
+    return null
+  }
+  return data?.report && typeof data.report === 'object' ? data : null
+}
+
 const redactSensitiveText = (value) => trimText(value, 1000)
   .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[已隐藏邮箱]')
   .replace(/(?<!\d)1[3-9]\d{9}(?!\d)/g, '[已隐藏手机号]')
@@ -277,12 +292,24 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
     const requestId = trimText(payload.clientRequestId, 200)
     if (!requestId) throw new CareerReportApiError(400, 'REQUEST_ID_REQUIRED', '本次职业评估请求无效，请重新提交。')
     const { supabase } = await authenticateRequest({ headers, config })
+    const assessment = payload.assessment || {}
+    const fallbackRecommendations = Array.isArray(assessment.ruleRecommendations) ? assessment.ruleRecommendations.slice(0, 3) : []
+    const existingRecord = await getExistingCareerReport(supabase)
+    if (existingRecord) {
+      return {
+        status: 200,
+        body: {
+          success: true,
+          data: buildReport(existingRecord.report, fallbackRecommendations, existingRecord.profile || profile),
+          meta: { reusedExistingReport: true },
+        },
+      }
+    }
+
     const reservationId = await reserveCareerReport({ supabase, requestId })
     let completed = false
 
     try {
-    const assessment = payload.assessment || {}
-    const fallbackRecommendations = Array.isArray(assessment.ruleRecommendations) ? assessment.ruleRecommendations.slice(0, 3) : []
     const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },

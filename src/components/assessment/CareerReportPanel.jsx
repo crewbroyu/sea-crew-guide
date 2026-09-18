@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowRight, CheckCircle2, ClipboardList, LoaderCircle, Sparkles } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, ListChecks, LoaderCircle, Scale, Sparkles, UserRoundCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAccessStore } from '../../store/accessStore'
 import useEffectiveAccess from '../../hooks/useEffectiveAccess'
@@ -38,6 +38,16 @@ const initialProfile = {
   workSummary: '',
 }
 
+const optionLabel = (field, value) => fieldOptions[field]?.find(([key]) => key === value)?.[1] || value || '尚未确认'
+
+const buildLegacyDecisionBasis = (profile) => [
+  { key: 'english', label: '当前英语水平', value: optionLabel('englishLevel', profile.englishLevel), impact: '影响岗位沟通复杂度和准备周期。' },
+  { key: 'experience', label: '相关工作经验', value: optionLabel('experience', profile.experience), impact: '决定哪些服务、销售或沟通能力可以直接迁移。' },
+  { key: 'entry_threshold', label: '岗位进入门槛', value: '结合岗位要求进一步比较', impact: '较容易进入不等于收入或长期发展更优。' },
+  { key: 'competitiveness', label: '当前竞争力', value: '由英语、经历和准备度综合判断', impact: '匹配度反映当前准备状态，不是录取概率。' },
+  { key: 'core_goal', label: '你的核心诉求', value: `${optionLabel('goal', profile.goal)}；${optionLabel('timeline', profile.timeline)}；${optionLabel('workIntensity', profile.workIntensity)}`, impact: '决定应优先比较上船速度、收入、强度还是长期发展。' },
+]
+
 const SelectField = ({ label, value, options, onChange }) => (
   <label className="block">
     <span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>
@@ -56,7 +66,7 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
   const navigate = useNavigate()
   const { openRegisterModal } = useAccessStore()
   const { isRegistered } = useEffectiveAccess()
-  const [profile, setProfile] = useState(initialProfile)
+  const [profile, setProfile] = useState(() => ({ ...initialProfile, ...(assessment?.careerProfile || {}) }))
   const [report, setReport] = useState(() => assessment?.careerReport || null)
   const [state, setState] = useState('idle')
   const [message, setMessage] = useState('')
@@ -66,6 +76,14 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
       .filter((field) => !profile[field]),
     [profile],
   )
+
+  const decisionBasis = useMemo(
+    () => report?.decisionBasis?.length ? report.decisionBasis : buildLegacyDecisionBasis(profile),
+    [profile, report],
+  )
+  const decisionRisks = report?.decisionRisks?.length
+    ? report.decisionRisks
+    : ['方向匹配度只反映当前信息；收入、工作强度和长期发展仍需在岗位确认前逐项比较。']
 
   const updateProfile = (field, value) => setProfile((current) => ({ ...current, [field]: value }))
 
@@ -135,9 +153,9 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-blue-700"><Sparkles size={21} /></div>
           <div>
-            <p className="text-sm font-medium text-blue-700">免费职业决策报告</p>
-            <h2 className="mt-1 font-bold text-slate-950">补充信息，生成更具体的岗位与申请建议</h2>
-            <p className="mt-1 text-sm leading-relaxed text-blue-900">不包含陪跑服务推销。报告只回答：适合什么、暂时不建议什么、该先补什么、申请方式怎么选。</p>
+            <p className="text-sm font-medium text-blue-700">免费岗位方向分析</p>
+            <h2 className="mt-1 font-bold text-slate-950">补充信息，缩小值得比较的岗位范围</h2>
+            <p className="mt-1 text-sm leading-relaxed text-blue-900">不包含陪跑服务推销。报告会解释判断依据、需要权衡的风险和下一步验证方式，不替你决定岗位。</p>
           </div>
         </div>
       </div>
@@ -170,9 +188,39 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
 
         {report && (
           <div className="space-y-4">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-start gap-3">
+                <Scale size={19} className="mt-0.5 shrink-0 text-blue-700" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-950">{report.decisionPrinciple || 'AI 帮你缩小选择范围，但不替你做最终决定。'}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-blue-900">以下方向是基于当前信息形成的比较起点，不是录取承诺，也不是最终职业决定。</p>
+                </div>
+              </div>
+            </div>
             <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-              <p className="text-sm font-semibold text-emerald-950">你的当前结论</p>
+              <p className="text-sm font-semibold text-emerald-950">当前方向判断</p>
               <p className="mt-1 text-sm leading-relaxed text-emerald-900">{report.summary}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-4">
+              <div className="flex items-center gap-2"><ListChecks size={18} className="text-blue-700" /><h3 className="font-semibold text-slate-950">为什么得到这些方向</h3></div>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">你可以逐项检查判断依据是否符合真实情况；任何一项变化，都可能改变岗位排序。</p>
+              <div className="mt-3 divide-y divide-slate-100">
+                {decisionBasis.map((item) => (
+                  <div key={item.key || item.label} className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr] sm:gap-4">
+                    <p className="text-sm font-medium text-slate-950">{item.label}</p>
+                    <div><p className="text-sm text-slate-800">{item.value}</p><p className="mt-1 text-xs leading-5 text-slate-500">{item.impact}</p></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={19} className="mt-0.5 shrink-0 text-amber-700" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-950">决策风险与诉求冲突</p>
+                  <div className="mt-2 space-y-1.5">{decisionRisks.map((item) => <p key={item} className="text-sm leading-relaxed text-amber-900">- {item}</p>)}</div>
+                </div>
+              </div>
             </div>
             {report.advisorSignals?.missingInformation?.length > 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
@@ -184,15 +232,26 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
               </div>
             )}
             <div>
-              <h3 className="font-semibold text-slate-950">推荐岗位梯度</h3>
+              <h3 className="font-semibold text-slate-950">优先比较的岗位方向</h3>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">匹配度表示当前条件下的相对方向匹配，不是录取概率，也不表示排名第一就必须选择。</p>
               <div className="mt-3 space-y-3">
                 {report.recommendedPositions.map((position, index) => (
                   <article key={position.id} className="rounded-lg border border-slate-200 p-4">
-                    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-blue-700">{index === 0 ? '主申岗位' : index === 1 ? '备选岗位' : '冲刺或观察岗位'}</p><h4 className="mt-1 font-semibold text-slate-950">{position.title}</h4></div><span className="rounded-full bg-blue-50 px-2.5 py-1 text-sm font-semibold text-blue-700">{position.matchScore}%</span></div>
-                    <p className="mt-3 text-sm leading-relaxed text-slate-700">{position.reasons.join('；')}</p>
+                    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-blue-700">{index === 0 ? '优先比较方向' : index === 1 ? '同时比较方向' : '观察方向'}</p><h4 className="mt-1 font-semibold text-slate-950">{position.title}</h4></div><span className="rounded-full bg-blue-50 px-2.5 py-1 text-sm font-semibold text-blue-700">{position.matchScore}%</span></div>
+                    <p className="mt-3 text-sm leading-relaxed text-slate-700"><span className="font-medium text-slate-950">为什么进入比较范围：</span>{position.reasons.join('；')}</p>
                     <p className="mt-2 text-sm leading-relaxed text-amber-800"><span className="font-medium">先确认：</span>{position.risks.join('；')}</p>
                   </article>
                 ))}
+              </div>
+            </div>
+            <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
+              <div className="flex items-start gap-3">
+                <UserRoundCheck size={19} className="mt-0.5 shrink-0 text-violet-700" />
+                <div>
+                  <p className="text-sm font-semibold text-violet-950">重大选择建议人工校准</p>
+                  {report.manualCalibration?.topics?.length > 0 && <p className="mt-1 text-sm leading-relaxed text-violet-900">本次尤其需要校准：{report.manualCalibration.topics.join('、')}。</p>}
+                  <p className="mt-1 text-sm leading-relaxed text-violet-900">{report.manualCalibration?.message || '这类选择涉及收入、时间成本和长期职业路径，不建议只依据一次 AI 测评决定，可结合人工咨询进一步校准。'}</p>
+                </div>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -200,7 +259,7 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
               <div className="rounded-lg bg-slate-50 p-4"><p className="text-sm font-semibold text-slate-950">暂不建议</p><p className="mt-2 text-sm leading-relaxed text-slate-600">{report.notRecommended.join('；')}</p></div>
             </div>
             <div className="rounded-lg border border-slate-200 p-4"><div className="flex items-center gap-2"><ClipboardList size={18} className="text-blue-700" /><h3 className="font-semibold text-slate-950">接下来 30 天先做什么</h3></div><div className="mt-3 space-y-2">{report.next30Days.map((item) => <p key={item} className="flex gap-2 text-sm leading-relaxed text-slate-700"><CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />{item}</p>)}</div></div>
-            <div className="grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => navigate('/tasks/Task2?from=career-report')} className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700">确认目标岗位<ArrowRight size={18} /></button><button type="button" onClick={() => navigate('/tasks/Task3?from=career-report')} className="rounded-lg border border-slate-300 bg-white py-3 font-medium text-slate-700 transition hover:bg-slate-50">查看申请路线建议</button></div>
+            <div className="grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => navigate('/tasks/Task2?from=career-report')} className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700">进入岗位比较<ArrowRight size={18} /></button><button type="button" onClick={() => navigate('/tasks/Task3?from=career-report')} className="rounded-lg border border-slate-300 bg-white py-3 font-medium text-slate-700 transition hover:bg-slate-50">查看申请路线建议</button></div>
           </div>
         )}
       </div>

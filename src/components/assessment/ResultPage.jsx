@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
+  AlertTriangle,
   ChevronLeft,
   ClipboardList,
   RotateCcw,
@@ -164,6 +165,14 @@ const getSavedCareerReport = () => {
   }
 }
 
+const getSavedCareerProfile = () => {
+  try {
+    return JSON.parse(localStorage.getItem('assessment_result') || '{}').careerProfile || null
+  } catch {
+    return null
+  }
+}
+
 export default function ResultPage({
   dimensionScores,
   overallScore,
@@ -205,8 +214,8 @@ export default function ResultPage({
         'assessment_result',
         JSON.stringify({
           ...savedResult,
-          // Once generated, the AI report becomes the user's single job recommendation.
-          // Keep the rule-based result only before that report exists.
+          // The AI report narrows the comparison set; Task 2 remains the user's decision step.
+          // Keep the rule-based comparison only before that report exists.
           recommendations: savedResult.careerReport
             ? savedResult.recommendations
             : recommendations.map((job) => ({
@@ -312,6 +321,15 @@ export default function ResultPage({
       </header>
 
       <main className="mx-auto max-w-3xl px-6 pt-6">
+        <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={20} className="mt-0.5 shrink-0 text-amber-700" />
+            <div>
+              <h2 className="font-semibold text-amber-950">AI 帮你缩小选择范围，但不替你做最终决定。</h2>
+              <p className="mt-1 text-sm leading-relaxed text-amber-900">AI 测评结果仅作为岗位方向参考，不代表唯一或最终选择。实际决策还需要结合收入目标、英语水平、工作强度接受度、上船速度、职业发展和转岗计划综合判断。</p>
+            </div>
+          </div>
+        </section>
         <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -333,7 +351,7 @@ export default function ResultPage({
         </section>
 
         <CareerReportPanel
-          assessment={{ overallScore, level: overallLevel.label, serviceBackground, dimensionScores, careerReport }}
+          assessment={{ overallScore, level: overallLevel.label, serviceBackground, dimensionScores, careerReport, careerProfile: getSavedCareerProfile() }}
           fallbackRecommendations={recommendations}
           onReportGenerated={setCareerReport}
         />
@@ -361,8 +379,8 @@ export default function ResultPage({
 
         {!careerReport && (
           <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-slate-950">先补充资料，获得更具体的岗位结论</p>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">上方的免费职业决策报告会结合你的真实经历、目标和顾虑，给出唯一的岗位梯度与申请建议。</p>
+            <p className="text-sm font-medium text-slate-950">先补充资料，获得更具体的岗位比较</p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">上方的免费岗位方向分析会结合你的真实经历、目标和顾虑，解释哪些岗位值得优先比较、判断依据是什么，以及有哪些现实冲突需要先确认。</p>
           </section>
         )}
 

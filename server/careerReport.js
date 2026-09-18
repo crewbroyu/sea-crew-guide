@@ -114,6 +114,74 @@ const normalizeList = (value, fallback, max = 4) => Array.isArray(value)
   ? value.map((item) => trimText(item, 220)).filter(Boolean).slice(0, max).concat([])
   : fallback
 
+const profileLabels = {
+  englishLevel: { basic: '只能简单沟通', service: '可完成基础服务沟通', interview: '可用英文讲经历和回答常见问题' },
+  experience: { none: '暂无相关经验', hospitality: '酒店/服务', restaurant_bar: '餐饮/酒吧', retail_sales: '零售/销售', front_office: '前台/接待', other: '其他可迁移经验' },
+  goal: { stability: '先稳妥上船', income: '更看重收入', career: '更看重长期职业发展' },
+  timeline: { within_3_months: '3 个月内开始申请', '3_6_months': '3-6 个月开始申请', '6_12_months': '6-12 个月开始申请', exploring: '先了解再决定' },
+  workIntensity: { low: '希望节奏稳定', medium: '可接受忙碌', high: '能接受高强度和晚班' },
+}
+
+const getProfileLabel = (field, value) => profileLabels[field]?.[value] || value || '尚未确认'
+
+const normalizeDecisionBasis = (value, profile) => {
+  const supplied = Array.isArray(value) ? value : []
+  const basis = [
+    { key: 'english', label: '当前英语水平', value: getProfileLabel('englishLevel', profile.englishLevel), impact: '英语水平会影响可比较岗位的沟通复杂度和准备周期。' },
+    { key: 'experience', label: '相关工作经验', value: getProfileLabel('experience', profile.experience), impact: '已有经历决定哪些能力可以直接迁移到邮轮岗位。' },
+    { key: 'entry_threshold', label: '岗位进入门槛', value: '结合前三个方向比较', impact: '门槛较低通常更利于先上船，但不等于收入或长期发展更优。' },
+    { key: 'competitiveness', label: '当前竞争力', value: '以现有英语、经历和准备度综合判断', impact: '匹配度反映当前准备状态，不是录取概率。' },
+    { key: 'core_goal', label: '你的核心诉求', value: `${getProfileLabel('goal', profile.goal)}；${getProfileLabel('timeline', profile.timeline)}；${getProfileLabel('workIntensity', profile.workIntensity)}`, impact: '核心诉求决定应优先考虑上船速度、收入、强度还是长期发展。' },
+  ]
+
+  return basis.map((fallback) => {
+    const item = supplied.find((candidate) => candidate?.key === fallback.key)
+    return {
+      key: fallback.key,
+      label: trimText(item?.label, 80) || fallback.label,
+      value: trimText(item?.value, 180) || fallback.value,
+      impact: trimText(item?.impact, 260) || fallback.impact,
+    }
+  })
+}
+
+const deriveDecisionRisks = (profile, positions) => {
+  const primaryId = positions[0]?.id
+  const risks = []
+  if (profile.goal === 'income' && ['restaurant', 'housekeeping'].includes(primaryId)) {
+    risks.push('当前推荐更偏向解决“先上船”问题，不一定是长期收益最优方案。')
+  }
+  if (profile.goal === 'career' && ['restaurant', 'housekeeping'].includes(primaryId)) {
+    risks.push('当前较容易进入的方向，与长期职业发展最优方向可能并不相同。')
+  }
+  if (profile.workIntensity === 'low' && ['bar', 'restaurant', 'housekeeping'].includes(primaryId)) {
+    risks.push('当前优先方向通常工作节奏较快或体力强度较高，与你希望节奏稳定的诉求存在冲突。')
+  }
+  if (profile.timeline === 'within_3_months' && profile.englishLevel === 'basic') {
+    risks.push('尽快申请与补足岗位英语之间存在时间冲突，需要先确认是优先上船还是继续准备。')
+  }
+  return risks
+}
+
+const normalizeManualCalibration = (value, profile, decisionRisks) => {
+  const topics = normalizeList(value?.topics, [], 5)
+  if (profile.timeline === 'within_3_months' || profile.englishLevel === 'basic') topics.push('先上船还是继续准备')
+  if (profile.goal === 'income') topics.push('低门槛岗位还是高收入岗位')
+  if (profile.goal === 'career') topics.push('短期进入机会还是长期职业路径')
+  if (decisionRisks.length) topics.push('是否接受短期妥协换取船上经验')
+
+  return {
+    recommended: value?.recommended !== false,
+    topics: [...new Set(topics)].slice(0, 5),
+    message: trimText(value?.message, 360) || '这类选择涉及收入、时间成本和长期职业路径，不建议只依据一次 AI 测评决定，可结合人工咨询进一步校准。',
+  }
+}
+
+const softenDecisionLanguage = (value) => trimText(value, 500)
+  .replace(/你最适合(?:做|申请)?/g, '基于目前信息，可优先比较')
+  .replace(/你应该直接申请/g, '如果相应优先级成立，可以考虑申请')
+  .replace(/就是你的最佳选择/g, '是当前可比较的方向之一')
+
 const normalizeSignals = (signals = {}) => ({
   intentTags: Array.isArray(signals.intentTags)
     ? signals.intentTags.filter((item) => advisorIntentIds.includes(item)).slice(0, 3)
@@ -153,7 +221,7 @@ const parseProviderResponse = async (response) => {
   try { return JSON.parse(content) } catch { throw new CareerReportApiError(502, 'INVALID_AI_RESPONSE', '职业评估生成不完整，请重新提交。') }
 }
 
-const buildReport = (raw, fallbackRecommendations) => {
+const buildReport = (raw, fallbackRecommendations, profile) => {
   const fallback = fallbackRecommendations
     .map((item) => ({ ...allowedRoles.find((role) => role.id === item.id), matchScore: item.matchScore }))
     .filter((item) => item.id)
@@ -170,9 +238,18 @@ const buildReport = (raw, fallbackRecommendations) => {
   })
   const routeId = ['diy', 'guide', 'agent'].includes(raw?.applicationRoute?.id) ? raw.applicationRoute.id : 'guide'
   const routeTitles = { diy: '低成本 DIY 路线', guide: '指导型 DIY 路线', agent: '渠道协助路线' }
+  const derivedRisks = deriveDecisionRisks(profile, positions)
+  const decisionRisks = [...new Set([
+    ...normalizeList(raw?.decisionRisks, [], 4),
+    ...derivedRisks,
+  ])].slice(0, 5)
 
   return {
-    summary: trimText(raw?.summary, 500) || '你的岗位方向需要结合英语、经历、工作偏好和准备周期逐步确认。',
+    decisionPrinciple: 'AI 帮你缩小选择范围，但不替你做最终决定。',
+    summary: softenDecisionLanguage(raw?.summary) || '你的岗位方向需要结合英语、经历、工作偏好和准备周期逐步确认。',
+    decisionBasis: normalizeDecisionBasis(raw?.decisionBasis, profile),
+    decisionRisks: decisionRisks.length ? decisionRisks : ['方向匹配度只反映当前信息；收入、工作强度和长期发展仍需在岗位确认前逐项比较。'],
+    manualCalibration: normalizeManualCalibration(raw?.manualCalibration, profile, decisionRisks),
     recommendedPositions: positions,
     notRecommended: normalizeList(raw?.notRecommended, ['暂不建议只看岗位名称或收入决定方向，应先确认英语和工作强度。'], 3),
     applicationRoute: {
@@ -223,7 +300,7 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
       signal: AbortSignal.timeout(75_000),
     })
       const rawReport = await parseProviderResponse(response)
-      const report = buildReport(rawReport, fallbackRecommendations)
+      const report = buildReport(rawReport, fallbackRecommendations, profile)
       const { error } = await supabase.rpc('save_ai_advisor_career_report', {
       input_profile: profile,
       input_assessment: assessment,

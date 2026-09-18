@@ -696,7 +696,10 @@ const Task2 = () => {
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2">
           <Target size={20} className="text-blue-600" />
-          <h3 className="font-semibold text-slate-950">推荐岗位 Top 2</h3>
+          <div>
+            <h3 className="font-semibold text-slate-950">优先比较方向 Top 2</h3>
+            <p className="mt-1 text-sm text-slate-600">测评只帮助缩小范围；请结合收入、强度、上船速度和长期发展后自行选择。</p>
+          </div>
         </div>
         <div className="space-y-3">
           {currentJob.map((job, index) => (

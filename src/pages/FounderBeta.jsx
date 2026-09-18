@@ -5,7 +5,7 @@ import { createSupportRequest } from '../services/supportService'
 import { trackProductEvent } from '../services/productAnalyticsService'
 
 const testSteps = [
-  ['职业判断', '完成测评报告，确认推荐岗位、暂不建议岗位与申请路线是否说得清楚。'],
+  ['职业判断', '完成测评报告，检查优先比较方向、判断依据、风险权衡与申请路线是否说得清楚。'],
   ['Bar Server 体验', '完成 3 个免费场景中的至少 1 个：录音、AI反馈、表达跟读、重练。'],
   ['岗位准备', '查看 9 天基础课，判断知识内容是否真的能帮助你回答面试问题。'],
   ['面试训练', '从题库进入单题练习；已开通权益的用户可再体验 AI 模拟面试。'],

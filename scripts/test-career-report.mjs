@@ -21,7 +21,16 @@ global.fetch = async (url, options = {}) => {
   if (String(url).includes('/chat/completions')) {
     return new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify({
-        summary: '目前适合先以 Bar Server 为主申方向。',
+        summary: '你最适合做 Bar Server。',
+        decisionBasis: [
+          { key: 'english', label: '当前英语水平', value: '基础服务沟通', impact: '可以处理标准服务对话。' },
+          { key: 'experience', label: '相关工作经验', value: '餐饮服务', impact: '服务经验可以迁移。' },
+          { key: 'entry_threshold', label: '岗位进入门槛', value: '中等', impact: '需要酒水知识。' },
+          { key: 'competitiveness', label: '当前竞争力', value: '中等', impact: '仍需补英语。' },
+          { key: 'core_goal', label: '核心诉求', value: '更看重收入', impact: '需要比较收入上限。' },
+        ],
+        decisionRisks: ['如果只追求尽快上船，可能牺牲收入上限。'],
+        manualCalibration: { recommended: true, topics: ['低门槛岗位还是高收入岗位'], message: '建议进一步比较。' },
         recommendedPositions: [
           { id: 'bar', matchScore: 78, reasons: ['有餐饮经验'], risks: ['晚班强度高'], nextSteps: ['学习酒水英语'] },
           { id: 'restaurant', matchScore: 72, reasons: ['服务基础可迁移'], risks: ['体力要求高'], nextSteps: ['整理服务案例'] },
@@ -65,9 +74,15 @@ try {
   assert.deepEqual(result.body.data.recommendedPositions.map((item) => item.id), ['bar', 'restaurant', 'retail'])
   assert.equal(result.body.data.applicationRoute.id, 'guide')
   assert.equal(result.body.data.advisorSignals.decisionStage, 'position_selection')
+  assert.equal(result.body.data.decisionPrinciple, 'AI 帮你缩小选择范围，但不替你做最终决定。')
+  assert.deepEqual(result.body.data.decisionBasis.map((item) => item.key), ['english', 'experience', 'entry_threshold', 'competitiveness', 'core_goal'])
+  assert.ok(result.body.data.decisionRisks.length > 0)
+  assert.ok(result.body.data.manualCalibration.recommended)
+  assert.ok(!result.body.data.summary.includes('你最适合'))
   const modelCall = calls.find((call) => call.url.includes('/chat/completions'))
   assert.ok(modelCall)
   assert.equal(JSON.parse(modelCall.options.body).max_completion_tokens, 2500)
+  assert.ok(JSON.parse(modelCall.options.body).messages[0].content.includes('不替用户做最终决定'))
   assert.ok(calls.some((call) => call.url.includes('save_ai_advisor_career_report')))
   console.log('Career report API scenarios passed.')
 } finally {

@@ -105,7 +105,8 @@ export default function PortDaily() {
       <div className="flex-1 px-6 py-6">
         {/* 发布新帖子 */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">分享你的到港经历</h2>
+          <h2 className="text-lg font-bold text-gray-800">记录你的到港经历</h2>
+          <p className="mb-4 mt-1 text-xs leading-5 text-gray-500">当前记录和图片仅保存在这台设备的浏览器中，不会公开发布或上传到云端。</p>
           <form onSubmit={handleSubmit}>
             <div className="space-y-3">
               <div>
@@ -141,7 +142,7 @@ export default function PortDaily() {
                   name="description"
                   value={newPost.description}
                   onChange={handleInputChange}
-                  placeholder="分享你的到港经历，比如当地特色、美食、景点等"
+                  placeholder="记录当地特色、美食、景点或工作安排"
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -183,7 +184,7 @@ export default function PortDaily() {
                   isUploading ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
-                {isUploading ? '上传中...' : '发布'}
+                {isUploading ? '保存中...' : '保存到本机'}
               </button>
             </div>
           </form>
@@ -196,7 +197,7 @@ export default function PortDaily() {
               <Camera size={48} className="text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-bold text-gray-800 mb-2">暂无到港记录</h3>
               <p className="text-gray-500 mb-4">
-                分享你的到港经历，与其他海乘伙伴交流
+                在这里保存自己的港口经历和生活片段
               </p>
             </div>
           ) : (

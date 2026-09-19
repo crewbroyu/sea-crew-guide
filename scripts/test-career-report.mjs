@@ -60,6 +60,15 @@ global.fetch = async (url, options = {}) => {
 }
 
 try {
+  const unauthenticated = await handleCareerReportRequest({
+    method: 'POST',
+    headers: {},
+    body: {},
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(unauthenticated.status, 401)
+  assert.equal(unauthenticated.body.error.code, 'LOGIN_REQUIRED')
+
   const result = await handleCareerReportRequest({
     method: 'POST',
     headers: { authorization: 'Bearer mock-token' },

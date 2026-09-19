@@ -19,6 +19,10 @@ const writeLocalApplications = (records) => {
 }
 
 const getCurrentUser = async () => {
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+  if (sessionError) throw sessionError
+  if (!session?.user) return null
+
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error) throw error
   return user

@@ -11,6 +11,7 @@
     "test:qwen": "node --env-file=.env.local scripts/test-qwen.mjs",
     "test:tts": "node --env-file=.env.local scripts/test-tts.mjs",
     "test:voice-access": "node scripts/test-voice-entitlements.mjs",
+    "test:routes": "node scripts/test-route-contract.mjs",
     "test:scenario": "node scripts/test-interview-scenario.mjs",
     "test:access": "node scripts/test-entitlement-access.mjs",
     "test:career-report": "node scripts/test-career-report.mjs"

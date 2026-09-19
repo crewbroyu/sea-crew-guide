@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useResumeStore from '../store/resumeStore'
 import { ChevronLeft, Download, Save, Eye, AlertCircle } from 'lucide-react'
@@ -15,7 +14,6 @@ export default function Resume() {
     languages 
   } = useResumeStore()
   
-  const [isLoading, setIsLoading] = useState(false)
   const hasResume = Boolean(
     personalInfo.name ||
     professionalSummary ||
@@ -24,12 +22,7 @@ export default function Resume() {
   )
 
   const handleExportPDF = () => {
-    setIsLoading(true)
-    // 模拟PDF导出
-    setTimeout(() => {
-      alert('PDF导出功能将在后续版本中实现')
-      setIsLoading(false)
-    }, 1000)
+    window.print()
   }
 
   const handleEditResume = () => {
@@ -203,11 +196,10 @@ export default function Resume() {
                 </button>
                 <button
                   onClick={handleExportPDF}
-                  disabled={isLoading}
                   className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
                 >
                   <Download size={18} />
-                  {isLoading ? '导出中...' : '导出 PDF'}
+                  打印 / 保存 PDF
                 </button>
               </div>
             </div>
@@ -219,7 +211,7 @@ export default function Resume() {
                 <div>
                   <h3 className="font-medium text-amber-800 mb-1">简历提示</h3>
                   <p className="text-sm text-amber-700">
-                    您的简历是通过任务4-制作英文简历生成的。如果需要更新简历，请点击"编辑简历"按钮返回任务4进行修改。
+                    简历由任务4生成。需要更新时返回任务4编辑；需要 PDF 时，可在打印窗口中选择“另存为 PDF”。
                   </p>
                 </div>
               </div>

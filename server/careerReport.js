@@ -283,15 +283,16 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
   try {
     if (method !== 'POST') throw new CareerReportApiError(405, 'METHOD_NOT_ALLOWED', '仅支持 POST 请求。')
     const payload = typeof body === 'string' ? JSON.parse(body) : body || {}
+    const config = getConfig(env)
+    requireConfig(config)
+    const { supabase } = await authenticateRequest({ headers, config })
+
     const profile = sanitizeProfile(payload.profile)
     const requiredProfileFields = ['ageRange', 'education', 'englishLevel', 'experience', 'goal', 'timeline', 'budget', 'salesTolerance', 'workIntensity']
     if (requiredProfileFields.some((field) => !profile[field])) throw new CareerReportApiError(400, 'INCOMPLETE_PROFILE', '请补全职业评估所需的信息。')
 
-    const config = getConfig(env)
-    requireConfig(config)
     const requestId = trimText(payload.clientRequestId, 200)
     if (!requestId) throw new CareerReportApiError(400, 'REQUEST_ID_REQUIRED', '本次职业评估请求无效，请重新提交。')
-    const { supabase } = await authenticateRequest({ headers, config })
     const assessment = payload.assessment || {}
     const fallbackRecommendations = Array.isArray(assessment.ruleRecommendations) ? assessment.ruleRecommendations.slice(0, 3) : []
     const existingRecord = await getExistingCareerReport(supabase)

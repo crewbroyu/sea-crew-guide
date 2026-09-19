@@ -1,7 +1,7 @@
 // src/pages/MyApplications.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Briefcase, Clock, CheckCircle, AlertCircle, Calendar, Edit, Upload, Trash2 } from 'lucide-react';
+import { ChevronLeft, Briefcase, Clock, CheckCircle, AlertCircle, Calendar, Edit, Trash2 } from 'lucide-react';
 import { deleteJobApplication, listJobApplications, updateJobApplication } from '../services/jobApplicationService';
 
 // 申请状态选项
@@ -103,12 +103,6 @@ export default function MyApplications() {
         setErrorMessage(error.message || '删除失败，请稍后重试。');
       }
     }
-  };
-
-  // 上传截图（模拟）
-  const handleUploadScreenshot = () => {
-    alert('功能开发中：请上传申请成功页面或邮件确认的截图');
-    // 实际项目中这里会实现文件上传功能
   };
 
   // 标记为已申请
@@ -280,13 +274,6 @@ export default function MyApplications() {
                         我已申请
                       </button>
                     )}
-                    <button
-                      onClick={() => handleUploadScreenshot(application.id)}
-                      className="flex-1 px-4 py-2 rounded-lg font-medium bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-1"
-                    >
-                      <Upload size={16} />
-                      上传截图
-                    </button>
                     <button
                       onClick={() => handleDelete(application.id)}
                       className="px-4 py-2 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 flex items-center justify-center gap-1"

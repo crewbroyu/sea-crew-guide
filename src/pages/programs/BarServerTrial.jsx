@@ -483,6 +483,7 @@ export default function BarServerTrial() {
 
       {feedback.usefulPhrases?.length > 0 && (
         <PhraseShadowingPractice
+          position="bar_server"
           phrases={feedback.usefulPhrases}
           referenceAnswer={feedback.improvedAnswer}
           practice={attempt?.phrasePractice || {}}
@@ -528,6 +529,7 @@ export default function BarServerTrial() {
         <section className="rounded-lg border border-slate-200 bg-white p-5"><h3 className="font-semibold text-slate-950">AI 对第二次回答的判断</h3><p className="mt-2 text-sm leading-6 text-slate-600">{feedback.comment}</p></section>
         {feedback.improvedAnswer && (
           <PhraseShadowingPractice
+            position="bar_server"
             phrases={[]}
             referenceAnswer={feedback.improvedAnswer}
             practice={retryAttempt?.phrasePractice || {}}

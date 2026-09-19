@@ -14,6 +14,7 @@ import {
 import PhraseShadowingPractice from '../interview/PhraseShadowingPractice'
 import GuestChallengePractice from './GuestChallengePractice'
 import FoundationLessonNavigation from './FoundationLessonNavigation'
+import { speakEnglish } from '../../services/ttsService'
 import {
   BAR_SERVER_FOUNDATION_VERSION,
   barServerFoundationDays,
@@ -23,15 +24,6 @@ import {
   getCompletedFoundationDays,
   isFoundationDayComplete,
 } from '../../data/barServerFoundation'
-
-const speakEnglish = (text) => {
-  if (typeof window === 'undefined' || !window.speechSynthesis || !text) return
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'en-US'
-  utterance.rate = 0.88
-  window.speechSynthesis.speak(utterance)
-}
 
 function VisualKnowledgeMap({ visual }) {
   return (
@@ -257,7 +249,7 @@ export default function BarServerFoundationTraining({
                                 <p className="mt-1 text-sm leading-6 text-slate-700">{item.example}</p>
                               </div>
                               <div className="flex gap-2">
-                                <button type="button" onClick={() => speakEnglish(`${item.term}. ${item.example}`)} title={`Listen to ${item.term}`} aria-label={`Listen to ${item.term}`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50">
+                                <button type="button" onClick={() => speakEnglish(`${item.term}. ${item.example}`, { position: 'bar_server' })} title={`Listen to ${item.term}`} aria-label={`Listen to ${item.term}`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50">
                                   <Volume2 size={17} />
                                 </button>
                                 <button type="button" onClick={() => onToggleSavedLine?.({ text: item.example, cue: `Vocabulary · ${item.term}`, day: day.day, dayId: day.id })} title="Save this example" aria-label={`Save example for ${item.term}`} className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition ${savedLines.some((line) => line.text === item.example) ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
@@ -271,6 +263,7 @@ export default function BarServerFoundationTraining({
 
                       {showLessonStep(3) && <div className="mt-5">
                         <PhraseShadowingPractice
+                          position="bar_server"
                           phrases={shiftLab.serviceLines.map((item) => item.line)}
                           phraseCues={shiftLab.serviceLines.map((item) => item.cue)}
                           practice={dayProgress.shadowing || {}}
@@ -285,6 +278,7 @@ export default function BarServerFoundationTraining({
                       </div>}
 
                       {showLessonStep(4) && <GuestChallengePractice
+                        position="bar_server"
                         role={shiftLab.challenge.role}
                         prompt={shiftLab.challenge.prompt}
                         challenge={dayProgress.guestChallenge || {}}

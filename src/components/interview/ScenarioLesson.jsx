@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,6 +13,7 @@ import {
   Square,
 } from 'lucide-react'
 import PhraseShadowingPractice from './PhraseShadowingPractice'
+import { speakEnglish, stopSpeech } from '../../services/ttsService'
 
 const lessonSteps = [
   { id: 'story', label: '剧情', icon: Headphones },
@@ -24,6 +25,7 @@ const lessonSteps = [
 export default function ScenarioLesson({ scenario, progress = {}, onProgressChange, onComplete }) {
   const lesson = scenario.lesson
   const [isPlayingDialogue, setIsPlayingDialogue] = useState(false)
+  const dialogueRunRef = useRef(0)
   const step = progress.step || 'story'
   const stepIndex = lessonSteps.findIndex((item) => item.id === step)
   const selectedOption = lesson.decisionCheck.options.find(
@@ -31,42 +33,37 @@ export default function ScenarioLesson({ scenario, progress = {}, onProgressChan
   )
   const phrasePracticeComplete = Boolean(progress.phrasePractice?.completedAt)
 
-  useEffect(() => () => window.speechSynthesis?.cancel(), [])
+  useEffect(() => () => {
+    dialogueRunRef.current += 1
+    stopSpeech()
+  }, [])
 
   const updateProgress = (nextValue) => {
     onProgressChange?.({ ...progress, ...nextValue })
   }
 
   const changeStep = (nextStep) => {
-    window.speechSynthesis?.cancel()
+    dialogueRunRef.current += 1
+    stopSpeech()
     setIsPlayingDialogue(false)
     updateProgress({ step: nextStep })
   }
 
-  const playDialogue = () => {
-    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return
-    window.speechSynthesis.cancel()
-    const voices = window.speechSynthesis.getVoices()
-    const englishVoices = voices.filter((voice) => voice.lang?.toLowerCase().startsWith('en'))
+  const playDialogue = async () => {
+    stopSpeech()
+    const runId = dialogueRunRef.current + 1
+    dialogueRunRef.current = runId
     setIsPlayingDialogue(true)
-
-    lesson.dialogue.forEach((line, index) => {
-      const utterance = new SpeechSynthesisUtterance(line.text)
-      utterance.lang = 'en-US'
-      utterance.rate = line.role === 'guest' ? 0.92 : 0.86
-      utterance.voice = line.role === 'guest'
-        ? (englishVoices.find((voice) => /female|samantha|zira/i.test(voice.name)) || englishVoices[0] || null)
-        : (englishVoices.find((voice) => /male|david|mark/i.test(voice.name)) || englishVoices[1] || englishVoices[0] || null)
-      if (index === lesson.dialogue.length - 1) {
-        utterance.onend = () => setIsPlayingDialogue(false)
-        utterance.onerror = () => setIsPlayingDialogue(false)
-      }
-      window.speechSynthesis.speak(utterance)
-    })
+    for (const line of lesson.dialogue) {
+      if (dialogueRunRef.current !== runId) return
+      await speakEnglish(line.text, { position: 'bar_server', rate: line.role === 'guest' ? 0.92 : 0.86 })
+    }
+    if (dialogueRunRef.current === runId) setIsPlayingDialogue(false)
   }
 
   const stopDialogue = () => {
-    window.speechSynthesis?.cancel()
+    dialogueRunRef.current += 1
+    stopSpeech()
     setIsPlayingDialogue(false)
   }
 
@@ -181,6 +178,7 @@ export default function ScenarioLesson({ scenario, progress = {}, onProgressChan
       </section>
 
       <PhraseShadowingPractice
+        position="bar_server"
         phrases={lesson.sentencePatterns}
         practice={progress.phrasePractice || {}}
         requiredPhraseRepetitions={3}

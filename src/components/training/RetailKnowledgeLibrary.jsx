@@ -2,19 +2,7 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, BookOpen, Boxes, CheckCircle2, ChevronDown, ExternalLink, Search, ShieldCheck, Volume2 } from 'lucide-react'
 import EdgeReadAloudHint from '../EdgeReadAloudHint'
 import { retailKnowledgeCategories, retailKnowledgeModules, retailKnowledgeSources } from '../../data/retailKnowledgeLibrary'
-
-const speakEnglish = (text) => {
-  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  const voices = window.speechSynthesis.getVoices()
-  utterance.voice = voices.find((voice) => /^en-(US|GB)/i.test(voice.lang))
-    || voices.find((voice) => voice.lang?.toLowerCase().startsWith('en'))
-    || null
-  utterance.lang = utterance.voice?.lang || 'en-US'
-  utterance.rate = 0.88
-  window.speechSynthesis.speak(utterance)
-}
+import { speakEnglish } from '../../services/ttsService'
 
 const searchableText = (module) => [
   module.title,
@@ -82,7 +70,7 @@ export default function RetailKnowledgeLibrary() {
                 <section>
                   <h3 className="text-sm font-bold text-slate-950">Essential vocabulary</h3>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    {module.terms.map(([term, meaning]) => <div key={term} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2"><div><p className="text-sm font-semibold text-slate-900">{term}</p><p className="mt-0.5 text-xs text-slate-500">{meaning}</p></div><button type="button" onClick={() => speakEnglish(term)} title={`Listen to ${term}`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-blue-700 hover:bg-blue-50"><Volume2 size={17} /></button></div>)}
+                    {module.terms.map(([term, meaning]) => <div key={term} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2"><div><p className="text-sm font-semibold text-slate-900">{term}</p><p className="mt-0.5 text-xs text-slate-500">{meaning}</p></div><button type="button" onClick={() => speakEnglish(term, { position: 'retail' })} title={`Listen to ${term}`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-blue-700 hover:bg-blue-50"><Volume2 size={17} /></button></div>)}
                   </div>
                 </section>
 
@@ -98,7 +86,7 @@ export default function RetailKnowledgeLibrary() {
 
                 <section>
                   <h3 className="text-sm font-bold text-slate-950">Say it on the sales floor</h3>
-                  <div className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200">{module.floorLines.map((line) => <div key={line} className="flex items-start justify-between gap-3 p-3"><p className="text-sm font-medium leading-6 text-slate-800">{line}</p><button type="button" onClick={() => speakEnglish(line)} title="Listen" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-blue-700 hover:bg-blue-50"><Volume2 size={17} /></button></div>)}</div>
+                  <div className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-200">{module.floorLines.map((line) => <div key={line} className="flex items-start justify-between gap-3 p-3"><p className="text-sm font-medium leading-6 text-slate-800">{line}</p><button type="button" onClick={() => speakEnglish(line, { position: 'retail' })} title="Listen" className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-blue-700 hover:bg-blue-50"><Volume2 size={17} /></button></div>)}</div>
                 </section>
 
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4"><div className="flex gap-2"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-amber-700" /><div><p className="text-xs font-bold text-amber-900">SAFETY / AUTHORITY BOUNDARY</p><p className="mt-1 text-sm leading-6 text-amber-950">{module.boundary}</p></div></div></div>

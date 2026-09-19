@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, LockKeyhole, Mic, Square, Volume2 } from 'lucide-react'
+import { speakEnglish, stopSpeech } from '../../services/ttsService'
 
 const MINIMUM_RECORDING_SECONDS = 3
 
@@ -9,20 +10,8 @@ const pickRecordingMimeType = () => [
   'audio/mp4',
 ].find((type) => MediaRecorder.isTypeSupported?.(type))
 
-const speakEnglish = (text) => {
-  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  const voices = window.speechSynthesis.getVoices()
-  utterance.voice = voices.find((voice) => /^en-(US|GB)/i.test(voice.lang))
-    || voices.find((voice) => voice.lang?.toLowerCase().startsWith('en'))
-    || null
-  utterance.lang = utterance.voice?.lang || 'en-US'
-  utterance.rate = 0.88
-  window.speechSynthesis.speak(utterance)
-}
-
 export default function GuestChallengePractice({
+  position = '',
   role,
   prompt,
   challenge = {},
@@ -48,7 +37,7 @@ export default function GuestChallengePractice({
 
   useEffect(() => () => {
     discardRecordingRef.current = true
-    window.speechSynthesis?.cancel()
+    stopSpeech()
     try {
       recognitionRef.current?.stop?.()
     } catch {
@@ -93,7 +82,7 @@ export default function GuestChallengePractice({
 
   const startRecording = async () => {
     setErrorMessage('')
-    window.speechSynthesis?.cancel()
+    stopSpeech()
 
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       setErrorMessage('Recording is not supported here. Please use the latest Chrome or Edge.')
@@ -195,7 +184,7 @@ export default function GuestChallengePractice({
       ) : (
         <>
           <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-700 pt-4">
-            <button type="button" onClick={() => speakEnglish(prompt)} disabled={recording} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-white px-3 text-xs font-semibold text-slate-950 disabled:opacity-50">
+            <button type="button" onClick={() => speakEnglish(prompt, { position })} disabled={recording} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-white px-3 text-xs font-semibold text-slate-950 disabled:opacity-50">
               <Volume2 size={15} /> Listen to the guest
             </button>
             {recording ? (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bookmark, Check, Mic, RotateCcw, Square, Volume2 } from 'lucide-react'
 import EdgeReadAloudHint from '../EdgeReadAloudHint'
+import { speakEnglish, stopSpeech } from '../../services/ttsService'
 
 const DEFAULT_REQUIRED_PHRASE_REPETITIONS = 3
 const DEFAULT_REQUIRED_FULL_ANSWER_REPETITIONS = 3
@@ -19,6 +20,7 @@ const getMinimumRecordingSeconds = (text, isFullAnswer) => {
 }
 
 export default function PhraseShadowingPractice({
+  position = '',
   phrases = [],
   phraseCues = [],
   referenceAnswer = '',
@@ -56,7 +58,7 @@ export default function PhraseShadowingPractice({
 
   useEffect(() => () => {
     discardRecordingRef.current = true
-    window.speechSynthesis?.cancel()
+    stopSpeech()
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
     streamRef.current?.getTracks().forEach((track) => track.stop())
     Object.values(recordingUrlsRef.current).forEach((url) => URL.revokeObjectURL(url))
@@ -108,24 +110,12 @@ export default function PhraseShadowingPractice({
 
   const playText = (text, key, phrase = '') => {
     setErrorMessage('')
-    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-      setErrorMessage('当前浏览器不支持示范朗读，可以直接录音跟读。')
-      return
-    }
-
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
-    const voices = window.speechSynthesis.getVoices()
-    utterance.voice = voices.find((voice) => /^en-(US|GB)/i.test(voice.lang))
-      || voices.find((voice) => voice.lang?.toLowerCase().startsWith('en'))
-      || null
-    utterance.lang = utterance.voice?.lang || 'en-US'
-    utterance.rate = 0.86
-    utterance.pitch = 1
-    utterance.onstart = () => setSpeakingKey(key)
-    utterance.onend = () => setSpeakingKey(null)
-    utterance.onerror = () => setSpeakingKey(null)
-    window.speechSynthesis.speak(utterance)
+    void speakEnglish(text, {
+      position,
+      rate: 0.86,
+      onStart: () => setSpeakingKey(key),
+      onEnd: () => setSpeakingKey(null),
+    })
 
     if (requireListenBeforeRecord && phrase && !listenedPhrases.includes(phrase)) {
       emitPracticeChange(
@@ -138,7 +128,7 @@ export default function PhraseShadowingPractice({
 
   const handleStartRecording = async ({ text, key, phrase, isFullAnswer = false }) => {
     setErrorMessage('')
-    window.speechSynthesis?.cancel()
+    stopSpeech()
     setSpeakingKey(null)
 
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -222,7 +212,7 @@ export default function PhraseShadowingPractice({
   const resetPractice = () => {
     discardRecordingRef.current = true
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
-    window.speechSynthesis?.cancel()
+    stopSpeech()
     Object.values(recordingUrls).forEach((url) => URL.revokeObjectURL(url))
     setRecordingUrls({})
     setSpeakingKey(null)

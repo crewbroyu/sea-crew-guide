@@ -5,6 +5,7 @@ import {
   Mic, MicOff, Clock, AlertTriangle, RefreshCw, Home,
   Volume2, Info, Edit3, CheckCircle, LoaderCircle, BrainCircuit
 } from 'lucide-react';
+import { speakEnglish as playEnglishSpeech, stopSpeech } from '../../../services/ttsService';
 import { positionConfig } from '../../../data/interviewQuestions';
 import interviewQuestions from '../../../data/interviewQuestions';
 import RequireActivation from '../../../components/RequireActivation';
@@ -216,24 +217,7 @@ function Task8MockInterview() {
 
   // ==================== 语音合成 ====================
   const speakQuestion = (text) => {
-    return new Promise((resolve) => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;
-        utterance.onend = () => resolve();
-        utterance.onerror = () => resolve();
-        window.speechSynthesis.speak(utterance);
-        // 安全超时：如果语音合成卡住，15秒后强制继续
-        setTimeout(() => {
-          window.speechSynthesis.cancel();
-          resolve();
-        }, 15000);
-      } else {
-        setTimeout(resolve, 2000);
-      }
-    });
+    return playEnglishSpeech(text, { position: selectedPosition, rate: 0.9 });
   };
 
   // ==================== 核心流程 ====================
@@ -533,7 +517,7 @@ function Task8MockInterview() {
 
   const restartInterview = () => {
     void stopListening({ discard: true });
-    window.speechSynthesis && window.speechSynthesis.cancel();
+    stopSpeech();
 
     setStage('ready');
     setCurrentQuestionIndex(0);
@@ -566,7 +550,7 @@ function Task8MockInterview() {
 
   const backToTasks = () => {
     void stopListening({ discard: true });
-    window.speechSynthesis && window.speechSynthesis.cancel();
+    stopSpeech();
     navigate(fromAcademy ? '/academy' : '/tasks/phase2/Task7');
   };
 
@@ -578,7 +562,7 @@ function Task8MockInterview() {
         try { mediaRecorderRef.current.stop(); } catch (error) { console.warn('Unable to stop recorder:', error); }
       }
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      stopSpeech();
     };
   }, []);
 

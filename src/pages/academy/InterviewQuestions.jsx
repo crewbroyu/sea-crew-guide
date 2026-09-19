@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, Filter, Search, Targ
 import interviewQuestions, { positionConfig } from '../../data/interviewQuestions'
 import { normalizeInterviewPosition } from '../../utils/interviewPosition'
 import { getJobPreferenceLabel, getJobPreferences, sortByJobPreference } from '../../utils/jobPreferences'
+import { speakEnglish, stopSpeech } from '../../services/ttsService'
 
 const categoryLabels = {
   all: '全部',
@@ -98,7 +99,7 @@ export default function InterviewQuestions() {
     })
   }, [category, questions, searchTerm])
 
-  useEffect(() => () => window.speechSynthesis.cancel(), [])
+  useEffect(() => () => stopSpeech(), [])
 
   const selectPosition = (nextPosition) => {
     setPositionKey(nextPosition)
@@ -109,19 +110,17 @@ export default function InterviewQuestions() {
   }
 
   const speakQuestion = (text) => {
-    window.speechSynthesis.cancel()
     if (speaking) {
+      stopSpeech()
       setSpeaking(false)
       return
     }
-
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'en-US'
-    utterance.rate = 0.9
-    utterance.onstart = () => setSpeaking(true)
-    utterance.onend = () => setSpeaking(false)
-    utterance.onerror = () => setSpeaking(false)
-    window.speechSynthesis.speak(utterance)
+    void speakEnglish(text, {
+      position: positionKey,
+      rate: 0.9,
+      onStart: () => setSpeaking(true),
+      onEnd: () => setSpeaking(false),
+    })
   }
 
   const startTraining = (questionId = '') => {
@@ -268,7 +267,7 @@ export default function InterviewQuestions() {
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div><p className="text-sm font-medium text-blue-700">Q{selectedQuestion.order} · {categoryLabels[selectedQuestion.category || 'foundation']}</p><h2 className="mt-2 text-lg font-semibold leading-7 text-slate-950">{selectedQuestion.question}</h2></div>
-              <button type="button" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); setSelectedQuestion(null) }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
+              <button type="button" onClick={() => { stopSpeech(); setSpeaking(false); setSelectedQuestion(null) }} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
             </div>
 
             <div className="mt-5 rounded-lg border border-amber-100 bg-amber-50 p-4"><p className="text-xs font-semibold text-amber-700">回答重点</p><p className="mt-1 text-sm leading-6 text-amber-950">{selectedQuestion.tip}</p></div>

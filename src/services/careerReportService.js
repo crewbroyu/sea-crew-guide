@@ -15,7 +15,7 @@ export const getLatestCareerReport = async () => {
 
   const { data, error } = await supabase
     .from('career_reports')
-    .select('profile, report, created_at')
+    .select('profile, assessment_snapshot, report, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(1)

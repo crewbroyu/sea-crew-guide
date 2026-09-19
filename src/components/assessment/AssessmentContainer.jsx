@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import WelcomePage from './WelcomePage'
 import BackgroundSelect from './BackgroundSelect'
@@ -8,6 +8,7 @@ import ResultPage from './ResultPage'
 import { DIMENSIONS, ALL_QUESTIONS } from '../../data/assessmentData'
 import { calculateDimensionScore, calculateOverallScore, getLevel } from '../../data/assessmentScoring'
 import { syncLocalPathProfile } from '../../services/userPathService'
+import { getLatestCareerReport } from '../../services/careerReportService'
 
 const getSavedAssessmentResult = () => {
   try {
@@ -42,6 +43,47 @@ export default function AssessmentContainer() {
   const [dimensionScores, setDimensionScores] = useState(savedAssessmentResult?.dimensionScores || {})
   const [overallScore, setOverallScore] = useState(savedAssessmentResult?.overallScore || 0)
   const [completedDimensions, setCompletedDimensions] = useState(0)
+  const [restoringReport, setRestoringReport] = useState(!savedAssessmentResult)
+
+  useEffect(() => {
+    if (savedAssessmentResult) return undefined
+    let cancelled = false
+
+    const restoreCloudReport = async () => {
+      try {
+        const saved = await getLatestCareerReport()
+        if (cancelled || !saved?.report || !saved?.assessment_snapshot) return
+
+        const snapshot = saved.assessment_snapshot
+        const restoredResult = {
+          completed: true,
+          completedAt: saved.created_at || new Date().toISOString(),
+          serviceBackground: snapshot.serviceBackground || null,
+          answers: snapshot.answers || {},
+          dimensionScores: snapshot.dimensionScores || {},
+          overallScore: Number(snapshot.overallScore) || 0,
+          level: getLevel(Number(snapshot.overallScore) || 0),
+          careerProfile: saved.profile || {},
+          careerReport: saved.report,
+          recommendations: saved.report.recommendedPositions || snapshot.ruleRecommendations || [],
+        }
+
+        localStorage.setItem('assessment_result', JSON.stringify(restoredResult))
+        setServiceBackground(restoredResult.serviceBackground)
+        setAnswers(restoredResult.answers)
+        setDimensionScores(restoredResult.dimensionScores)
+        setOverallScore(restoredResult.overallScore)
+        setStep(resultStep)
+      } catch (error) {
+        console.warn('Unable to restore cloud assessment report:', error)
+      } finally {
+        if (!cancelled) setRestoringReport(false)
+      }
+    }
+
+    restoreCloudReport()
+    return () => { cancelled = true }
+  }, [resultStep, savedAssessmentResult])
 
   const handleStartAssessment = () => {
     setStep(1)
@@ -206,6 +248,16 @@ export default function AssessmentContainer() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      {restoringReport && (
+        <div className="flex min-h-screen items-center justify-center px-6">
+          <div className="text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+            <p className="mt-3 text-sm text-slate-600">正在读取已保存的职业报告...</p>
+          </div>
+        </div>
+      )}
+      {!restoringReport && (
+        <>
       {step >= 2 && step < resultStep && (
         <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
           <div className="mx-auto max-w-3xl px-6 py-4">
@@ -240,6 +292,8 @@ export default function AssessmentContainer() {
       )}
 
       <div className="flex-1">{renderCurrentStep()}</div>
+        </>
+      )}
     </div>
   )
 }

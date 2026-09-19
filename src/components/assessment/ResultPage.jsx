@@ -263,9 +263,15 @@ export default function ResultPage({
       return
     }
 
-    if (!contact.name.trim() && !contact.phone.trim() && !contact.wechat.trim() && !contact.email.trim()) {
+    if (!contact.phone.trim() && !contact.wechat.trim()) {
       setSaveState('error')
-      setSaveMessage('请至少填写一种联系方式，方便后续查看和跟进测评结果。')
+      setSaveMessage('如需人工校准，请至少填写手机号或微信号。')
+      return
+    }
+
+    if (!contact.goal.trim()) {
+      setSaveState('error')
+      setSaveMessage('请说明你最想校准的问题，方便人工判断重点。')
       return
     }
 
@@ -290,7 +296,7 @@ export default function ResultPage({
         application_stage: 'assessed',
       })
       setSaveState('saved')
-      setSaveMessage('已保存。你可以在 Supabase 后台查看这条测评记录。')
+      setSaveMessage('人工校准需求已提交，我们会结合你的报告和问题进行查看。')
     } catch (error) {
       console.error('保存测评结果失败:', error)
       setSaveState('error')
@@ -356,6 +362,13 @@ export default function ResultPage({
           onReportGenerated={setCareerReport}
         />
 
+        {careerReport && (
+          <section className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <p className="font-semibold text-emerald-950">报告已自动保存</p>
+            <p className="mt-1 text-sm leading-relaxed text-emerald-900">无需再次填写联系方式。之后可从“我的 → 职业测评报告”回来查看，换设备登录后也会从云端恢复。</p>
+          </section>
+        )}
+
         <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 font-bold text-slate-950">六维能力画像</h2>
           <div className="space-y-4">
@@ -408,23 +421,23 @@ export default function ResultPage({
         </section>
 
         <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-2 font-bold text-slate-950">保存报告，后续生成职业路线</h2>
+          <h2 className="mb-2 font-bold text-slate-950">需要人工校准或后续提醒？</h2>
           <p className="mb-4 text-sm leading-relaxed text-slate-600">
-            填写联系方式后，这份结果会保存到后台，后续可用于职业路线、简历建议、面试准备计划和找搭子匹配。
+            此项完全选填，不影响报告保存。如希望人工协助比较岗位，请留下手机号或微信，并写清最想确认的问题。
           </p>
-          <p className="mb-4 text-xs leading-5 text-slate-500">不要填写身份证号、银行卡号、密码等敏感信息。保存即表示你了解这些资料会按<a href="/service-info" className="font-medium text-blue-700 underline underline-offset-2">服务与数据说明</a>用于职业路线和训练建议。</p>
+          <p className="mb-4 text-xs leading-5 text-slate-500">不要填写身份证号、银行卡号、密码等敏感信息。提交即表示你了解这些资料会按<a href="/service-info" className="font-medium text-blue-700 underline underline-offset-2">服务与数据说明</a>用于人工校准和后续联系。</p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <input value={contact.name} onChange={(event) => handleContactChange('name', event.target.value)} placeholder="姓名" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
             <input value={contact.phone} onChange={(event) => handleContactChange('phone', event.target.value)} placeholder="手机号" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
             <input value={contact.wechat} onChange={(event) => handleContactChange('wechat', event.target.value)} placeholder="微信号" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
-            <input value={contact.email} onChange={(event) => handleContactChange('email', event.target.value)} placeholder="邮箱" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+            <input value={contact.email} readOnly aria-label="登录邮箱" className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500 outline-none" />
           </div>
 
           <textarea
             value={contact.goal}
             onChange={(event) => handleContactChange('goal', event.target.value)}
-            placeholder="你的目标或问题，例如：想半年内登船、想做免税店、英语一般不知道怎么准备"
+            placeholder="必填：你最想人工校准的问题，例如：尽快上船和收入上限之间该怎么选？"
             className="mt-3 min-h-24 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
 
@@ -442,10 +455,10 @@ export default function ResultPage({
           >
             <Save size={18} />
             {saveState === 'saving'
-              ? '保存中...'
+                ? '提交中...'
               : saveState === 'saved'
-                ? '已保存报告'
-                : userId ? '保存我的测评报告' : '登录后保存测评报告'}
+                ? '已提交人工校准需求'
+                : userId ? '提交人工咨询需求' : '登录后提交人工咨询'}
           </button>
         </section>
 

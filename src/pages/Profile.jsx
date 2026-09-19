@@ -307,7 +307,7 @@ export default function Profile() {
 
   const coreArtifacts = [
     {
-      label: '职业测评报告',
+      label: '我的职业报告',
       value: pathProfile?.latest_assessment_score ? `${pathProfile.latest_assessment_score}/100` : '未完成',
       icon: Award,
       route: '/assessment',

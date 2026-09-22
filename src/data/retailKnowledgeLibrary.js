@@ -304,4 +304,48 @@ export const retailKnowledgeModules = [
   },
 ]
 
+export const retailKnowledgeVisuals = {
+  'stockroom-inventory': {
+    image: '/images/retail/knowledge/stockroom-operations.webp',
+    alt: 'Cruise retail staff receiving, scanning and organizing stock in a shipboard stockroom',
+    title: 'See the control points behind the sales floor',
+    description: 'Receiving, scanning, separation, replenishment and discrepancy reporting are part of the Retail Sales Associate role.',
+  },
+  'watch-basics': {
+    image: '/images/retail/knowledge/watch-types.webp',
+    alt: 'Six unbranded everyday watches with different movements, functions, bracelets and straps',
+    title: 'Compare watches by function, not by appearance alone',
+    description: 'Use the lineup to practise identifying movement, function, case, bracelet or strap and intended use.',
+    items: ['Quartz', 'Automatic', 'Chronograph', 'Light-powered', 'Metal bracelet', 'Sport watch'],
+  },
+  'fashion-materials': {
+    image: '/images/retail/knowledge/fabric-materials.webp',
+    alt: 'Nine common fashion material swatches and garment details arranged for visual comparison',
+    title: 'Recognise common material families',
+    description: 'A visual cue helps you start the conversation; the composition and care labels remain the source of truth.',
+    items: ['Cotton', 'Linen', 'Wool', 'Cashmere', 'Silk', 'Polyester', 'Nylon', 'Viscose', 'Elastane blend'],
+  },
+  'bags-leather-goods': {
+    image: '/images/retail/knowledge/bag-styles.webp',
+    alt: 'Eight common bag styles arranged from left to right',
+    title: 'Identify bags by shape and carrying method',
+    description: 'Start with how the guest will carry and use the bag, then compare size, closure, compartments and verified material.',
+    items: ['Tote', 'Crossbody', 'Shoulder', 'Satchel', 'Clutch', 'Hobo', 'Backpack', 'Belt bag'],
+  },
+  'fashion-jewellery': {
+    image: '/images/retail/knowledge/fashion-jewellery.webp',
+    alt: 'Eight fashion jewellery forms arranged from left to right',
+    title: 'Name the form before describing the material',
+    description: 'Shape is visible; metal content, plating and stones must still be verified from the product information.',
+    items: ['Studs', 'Hoops', 'Pendant', 'Chain bracelet', 'Bangle', 'Brooch', 'Faux pearls', 'CZ ring'],
+  },
+  'logo-souvenirs': {
+    image: '/images/retail/knowledge/category-map.webp',
+    alt: 'Common cruise retail categories including fragrance, watches, apparel, bags, jewellery, souvenirs and travel essentials',
+    title: 'See how the Logo Shop connects to the wider retail floor',
+    description: 'Guests may move between practical gifts, wearable souvenirs and premium categories in the same conversation.',
+    items: ['Fragrance', 'Watches', 'Apparel', 'Bags', 'Jewellery', 'Souvenirs', 'Travel essentials'],
+  },
+}
+
 export const retailKnowledgeCategories = ['All', ...new Set(retailKnowledgeModules.map((module) => module.category))]

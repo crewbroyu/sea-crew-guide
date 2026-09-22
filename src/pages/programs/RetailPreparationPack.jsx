@@ -43,6 +43,11 @@ export default function RetailPreparationPack() {
             </div>
           </div>
 
+          <figure className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+            <img src="/images/retail/scenarios/sea-day-event.webp" alt="Retail associates serving guests during a busy promotional event on a cruise ship" className="aspect-[16/7] w-full object-cover" />
+            <figcaption className="border-t border-slate-200 bg-white px-4 py-2 text-xs leading-5 text-slate-500">真实工作不只在柜台成交：你还要接待、需求发现、产品说明、活动协作、POS、补货和高峰期排队管理。</figcaption>
+          </figure>
+
           <div className="mt-6 flex gap-2 overflow-x-auto border-b border-slate-200">
             {[['overview', '岗位包首页'], ['course', '8 天基础课 + 知识库'], ['simulator', '岗位模拟器']].map(([key, label]) => <button key={key} type="button" onClick={() => key === 'course' ? startTraining() : setActiveView(key)} className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold ${activeView === key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500'}`}>{label}</button>)}
           </div>

@@ -58,6 +58,7 @@ export const barServerSimulationScenarios = [
 export const retailSimulationScenarios = [
   {
     id: 'retail_sim_guest_approach', jobKey: 'retail', title: 'Approach a Guest Without Pressure', episode: 'Level 1 · Guest Connection', difficulty: 1,
+    image: '/images/retail/scenarios/guest-approach.webp', imageAlt: 'A cruise retail associate welcoming a guest in an onboard beauty boutique',
     location: 'Beauty & Fragrance Boutique · Embarkation Evening', guestType: 'A guest who says they are only browsing', guestAccent: 'Clear American English', workload: 'Normal', noiseLevel: 'Low',
     serviceGoal: 'Welcome the guest, respect their space, and create a natural reason to continue the conversation.', salesGoal: 'Discover one useful preference without starting a product pitch.',
     knowledgeRequired: ['Avoid repeating “Can I help you?” after the guest declines.', 'Offer specific help and remain available.', 'Use one open question connected to the guest or the voyage.'],
@@ -66,6 +67,7 @@ export const retailSimulationScenarios = [
   },
   {
     id: 'retail_sim_fragrance_discovery', jobKey: 'retail', title: 'Recommend a Fragrance Through Discovery', episode: 'Level 2 · Product Recommendation', difficulty: 2,
+    image: '/images/retail/scenarios/fragrance-discovery.webp', imageAlt: 'A guest comparing fragrance options with a cruise retail associate',
     location: 'Fragrance Boutique · Sea Day Morning', guestType: 'A guest choosing a gift for their partner', guestAccent: 'British English', workload: 'Normal', noiseLevel: 'Low',
     serviceGoal: 'Ask focused questions and present one suitable option with honest feature-to-benefit language.', salesGoal: 'Offer a relevant comparison or gift addition after establishing fit.',
     knowledgeRequired: ['Ask about scent family, occasion, current favourites, and budget.', 'Describe notes as an experience, not a guaranteed reaction.', 'Never invent longevity, ingredients, stock, or duty-free savings.'],
@@ -74,6 +76,7 @@ export const retailSimulationScenarios = [
   },
   {
     id: 'retail_sim_price_objection', jobKey: 'retail', title: 'Handle a Price Objection Honestly', episode: 'Level 3 · Objection Handling', difficulty: 3,
+    image: '/images/retail/scenarios/price-objection.webp', imageAlt: 'A cruise retail associate checking a watch model while a guest compares a price on a phone',
     location: 'Watches & Jewellery · Port Evening', guestType: 'A careful guest comparing prices with a website', guestAccent: 'Indian English', workload: 'Medium', noiseLevel: 'Low',
     serviceGoal: 'Acknowledge the comparison, verify facts, and protect trust without criticising another seller.', salesGoal: 'Clarify value and buying conditions, then ask for the sale only when the concern is resolved.',
     knowledgeRequired: ['Do not guarantee the lowest price or customs outcome.', 'Compare like for like: model, warranty, currency, tax, and authorised seller status.', 'Use approved price and promotion information only.'],
@@ -82,6 +85,7 @@ export const retailSimulationScenarios = [
   },
   {
     id: 'retail_sim_return_policy', jobKey: 'retail', title: 'Resolve a Return or Product Concern', episode: 'Level 4 · Service Recovery', difficulty: 4,
+    image: '/images/retail/scenarios/return-policy.webp', imageAlt: 'A cruise retail associate listening to a guest returning an opened skincare set',
     location: 'Main Retail Store · Guest Services Counter', guestType: 'An upset guest returning a previously opened product', guestAccent: 'Fast Australian English', workload: 'High', noiseLevel: 'Medium',
     serviceGoal: 'Listen, inspect facts, explain only verified policy, and involve the correct authority.', salesGoal: 'Restore trust. Do not turn the complaint into an upsell.',
     knowledgeRequired: ['Check receipt, condition, purchase details, and current policy.', 'Never promise a refund or exchange before authorisation.', 'Document the concern and keep the guest updated.'],
@@ -90,6 +94,7 @@ export const retailSimulationScenarios = [
   },
   {
     id: 'retail_sim_sea_day', jobKey: 'retail', title: 'Run a Busy Sea-day Sales Interaction', episode: 'Level 5 · Job Simulation', difficulty: 5,
+    image: '/images/retail/scenarios/sea-day-event.webp', imageAlt: 'A busy promotional event on a cruise ship retail floor',
     location: 'Promotional Event · Sea Day · 19:30', guestType: 'Two guests asking about a promotion while another guest waits', guestAccent: 'Mixed international English', workload: 'Very High', noiseLevel: 'High',
     serviceGoal: 'Prioritise guests, explain the promotion accurately, keep the floor controlled, and close the interaction.', salesGoal: 'Use needs-based cross-selling while protecting service quality and transaction accuracy.',
     knowledgeRequired: ['Acknowledge waiting guests and set expectations.', 'Confirm promotion eligibility, quantities, and exclusions in the approved material.', 'Protect merchandise, payment accuracy, and team communication during rush periods.'],

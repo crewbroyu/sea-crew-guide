@@ -86,6 +86,7 @@ export default function RetailFoundationTraining({ onStartSimulation, onStartQue
                     <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-slate-700"><span className="rounded-full bg-slate-100 px-2.5 py-1">{day.shift.location}</span><span className="rounded-full bg-slate-100 px-2.5 py-1">{day.shift.time}</span></div>
                     <p className="mt-3 text-sm leading-6 text-slate-700">{day.shift.situation}</p>
                   </section>}
+                  {showLessonStep(0) && day.image && <figure className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-slate-100"><img src={day.image} alt={day.imageAlt} loading="lazy" decoding="async" className="aspect-video w-full object-cover" /><figcaption className="border-t border-slate-200 bg-white px-4 py-2 text-xs leading-5 text-slate-500">Visual shift briefing · Use the scene to notice the guest, store area, workload and service priority before you speak.</figcaption></figure>}
 
                   {showLessonStep(1) && <section className="mt-5">
                     <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-semibold text-blue-700">PRONUNCIATION DRILL</p><h3 className="mt-1 text-sm font-bold text-slate-950">Words you need on the sales floor</h3></div><span className="text-xs text-slate-400">English IPA</span></div>

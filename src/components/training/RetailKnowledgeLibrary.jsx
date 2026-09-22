@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, BookOpen, Boxes, CheckCircle2, ChevronDown, ExternalLink, Search, ShieldCheck, Volume2 } from 'lucide-react'
 import EdgeReadAloudHint from '../EdgeReadAloudHint'
-import { retailKnowledgeCategories, retailKnowledgeModules, retailKnowledgeSources } from '../../data/retailKnowledgeLibrary'
+import { retailKnowledgeCategories, retailKnowledgeModules, retailKnowledgeSources, retailKnowledgeVisuals } from '../../data/retailKnowledgeLibrary'
 import { speakEnglish } from '../../services/ttsService'
 
 const searchableText = (module) => [
@@ -11,6 +11,33 @@ const searchableText = (module) => [
   ...module.terms.flat(),
   ...module.essentials,
 ].join(' ').toLowerCase()
+
+function RetailKnowledgeVisual({ visual }) {
+  if (!visual) return null
+  const itemGridClass = visual.items?.length === 9
+    ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-9'
+    : visual.items?.length === 8
+      ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-8'
+      : visual.items?.length === 7
+        ? 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-7'
+        : visual.items?.length > 3
+          ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+          : 'grid-cols-2 sm:grid-cols-3'
+  return (
+    <figure className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+      <div className="border-b border-slate-200 bg-white px-4 py-3">
+        <h3 className="text-sm font-bold text-slate-950">{visual.title}</h3>
+        <p className="mt-1 text-xs leading-5 text-slate-500">{visual.description}</p>
+      </div>
+      <img src={visual.image} alt={visual.alt} loading="lazy" decoding="async" className="h-auto w-full object-cover" />
+      {visual.items?.length > 0 && (
+        <figcaption className={`grid gap-px border-t border-slate-200 bg-slate-200 ${itemGridClass}`}>
+          {visual.items.map((item, index) => <div key={item} className="bg-white px-2 py-2 text-center"><p className="text-[10px] font-medium text-slate-400">{String(index + 1).padStart(2, '0')}</p><p className="mt-0.5 text-xs font-semibold text-slate-800">{item}</p></div>)}
+        </figcaption>
+      )}
+    </figure>
+  )
+}
 
 export default function RetailKnowledgeLibrary() {
   const [category, setCategory] = useState('All')
@@ -56,6 +83,7 @@ export default function RetailKnowledgeLibrary() {
       <section className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
         {filteredModules.map((module, index) => {
           const isOpen = openId === module.id
+          const visual = retailKnowledgeVisuals[module.id]
           return (
             <article key={module.id}>
               <button type="button" onClick={() => setOpenId(isOpen ? '' : module.id)} className="flex min-h-20 w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50">
@@ -66,6 +94,7 @@ export default function RetailKnowledgeLibrary() {
 
               {isOpen && <div className="space-y-6 border-t border-slate-100 px-4 pb-6 pt-5 sm:px-6">
                 <div className="rounded-lg bg-blue-50 p-4"><p className="text-xs font-semibold text-blue-700">YOU SHOULD BE ABLE TO</p><p className="mt-1 text-sm font-medium leading-6 text-blue-950">{module.objective}</p></div>
+                <RetailKnowledgeVisual visual={visual} />
 
                 <section>
                   <h3 className="text-sm font-bold text-slate-950">Essential vocabulary</h3>

@@ -11,6 +11,7 @@ export const retailFoundationSources = [
 export const retailFoundationDays = [
   {
     id: 'retail-role-rhythm', day: 1, duration: '25-35 min', title: 'The Job, the Guest and the Cruise Rhythm',
+    image: '/images/retail/scenarios/guest-approach.webp', imageAlt: 'A cruise retail associate welcoming a browsing guest in an onboard boutique',
     mission: 'Explain what an onboard Retail Sales Associate actually does and open a guest conversation naturally.',
     shift: { location: 'Main Retail Store', time: 'Embarkation Evening · 6:00 PM', situation: 'Guests are exploring the ship and walking into the store for the first time.' },
     vocabulary: [
@@ -30,6 +31,7 @@ export const retailFoundationDays = [
   },
   {
     id: 'retail-discovery', day: 2, duration: '30-40 min', title: 'Needs Discovery Before Recommendation',
+    image: '/images/retail/scenarios/fragrance-discovery.webp', imageAlt: 'A fragrance discovery conversation in an onboard boutique',
     mission: 'Move from a vague request to a useful recommendation by asking a short sequence of open and specific questions.',
     shift: { location: 'Beauty Boutique', time: 'Sea Day · 10:30 AM', situation: 'A guest wants a gift but has not chosen a category or budget.' },
     vocabulary: [
@@ -49,6 +51,7 @@ export const retailFoundationDays = [
   },
   {
     id: 'retail-product-story', day: 3, duration: '35-45 min', title: 'Product Knowledge and Feature-to-Benefit Storytelling',
+    image: '/images/retail/knowledge/category-map.webp', imageAlt: 'Seven common cruise retail product categories shown side by side',
     mission: 'Describe a product accurately and connect two relevant features to the guest need.',
     shift: { location: 'Fragrance, Beauty and Watches', time: 'Sea Day · 2:00 PM', situation: 'Guests are comparing products across several premium categories.' },
     vocabulary: [
@@ -68,6 +71,7 @@ export const retailFoundationDays = [
   },
   {
     id: 'retail-demonstration', day: 4, duration: '30-40 min', title: 'Demonstration, Comparison and Buying Signals',
+    image: '/images/retail/scenarios/price-objection.webp', imageAlt: 'A watch comparison at an onboard retail counter',
     mission: 'Guide a short product comparison, invite participation and recognise when the guest is ready to decide.',
     shift: { location: 'Watches & Jewellery', time: 'Port Evening · 7:00 PM', situation: 'A couple is comparing two items before dinner.' },
     vocabulary: [
@@ -87,6 +91,7 @@ export const retailFoundationDays = [
   },
   {
     id: 'retail-upsell-kpi', day: 5, duration: '35-45 min', title: 'Upselling, Cross-selling and Retail KPIs',
+    image: '/images/retail/scenarios/sea-day-event.webp', imageAlt: 'A sales associate serving guests at a busy cruise retail promotion',
     mission: 'Add value without becoming pushy and explain the retail numbers a sales associate influences.',
     shift: { location: 'Promotional Table', time: 'Sea Day · 4:30 PM', situation: 'A guest has chosen one product and the store is running a verified multi-buy promotion.' },
     vocabulary: [
@@ -106,6 +111,7 @@ export const retailFoundationDays = [
   },
   {
     id: 'retail-objections', day: 6, duration: '35-45 min', title: 'Objections, Promotions and Duty-free Accuracy',
+    image: '/images/retail/scenarios/price-objection.webp', imageAlt: 'A retail associate handling a product and price comparison accurately',
     mission: 'Handle price, timing and comparison objections without inventing savings or customs advice.',
     shift: { location: 'Luxury Boutique', time: 'Port Evening · 8:15 PM', situation: 'A guest is comparing the onboard offer with an online listing.' },
     vocabulary: [
@@ -125,6 +131,7 @@ export const retailFoundationDays = [
   },
   {
     id: 'retail-operations', day: 7, duration: '35-45 min', title: 'POS, Stock, Visual Standards and Loss Prevention',
+    image: '/images/retail/knowledge/stockroom-operations.webp', imageAlt: 'Cruise retail staff scanning and checking stock in an organized shipboard stockroom',
     mission: 'Complete a transaction accurately while protecting merchandise, guest data and store standards.',
     shift: { location: 'Main Store Checkout', time: 'Sea Day · Closing Rush', situation: 'Several guests are waiting while the team prepares for closing checks.' },
     vocabulary: [
@@ -144,6 +151,7 @@ export const retailFoundationDays = [
   },
   {
     id: 'retail-service-recovery', day: 8, duration: '40-50 min', title: 'Returns, Complaints and Full Sea-day Handover',
+    image: '/images/retail/scenarios/return-policy.webp', imageAlt: 'A sales associate handling a guest product concern at the retail counter',
     mission: 'Own a product concern, stay inside policy and complete a clear handover during a high-pressure shift.',
     shift: { location: 'Retail Guest Service Desk', time: 'Sea Day · 7:30 PM', situation: 'An event is running, the store is busy and a guest returns an opened product.' },
     vocabulary: [

@@ -17,6 +17,8 @@ const allowedRoles = [
   { id: 'bar', title: 'Bar Server' },
   { id: 'restaurant', title: 'Restaurant Assistant' },
   { id: 'housekeeping', title: 'Housekeeping' },
+  { id: 'youth_staff', title: 'Youth Staff' },
+  { id: 'beauty_spa', title: 'Beauty / SPA Specialist' },
 ]
 
 class CareerReportApiError extends Error {
@@ -322,7 +324,7 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: buildCareerAdvisorSystemPrompt({ roleChoices: allowedRoles.map((role) => `${role.id} (${role.title})`).join('、') }) },
-          { role: 'user', content: JSON.stringify({ profile, assessment: { overallScore: Number(assessment.overallScore) || 0, level: trimText(assessment.level, 80), serviceBackground: trimText(assessment.serviceBackground, 80), dimensionScores: assessment.dimensionScores || {}, ruleRecommendations: fallbackRecommendations } }) },
+          { role: 'user', content: JSON.stringify({ profile, assessment: { assessmentVersion: Number(assessment.assessmentVersion) || null, overallScore: Number(assessment.overallScore) || 0, level: trimText(assessment.level, 80), serviceBackground: trimText(assessment.serviceBackground, 80), dimensionScores: assessment.dimensionScores || {}, ruleRecommendations: fallbackRecommendations } }) },
         ],
       }),
       signal: AbortSignal.timeout(75_000),

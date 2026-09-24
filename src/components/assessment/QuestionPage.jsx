@@ -5,6 +5,7 @@ export default function QuestionPage({
   currentQuestion,
   totalQuestions,
   currentDimension,
+  dimensionId,
   totalDimensions,
   answers,
   onSelectAnswer,
@@ -42,7 +43,11 @@ export default function QuestionPage({
         </div>
 
         <section className="mb-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="mb-2 text-sm font-medium text-blue-700">请按真实情况选择</p>
+          <p className="mb-2 text-sm font-medium text-blue-700">
+            {dimensionId === 'work_preference'
+              ? '没有标准答案，请做真实取舍'
+              : '请选择你实际最可能说或做的一项'}
+          </p>
           <h1 className="text-lg font-bold leading-relaxed text-slate-950">{question.scenario}</h1>
           {isMultiple && (
             <p className="mt-3 text-sm text-slate-500">这道题可以多选。</p>

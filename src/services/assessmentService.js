@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 
 export const saveAssessmentSubmission = async ({
+  assessmentVersion = null,
   contact = {},
   serviceBackground = null,
   answers = {},
@@ -18,6 +19,7 @@ export const saveAssessmentSubmission = async ({
   }
 
   const payload = {
+    assessment_version: assessmentVersion,
     name: contact.name || null,
     phone: contact.phone || null,
     wechat: contact.wechat || null,

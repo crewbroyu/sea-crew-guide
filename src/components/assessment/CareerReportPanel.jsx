@@ -11,6 +11,8 @@ const roleLabels = {
   bar: 'Bar Server',
   restaurant: 'Restaurant Assistant',
   housekeeping: 'Housekeeping',
+  youth_staff: 'Youth Staff',
+  beauty_spa: 'Beauty / SPA Specialist',
 }
 
 const fieldOptions = {
@@ -165,6 +167,7 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
       const nextReport = await generateCareerReport({
         profile,
         assessment: {
+          assessmentVersion: assessment.assessmentVersion,
           overallScore: assessment.overallScore,
           level: assessment.level,
           serviceBackground: assessment.serviceBackground,

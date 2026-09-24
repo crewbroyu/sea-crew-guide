@@ -53,7 +53,7 @@ export default function WelcomePage({ onStart }) {
             >
               <span>
                 <span className="block font-semibold">开始职业测评</span>
-                <span className="mt-1 block text-sm text-blue-100">约 5-8 分钟，完成后生成报告</span>
+                <span className="mt-1 block text-sm text-blue-100">约 10 分钟，完成后生成报告</span>
               </span>
               <ChevronRight size={22} />
             </button>
@@ -93,7 +93,7 @@ export default function WelcomePage({ onStart }) {
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="mb-2 font-bold text-slate-950">填写建议</h2>
           <p className="text-sm leading-relaxed text-slate-600">
-            这不是性格小游戏，也没有唯一正确答案。请按你目前的真实经验、英语状态、求职准备和工作偏好选择，结果才更适合后续职业路线和找搭子匹配。
+            情境题请选你在压力下最可能实际采取的做法，不要选择“听起来最专业”的句子。岗位偏好没有标准答案，系统会根据多次取舍的一致性判断方向是否清晰。
           </p>
         </section>
       </main>

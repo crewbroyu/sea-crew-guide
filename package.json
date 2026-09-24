@@ -14,7 +14,8 @@
     "test:routes": "node scripts/test-route-contract.mjs",
     "test:scenario": "node scripts/test-interview-scenario.mjs",
     "test:access": "node scripts/test-entitlement-access.mjs",
-    "test:career-report": "node scripts/test-career-report.mjs"
+    "test:career-report": "node scripts/test-career-report.mjs",
+    "test:assessment": "node scripts/test-assessment-quality.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

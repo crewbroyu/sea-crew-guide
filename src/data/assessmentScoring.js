@@ -1,7 +1,54 @@
 // src/data/assessmentScoring.js
-import { DIMENSIONS } from './assessmentData'
+import { DIMENSIONS } from './assessmentData.js'
+
+export function calculateWorkPreferenceProfile(answers, questions) {
+  const signalTotals = {}
+  const signalMaximums = {}
+  let answeredCount = 0
+
+  questions.forEach((question) => {
+    const selectedOption = question.options?.find((item) => item.id === answers[question.id])
+    if (selectedOption) answeredCount += 1
+
+    const jobsInQuestion = new Set(
+      question.options.flatMap((option) => Object.keys(option.jobSignals || {}))
+    )
+
+    jobsInQuestion.forEach((jobId) => {
+      signalMaximums[jobId] = (signalMaximums[jobId] || 0) + Math.max(
+        ...question.options.map((option) => option.jobSignals?.[jobId] || 0)
+      )
+    })
+
+    Object.entries(selectedOption?.jobSignals || {}).forEach(([jobId, signal]) => {
+      signalTotals[jobId] = (signalTotals[jobId] || 0) + signal
+    })
+  })
+
+  const jobScores = Object.fromEntries(
+    Object.keys(signalMaximums).map((jobId) => [
+      jobId,
+      signalMaximums[jobId]
+        ? Math.round(((signalTotals[jobId] || 0) / signalMaximums[jobId]) * 100)
+        : 0,
+    ])
+  )
+  const rankedScores = Object.values(jobScores).sort((a, b) => b - a)
+  const topScore = rankedScores[0] || 0
+  const secondScore = rankedScores[1] || 0
+  const completionRate = questions.length ? answeredCount / questions.length : 0
+  const clarityScore = answeredCount
+    ? Math.round(Math.min(100, (45 + topScore * 0.35 + (topScore - secondScore) * 0.2) * completionRate))
+    : 0
+
+  return { clarityScore, jobScores, signalTotals }
+}
 
 export function calculateDimensionScore(answers, questions) {
+  if (questions.some((question) => question.options?.some((option) => option.jobSignals))) {
+    return calculateWorkPreferenceProfile(answers, questions).clarityScore
+  }
+
   let totalScore = 0
   let totalMaxScore = 0
 

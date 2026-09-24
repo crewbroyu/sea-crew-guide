@@ -5,7 +5,7 @@ import BackgroundSelect from './BackgroundSelect'
 import QuestionPage from './QuestionPage'
 import DimensionTransition from './DimensionTransition'
 import ResultPage from './ResultPage'
-import { DIMENSIONS, ALL_QUESTIONS } from '../../data/assessmentData'
+import { ASSESSMENT_VERSION, DIMENSIONS, ALL_QUESTIONS } from '../../data/assessmentData'
 import { calculateDimensionScore, calculateOverallScore, getLevel } from '../../data/assessmentScoring'
 import { syncLocalPathProfile } from '../../services/userPathService'
 import { getLatestCareerReport } from '../../services/careerReportService'
@@ -16,7 +16,7 @@ const getSavedAssessmentResult = () => {
     if (!savedResult) return null
 
     const result = JSON.parse(savedResult)
-    return result.completed ? result : null
+    return result.completed && result.assessmentVersion === ASSESSMENT_VERSION ? result : null
   } catch (error) {
     console.warn('Unable to read saved assessment result:', error)
     return null
@@ -55,8 +55,10 @@ export default function AssessmentContainer() {
         if (cancelled || !saved?.report || !saved?.assessment_snapshot) return
 
         const snapshot = saved.assessment_snapshot
+        if (snapshot.assessmentVersion !== ASSESSMENT_VERSION) return
         const restoredResult = {
           completed: true,
+          assessmentVersion: ASSESSMENT_VERSION,
           completedAt: saved.created_at || new Date().toISOString(),
           serviceBackground: snapshot.serviceBackground || null,
           answers: snapshot.answers || {},
@@ -126,6 +128,7 @@ export default function AssessmentContainer() {
     const finalOverallScore = calculateOverallScore(updatedDimensionScores)
     const assessmentResult = {
       completed: true,
+      assessmentVersion: ASSESSMENT_VERSION,
       completedAt: new Date().toISOString(),
       serviceBackground,
       answers,
@@ -194,6 +197,7 @@ export default function AssessmentContainer() {
         currentQuestion={currentQuestion}
         totalQuestions={questions.length}
         currentDimension={currentDimension + 1}
+        dimensionId={dimensionData.id}
         totalDimensions={DIMENSIONS.length}
         answers={answers}
         onSelectAnswer={handleSelectAnswer}

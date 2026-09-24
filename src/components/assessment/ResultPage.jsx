@@ -8,8 +8,17 @@ import {
   RotateCcw,
   Save,
 } from 'lucide-react'
-import { DIMENSIONS } from '../../data/assessmentData'
-import { getCareerConclusion, getLevel } from '../../data/assessmentScoring'
+import {
+  ASSESSMENT_VERSION,
+  DIMENSIONS,
+  DIMENSION_GUIDANCE,
+  WORK_PREFERENCE_QUESTIONS,
+} from '../../data/assessmentData'
+import {
+  calculateWorkPreferenceProfile,
+  getCareerConclusion,
+  getLevel,
+} from '../../data/assessmentScoring'
 import { useAccessStore } from '../../store/accessStore'
 import { saveAssessmentSubmission } from '../../services/assessmentService'
 import { syncLocalPathProfile } from '../../services/userPathService'
@@ -19,7 +28,7 @@ const dimensionLabels = {
   eligibility: '基础可行性',
   english: '英语服务沟通',
   service_experience: '服务与岗位背景',
-  work_preference: '岗位偏好匹配',
+  work_preference: '岗位方向清晰度',
   ship_adaptability: '船上适应力',
   application_readiness: '求职准备度',
 }
@@ -79,6 +88,15 @@ const jobProfiles = [
     risks: ['对安全意识要求高', '需要耐心和情绪稳定', '部分公司会要求相关经验或证书'],
     nextSteps: ['整理儿童、教育或活动经历', '练习活动组织英语', '学习儿童安全和边界意识'],
   },
+  {
+    id: 'beauty_spa',
+    title: '美容 SPA / 技能服务',
+    detailRoute: '/jobs',
+    weights: { service_experience: 0.24, english: 0.2, work_preference: 0.22, application_readiness: 0.18, ship_adaptability: 0.16 },
+    strengths: ['适合已有美容、SPA、健身或摄影技能的人', '专业技能与咨询销售可以共同形成优势', '容易延伸个人服务与客户经营能力'],
+    risks: ['部分岗位需要证书或作品证明', '服务效果和销售目标会同时被考核', '必须严格识别禁忌与安全边界'],
+    nextSteps: ['核对目标公司的证书要求', '整理作品、客户反馈和服务案例', '练习英文咨询与禁忌确认'],
+  },
 ]
 
 const serviceBackgroundBoosts = {
@@ -88,21 +106,42 @@ const serviceBackgroundBoosts = {
   restaurant: 'restaurant',
   youth_staff: 'youth_staff',
   housekeeping: 'housekeeping',
+  beauty_spa: 'beauty_spa',
 }
 
-const calculateRecommendations = (dimensionScores, serviceBackground) =>
-  jobProfiles
+const calculateRecommendations = (dimensionScores, serviceBackground, answers) => {
+  const preferenceProfile = calculateWorkPreferenceProfile(answers, WORK_PREFERENCE_QUESTIONS)
+
+  return jobProfiles
     .map((job) => {
       const baseScore = Object.entries(job.weights).reduce(
-        (total, [dimension, weight]) => total + (dimensionScores[dimension] || 0) * weight,
+        (total, [dimension, weight]) => {
+          const score = dimension === 'work_preference'
+            ? (preferenceProfile.jobScores[job.id] || 0)
+            : (dimensionScores[dimension] || 0)
+          return total + score * weight
+        },
         0
       )
-      const backgroundBoost = serviceBackgroundBoosts[serviceBackground] === job.id ? 6 : 0
+      const backgroundBoost = serviceBackgroundBoosts[serviceBackground] === job.id ? 4 : 0
 
-      return { ...job, matchScore: Math.min(96, Math.round(baseScore + backgroundBoost)) }
+      return {
+        ...job,
+        matchScore: Math.min(96, Math.round(baseScore + backgroundBoost)),
+        preferenceScore: preferenceProfile.jobScores[job.id] || 0,
+      }
     })
     .sort((a, b) => b.matchScore - a.matchScore)
     .slice(0, 3)
+}
+
+const getGuidanceAction = (dimensionId, score) => {
+  const guidance = DIMENSION_GUIDANCE[dimensionId]
+  if (!guidance) return ''
+  if (score < 55) return guidance.actions.low
+  if (score < 78) return guidance.actions.mid
+  return guidance.actions.high
+}
 
 const getScoreColor = (score) => {
   if (score >= 82) return 'text-emerald-700 bg-emerald-50 border-emerald-100'
@@ -196,8 +235,8 @@ export default function ResultPage({
   const overallLevel = getLevel(overallScore)
   const conclusion = getCareerConclusion(overallScore, dimensionScores)
   const recommendations = useMemo(
-    () => calculateRecommendations(dimensionScores, serviceBackground),
-    [dimensionScores, serviceBackground]
+    () => calculateRecommendations(dimensionScores, serviceBackground, answers),
+    [answers, dimensionScores, serviceBackground]
   )
   const lowestDimensions = useMemo(() => getLowestDimensions(dimensionScores), [dimensionScores])
   const routePlan = useMemo(
@@ -279,6 +318,7 @@ export default function ResultPage({
       setSaveState('saving')
       setSaveMessage('')
       await saveAssessmentSubmission({
+        assessmentVersion: ASSESSMENT_VERSION,
         contact,
         serviceBackground,
         answers,
@@ -357,7 +397,7 @@ export default function ResultPage({
         </section>
 
         <CareerReportPanel
-          assessment={{ overallScore, level: overallLevel.label, serviceBackground, dimensionScores, careerReport, careerProfile: getSavedCareerProfile() }}
+          assessment={{ assessmentVersion: ASSESSMENT_VERSION, overallScore, level: overallLevel.label, serviceBackground, dimensionScores, careerReport, careerProfile: getSavedCareerProfile() }}
           fallbackRecommendations={recommendations}
           onReportGenerated={setCareerReport}
         />
@@ -374,6 +414,7 @@ export default function ResultPage({
           <div className="space-y-4">
             {DIMENSIONS.map((dimension) => {
               const score = dimensionScores[dimension.id] || 0
+              const guidance = DIMENSION_GUIDANCE[dimension.id]
 
               return (
                 <div key={dimension.id}>
@@ -384,6 +425,12 @@ export default function ResultPage({
                   <div className="h-2 overflow-hidden rounded-full bg-slate-200">
                     <div className="h-full rounded-full bg-blue-600" style={{ width: `${score}%` }} />
                   </div>
+                  {guidance && (
+                    <div className="mt-2 text-xs leading-5 text-slate-600">
+                      <p>{guidance.focus}</p>
+                      <p className="mt-1"><span className="font-semibold text-slate-700">下一步：</span>{getGuidanceAction(dimension.id, score)}</p>
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -412,11 +459,14 @@ export default function ResultPage({
                 <div className="h-2 overflow-hidden rounded-full bg-slate-200">
                   <div className="h-full rounded-full bg-blue-600" style={{ width: `${dimension.score}%` }} />
                 </div>
+                <p className="mt-2 text-xs leading-5 text-slate-600">
+                  {getGuidanceAction(dimension.id, dimension.score)}
+                </p>
               </div>
             ))}
           </div>
           <p className="mt-4 text-sm leading-relaxed text-slate-600">
-            建议先补齐这两个维度，再进入简历优化和面试训练。这样比盲目投递更容易形成稳定路径。
+            分数用于确定训练优先级，不等同于录用概率。完成上面的可验证动作后再重测，变化才有意义。
           </p>
         </section>
 

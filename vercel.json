@@ -5,6 +5,10 @@
   "framework": "vite",
   "routes": [
     {
+      "src": "/supabase/(.*)",
+      "dest": "https://pdvmyaenjkvohsmjbxha.supabase.co/$1"
+    },
+    {
       "handle": "filesystem"
     },
     {

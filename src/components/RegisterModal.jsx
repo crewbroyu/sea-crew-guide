@@ -140,16 +140,19 @@ export default function RegisterModal() {
       }
     } catch (error) {
       console.error('Auth error:', error);
-      if (/already registered|already been registered/i.test(error.message || '')) {
+      const errorMessage = error.message || '';
+      if (/failed to fetch|networkerror|load failed|fetch failed/i.test(errorMessage)) {
+        setError('暂时无法连接登录服务，请检查网络后重试。若正在使用微信内置浏览器，请改用系统浏览器打开。');
+      } else if (/already registered|already been registered/i.test(errorMessage)) {
         setError('该邮箱已注册，请直接登录');
         setMode('login');
-      } else if (error.message?.includes('Invalid login credentials')) {
+      } else if (errorMessage.includes('Invalid login credentials')) {
         setError('邮箱或密码错误');
-      } else if (/email not confirmed/i.test(error.message || '')) {
+      } else if (/email not confirmed/i.test(errorMessage)) {
         setConfirmationEmail(email.trim());
         setError('该邮箱还未完成验证。请使用最新一封验证邮件，或点击下方重新发送。');
       } else {
-        setError(error.message || '操作失败，请重试');
+        setError(errorMessage || '操作失败，请重试');
       }
     } finally {
       setIsProcessing(false);
@@ -173,7 +176,10 @@ export default function RegisterModal() {
       setConfirmationEmail(address);
       setError('新的验证邮件已发送，请使用最新一封邮件里的链接。');
     } catch (resendError) {
-      setError(resendError.message || '验证邮件暂时无法重发，请稍后再试。');
+      const resendMessage = resendError.message || '';
+      setError(/failed to fetch|networkerror|load failed|fetch failed/i.test(resendMessage)
+        ? '暂时无法连接邮件验证服务，请检查网络后重试。'
+        : resendMessage || '验证邮件暂时无法重发，请稍后再试。');
     } finally {
       setIsProcessing(false);
     }

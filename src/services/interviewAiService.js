@@ -119,6 +119,25 @@ export const evaluateInterviewWithAi = ({
   scenarioId,
 })
 
+export const generateAssessmentFollowUp = ({
+  serviceBackground,
+  history,
+  followUpIndex,
+}) => requestInterviewAi({
+  action: 'assessment_followup',
+  mode: 'assessment',
+  serviceBackground,
+  history,
+  followUpIndex,
+})
+
+export const evaluatePracticalAssessment = ({ serviceBackground, answers }) => requestInterviewAi({
+  action: 'assessment_evaluate',
+  mode: 'assessment',
+  serviceBackground,
+  answers,
+})
+
 export const coachInterviewAnswer = ({ position, card, answers, generated }) => requestInterviewAi({
   action: 'answer_coach',
   mode: 'premium_practice',

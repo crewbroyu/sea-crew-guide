@@ -7,6 +7,7 @@ import {
   WORK_PREFERENCE_QUESTIONS,
 } from '../src/data/assessmentData.js'
 import {
+  applyPracticalAssessmentScores,
   calculateDimensionScore,
   calculateWorkPreferenceProfile,
 } from '../src/data/assessmentScoring.js'
@@ -76,5 +77,13 @@ const scatteredProfile = calculateWorkPreferenceProfile(
 assert.equal(retailProfile.jobScores.retail, 100)
 assert.ok(retailProfile.clarityScore > scatteredProfile.clarityScore)
 assert.notEqual(calculateDimensionScore(buildPreferenceAnswers('retail'), WORK_PREFERENCE_QUESTIONS), 100)
+
+assert.deepEqual(
+  applyPracticalAssessmentScores(
+    { english: 80, service_experience: 70, eligibility: 60 },
+    { englishScore: 60, serviceExperienceScore: 50 },
+  ),
+  { english: 71, service_experience: 62, eligibility: 60 },
+)
 
 console.log('Assessment quality checks passed.')

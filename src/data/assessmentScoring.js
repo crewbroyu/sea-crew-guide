@@ -74,6 +74,25 @@ export function calculateDimensionScore(answers, questions) {
   return Math.round((totalScore / totalMaxScore) * 100)
 }
 
+export function applyPracticalAssessmentScores(dimensionScores, practicalAssessment) {
+  const nextScores = { ...dimensionScores }
+  const englishPractical = Number(practicalAssessment?.englishScore)
+  const servicePractical = Number(practicalAssessment?.serviceExperienceScore)
+
+  if (Number.isFinite(englishPractical)) {
+    nextScores.english = Math.round(
+      (Number(dimensionScores.english) || 0) * 0.55 + englishPractical * 0.45
+    )
+  }
+  if (Number.isFinite(servicePractical)) {
+    nextScores.service_experience = Math.round(
+      (Number(dimensionScores.service_experience) || 0) * 0.6 + servicePractical * 0.4
+    )
+  }
+
+  return nextScores
+}
+
 export function getLevel(score) {
   if (score >= 82) return { level: 'ready', label: '准备度较高', color: 'green' }
   if (score >= 68) return { level: 'almost', label: '具备基础条件', color: 'blue' }

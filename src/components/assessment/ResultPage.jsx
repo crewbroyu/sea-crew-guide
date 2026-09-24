@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ClipboardList,
+  Mic,
   RotateCcw,
   Save,
 } from 'lucide-react'
@@ -217,6 +218,7 @@ export default function ResultPage({
   overallScore,
   serviceBackground,
   answers,
+  practicalAssessment,
   onRestart,
 }) {
   const navigate = useNavigate()
@@ -322,6 +324,7 @@ export default function ResultPage({
         contact,
         serviceBackground,
         answers,
+        practicalAssessment,
         dimensionScores,
         overallScore,
         level: overallLevel,
@@ -396,8 +399,47 @@ export default function ResultPage({
           </div>
         </section>
 
+        {practicalAssessment && (
+          <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Mic size={20} className="text-blue-700" />
+                <h2 className="font-bold text-slate-950">实战验证结果</h2>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                证据可信度：{{ low: '较低', medium: '中等', high: '较高' }[practicalAssessment.evidenceConfidence] || '待确认'}
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-4 border-y border-slate-100 py-4">
+              <div>
+                <p className="text-xs text-slate-500">限时英语实战</p>
+                <p className="mt-1 text-2xl font-bold text-slate-950">{practicalAssessment.englishScore}<span className="ml-1 text-sm font-medium text-slate-400">/100</span></p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">STAR 经历证据</p>
+                <p className="mt-1 text-2xl font-bold text-slate-950">{practicalAssessment.serviceExperienceScore}<span className="ml-1 text-sm font-medium text-slate-400">/100</span></p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-500">英语维度由选择题 55% + 限时实战 45% 合成；服务经历维度由选择题 60% + STAR 证据 40% 合成。</p>
+            {practicalAssessment.summary && <p className="mt-4 text-sm leading-6 text-slate-700">{practicalAssessment.summary}</p>}
+            {!!practicalAssessment.priorities?.length && (
+              <div className="mt-4">
+                <p className="text-sm font-semibold text-slate-900">优先改进</p>
+                <ul className="mt-2 space-y-1 text-sm leading-6 text-slate-600">
+                  {practicalAssessment.priorities.map((item) => <li key={item}>• {item}</li>)}
+                </ul>
+              </div>
+            )}
+            {!!practicalAssessment.integrityFlags?.length && (
+              <p className="mt-4 text-xs leading-5 text-slate-500">
+                证据提示：{practicalAssessment.integrityFlags.join('；')}
+              </p>
+            )}
+          </section>
+        )}
+
         <CareerReportPanel
-          assessment={{ assessmentVersion: ASSESSMENT_VERSION, overallScore, level: overallLevel.label, serviceBackground, dimensionScores, careerReport, careerProfile: getSavedCareerProfile() }}
+          assessment={{ assessmentVersion: ASSESSMENT_VERSION, overallScore, level: overallLevel.label, serviceBackground, dimensionScores, practicalAssessment, careerReport, careerProfile: getSavedCareerProfile() }}
           fallbackRecommendations={recommendations}
           onReportGenerated={setCareerReport}
         />

@@ -42,7 +42,7 @@ export default function WelcomePage({ onStart }) {
             判断你适合哪些海乘岗位
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">
-            通过 6 个维度评估基础条件、英语、服务经历、岗位偏好、船上适应力和求职准备度，生成岗位建议和下一步准备重点。
+            通过 6 个维度选择题和限时录音实战，评估基础条件、英语、服务经历、岗位偏好、船上适应力和求职准备度。
           </p>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -53,7 +53,7 @@ export default function WelcomePage({ onStart }) {
             >
               <span>
                 <span className="block font-semibold">开始职业测评</span>
-                <span className="mt-1 block text-sm text-blue-100">约 10 分钟，完成后生成报告</span>
+                <span className="mt-1 block text-sm text-blue-100">约 15 分钟，需要麦克风</span>
               </span>
               <ChevronRight size={22} />
             </button>

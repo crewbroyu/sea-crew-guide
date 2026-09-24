@@ -1,6 +1,6 @@
 // src/data/assessmentData.js
 
-export const ASSESSMENT_VERSION = 2
+export const ASSESSMENT_VERSION = 3
 
 export const SERVICE_BACKGROUNDS = [
   { id: 'retail', label: '零售 / 销售 / 免税店相关经验' },

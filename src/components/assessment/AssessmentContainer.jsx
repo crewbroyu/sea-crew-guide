@@ -4,9 +4,15 @@ import WelcomePage from './WelcomePage'
 import BackgroundSelect from './BackgroundSelect'
 import QuestionPage from './QuestionPage'
 import DimensionTransition from './DimensionTransition'
+import PracticalAssessment from './PracticalAssessment'
 import ResultPage from './ResultPage'
 import { ASSESSMENT_VERSION, DIMENSIONS, ALL_QUESTIONS } from '../../data/assessmentData'
-import { calculateDimensionScore, calculateOverallScore, getLevel } from '../../data/assessmentScoring'
+import {
+  applyPracticalAssessmentScores,
+  calculateDimensionScore,
+  calculateOverallScore,
+  getLevel,
+} from '../../data/assessmentScoring'
 import { syncLocalPathProfile } from '../../services/userPathService'
 import { getLatestCareerReport } from '../../services/careerReportService'
 
@@ -34,7 +40,8 @@ const getQuestionsForDimension = (dimensionId, serviceBackground) => {
 export default function AssessmentContainer() {
   const navigate = useNavigate()
   const [savedAssessmentResult] = useState(getSavedAssessmentResult)
-  const resultStep = 2 + DIMENSIONS.length
+  const practicalStep = 2 + DIMENSIONS.length
+  const resultStep = practicalStep + 1
   const [step, setStep] = useState(savedAssessmentResult ? resultStep : 0)
   const [currentDimension, setCurrentDimension] = useState(0)
   const [currentQuestion, setCurrentQuestion] = useState(0)
@@ -42,6 +49,7 @@ export default function AssessmentContainer() {
   const [answers, setAnswers] = useState(savedAssessmentResult?.answers || {})
   const [dimensionScores, setDimensionScores] = useState(savedAssessmentResult?.dimensionScores || {})
   const [overallScore, setOverallScore] = useState(savedAssessmentResult?.overallScore || 0)
+  const [practicalAssessment, setPracticalAssessment] = useState(savedAssessmentResult?.practicalAssessment || null)
   const [completedDimensions, setCompletedDimensions] = useState(0)
   const [restoringReport, setRestoringReport] = useState(!savedAssessmentResult)
 
@@ -64,6 +72,7 @@ export default function AssessmentContainer() {
           answers: snapshot.answers || {},
           dimensionScores: snapshot.dimensionScores || {},
           overallScore: Number(snapshot.overallScore) || 0,
+          practicalAssessment: snapshot.practicalAssessment || null,
           level: getLevel(Number(snapshot.overallScore) || 0),
           careerProfile: saved.profile || {},
           careerReport: saved.report,
@@ -75,6 +84,7 @@ export default function AssessmentContainer() {
         setAnswers(restoredResult.answers)
         setDimensionScores(restoredResult.dimensionScores)
         setOverallScore(restoredResult.overallScore)
+        setPracticalAssessment(restoredResult.practicalAssessment)
         setStep(resultStep)
       } catch (error) {
         console.warn('Unable to restore cloud assessment report:', error)
@@ -125,18 +135,28 @@ export default function AssessmentContainer() {
       return
     }
 
-    const finalOverallScore = calculateOverallScore(updatedDimensionScores)
+    const provisionalOverallScore = calculateOverallScore(updatedDimensionScores)
+    setOverallScore(provisionalOverallScore)
+    setStep(practicalStep)
+  }
+
+  const handlePracticalComplete = (practicalResult) => {
+    const verifiedDimensionScores = applyPracticalAssessmentScores(dimensionScores, practicalResult)
+    const finalOverallScore = calculateOverallScore(verifiedDimensionScores)
     const assessmentResult = {
       completed: true,
       assessmentVersion: ASSESSMENT_VERSION,
       completedAt: new Date().toISOString(),
       serviceBackground,
       answers,
-      dimensionScores: updatedDimensionScores,
+      dimensionScores: verifiedDimensionScores,
       overallScore: finalOverallScore,
       level: getLevel(finalOverallScore),
+      practicalAssessment: practicalResult,
     }
 
+    setPracticalAssessment(practicalResult)
+    setDimensionScores(verifiedDimensionScores)
     setOverallScore(finalOverallScore)
     localStorage.setItem('assessment_result', JSON.stringify(assessmentResult))
 
@@ -177,6 +197,7 @@ export default function AssessmentContainer() {
     setAnswers({})
     setDimensionScores({})
     setOverallScore(0)
+    setPracticalAssessment(null)
     setCompletedDimensions(0)
   }
 
@@ -211,7 +232,7 @@ export default function AssessmentContainer() {
     if (step === 0) return <WelcomePage onStart={handleStartAssessment} />
     if (step === 1) return <BackgroundSelect onSelect={handleBackgroundSelect} />
 
-    if (step >= 2 && step < resultStep) {
+    if (step >= 2 && step < practicalStep) {
       if (step === 2 + currentDimension) return renderQuestionStep()
 
       return (
@@ -224,6 +245,15 @@ export default function AssessmentContainer() {
       )
     }
 
+    if (step === practicalStep) {
+      return (
+        <PracticalAssessment
+          serviceBackground={serviceBackground}
+          onComplete={handlePracticalComplete}
+        />
+      )
+    }
+
     if (step === resultStep) {
       return (
         <ResultPage
@@ -231,6 +261,7 @@ export default function AssessmentContainer() {
           overallScore={overallScore}
           serviceBackground={serviceBackground}
           answers={answers}
+          practicalAssessment={practicalAssessment}
           onRestart={handleRestartAssessment}
         />
       )
@@ -241,11 +272,11 @@ export default function AssessmentContainer() {
 
   const currentDimensionData = DIMENSIONS[currentDimension]
   const currentQuestions =
-    step >= 2 && step < resultStep
+    step >= 2 && step < practicalStep
       ? getQuestionsForDimension(currentDimensionData.id, serviceBackground)
       : []
   const progressWidth =
-    step >= 2 && step < resultStep
+    step >= 2 && step < practicalStep
       ? (currentDimension * 100) / DIMENSIONS.length +
         ((currentQuestion + 1) / currentQuestions.length) * (100 / DIMENSIONS.length)
       : 0
@@ -262,7 +293,7 @@ export default function AssessmentContainer() {
       )}
       {!restoringReport && (
         <>
-      {step >= 2 && step < resultStep && (
+      {step >= 2 && step < practicalStep && (
         <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
           <div className="mx-auto max-w-3xl px-6 py-4">
             <div className="flex justify-between items-center mb-2">

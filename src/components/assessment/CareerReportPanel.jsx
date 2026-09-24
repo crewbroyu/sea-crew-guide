@@ -172,6 +172,7 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
           level: assessment.level,
           serviceBackground: assessment.serviceBackground,
           dimensionScores: assessment.dimensionScores,
+          practicalAssessment: assessment.practicalAssessment,
           ruleRecommendations: fallbackRecommendations.map(({ id, title, matchScore }) => ({ id, title, matchScore })),
         },
       })

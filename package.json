@@ -15,7 +15,8 @@
     "test:scenario": "node scripts/test-interview-scenario.mjs",
     "test:access": "node scripts/test-entitlement-access.mjs",
     "test:career-report": "node scripts/test-career-report.mjs",
-    "test:assessment": "node scripts/test-assessment-quality.mjs"
+    "test:assessment": "node scripts/test-assessment-quality.mjs",
+    "test:assessment-practical": "node scripts/test-assessment-practical.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

@@ -3,6 +3,7 @@ import { handleInterviewRequest } from '../server/interviewAi.js'
 
 const originalFetch = globalThis.fetch
 const modelRequests = []
+let evaluationAttempts = 0
 
 globalThis.fetch = async (url, options = {}) => {
   const target = String(url)
@@ -19,12 +20,15 @@ globalThis.fetch = async (url, options = {}) => {
     const request = JSON.parse(options.body)
     modelRequests.push(request)
     const isEvaluation = request.response_format?.json_schema?.name === 'practical_assessment_result'
+      || request.messages?.[1]?.content?.includes('"scoringRubric"')
+    if (isEvaluation) evaluationAttempts += 1
     return Response.json({
       choices: [{
         message: {
-          content: JSON.stringify(isEvaluation ? {
-            englishScore: 76,
-            serviceExperienceScore: 68,
+          content: JSON.stringify(isEvaluation && evaluationAttempts === 1 ? {
+            summary: '首轮模拟不完整响应。',
+          } : isEvaluation ? { result: {
+            englishScore: '76',
             evidenceConfidence: 'medium',
             summary: '英语能够完成基本闭环，经历证据仍需补充结果。',
             strengths: ['能确认客人需求。'],
@@ -44,7 +48,7 @@ globalThis.fetch = async (url, options = {}) => {
               resultEvidence: 11,
               reflection: 12,
             },
-          } : {
+          } } : {
             question: '其中哪一步是你本人独立完成的？为什么先做这一步？',
             focus: 'ownership',
           }),
@@ -104,9 +108,11 @@ try {
   assert.equal(evaluation.body.data.englishScore, 76)
   assert.equal(evaluation.body.data.serviceExperienceScore, 68)
   assert.equal(evaluation.body.data.evidenceConfidence, 'medium')
-  assert.equal(modelRequests.length, 2)
+  assert.equal(modelRequests.length, 3)
+  assert.equal(evaluationAttempts, 2)
   assert.ok(modelRequests[1].messages[0].content.includes('不得评价口音'))
   assert.equal(modelRequests[1].response_format.json_schema.strict, true)
+  assert.equal(modelRequests[2].response_format.type, 'json_object')
 
   console.log('Practical assessment API contract passed.')
 } finally {

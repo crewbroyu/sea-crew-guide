@@ -978,6 +978,76 @@ const practicalEvaluationResponseFormat = {
   },
 }
 
+const PRACTICAL_ENGLISH_BREAKDOWN = Object.freeze({
+  taskCompletion: 30,
+  closedLoopCommunication: 25,
+  serviceSafetyJudgment: 20,
+  deliveryEfficiency: 15,
+  languageControl: 10,
+})
+
+const PRACTICAL_STAR_BREAKDOWN = Object.freeze({
+  specificity: 20,
+  personalOwnership: 20,
+  judgmentAndAction: 25,
+  resultEvidence: 20,
+  reflection: 15,
+})
+
+const normalizePracticalBreakdown = (value, rubric) => {
+  if (!value || typeof value !== 'object') return null
+
+  const entries = Object.entries(rubric).map(([key, maximum]) => {
+    const score = Number(value[key])
+    return [key, Number.isFinite(score) ? Math.round(clamp(score, 0, maximum)) : null]
+  })
+
+  if (entries.some(([, score]) => score === null)) return null
+  return Object.fromEntries(entries)
+}
+
+const normalizePracticalEvaluation = (raw) => {
+  const candidates = [raw, raw?.result, raw?.evaluation, raw?.data]
+  const result = candidates.find((candidate) => (
+    candidate
+    && typeof candidate === 'object'
+    && (
+      candidate.englishScore !== undefined
+      || candidate.serviceExperienceScore !== undefined
+      || candidate.englishBreakdown
+      || candidate.starBreakdown
+    )
+  ))
+  if (!result) return null
+
+  const englishBreakdown = normalizePracticalBreakdown(result.englishBreakdown, PRACTICAL_ENGLISH_BREAKDOWN)
+  const starBreakdown = normalizePracticalBreakdown(result.starBreakdown, PRACTICAL_STAR_BREAKDOWN)
+  const directEnglishScore = Number(result.englishScore)
+  const directServiceScore = Number(result.serviceExperienceScore)
+  const englishScore = Number.isFinite(directEnglishScore)
+    ? directEnglishScore
+    : englishBreakdown && Object.values(englishBreakdown).reduce((total, score) => total + score, 0)
+  const serviceExperienceScore = Number.isFinite(directServiceScore)
+    ? directServiceScore
+    : starBreakdown && Object.values(starBreakdown).reduce((total, score) => total + score, 0)
+
+  if (!Number.isFinite(englishScore) || !Number.isFinite(serviceExperienceScore)) return null
+
+  return {
+    englishScore: Math.round(clamp(englishScore, 0, 100)),
+    serviceExperienceScore: Math.round(clamp(serviceExperienceScore, 0, 100)),
+    evidenceConfidence: ['low', 'medium', 'high'].includes(result.evidenceConfidence)
+      ? result.evidenceConfidence
+      : 'low',
+    summary: trimText(result.summary, 800),
+    strengths: normalizeStringList(result.strengths, 4, 220),
+    priorities: normalizeStringList(result.priorities, 4, 220),
+    integrityFlags: normalizeStringList(result.integrityFlags, 4, 220),
+    englishBreakdown: englishBreakdown || {},
+    starBreakdown: starBreakdown || {},
+  }
+}
+
 const evaluatePracticalAssessment = async ({ body, config }) => {
   const answers = Array.isArray(body.answers)
     ? body.answers.slice(0, 5).map((item) => ({
@@ -995,13 +1065,7 @@ const evaluatePracticalAssessment = async ({ body, config }) => {
     throw new InterviewApiError(400, 'PRACTICAL_ASSESSMENT_INCOMPLETE', '请完成全部英语录音和 STAR 追问。')
   }
 
-  const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  const requestPayload = {
       model: config.evaluationModel,
       messages: [
         {
@@ -1033,31 +1097,52 @@ const evaluatePracticalAssessment = async ({ body, config }) => {
       enable_thinking: false,
       temperature: 0.1,
       max_completion_tokens: OUTPUT_TOKEN_LIMITS.assessmentEvaluation,
-    }),
-    signal: AbortSignal.timeout(75_000),
-  })
-
-  const providerBody = await readProviderResponse(response)
-  const result = parseJsonContent(providerBody.choices?.[0]?.message?.content)
-  if (!result || !Number.isFinite(result.englishScore) || !Number.isFinite(result.serviceExperienceScore)) {
-    throw new InterviewApiError(502, 'INVALID_AI_RESPONSE', '实战评分生成不完整，请重新提交。')
   }
 
-  return {
-    englishScore: Math.round(clamp(result.englishScore, 0, 100)),
-    serviceExperienceScore: Math.round(clamp(result.serviceExperienceScore, 0, 100)),
-    evidenceConfidence: ['low', 'medium', 'high'].includes(result.evidenceConfidence)
-      ? result.evidenceConfidence
-      : 'low',
-    summary: trimText(result.summary, 800),
-    strengths: normalizeStringList(result.strengths, 4, 220),
-    priorities: normalizeStringList(result.priorities, 4, 220),
-    integrityFlags: normalizeStringList(result.integrityFlags, 4, 220),
-    englishBreakdown: result.englishBreakdown || {},
-    starBreakdown: result.starBreakdown || {},
-    provider: 'dashscope',
-    model: config.evaluationModel,
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...requestPayload,
+        response_format: attempt === 1
+          ? practicalEvaluationResponseFormat
+          : { type: 'json_object' },
+        max_completion_tokens: attempt === 1
+          ? OUTPUT_TOKEN_LIMITS.assessmentEvaluation
+          : 1200,
+      }),
+      signal: AbortSignal.timeout(attempt === 1 ? 60_000 : 30_000),
+    })
+
+    const providerBody = await readProviderResponse(response)
+    let rawResult = null
+    try {
+      rawResult = parseJsonContent(providerBody.choices?.[0]?.message?.content)
+    } catch (error) {
+      if (error?.code !== 'INVALID_AI_RESPONSE') throw error
+    }
+
+    const result = normalizePracticalEvaluation(rawResult)
+    if (result) {
+      return {
+        ...result,
+        provider: 'dashscope',
+        model: config.evaluationModel,
+      }
+    }
+
+    console.warn('DashScope practical assessment response incomplete:', {
+      model: config.evaluationModel,
+      requestId: providerBody.request_id || null,
+      attempt,
+    })
   }
+
+  throw new InterviewApiError(502, 'INVALID_AI_RESPONSE', '实战评分暂时无法完成，请点击重新生成评分，无需重新录音。')
 }
 
 const coachInterviewAnswer = async ({ body, config }) => {

@@ -37,7 +37,8 @@ const createRequestId = () => (
 const requestInterviewAi = async (payload, requestId = createRequestId()) => {
   const accessToken = await getAccessToken()
   const controller = new AbortController()
-  const timeoutId = window.setTimeout(() => controller.abort(), 90_000)
+  const timeoutMs = payload.action === 'assessment_evaluate' ? 120_000 : 90_000
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const response = await fetch('/api/interview', {

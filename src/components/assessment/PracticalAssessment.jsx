@@ -60,6 +60,7 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
   const technicalRetriesRef = useRef({})
 
   const currentTask = tasks[taskIndex]
+  const isEvaluationPhase = ['evaluating', 'evaluation_error'].includes(phase)
 
   const clearTimers = () => {
     if (intervalRef.current) window.clearInterval(intervalRef.current)
@@ -369,11 +370,15 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
 
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-4">
-            <p className="text-sm font-semibold text-blue-700">{currentTask.title}</p>
-            <span className="flex items-center gap-1 text-xs text-slate-500"><Clock3 size={14} />上限 {currentTask.recordingSeconds} 秒</span>
+            <p className="text-sm font-semibold text-blue-700">{isEvaluationPhase ? '实战综合评分' : currentTask.title}</p>
+            {!isEvaluationPhase && <span className="flex items-center gap-1 text-xs text-slate-500"><Clock3 size={14} />上限 {currentTask.recordingSeconds} 秒</span>}
           </div>
-          <h1 className="mt-3 text-lg font-bold leading-8 text-slate-950">{currentTask.prompt}</h1>
-          <p className="mt-3 text-sm text-slate-500">{currentTask.language}</p>
+          <h1 className="mt-3 text-lg font-bold leading-8 text-slate-950">
+            {isEvaluationPhase ? '五段回答均已锁定，正在生成最终评分' : currentTask.prompt}
+          </h1>
+          <p className="mt-3 text-sm text-slate-500">
+            {isEvaluationPhase ? '即使评分需要重试，也不会要求你重新录音。' : currentTask.language}
+          </p>
         </section>
 
         {phase === 'preparing' && (

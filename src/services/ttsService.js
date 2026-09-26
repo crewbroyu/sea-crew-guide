@@ -5,22 +5,23 @@ const deniedNaturalVoiceProducts = new Set()
 let activeAudio = null
 let playbackGeneration = 0
 
-const getEnglishVoice = () => {
+const getVoice = (language = 'en-US') => {
   const voices = window.speechSynthesis?.getVoices?.() || []
-  return voices.find((voice) => /^en-(US|GB)/i.test(voice.lang))
-    || voices.find((voice) => voice.lang?.toLowerCase().startsWith('en'))
+  const languagePrefix = language.split('-')[0].toLowerCase()
+  return voices.find((voice) => voice.lang?.toLowerCase() === language.toLowerCase())
+    || voices.find((voice) => voice.lang?.toLowerCase().startsWith(languagePrefix))
     || null
 }
 
-const speakWithBrowser = (text, { rate = 0.88 } = {}) => new Promise((resolve) => {
+const speakWithBrowser = (text, { rate = 0.88, lang = 'en-US' } = {}) => new Promise((resolve) => {
   if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
     resolve({ provider: 'none' })
     return
   }
 
   const utterance = new SpeechSynthesisUtterance(text)
-  utterance.voice = getEnglishVoice()
-  utterance.lang = utterance.voice?.lang || 'en-US'
+  utterance.voice = getVoice(lang)
+  utterance.lang = utterance.voice?.lang || lang
   utterance.rate = rate
   utterance.pitch = 1
   utterance.onend = () => resolve({ provider: 'browser' })
@@ -116,4 +117,17 @@ export const speakEnglish = async (text, options = {}) => {
     options.onEnd?.()
     return result
   }
+}
+
+export const speakText = async (text, options = {}) => {
+  const normalizedText = typeof text === 'string' ? text.trim() : ''
+  if (!normalizedText || typeof window === 'undefined') return { provider: 'none' }
+
+  stopSpeech()
+  const generation = playbackGeneration
+  options.onStart?.()
+  const result = await speakWithBrowser(normalizedText, options)
+  if (generation !== playbackGeneration) return { provider: 'cancelled' }
+  options.onEnd?.()
+  return result
 }

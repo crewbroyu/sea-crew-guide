@@ -10,6 +10,7 @@ import {
   Volume2,
 } from 'lucide-react'
 import { useAccessStore } from '../../store/accessStore'
+import { speakText, stopSpeech } from '../../services/ttsService'
 import {
   evaluatePracticalAssessment,
   generateAssessmentFollowUp,
@@ -46,6 +47,7 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
   const [testAudioUrl, setTestAudioUrl] = useState('')
   const [currentTranscript, setCurrentTranscript] = useState('')
   const [message, setMessage] = useState('')
+  const [isInterviewerSpeaking, setIsInterviewerSpeaking] = useState(false)
   const [technicalRetries, setTechnicalRetries] = useState({})
 
   const tasksRef = useRef(initialTasks)
@@ -71,6 +73,7 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
 
   useEffect(() => () => {
     clearTimers()
+    stopSpeech()
     if (recorderRef.current?.state === 'recording') {
       recorderRef.current.ondataavailable = null
       recorderRef.current.onstop = null
@@ -85,7 +88,21 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
     setTasks(nextTasks)
   }
 
+  const playInterviewerPrompt = async (task = currentTask) => {
+    if (!task) return
+    const isEnglish = task.category === 'english'
+    await speakText(task.spokenPrompt || task.prompt, {
+      lang: isEnglish ? 'en-US' : 'zh-CN',
+      rate: isEnglish ? 0.88 : 0.95,
+      onStart: () => setIsInterviewerSpeaking(true),
+      onEnd: () => setIsInterviewerSpeaking(false),
+    })
+    setIsInterviewerSpeaking(false)
+  }
+
   const startRecorder = async ({ test = false, task = null } = {}) => {
+    stopSpeech()
+    setIsInterviewerSpeaking(false)
     setMessage('')
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       setMessage('当前浏览器不支持录音，请使用最新版 Edge、Chrome 或 Safari。')
@@ -183,14 +200,24 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
     }
   }
 
-  const beginPreparation = (index) => {
+  const beginPreparation = async (index) => {
     clearTimers()
+    stopSpeech()
     const task = tasksRef.current[index]
-    const startedAt = Date.now()
     setTaskIndex(index)
     setCurrentTranscript('')
     setMessage('')
     setPreparationLeft(task.preparationSeconds)
+    setPhase('prompting')
+
+    await Promise.race([
+      playInterviewerPrompt(task),
+      new Promise((resolve) => window.setTimeout(resolve, 20_000)),
+    ])
+    stopSpeech()
+    setIsInterviewerSpeaking(false)
+
+    const startedAt = Date.now()
     setPhase('preparing')
 
     intervalRef.current = window.setInterval(() => {
@@ -237,7 +264,12 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
         followUpIndex,
       })
       const nextTasks = [...tasksRef.current]
-      nextTasks[nextIndex] = { ...fallback, prompt: generated.question, focus: generated.focus }
+      nextTasks[nextIndex] = {
+        ...fallback,
+        prompt: generated.question,
+        spokenPrompt: generated.question,
+        focus: generated.focus,
+      }
       updateTasks(nextTasks)
     } catch (error) {
       console.error('STAR follow-up generation failed:', error)
@@ -322,6 +354,14 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
             接下来有 2 道限时英语题和 1 组 STAR 经历追问。正式录音会自动计时、不可暂停，转写结果不能编辑；音频只用于即时转写，不会保存。
           </p>
 
+          <div className="mt-5 flex items-center gap-4 border-y border-slate-200 py-4">
+            <img src="/images/assessment/virtual-interviewer.jpg" alt="虚拟面试官" className="h-16 w-16 rounded-full object-cover" loading="lazy" />
+            <div>
+              <p className="font-semibold text-slate-950">虚拟面试官 Maya</p>
+              <p className="mt-1 text-sm leading-5 text-slate-600">她会用语音提出每道问题，随后开始准备倒计时。文字题面会同时保留。</p>
+            </div>
+          </div>
+
           <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
@@ -369,9 +409,22 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
         </div>
 
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-sm font-semibold text-blue-700">{isEvaluationPhase ? '实战综合评分' : currentTask.title}</p>
-            {!isEvaluationPhase && <span className="flex items-center gap-1 text-xs text-slate-500"><Clock3 size={14} />上限 {currentTask.recordingSeconds} 秒</span>}
+          <div className="flex items-start gap-4">
+            <div className={`relative shrink-0 rounded-full ${isInterviewerSpeaking ? 'ring-4 ring-blue-100' : ''}`}>
+              <img src="/images/assessment/virtual-interviewer.jpg" alt="虚拟面试官 Maya" className="h-16 w-16 rounded-full object-cover" />
+              {isInterviewerSpeaking && <span className="absolute bottom-0 right-0 h-4 w-4 animate-pulse rounded-full border-2 border-white bg-blue-600" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-blue-700">{isEvaluationPhase ? '实战综合评分' : currentTask.title}</p>
+                {!isEvaluationPhase && <span className="flex items-center gap-1 text-xs text-slate-500"><Clock3 size={14} />上限 {currentTask.recordingSeconds} 秒</span>}
+              </div>
+              {!isEvaluationPhase && (
+                <button type="button" onClick={() => playInterviewerPrompt(currentTask)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700">
+                  <Volume2 size={15} />{isInterviewerSpeaking ? '正在提问...' : '重播面试官问题'}
+                </button>
+              )}
+            </div>
           </div>
           <h1 className="mt-3 text-lg font-bold leading-8 text-slate-950">
             {isEvaluationPhase ? '五段回答均已锁定，正在生成最终评分' : currentTask.prompt}
@@ -380,6 +433,15 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
             {isEvaluationPhase ? '即使评分需要重试，也不会要求你重新录音。' : currentTask.language}
           </p>
         </section>
+
+        {phase === 'prompting' && (
+          <section className="mt-4 border-y border-blue-100 bg-blue-50 px-5 py-4 text-center">
+            <div className="mx-auto flex w-fit items-center gap-2 font-semibold text-blue-900">
+              <Volume2 size={18} className={isInterviewerSpeaking ? 'animate-pulse' : ''} />面试官正在提问
+            </div>
+            <p className="mt-2 text-xs text-blue-700">播报结束后自动进入准备倒计时</p>
+          </section>
+        )}
 
         {phase === 'preparing' && (
           <section className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-5 text-center">

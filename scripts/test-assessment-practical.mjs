@@ -21,11 +21,13 @@ globalThis.fetch = async (url, options = {}) => {
     modelRequests.push(request)
     const isEvaluation = request.response_format?.json_schema?.name === 'practical_assessment_result'
       || request.messages?.[1]?.content?.includes('"scoringRubric"')
+    const evaluationInput = isEvaluation ? JSON.parse(request.messages[1].content) : null
+    const forceFallback = evaluationInput?.serviceBackground === 'none'
     if (isEvaluation) evaluationAttempts += 1
     return Response.json({
       choices: [{
         message: {
-          content: JSON.stringify(isEvaluation && evaluationAttempts === 1 ? {
+          content: JSON.stringify(isEvaluation && (forceFallback || evaluationAttempts === 1) ? {
             summary: '首轮模拟不完整响应。',
           } : isEvaluation ? { result: {
             englishScore: '76',
@@ -113,6 +115,25 @@ try {
   assert.ok(modelRequests[1].messages[0].content.includes('不得评价口音'))
   assert.equal(modelRequests[1].response_format.json_schema.strict, true)
   assert.equal(modelRequests[2].response_format.type, 'json_object')
+
+  const fallbackEvaluation = await handleInterviewRequest({
+    method: 'POST',
+    headers,
+    body: {
+      action: 'assessment_evaluate',
+      mode: 'assessment',
+      clientRequestId: 'assessment-evaluate-fallback',
+      serviceBackground: 'none',
+      answers: practicalAnswers,
+    },
+    env,
+  })
+  assert.equal(fallbackEvaluation.status, 200)
+  assert.equal(fallbackEvaluation.body.data.scoringMode, 'rules_fallback')
+  assert.equal(fallbackEvaluation.body.data.provider, 'rules')
+  assert.ok(Number.isFinite(fallbackEvaluation.body.data.englishScore))
+  assert.ok(Number.isFinite(fallbackEvaluation.body.data.serviceExperienceScore))
+  assert.equal(modelRequests.length, 5)
 
   console.log('Practical assessment API contract passed.')
 } finally {

@@ -1048,6 +1048,108 @@ const normalizePracticalEvaluation = (raw) => {
   }
 }
 
+const countPatternMatches = (text, patterns) => patterns.reduce((total, pattern) => (
+  total + (pattern.test(text) ? 1 : 0)
+), 0)
+
+const buildPracticalFallbackEvaluation = (answers) => {
+  const englishAnswers = answers.filter((item) => item.category === 'english')
+  const starAnswers = answers.filter((item) => item.category === 'star')
+  const complaint = englishAnswers[0]?.answer.toLowerCase() || ''
+  const allergy = englishAnswers[1]?.answer.toLowerCase() || ''
+  const englishText = `${complaint} ${allergy}`.trim()
+  const starText = starAnswers.map((item) => item.answer).join(' ')
+  const englishWordCount = (englishText.match(/[a-z]+(?:'[a-z]+)?/g) || []).length
+
+  const complaintSignals = countPatternMatches(complaint, [
+    /sorry|apologi[sz]e|understand/,
+    /check|find out|look into|confirm/,
+    /order|table|wait|delay|kitchen/,
+    /update|come back|let you know|minute/,
+    /replace|priority|manager|solution|resolve/,
+  ])
+  const allergySignals = countPatternMatches(allergy, [
+    /allerg|shellfish/,
+    /check|confirm|verify/,
+    /chef|kitchen|supervisor|manager|ingredient/,
+    /cannot|can't|not sure|before|first/,
+    /alternative|another|safe option|cross[- ]contamination/,
+  ])
+  const ownershipSignals = countPatternMatches(englishText, [
+    /\bi will\b|\blet me\b|\bi can\b/,
+    /confirm|repeat|make sure/,
+    /update|follow up|come back/,
+  ])
+
+  const englishBreakdown = {
+    taskCompletion: Math.round(clamp(8 + complaintSignals * 2.2 + allergySignals * 2.2, 0, 30)),
+    closedLoopCommunication: Math.round(clamp(7 + ownershipSignals * 4 + (complaintSignals >= 4 ? 3 : 0), 0, 25)),
+    serviceSafetyJudgment: Math.round(clamp(4 + allergySignals * 3.2, 0, 20)),
+    deliveryEfficiency: Math.round(clamp(5 + Math.min(englishWordCount, 70) / 10, 0, 15)),
+    languageControl: Math.round(clamp(3 + Math.min(englishWordCount, 60) / 12, 0, 10)),
+  }
+
+  const specificitySignals = countPatternMatches(starText, [
+    /\d|分钟|小时|当天|当时|高峰|客人|顾客|订单|同事|经理/,
+    /因为|原因|问题|情况/,
+    /先|然后|随后|最后/,
+  ])
+  const personalSignals = countPatternMatches(starText, [
+    /我(先|当时|负责|决定|判断|发现|确认|联系|解释|处理|完成)/,
+    /我本人|由我|我的责任/,
+    /我(向|给|把|让|请)/,
+  ])
+  const actionSignals = countPatternMatches(starText, [
+    /核对|确认|询问|道歉|解释|协调|联系|记录|汇报|安排|解决|更换|跟进/,
+    /优先|风险|安全|流程|标准|授权/,
+    /先.+再|然后|随后|最后/,
+  ])
+  const resultSignals = countPatternMatches(starText, [
+    /结果|最终|后来|解决|接受|满意|完成|恢复|减少|避免|没有再/,
+    /\d+[%％]?|分钟|小时/,
+    /反馈|确认|回访|记录/,
+  ])
+  const reflectionSignals = countPatternMatches(starText, [
+    /如果|下次|再发生|以后/,
+    /改进|改变|保留|提前|复盘|学到|意识到/,
+    /会继续|我会|应该/,
+  ])
+
+  const starBreakdown = {
+    specificity: Math.round(clamp(7 + specificitySignals * 4, 0, 20)),
+    personalOwnership: Math.round(clamp(6 + personalSignals * 4.5, 0, 20)),
+    judgmentAndAction: Math.round(clamp(7 + actionSignals * 5.5, 0, 25)),
+    resultEvidence: Math.round(clamp(5 + resultSignals * 4.5, 0, 20)),
+    reflection: Math.round(clamp(4 + reflectionSignals * 3.7, 0, 15)),
+  }
+
+  const englishScore = Object.values(englishBreakdown).reduce((total, score) => total + score, 0)
+  const serviceExperienceScore = Object.values(starBreakdown).reduce((total, score) => total + score, 0)
+  const priorities = []
+  if (englishBreakdown.closedLoopCommunication < 18) priorities.push('英语回应要加入明确的处理动作、回报时间和再次确认，形成服务闭环。')
+  if (englishBreakdown.serviceSafetyJudgment < 15) priorities.push('面对过敏问题时，先停止承诺，再核对配方、交叉污染风险和安全替代方案。')
+  if (starBreakdown.personalOwnership < 14) priorities.push('STAR 经历要减少“我们”，补充你本人做出的判断、动作和责任边界。')
+  if (starBreakdown.resultEvidence < 14) priorities.push('用客人反馈、处理时长、记录或可观察变化证明结果，而不是只说“解决了”。')
+
+  return {
+    englishScore,
+    serviceExperienceScore,
+    evidenceConfidence: 'low',
+    summary: '五段回答已完成。本次使用服务器量表完成保底评分；分数依据转写中的服务闭环、安全判断、个人行动、结果证据和复盘信号计算。',
+    strengths: [
+      complaintSignals + allergySignals >= 6 ? '英语回答覆盖了多项服务处理与安全确认动作。' : '已在限时条件下完成两段英语岗位回应。',
+      actionSignals >= 2 ? '经历回答包含可识别的处理动作。' : '已完成主问题和两轮追问，形成了连续经历证据。',
+    ],
+    priorities: priorities.slice(0, 4).length
+      ? priorities.slice(0, 4)
+      : ['继续补充更具体的时间、个人行动和可验证结果，提高经历证据强度。'],
+    integrityFlags: ['AI 结构化评分响应异常，本次使用规则量表保底评分；建议之后重测以获得更完整的个性化反馈。'],
+    englishBreakdown,
+    starBreakdown,
+    scoringMode: 'rules_fallback',
+  }
+}
+
 const evaluatePracticalAssessment = async ({ body, config }) => {
   const answers = Array.isArray(body.answers)
     ? body.answers.slice(0, 5).map((item) => ({
@@ -1142,7 +1244,12 @@ const evaluatePracticalAssessment = async ({ body, config }) => {
     })
   }
 
-  throw new InterviewApiError(502, 'INVALID_AI_RESPONSE', '实战评分暂时无法完成，请点击重新生成评分，无需重新录音。')
+  console.warn('Using deterministic practical assessment fallback after incomplete AI responses.')
+  return {
+    ...buildPracticalFallbackEvaluation(answers),
+    provider: 'rules',
+    model: null,
+  }
 }
 
 const coachInterviewAnswer = async ({ body, config }) => {

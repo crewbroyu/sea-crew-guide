@@ -5,7 +5,9 @@ import {
   Clock3,
   LoaderCircle,
   LockKeyhole,
+  MapPin,
   Mic,
+  RotateCcw,
   Square,
   Volume2,
 } from 'lucide-react'
@@ -48,6 +50,7 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
   const [currentTranscript, setCurrentTranscript] = useState('')
   const [message, setMessage] = useState('')
   const [isInterviewerSpeaking, setIsInterviewerSpeaking] = useState(false)
+  const [promptReplayCounts, setPromptReplayCounts] = useState({})
   const [technicalRetries, setTechnicalRetries] = useState({})
 
   const tasksRef = useRef(initialTasks)
@@ -98,6 +101,13 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
       onEnd: () => setIsInterviewerSpeaking(false),
     })
     setIsInterviewerSpeaking(false)
+  }
+
+  const replayCurrentPrompt = () => {
+    const used = promptReplayCounts[currentTask.id] || 0
+    if (used >= 1 || isInterviewerSpeaking) return
+    setPromptReplayCounts((current) => ({ ...current, [currentTask.id]: used + 1 }))
+    playInterviewerPrompt(currentTask)
   }
 
   const startRecorder = async ({ test = false, task = null } = {}) => {
@@ -351,14 +361,14 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
           <p className="text-sm font-medium text-blue-700">实战验证</p>
           <h1 className="mt-2 text-2xl font-bold text-slate-950">先测试麦克风</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            接下来有 2 道限时英语题和 1 组 STAR 经历追问。正式录音会自动计时、不可暂停，转写结果不能编辑；音频只用于即时转写，不会保存。
+            接下来先面对 2 位客人，再接受 Maya 的 STAR 经历追问。角色会先用语音说话，随后自动进入准备和录音；音频只用于即时转写，不会保存。
           </p>
 
           <div className="mt-5 flex items-center gap-4 border-y border-slate-200 py-4">
             <img src="/images/assessment/virtual-interviewer.jpg" alt="虚拟面试官" className="h-16 w-16 rounded-full object-cover" loading="lazy" />
             <div>
-              <p className="font-semibold text-slate-950">虚拟面试官 Maya</p>
-              <p className="mt-1 text-sm leading-5 text-slate-600">她会用语音提出每道问题，随后开始准备倒计时。文字题面会同时保留。</p>
+              <p className="font-semibold text-slate-950">客人场景 + 招聘官核验</p>
+              <p className="mt-1 text-sm leading-5 text-slate-600">不同角色会分别提出问题；每题只有一次手动重听机会。</p>
             </div>
           </div>
 
@@ -401,43 +411,94 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-8">
-      <main className="mx-auto max-w-2xl">
-        <div className="mb-5 flex items-center justify-between text-sm text-slate-500">
-          <span>实战验证</span>
-          <span>{taskIndex + 1}/{tasks.length}</span>
+    <div className="min-h-screen bg-[#edf1f2] px-4 py-5 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-4xl">
+        <div className="mb-4 flex items-center justify-between text-xs font-medium text-slate-600 sm:text-sm">
+          <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-red-600" />实战模拟进行中</span>
+          <span>场景 {taskIndex + 1}/{tasks.length}</span>
         </div>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className={`relative shrink-0 rounded-full ${isInterviewerSpeaking ? 'ring-4 ring-blue-100' : ''}`}>
-              <img src="/images/assessment/virtual-interviewer.jpg" alt="虚拟面试官 Maya" className="h-16 w-16 rounded-full object-cover" />
-              {isInterviewerSpeaking && <span className="absolute bottom-0 right-0 h-4 w-4 animate-pulse rounded-full border-2 border-white bg-blue-600" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-blue-700">{isEvaluationPhase ? '实战综合评分' : currentTask.title}</p>
-                {!isEvaluationPhase && <span className="flex items-center gap-1 text-xs text-slate-500"><Clock3 size={14} />上限 {currentTask.recordingSeconds} 秒</span>}
+        <section className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm md:grid md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+          <div className="relative min-h-64 overflow-hidden bg-slate-900 sm:min-h-80 md:min-h-[430px]">
+            <img
+              src={isEvaluationPhase ? '/images/assessment/virtual-interviewer.jpg' : currentTask.avatar}
+              alt={isEvaluationPhase ? '邮轮招聘官 Maya' : `${currentTask.roleLabel} ${currentTask.roleName}`}
+              className="absolute inset-0 h-full w-full object-cover object-center"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-black/55 px-4 pb-4 pt-12 text-white">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold">{isEvaluationPhase ? 'Maya' : currentTask.roleName}</p>
+                  <p className="mt-0.5 text-xs text-white/80">{isEvaluationPhase ? '邮轮招聘官' : currentTask.roleLabel}</p>
+                </div>
+                {isInterviewerSpeaking && (
+                  <span className="flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs backdrop-blur-sm">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />正在说话
+                  </span>
+                )}
               </div>
-              {!isEvaluationPhase && (
-                <button type="button" onClick={() => playInterviewerPrompt(currentTask)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700">
-                  <Volume2 size={15} />{isInterviewerSpeaking ? '正在提问...' : '重播面试官问题'}
-                </button>
-              )}
             </div>
           </div>
-          <h1 className="mt-3 text-lg font-bold leading-8 text-slate-950">
-            {isEvaluationPhase ? '五段回答均已锁定，正在生成最终评分' : currentTask.prompt}
-          </h1>
-          <p className="mt-3 text-sm text-slate-500">
-            {isEvaluationPhase ? '即使评分需要重试，也不会要求你重新录音。' : currentTask.language}
-          </p>
+
+          <div className="flex min-w-0 flex-col p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-blue-700">{isEvaluationPhase ? '实战综合评分' : currentTask.title}</p>
+              {!isEvaluationPhase && <span className="flex items-center gap-1 text-xs text-slate-500"><Clock3 size={14} />回答上限 {currentTask.recordingSeconds} 秒</span>}
+            </div>
+
+            {!isEvaluationPhase && (
+              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-y border-slate-200 py-3 text-xs text-slate-600">
+                <span className="flex items-center gap-1.5"><MapPin size={14} className="text-slate-400" />{currentTask.location}</span>
+                <span className="text-right">{currentTask.sceneTime}</span>
+                <span className="col-span-2 font-medium text-slate-800">{currentTask.roleState}</span>
+              </div>
+            )}
+
+            {!isEvaluationPhase && phase !== 'recording' && (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-slate-500">你的任务</p>
+                <p className="mt-1 text-sm leading-6 text-slate-800">{currentTask.objective}</p>
+              </div>
+            )}
+
+            <div className="mt-5 border-l-2 border-blue-600 pl-4">
+              <p className="text-xs font-semibold text-slate-500">{isEvaluationPhase ? '系统' : currentTask.roleName}</p>
+              <h1 className="mt-1 text-base font-semibold leading-7 text-slate-950 sm:text-lg">
+                {isEvaluationPhase
+                  ? '五段回答均已锁定，正在生成最终评分'
+                  : phase === 'recording'
+                    ? currentTask.spokenPrompt
+                    : currentTask.prompt}
+              </h1>
+            </div>
+
+            <div className="mt-auto pt-5">
+              {!isEvaluationPhase && ['prompting', 'preparing'].includes(phase) && (
+                <button
+                  type="button"
+                  onClick={replayCurrentPrompt}
+                  disabled={isInterviewerSpeaking || (promptReplayCounts[currentTask.id] || 0) >= 1}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  <RotateCcw size={14} />
+                  {isInterviewerSpeaking
+                    ? '角色正在说话'
+                    : (promptReplayCounts[currentTask.id] || 0) >= 1
+                      ? '本题已重听'
+                      : '重听一次'}
+                </button>
+              )}
+              <p className="mt-3 text-xs text-slate-500">
+                {isEvaluationPhase ? '评分重试不会要求重新录音。' : currentTask.language}
+              </p>
+            </div>
+          </div>
         </section>
 
         {phase === 'prompting' && (
           <section className="mt-4 border-y border-blue-100 bg-blue-50 px-5 py-4 text-center">
             <div className="mx-auto flex w-fit items-center gap-2 font-semibold text-blue-900">
-              <Volume2 size={18} className={isInterviewerSpeaking ? 'animate-pulse' : ''} />面试官正在提问
+              <Volume2 size={18} className={isInterviewerSpeaking ? 'animate-pulse' : ''} />{currentTask.roleName} 正在说话
             </div>
             <p className="mt-2 text-xs text-blue-700">播报结束后自动进入准备倒计时</p>
           </section>

@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict'
 import { handleInterviewRequest } from '../server/interviewAi.js'
+import {
+  ENGLISH_PRACTICAL_TASKS,
+  getStarPracticalTask,
+  STAR_FALLBACK_FOLLOW_UPS,
+} from '../src/data/practicalAssessmentData.js'
 
 const originalFetch = globalThis.fetch
 const modelRequests = []
@@ -70,6 +75,22 @@ const env = {
 const headers = { authorization: 'Bearer assessment-test-token' }
 
 try {
+  const sceneTasks = [
+    ...ENGLISH_PRACTICAL_TASKS,
+    getStarPracticalTask('restaurant'),
+    ...STAR_FALLBACK_FOLLOW_UPS,
+  ]
+  sceneTasks.forEach((task) => {
+    assert.ok(task.roleName, `${task.id} requires a role name`)
+    assert.ok(task.roleLabel, `${task.id} requires a role label`)
+    assert.ok(task.roleState, `${task.id} requires a role state`)
+    assert.ok(task.avatar?.startsWith('/images/assessment/'), `${task.id} requires an assessment avatar`)
+    assert.ok(task.location, `${task.id} requires a location`)
+    assert.ok(task.sceneTime, `${task.id} requires scene timing`)
+    assert.ok(task.objective, `${task.id} requires an objective`)
+  })
+  assert.notEqual(ENGLISH_PRACTICAL_TASKS[0].avatar, ENGLISH_PRACTICAL_TASKS[1].avatar)
+
   const followUp = await handleInterviewRequest({
     method: 'POST',
     headers,

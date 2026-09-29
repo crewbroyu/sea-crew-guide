@@ -12,6 +12,10 @@ import {
   Volume2,
 } from 'lucide-react'
 import { useAccessStore } from '../../store/accessStore'
+import {
+  getAssessmentAttemptStatus,
+  startAssessmentAttempt,
+} from '../../services/assessmentAttemptService'
 import { speakAssessment, stopSpeech } from '../../services/ttsService'
 import {
   evaluatePracticalAssessment,
@@ -34,7 +38,7 @@ const stopStream = (stream) => stream?.getTracks?.().forEach((track) => track.st
 
 const formatSeconds = (seconds) => `0:${String(Math.max(0, seconds)).padStart(2, '0')}`
 
-export default function PracticalAssessment({ serviceBackground, onComplete }) {
+export default function PracticalAssessment({ assessmentVersion, serviceBackground, onComplete }) {
   const { authChecked, isCheckingAuth, isRegistered, openLoginModal } = useAccessStore()
   const initialTasks = [
     ...ENGLISH_PRACTICAL_TASKS,
@@ -52,6 +56,9 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
   const [isInterviewerSpeaking, setIsInterviewerSpeaking] = useState(false)
   const [promptReplayCounts, setPromptReplayCounts] = useState({})
   const [technicalRetries, setTechnicalRetries] = useState({})
+  const [attemptStatus, setAttemptStatus] = useState(null)
+  const [attemptStatusLoading, setAttemptStatusLoading] = useState(false)
+  const [startingAttempt, setStartingAttempt] = useState(false)
 
   const tasksRef = useRef(initialTasks)
   const answersRef = useRef([])
@@ -63,6 +70,7 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
   const timeoutRef = useRef(null)
   const testAudioUrlRef = useRef('')
   const technicalRetriesRef = useRef({})
+  const attemptIdRef = useRef(null)
 
   const currentTask = tasks[taskIndex]
   const isEvaluationPhase = ['evaluating', 'evaluation_error'].includes(phase)
@@ -85,6 +93,28 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
     stopStream(streamRef.current)
     if (testAudioUrlRef.current) URL.revokeObjectURL(testAudioUrlRef.current)
   }, [])
+
+  useEffect(() => {
+    if (!isRegistered) return undefined
+    let cancelled = false
+
+    const loadAttemptStatus = async () => {
+      setAttemptStatusLoading(true)
+      try {
+        const status = await getAssessmentAttemptStatus()
+        if (cancelled) return
+        setAttemptStatus(status)
+        attemptIdRef.current = status.activeAttemptId
+      } catch (error) {
+        if (!cancelled) setMessage(error.message)
+      } finally {
+        if (!cancelled) setAttemptStatusLoading(false)
+      }
+    }
+
+    loadAttemptStatus()
+    return () => { cancelled = true }
+  }, [isRegistered])
 
   const updateTasks = (nextTasks) => {
     tasksRef.current = nextTasks
@@ -174,6 +204,7 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
             question: task.prompt,
             scenarioId: task.id,
             durationSeconds,
+            assessmentAttemptId: attemptIdRef.current,
           })
           const answer = {
             id: task.id,
@@ -275,6 +306,7 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
         serviceBackground,
         history,
         followUpIndex,
+        assessmentAttemptId: attemptIdRef.current,
       })
       const nextTasks = [...tasksRef.current]
       nextTasks[nextIndex] = {
@@ -297,6 +329,7 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
       const evaluation = await evaluatePracticalAssessment({
         serviceBackground,
         answers: answersRef.current,
+        assessmentAttemptId: attemptIdRef.current,
       })
       onComplete({
         ...evaluation,
@@ -325,6 +358,23 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
       return
     }
     beginPreparation(taskIndex + 1)
+  }
+
+  const handleStartPractical = async () => {
+    if (startingAttempt || attemptStatusLoading) return
+    setStartingAttempt(true)
+    setMessage('')
+    try {
+      const status = await startAssessmentAttempt(assessmentVersion)
+      setAttemptStatus(status)
+      attemptIdRef.current = status.activeAttemptId
+      await beginPreparation(0)
+    } catch (error) {
+      if (error.code === 'LOGIN_REQUIRED') openLoginModal()
+      setMessage(error.message || '暂时无法开始实战评估，请稍后重试。')
+    } finally {
+      setStartingAttempt(false)
+    }
   }
 
   if (!authChecked || isCheckingAuth) {
@@ -367,6 +417,14 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
             接下来先面对 2 位客人，再接受 Maya 的 STAR 经历追问。角色会先用语音说话，随后自动进入准备和录音；音频只用于即时转写，不会保存。
           </p>
 
+          <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            {attemptStatusLoading
+              ? '正在读取评估次数...'
+              : attemptStatus?.isAdmin
+                ? '管理员账号不受评估次数限制。'
+                : `完整评估剩余 ${attemptStatus?.remainingAttempts ?? '-'} / ${attemptStatus?.maxAttempts ?? 3} 次；只有成功生成最终报告才计入。`}
+          </div>
+
           <div className="mt-5 flex items-center gap-4 border-y border-slate-200 py-4">
             <img src="/images/assessment/virtual-interviewer.jpg" alt="虚拟面试官" className="h-16 w-16 rounded-full object-cover" loading="lazy" />
             <div>
@@ -401,8 +459,19 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
               <div className="mt-4">
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-emerald-700"><CheckCircle2 size={17} />试录完成，请播放确认声音</div>
                 <audio src={testAudioUrl} controls className="h-10 w-full" />
-                <button type="button" onClick={() => beginPreparation(0)} className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700">
-                  听得到，开始实战验证
+                <button
+                  type="button"
+                  onClick={handleStartPractical}
+                  disabled={startingAttempt || attemptStatusLoading || (!attemptStatus?.isAdmin && attemptStatus?.remainingAttempts === 0 && !attemptStatus?.activeAttemptId)}
+                  className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                >
+                  {startingAttempt
+                    ? '正在创建评估会话...'
+                    : (!attemptStatus?.isAdmin && attemptStatus?.remainingAttempts === 0 && !attemptStatus?.activeAttemptId)
+                      ? '评估次数已用完'
+                      : attemptStatus?.activeAttemptId
+                        ? '继续本次实战验证'
+                        : '听得到，开始实战验证'}
                 </button>
               </div>
             )}

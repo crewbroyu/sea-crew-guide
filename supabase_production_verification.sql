@@ -15,6 +15,8 @@ where table_schema = 'public'
     'ai_operation_logs',
     'career_reports',
     'career_report_reservations',
+    'assessment_attempts',
+    'assessment_attempt_actions',
     'job_preparation_profiles',
     'user_entitlements'
   )
@@ -32,7 +34,11 @@ where routine_schema = 'public'
     'finalize_career_report_generation',
     'save_ai_advisor_career_report',
     'get_admin_beta_overview',
-    'get_admin_ai_operations_overview'
+    'get_admin_ai_operations_overview',
+    'get_assessment_attempt_status',
+    'start_assessment_attempt',
+    'authorize_assessment_action',
+    'complete_assessment_attempt'
   )
 order by routine_name;
 
@@ -45,6 +51,8 @@ where schemaname = 'public'
     'ai_operation_logs',
     'career_reports',
     'career_report_reservations',
+    'assessment_attempts',
+    'assessment_attempt_actions',
     'job_preparation_profiles',
     'user_entitlements'
   )
@@ -59,6 +67,8 @@ where schemaname = 'public'
     'ai_operation_logs',
     'career_reports',
     'career_report_reservations',
+    'assessment_attempts',
+    'assessment_attempt_actions',
     'job_preparation_profiles',
     'user_entitlements'
   )

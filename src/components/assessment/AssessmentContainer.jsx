@@ -15,6 +15,8 @@ import {
 } from '../../data/assessmentScoring'
 import { syncLocalPathProfile } from '../../services/userPathService'
 import { getLatestCareerReport } from '../../services/careerReportService'
+import { getAssessmentAttemptStatus } from '../../services/assessmentAttemptService'
+import { useAccessStore } from '../../store/accessStore'
 
 const getSavedAssessmentResult = () => {
   try {
@@ -39,6 +41,7 @@ const getQuestionsForDimension = (dimensionId, serviceBackground) => {
 
 export default function AssessmentContainer() {
   const navigate = useNavigate()
+  const { authChecked, isRegistered } = useAccessStore()
   const [savedAssessmentResult] = useState(getSavedAssessmentResult)
   const practicalStep = 2 + DIMENSIONS.length
   const resultStep = practicalStep + 1
@@ -52,6 +55,28 @@ export default function AssessmentContainer() {
   const [practicalAssessment, setPracticalAssessment] = useState(savedAssessmentResult?.practicalAssessment || null)
   const [completedDimensions, setCompletedDimensions] = useState(0)
   const [restoringReport, setRestoringReport] = useState(!savedAssessmentResult)
+  const [attemptStatus, setAttemptStatus] = useState(null)
+  const [attemptStatusLoading, setAttemptStatusLoading] = useState(false)
+
+  useEffect(() => {
+    if (!authChecked || !isRegistered || step !== 0) return undefined
+    let cancelled = false
+
+    const loadAttemptStatus = async () => {
+      setAttemptStatusLoading(true)
+      try {
+        const status = await getAssessmentAttemptStatus()
+        if (!cancelled) setAttemptStatus(status)
+      } catch (error) {
+        console.warn('Unable to load assessment attempt status:', error)
+      } finally {
+        if (!cancelled) setAttemptStatusLoading(false)
+      }
+    }
+
+    loadAttemptStatus()
+    return () => { cancelled = true }
+  }, [authChecked, isRegistered, step])
 
   useEffect(() => {
     if (savedAssessmentResult) return undefined
@@ -229,7 +254,16 @@ export default function AssessmentContainer() {
   }
 
   const renderCurrentStep = () => {
-    if (step === 0) return <WelcomePage onStart={handleStartAssessment} />
+    if (step === 0) {
+      return (
+        <WelcomePage
+          attemptStatus={attemptStatus}
+          attemptStatusLoading={attemptStatusLoading}
+          isRegistered={isRegistered}
+          onStart={handleStartAssessment}
+        />
+      )
+    }
     if (step === 1) return <BackgroundSelect onSelect={handleBackgroundSelect} />
 
     if (step >= 2 && step < practicalStep) {
@@ -248,6 +282,7 @@ export default function AssessmentContainer() {
     if (step === practicalStep) {
       return (
         <PracticalAssessment
+          assessmentVersion={ASSESSMENT_VERSION}
           serviceBackground={serviceBackground}
           onComplete={handlePracticalComplete}
         />

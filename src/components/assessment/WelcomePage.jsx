@@ -21,8 +21,12 @@ const dimensionIcons = {
   Route,
 }
 
-export default function WelcomePage({ onStart }) {
+export default function WelcomePage({ attemptStatus, attemptStatusLoading, isRegistered, onStart }) {
   const navigate = useNavigate()
+  const limitReached = isRegistered
+    && !attemptStatus?.isAdmin
+    && attemptStatus?.remainingAttempts === 0
+    && !attemptStatus?.activeAttemptId
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
@@ -49,11 +53,16 @@ export default function WelcomePage({ onStart }) {
             <button
               type="button"
               onClick={onStart}
-              className="flex items-center justify-between rounded-lg bg-blue-600 px-5 py-4 text-left text-white shadow-sm transition hover:bg-blue-700"
+              disabled={limitReached || attemptStatusLoading}
+              className="flex items-center justify-between rounded-lg bg-blue-600 px-5 py-4 text-left text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
             >
               <span>
-                <span className="block font-semibold">开始职业测评</span>
-                <span className="mt-1 block text-sm text-blue-100">约 15 分钟，需要麦克风</span>
+                <span className="block font-semibold">
+                  {limitReached ? '完整评估次数已用完' : '开始职业测评'}
+                </span>
+                <span className="mt-1 block text-sm text-blue-100">
+                  {attemptStatusLoading ? '正在读取剩余次数...' : '约 15 分钟，需要麦克风'}
+                </span>
               </span>
               <ChevronRight size={22} />
             </button>
@@ -67,6 +76,16 @@ export default function WelcomePage({ onStart }) {
               <p className="mt-1 text-sm text-slate-500">工资、合同、岗位和常见误区</p>
             </button>
           </div>
+
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            {!isRegistered
+              ? '登录后进入实战环节；每个邮箱账号最多成功完成 3 次完整评估。'
+              : attemptStatus?.isAdmin
+                ? '管理员账号不受完整评估次数限制。'
+                : attemptStatus
+                  ? `剩余 ${attemptStatus.remainingAttempts} / ${attemptStatus.maxAttempts} 次；失败或未生成最终报告不计入。`
+                  : '每个邮箱账号最多成功完成 3 次完整评估。'}
+          </p>
         </div>
       </header>
 

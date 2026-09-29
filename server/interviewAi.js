@@ -358,6 +358,58 @@ const reservePersistentQuota = async ({ supabase, entitlement, action, mode, bod
   return data?.reservation_id || null
 }
 
+const mapAssessmentAttemptError = (error) => {
+  const message = error?.message || ''
+  if (message.includes('ASSESSMENT_ATTEMPT_REQUIRED')) {
+    return new InterviewApiError(400, 'ASSESSMENT_ATTEMPT_REQUIRED', '请重新进入实战评估后再提交。')
+  }
+  if (message.includes('ASSESSMENT_ATTEMPT_NOT_FOUND')) {
+    return new InterviewApiError(403, 'ASSESSMENT_ATTEMPT_NOT_FOUND', '无法验证本次评估，请重新开始。')
+  }
+  if (message.includes('ASSESSMENT_ATTEMPT_EXPIRED')) {
+    return new InterviewApiError(410, 'ASSESSMENT_ATTEMPT_EXPIRED', '本次实战评估已超过 2 小时，请重新开始。')
+  }
+  if (message.includes('ASSESSMENT_ATTEMPT_NOT_ACTIVE')) {
+    return new InterviewApiError(409, 'ASSESSMENT_ATTEMPT_NOT_ACTIVE', '本次实战评估已经结束，请返回查看报告。')
+  }
+  if (message.includes('ASSESSMENT_ACTION_LIMIT_REACHED')) {
+    return new InterviewApiError(429, 'ASSESSMENT_ACTION_LIMIT_REACHED', '本次评估的 AI 重试次数已达上限。')
+  }
+  console.error('Assessment attempt validation failed:', message)
+  return new InterviewApiError(503, 'ASSESSMENT_ACCESS_CHECK_FAILED', '暂时无法验证评估次数，请稍后重试。')
+}
+
+const authorizeAssessmentAction = async ({ supabase, action, mode, body }) => {
+  if (mode !== ASSESSMENT_MODE) return
+
+  const attemptId = trimText(body.assessmentAttemptId, 80)
+  const requestId = trimText(body.clientRequestId, 200)
+  if (!attemptId || !requestId) {
+    throw new InterviewApiError(400, 'ASSESSMENT_ATTEMPT_REQUIRED', '请重新进入实战评估后再提交。')
+  }
+
+  const { error } = await supabase.rpc('authorize_assessment_action', {
+    input_attempt_id: attemptId,
+    input_action: action,
+    input_request_id: requestId,
+  })
+  if (error) throw mapAssessmentAttemptError(error)
+}
+
+const completeAssessmentAttempt = async ({ supabase, body, data }) => {
+  const { data: status, error } = await supabase.rpc('complete_assessment_attempt', {
+    input_attempt_id: trimText(body.assessmentAttemptId, 80),
+    input_result_summary: {
+      englishScore: Number(data?.englishScore) || 0,
+      serviceExperienceScore: Number(data?.serviceExperienceScore) || 0,
+      evidenceConfidence: trimText(data?.evidenceConfidence, 40) || null,
+      scoringMode: trimText(data?.scoringMode, 80) || null,
+    },
+  })
+  if (error) throw mapAssessmentAttemptError(error)
+  return status
+}
+
 const finalizePersistentQuota = async ({ supabase, reservationId, completed }) => {
   if (!reservationId) return
 
@@ -1584,6 +1636,9 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
     if (![PRACTICE_MODE, SCENARIO_TRIAL_MODE, PREMIUM_SCENARIO_MODE, PREMIUM_PRACTICE_MODE, PREMIUM_MOCK_MODE, ASSESSMENT_MODE].includes(mode)) {
       throw new InterviewApiError(400, 'INVALID_MODE', '不支持的面试训练模式。')
     }
+    if (mode === ASSESSMENT_MODE && !['transcribe', 'assessment_followup', 'assessment_evaluate'].includes(action)) {
+      throw new InterviewApiError(400, 'INVALID_ASSESSMENT_ACTION', '不支持的职业评估操作。')
+    }
 
     config = getServerConfig(env)
     requireConfig(config)
@@ -1601,6 +1656,12 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
     if (mode === SCENARIO_TRIAL_MODE) {
       validateFreeScenarioTrial({ body: payload })
     }
+    await authorizeAssessmentAction({
+      supabase: auth.supabase,
+      action,
+      mode,
+      body: payload,
+    })
     const quotaReservationId = await reservePersistentQuota({
       supabase: auth.supabase,
       entitlement: auth.entitlement,
@@ -1611,7 +1672,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
     let usageRecorded = false
 
     try {
-      const data = action === 'transcribe'
+      let data = action === 'transcribe'
         ? await transcribeAudio({ body: payload, config })
         : action === 'assessment_followup'
           ? await generateAssessmentFollowUp({ body: payload, config })
@@ -1635,6 +1696,15 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
         config,
       })
       usageRecorded = true
+
+      if (mode === ASSESSMENT_MODE && action === 'assessment_evaluate') {
+        const attemptStatus = await completeAssessmentAttempt({
+          supabase: auth.supabase,
+          body: payload,
+          data,
+        })
+        data = { ...data, attemptStatus }
+      }
 
       await recordAiOperationLog({
         supabase: auth.supabase,

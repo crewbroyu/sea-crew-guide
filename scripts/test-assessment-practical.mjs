@@ -21,6 +21,10 @@ globalThis.fetch = async (url, options = {}) => {
   }
   if (target.includes('/rest/v1/rpc/record_ai_usage_event')) return Response.json(1)
   if (target.includes('/rest/v1/rpc/record_ai_operation_log')) return Response.json(1)
+  if (target.includes('/rest/v1/rpc/authorize_assessment_action')) return Response.json(true)
+  if (target.includes('/rest/v1/rpc/complete_assessment_attempt')) {
+    return Response.json({ completedAttempts: 1, remainingAttempts: 2, maxAttempts: 3 })
+  }
   if (target.includes('/chat/completions')) {
     const request = JSON.parse(options.body)
     modelRequests.push(request)
@@ -97,6 +101,22 @@ try {
   })
   assert.notEqual(ENGLISH_PRACTICAL_TASKS[0].avatar, ENGLISH_PRACTICAL_TASKS[1].avatar)
 
+  const missingAttempt = await handleInterviewRequest({
+    method: 'POST',
+    headers,
+    body: {
+      action: 'assessment_followup',
+      mode: 'assessment',
+      clientRequestId: 'assessment-followup-without-attempt',
+      followUpIndex: 1,
+      serviceBackground: 'restaurant',
+      history: [],
+    },
+    env,
+  })
+  assert.equal(missingAttempt.status, 400)
+  assert.equal(missingAttempt.body.error.code, 'ASSESSMENT_ATTEMPT_REQUIRED')
+
   const followUp = await handleInterviewRequest({
     method: 'POST',
     headers,
@@ -104,6 +124,7 @@ try {
       action: 'assessment_followup',
       mode: 'assessment',
       clientRequestId: 'assessment-followup-1',
+      assessmentAttemptId: '00000000-0000-4000-8000-000000000101',
       followUpIndex: 1,
       serviceBackground: 'restaurant',
       history: [{ question: '讲一次客诉。', answer: '我们最后解决了。', durationSeconds: 20 }],
@@ -128,6 +149,7 @@ try {
       action: 'assessment_evaluate',
       mode: 'assessment',
       clientRequestId: 'assessment-evaluate-1',
+      assessmentAttemptId: '00000000-0000-4000-8000-000000000101',
       serviceBackground: 'restaurant',
       answers: practicalAnswers,
     },
@@ -138,6 +160,7 @@ try {
   assert.equal(evaluation.body.data.serviceExperienceScore, 68)
   assert.equal(evaluation.body.data.evidenceConfidence, 'medium')
   assert.equal(evaluation.body.data.evidenceHighlights.length, 2)
+  assert.equal(evaluation.body.data.attemptStatus.remainingAttempts, 2)
   assert.ok(evaluation.body.data.evidenceHighlights[0].quote.includes('update'))
   assert.equal(modelRequests.length, 3)
   assert.equal(evaluationAttempts, 2)
@@ -152,6 +175,7 @@ try {
       action: 'assessment_evaluate',
       mode: 'assessment',
       clientRequestId: 'assessment-evaluate-fallback',
+      assessmentAttemptId: '00000000-0000-4000-8000-000000000102',
       serviceBackground: 'none',
       answers: practicalAnswers,
     },

@@ -6,6 +6,8 @@ import {
   ChevronLeft,
   ClipboardList,
   Mic,
+  PackageCheck,
+  Quote,
   RotateCcw,
   Save,
 } from 'lucide-react'
@@ -23,6 +25,7 @@ import {
 import { useAccessStore } from '../../store/accessStore'
 import { saveAssessmentSubmission } from '../../services/assessmentService'
 import { syncLocalPathProfile } from '../../services/userPathService'
+import { trackProductEvent } from '../../services/productAnalyticsService'
 import CareerReportPanel from './CareerReportPanel'
 
 const dimensionLabels = {
@@ -213,6 +216,30 @@ const getSavedCareerProfile = () => {
   }
 }
 
+const getTrainingOffer = (job, priority) => {
+  if (job?.id === 'bar') {
+    return {
+      productCode: 'bar_server_pack',
+      route: '/programs/bar-server',
+      label: 'Bar Server 单职位全流程包',
+      title: `把“${priority?.name || '岗位能力'}”转成可反复训练的真实场景`,
+      description: '继续练点单、推荐销售、责任售酒、客诉处理和英文面试，并针对每次回答获得反馈。',
+      cta: '查看 Bar Server 训练路径',
+    }
+  }
+  if (job?.id === 'retail') {
+    return {
+      productCode: 'retail_sales_pack',
+      route: '/programs/retail',
+      label: 'Retail Sales Associate 单职位全流程包',
+      title: `把“${priority?.name || '岗位能力'}”转成可反复训练的销售场景`,
+      description: '继续练需求发现、产品推荐、异议处理、合规销售和英文面试，并针对每次回答获得反馈。',
+      cta: '查看 Retail 训练路径',
+    }
+  }
+  return null
+}
+
 export default function ResultPage({
   dimensionScores,
   overallScore,
@@ -293,6 +320,22 @@ export default function ResultPage({
       }
     })
   }, [careerReport, recommendations])
+  const trainingOffer = useMemo(
+    () => getTrainingOffer(activeRecommendations[0], lowestDimensions[0]),
+    [activeRecommendations, lowestDimensions]
+  )
+
+  useEffect(() => {
+    trackProductEvent('assessment_result_viewed', {
+      productCode: trainingOffer?.productCode || null,
+      properties: {
+        overallScore,
+        primaryJob: activeRecommendations[0]?.id || null,
+        hasPracticalAssessment: Boolean(practicalAssessment),
+        evidenceConfidence: practicalAssessment?.evidenceConfidence || null,
+      },
+    })
+  }, [activeRecommendations, overallScore, practicalAssessment, trainingOffer])
 
   const handleContactChange = (field, value) => {
     setContact((prev) => ({ ...prev, [field]: value }))
@@ -422,6 +465,19 @@ export default function ResultPage({
             </div>
             <p className="mt-3 text-xs leading-5 text-slate-500">英语维度由选择题 55% + 限时实战 45% 合成；服务经历维度由选择题 60% + STAR 证据 40% 合成。</p>
             {practicalAssessment.summary && <p className="mt-4 text-sm leading-6 text-slate-700">{practicalAssessment.summary}</p>}
+            {!!practicalAssessment.evidenceHighlights?.length && (
+              <div className="mt-5 border-y border-slate-100 py-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900"><Quote size={17} className="text-blue-700" />评分引用的回答证据</div>
+                <div className="mt-3 space-y-3">
+                  {practicalAssessment.evidenceHighlights.map((item, index) => (
+                    <blockquote key={`${item.source}-${index}`} className="border-l-2 border-blue-200 pl-3">
+                      <p className="text-sm leading-6 text-slate-800">“{item.quote}”</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{item.source === 'star' ? 'STAR 经历' : '英语实战'}：{item.finding}</p>
+                    </blockquote>
+                  ))}
+                </div>
+              </div>
+            )}
             {!!practicalAssessment.priorities?.length && (
               <div className="mt-4">
                 <p className="text-sm font-semibold text-slate-900">优先改进</p>
@@ -435,6 +491,37 @@ export default function ResultPage({
                 证据提示：{practicalAssessment.integrityFlags.join('；')}
               </p>
             )}
+          </section>
+        )}
+
+        {trainingOffer && (
+          <section className="mb-6 border-y border-blue-200 bg-blue-50 px-5 py-5 sm:rounded-lg sm:border">
+            <div className="flex items-start gap-3">
+              <PackageCheck size={21} className="mt-0.5 shrink-0 text-blue-700" />
+              <div>
+                <p className="text-xs font-semibold text-blue-700">根据第一推荐岗位匹配</p>
+                <h2 className="mt-1 font-bold text-blue-950">{trainingOffer.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-blue-900">{trainingOffer.description}</p>
+                <p className="mt-2 text-xs text-blue-700">{trainingOffer.label}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                trackProductEvent('assessment_training_recommended_clicked', {
+                  productCode: trainingOffer.productCode,
+                  properties: {
+                    primaryJob: activeRecommendations[0]?.id,
+                    lowestDimension: lowestDimensions[0]?.id,
+                    overallScore,
+                  },
+                })
+                navigate(trainingOffer.route)
+              }}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-700"
+            >
+              {trainingOffer.cta}<ArrowRight size={18} />
+            </button>
           </section>
         )}
 

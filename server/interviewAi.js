@@ -938,6 +938,21 @@ const practicalEvaluationResponseFormat = {
           type: 'array',
           items: { type: 'string' },
         },
+        evidenceHighlights: {
+          type: 'array',
+          minItems: 2,
+          maxItems: 4,
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              source: { type: 'string', enum: ['english', 'star'] },
+              quote: { type: 'string' },
+              finding: { type: 'string' },
+            },
+            required: ['source', 'quote', 'finding'],
+          },
+        },
         englishBreakdown: {
           type: 'object',
           additionalProperties: false,
@@ -971,6 +986,7 @@ const practicalEvaluationResponseFormat = {
         'strengths',
         'priorities',
         'integrityFlags',
+        'evidenceHighlights',
         'englishBreakdown',
         'starBreakdown',
       ],
@@ -1033,6 +1049,14 @@ const normalizePracticalEvaluation = (raw) => {
 
   if (!Number.isFinite(englishScore) || !Number.isFinite(serviceExperienceScore)) return null
 
+  const evidenceHighlights = Array.isArray(result.evidenceHighlights)
+    ? result.evidenceHighlights.slice(0, 4).map((item) => ({
+        source: item?.source === 'star' ? 'star' : 'english',
+        quote: trimText(item?.quote, 240),
+        finding: trimText(item?.finding, 300),
+      })).filter((item) => item.quote && item.finding)
+    : []
+
   return {
     englishScore: Math.round(clamp(englishScore, 0, 100)),
     serviceExperienceScore: Math.round(clamp(serviceExperienceScore, 0, 100)),
@@ -1043,6 +1067,7 @@ const normalizePracticalEvaluation = (raw) => {
     strengths: normalizeStringList(result.strengths, 4, 220),
     priorities: normalizeStringList(result.priorities, 4, 220),
     integrityFlags: normalizeStringList(result.integrityFlags, 4, 220),
+    evidenceHighlights,
     englishBreakdown: englishBreakdown || {},
     starBreakdown: starBreakdown || {},
   }
@@ -1114,6 +1139,8 @@ const buildPracticalFallbackEvaluation = (answers) => {
     /改进|改变|保留|提前|复盘|学到|意识到/,
     /会继续|我会|应该/,
   ])
+  const englishEvidence = englishAnswers.find((item) => item.answer)?.answer || ''
+  const starEvidence = starAnswers.find((item) => item.answer)?.answer || ''
 
   const starBreakdown = {
     specificity: Math.round(clamp(7 + specificitySignals * 4, 0, 20)),
@@ -1135,7 +1162,7 @@ const buildPracticalFallbackEvaluation = (answers) => {
     englishScore,
     serviceExperienceScore,
     evidenceConfidence: 'low',
-    summary: '五段回答已完成。本次使用服务器量表完成保底评分；分数依据转写中的服务闭环、安全判断、个人行动、结果证据和复盘信号计算。',
+    summary: '五段回答已完成。分数依据转写中的服务闭环、安全判断、个人行动、结果证据和复盘信号计算。',
     strengths: [
       complaintSignals + allergySignals >= 6 ? '英语回答覆盖了多项服务处理与安全确认动作。' : '已在限时条件下完成两段英语岗位回应。',
       actionSignals >= 2 ? '经历回答包含可识别的处理动作。' : '已完成主问题和两轮追问，形成了连续经历证据。',
@@ -1143,7 +1170,23 @@ const buildPracticalFallbackEvaluation = (answers) => {
     priorities: priorities.slice(0, 4).length
       ? priorities.slice(0, 4)
       : ['继续补充更具体的时间、个人行动和可验证结果，提高经历证据强度。'],
-    integrityFlags: ['AI 结构化评分响应异常，本次使用规则量表保底评分；建议之后重测以获得更完整的个性化反馈。'],
+    integrityFlags: ['本次可提取的回答证据有限，建议完成针对性训练后重测，观察表现是否稳定。'],
+    evidenceHighlights: [
+      englishEvidence && {
+        source: 'english',
+        quote: trimText(englishEvidence, 180),
+        finding: complaintSignals + allergySignals >= 6
+          ? '这段回答包含可识别的服务动作或安全确认。'
+          : '这段回答已完成现场回应，但服务闭环或安全确认仍可补充。',
+      },
+      starEvidence && {
+        source: 'star',
+        quote: trimText(starEvidence, 180),
+        finding: actionSignals >= 2
+          ? '这段经历包含可识别的个人处理动作。'
+          : '这段经历仍需补充更明确的个人行动和结果证据。',
+      },
+    ].filter(Boolean),
     englishBreakdown,
     starBreakdown,
     scoringMode: 'rules_fallback',
@@ -1190,6 +1233,32 @@ const evaluatePracticalAssessment = async ({ body, config }) => {
             scoringRubric: {
               english: { taskCompletion: 30, closedLoopCommunication: 25, serviceSafetyJudgment: 20, deliveryEfficiency: 15, languageControl: 10 },
               star: { specificity: 20, personalOwnership: 20, judgmentAndAction: 25, resultEvidence: 20, reflection: 15 },
+            },
+            requiredOutput: {
+              englishScore: '0-100 integer',
+              serviceExperienceScore: '0-100 integer',
+              evidenceConfidence: 'low | medium | high',
+              summary: '简体中文综合判断',
+              strengths: ['有证据支持的简体中文优势'],
+              priorities: ['可执行的简体中文改进'],
+              integrityFlags: ['证据缺口或不一致；无则空数组'],
+              evidenceHighlights: [
+                { source: 'english | star', quote: '候选人原话短摘录', finding: '该原话支持的评分判断' },
+              ],
+              englishBreakdown: {
+                taskCompletion: '0-30 integer',
+                closedLoopCommunication: '0-25 integer',
+                serviceSafetyJudgment: '0-20 integer',
+                deliveryEfficiency: '0-15 integer',
+                languageControl: '0-10 integer',
+              },
+              starBreakdown: {
+                specificity: '0-20 integer',
+                personalOwnership: '0-20 integer',
+                judgmentAndAction: '0-25 integer',
+                resultEvidence: '0-20 integer',
+                reflection: '0-15 integer',
+              },
             },
             answers,
           }),

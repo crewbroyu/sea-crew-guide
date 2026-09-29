@@ -12,7 +12,7 @@ import {
   Volume2,
 } from 'lucide-react'
 import { useAccessStore } from '../../store/accessStore'
-import { speakText, stopSpeech } from '../../services/ttsService'
+import { speakAssessment, stopSpeech } from '../../services/ttsService'
 import {
   evaluatePracticalAssessment,
   generateAssessmentFollowUp,
@@ -94,8 +94,11 @@ export default function PracticalAssessment({ serviceBackground, onComplete }) {
   const playInterviewerPrompt = async (task = currentTask) => {
     if (!task) return
     const isEnglish = task.category === 'english'
-    await speakText(task.spokenPrompt || task.prompt, {
+    await speakAssessment(task.spokenPrompt || task.prompt, {
       lang: isEnglish ? 'en-US' : 'zh-CN',
+      languageType: task.languageType,
+      voice: task.voice,
+      scenarioId: task.id,
       rate: isEnglish ? 0.88 : 0.95,
       onStart: () => setIsInterviewerSpeaking(true),
       onEnd: () => setIsInterviewerSpeaking(false),

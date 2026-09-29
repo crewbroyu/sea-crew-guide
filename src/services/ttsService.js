@@ -78,6 +78,52 @@ const fetchNaturalVoiceUrl = async (text, position) => {
   return body.data.audioUrl
 }
 
+const fetchAssessmentVoiceUrl = async (text, { voice, languageType, scenarioId }) => {
+  const cacheKey = `assessment:${voice}:${languageType}:${text}`
+  const cached = audioUrlCache.get(cacheKey)
+  if (cached?.expiresAt > Date.now() + 60_000) return cached.audioUrl
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('LOGIN_REQUIRED')
+
+  const response = await fetch('/api/tts', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      text,
+      mode: 'assessment',
+      voice,
+      languageType,
+      scenarioId,
+      clientRequestId: createRequestId(),
+    }),
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok || !body?.data?.audioUrl) throw new Error(body?.error?.code || 'ASSESSMENT_TTS_FAILED')
+
+  const expiresAt = body.data.expiresAt
+    ? Number(body.data.expiresAt) * 1000
+    : Date.now() + 23 * 60 * 60 * 1000
+  audioUrlCache.set(cacheKey, { audioUrl: body.data.audioUrl, expiresAt })
+  return body.data.audioUrl
+}
+
+const playAudioUrl = async (audioUrl, generation) => {
+  if (generation !== playbackGeneration) return { provider: 'cancelled' }
+  const audio = new Audio(audioUrl)
+  activeAudio = audio
+  await new Promise((resolve, reject) => {
+    audio.onended = resolve
+    audio.onerror = reject
+    audio.play().catch(reject)
+  })
+  if (activeAudio === audio) activeAudio = null
+  return { provider: 'dashscope' }
+}
+
 export const stopSpeech = () => {
   playbackGeneration += 1
   if (activeAudio) {
@@ -100,16 +146,9 @@ export const speakEnglish = async (text, options = {}) => {
     const audioUrl = await fetchNaturalVoiceUrl(normalizedText, options.position)
     if (generation !== playbackGeneration) return { provider: 'cancelled' }
 
-    const audio = new Audio(audioUrl)
-    activeAudio = audio
-    await new Promise((resolve, reject) => {
-      audio.onended = resolve
-      audio.onerror = reject
-      audio.play().catch(reject)
-    })
-    if (activeAudio === audio) activeAudio = null
-    options.onEnd?.()
-    return { provider: 'dashscope' }
+    const result = await playAudioUrl(audioUrl, generation)
+    if (result.provider !== 'cancelled') options.onEnd?.()
+    return result
   } catch {
     if (generation !== playbackGeneration) return { provider: 'cancelled' }
     activeAudio = null
@@ -130,4 +169,26 @@ export const speakText = async (text, options = {}) => {
   if (generation !== playbackGeneration) return { provider: 'cancelled' }
   options.onEnd?.()
   return result
+}
+
+export const speakAssessment = async (text, options = {}) => {
+  const normalizedText = typeof text === 'string' ? text.trim() : ''
+  if (!normalizedText || typeof window === 'undefined') return { provider: 'none' }
+
+  stopSpeech()
+  const generation = playbackGeneration
+  options.onStart?.()
+
+  try {
+    const audioUrl = await fetchAssessmentVoiceUrl(normalizedText, options)
+    const result = await playAudioUrl(audioUrl, generation)
+    if (result.provider !== 'cancelled') options.onEnd?.()
+    return result
+  } catch {
+    if (generation !== playbackGeneration) return { provider: 'cancelled' }
+    activeAudio = null
+    const result = await speakWithBrowser(normalizedText, options)
+    options.onEnd?.()
+    return result
+  }
 }

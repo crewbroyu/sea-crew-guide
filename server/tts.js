@@ -7,7 +7,19 @@ const DEFAULT_TTS_VOICE = 'Cherry'
 const MAX_TEXT_LENGTH = 300
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
 const RATE_LIMIT_REQUESTS = 20
+const ASSESSMENT_RATE_LIMIT_REQUESTS = 12
+const ASSESSMENT_MODE = 'assessment'
+const ASSESSMENT_VOICES = new Set(['Cherry', 'Serena', 'Ethan'])
+const ASSESSMENT_SCENARIO_IDS = new Set([
+  'practical-english-complaint',
+  'practical-english-safety',
+  'practical-star-main',
+  'practical-star-followup-1',
+  'practical-star-followup-2',
+])
 const usageBuckets = new Map()
+const naturalVoiceCache = globalThis.__crewPathNaturalVoiceCache || new Map()
+globalThis.__crewPathNaturalVoiceCache = naturalVoiceCache
 
 const POSITION_PRODUCTS = new Map([
   ['bar_server', 'bar_server_pack'],
@@ -129,27 +141,30 @@ const finalizeQuota = async ({ supabase, reservationId, outcome }) => {
   if (error) console.error('TTS quota finalization failed:', error.message)
 }
 
-const recordUsage = async ({ supabase, productCode, requestId, model }) => {
+const recordUsage = async ({ supabase, productCode, requestId, model, mode, scenarioId, strict = true }) => {
   const { error } = await supabase.rpc('record_ai_usage_event', {
     input_product_code: productCode,
     input_action: 'tts',
-    input_mode: 'natural_tts',
-    input_scenario_id: null,
+    input_mode: mode,
+    input_scenario_id: scenarioId,
     input_provider: 'dashscope',
     input_model: model,
     input_request_id: requestId,
   })
-  if (error) throw new TtsApiError(503, 'USAGE_RECORD_FAILED', '自然语音记录暂时无法保存。')
+  if (error && strict) throw new TtsApiError(503, 'USAGE_RECORD_FAILED', '自然语音记录暂时无法保存。')
+  if (error) console.warn('Assessment TTS usage record failed:', error.message)
 }
 
-const enforceRateLimit = (userId) => {
+const enforceRateLimit = (userId, mode) => {
   const now = Date.now()
-  const current = usageBuckets.get(userId)
+  const key = `${userId}:${mode}`
+  const current = usageBuckets.get(key)
   if (!current || now - current.startedAt >= RATE_LIMIT_WINDOW_MS) {
-    usageBuckets.set(userId, { startedAt: now, count: 1 })
+    usageBuckets.set(key, { startedAt: now, count: 1 })
     return
   }
-  if (current.count >= RATE_LIMIT_REQUESTS) {
+  const limit = mode === ASSESSMENT_MODE ? ASSESSMENT_RATE_LIMIT_REQUESTS : RATE_LIMIT_REQUESTS
+  if (current.count >= limit) {
     throw new TtsApiError(429, 'RATE_LIMITED', '自然语音请求较多，请稍后再试。')
   }
   current.count += 1
@@ -172,18 +187,50 @@ export const handleTtsRequest = async ({ method, headers, body, env = process.en
       throw new TtsApiError(413, 'TEXT_TOO_LONG', `单次朗读不能超过 ${MAX_TEXT_LENGTH} 个字符。`)
     }
 
-    const productCode = getProductCode(body?.position)
-    if (!productCode) {
+    const mode = body?.mode === ASSESSMENT_MODE ? ASSESSMENT_MODE : 'natural_tts'
+    const isAssessment = mode === ASSESSMENT_MODE
+    const scenarioId = trimText(body?.scenarioId, 100)
+    const requestedVoice = trimText(body?.voice, 40)
+    const voice = isAssessment && ASSESSMENT_VOICES.has(requestedVoice)
+      ? requestedVoice
+      : config.voice
+    const languageType = body?.languageType === 'Chinese' ? 'Chinese' : 'English'
+    const productCode = isAssessment ? null : getProductCode(body?.position)
+    if (!isAssessment && !productCode) {
       throw new TtsApiError(403, 'NATURAL_TTS_NOT_AVAILABLE', '该内容使用浏览器语音。')
+    }
+    if (isAssessment && !ASSESSMENT_SCENARIO_IDS.has(scenarioId)) {
+      throw new TtsApiError(400, 'INVALID_ASSESSMENT_SCENARIO', '不支持的评估语音场景。')
     }
     const requestId = trimText(body?.clientRequestId, 200)
     if (!requestId) throw new TtsApiError(400, 'REQUEST_ID_REQUIRED', '自然语音请求缺少唯一编号。')
 
     const { user, supabase } = await authenticateRequest({ headers, config })
-    const { isAdmin } = await verifyProductAccess({ user, supabase, productCode })
-    enforceRateLimit(user.id)
+    const { isAdmin } = isAssessment
+      ? { isAdmin: false }
+      : await verifyProductAccess({ user, supabase, productCode })
+    enforceRateLimit(user.id, mode)
 
-    const reservationId = isAdmin ? null : await reserveQuota({ supabase, productCode, requestId })
+    const cacheKey = `${config.model}:${voice}:${languageType}:${text}`
+    const cached = naturalVoiceCache.get(cacheKey)
+    if (cached?.expiresAt > Date.now() + 60_000) {
+      return {
+        status: 200,
+        body: {
+          success: true,
+          data: {
+            ...cached,
+            expiresAt: Math.floor(cached.expiresAt / 1000),
+            provider: 'dashscope-cache',
+            model: config.model,
+          },
+        },
+      }
+    }
+
+    const reservationId = isAssessment || isAdmin
+      ? null
+      : await reserveQuota({ supabase, productCode, requestId })
     quotaContext = { supabase, reservationId }
 
     const providerResponse = await fetch(config.ttsUrl, {
@@ -196,8 +243,8 @@ export const handleTtsRequest = async ({ method, headers, body, env = process.en
         model: config.model,
         input: {
           text,
-          voice: config.voice,
-          language_type: 'English',
+          voice,
+          language_type: languageType,
         },
       }),
     })
@@ -208,18 +255,32 @@ export const handleTtsRequest = async ({ method, headers, body, env = process.en
       throw new TtsApiError(502, 'TTS_PROVIDER_ERROR', '自然语音暂时不可用。')
     }
 
-    await recordUsage({ supabase, productCode, requestId, model: config.model })
+    await recordUsage({
+      supabase,
+      productCode,
+      requestId,
+      model: config.model,
+      mode,
+      scenarioId: scenarioId || null,
+      strict: !isAssessment,
+    })
     await finalizeQuota({ supabase, reservationId, outcome: 'completed' })
     quotaContext = null
 
     const audioUrl = rawAudioUrl.replace(/^http:\/\//i, 'https://')
+    const expiresAt = providerBody.output.audio.expires_at || null
+    naturalVoiceCache.set(cacheKey, {
+      audioUrl,
+      expiresAt: expiresAt ? Number(expiresAt) * 1000 : Date.now() + 23 * 60 * 60 * 1000,
+      characters: providerBody.usage?.characters || text.length,
+    })
     return {
       status: 200,
       body: {
         success: true,
         data: {
           audioUrl,
-          expiresAt: providerBody.output.audio.expires_at || null,
+          expiresAt,
           provider: 'dashscope',
           model: config.model,
           characters: providerBody.usage?.characters || text.length,

@@ -41,6 +41,10 @@ globalThis.fetch = async (url, options = {}) => {
             strengths: ['能确认客人需求。'],
             priorities: ['补充个人行动和结果数据。'],
             integrityFlags: ['结果主要使用主观描述。'],
+            evidenceHighlights: [
+              { source: 'english', quote: 'I will check and update you.', finding: '包含处理动作和回报承诺。' },
+              { source: 'star', quote: '我先核对订单。', finding: '包含个人行动证据。' },
+            ],
             englishBreakdown: {
               taskCompletion: 24,
               closedLoopCommunication: 19,
@@ -88,6 +92,8 @@ try {
     assert.ok(task.location, `${task.id} requires a location`)
     assert.ok(task.sceneTime, `${task.id} requires scene timing`)
     assert.ok(task.objective, `${task.id} requires an objective`)
+    assert.ok(['Cherry', 'Serena', 'Ethan'].includes(task.voice), `${task.id} requires an approved natural voice`)
+    assert.ok(['Chinese', 'English'].includes(task.languageType), `${task.id} requires a supported voice language`)
   })
   assert.notEqual(ENGLISH_PRACTICAL_TASKS[0].avatar, ENGLISH_PRACTICAL_TASKS[1].avatar)
 
@@ -131,6 +137,8 @@ try {
   assert.equal(evaluation.body.data.englishScore, 76)
   assert.equal(evaluation.body.data.serviceExperienceScore, 68)
   assert.equal(evaluation.body.data.evidenceConfidence, 'medium')
+  assert.equal(evaluation.body.data.evidenceHighlights.length, 2)
+  assert.ok(evaluation.body.data.evidenceHighlights[0].quote.includes('update'))
   assert.equal(modelRequests.length, 3)
   assert.equal(evaluationAttempts, 2)
   assert.ok(modelRequests[1].messages[0].content.includes('不得评价口音'))
@@ -154,6 +162,7 @@ try {
   assert.equal(fallbackEvaluation.body.data.provider, 'rules')
   assert.ok(Number.isFinite(fallbackEvaluation.body.data.englishScore))
   assert.ok(Number.isFinite(fallbackEvaluation.body.data.serviceExperienceScore))
+  assert.equal(fallbackEvaluation.body.data.evidenceHighlights.length, 2)
   assert.equal(modelRequests.length, 5)
 
   console.log('Practical assessment API contract passed.')

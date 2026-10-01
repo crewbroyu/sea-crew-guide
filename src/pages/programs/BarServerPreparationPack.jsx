@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ArrowLeft, ArrowRight, BookOpenCheck, CheckCircle2, FileText, Headphones, Mic, Sparkles, Target } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowLeft, ArrowRight, BookOpenCheck, CalendarDays, Check, CheckCircle2, Circle, FileText, Headphones, Mic, Sparkles, Target } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useEffectiveAccess from '../../hooks/useEffectiveAccess'
 import { hasProductEntitlement } from '../../services/activationService'
@@ -8,8 +8,11 @@ import {
   BAR_SERVER_LEARNING_STAGES,
   BAR_SERVER_STAGE_KEY,
   getCompletedListeningDrills,
+  readBarShiftHistory,
   readBarListeningProgress,
 } from '../../data/barServerListening'
+import { getBarServerPlanProgress } from '../../data/barServerLearningPlan'
+import { getMyScenarioProfile } from '../../services/scenarioTrainingService'
 
 const readFoundationProgress = () => {
   try {
@@ -62,16 +65,45 @@ const stageCourseOrder = {
 
 const readLearningStage = () => localStorage.getItem(BAR_SERVER_STAGE_KEY) || 'job_search'
 
+const readInterviewCompletion = () => {
+  try {
+    return Boolean(JSON.parse(localStorage.getItem('task6_result') || '{}')?.completedAt)
+  } catch {
+    return false
+  }
+}
+
 export default function BarServerPreparationPack() {
   const navigate = useNavigate()
   const [learningStage, setLearningStage] = useState(readLearningStage)
+  const [scenarioCompletedCount, setScenarioCompletedCount] = useState(0)
   const access = useEffectiveAccess()
   const hasPack = hasProductEntitlement(access, 'bar_server_pack')
-  const completedDays = getCompletedFoundationDays(readFoundationProgress())
-  const completedListening = getCompletedListeningDrills(readBarListeningProgress())
+  const foundationProgress = readFoundationProgress()
+  const listeningProgress = readBarListeningProgress()
+  const completedDays = getCompletedFoundationDays(foundationProgress)
+  const completedListening = getCompletedListeningDrills(listeningProgress)
   const selectedStage = BAR_SERVER_LEARNING_STAGES.find((stage) => stage.id === learningStage)
     || BAR_SERVER_LEARNING_STAGES[0]
   const orderedSections = stageCourseOrder[selectedStage.id].map((id) => courseSections[id])
+  const planProgress = getBarServerPlanProgress(selectedStage.id, {
+    foundationProgress,
+    listeningProgress,
+    shiftHistory: readBarShiftHistory(),
+    scenarioCompletedCount,
+    interviewCompleted: readInterviewCompletion(),
+  })
+
+  useEffect(() => {
+    if (!access.isRegistered) return undefined
+    let active = true
+    getMyScenarioProfile('bar_server')
+      .then((profile) => {
+        if (active) setScenarioCompletedCount(Number(profile?.completed_scenario_count || 0))
+      })
+      .catch((error) => console.warn('Unable to load Bar Server plan scenario progress:', error))
+    return () => { active = false }
+  }, [access.isRegistered])
 
   const selectLearningStage = (stageId) => {
     setLearningStage(stageId)
@@ -105,6 +137,33 @@ export default function BarServerPreparationPack() {
               return <button key={stage.id} type="button" onClick={() => selectLearningStage(stage.id)} className={`min-h-24 rounded-lg border p-4 text-left transition ${selected ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 bg-white hover:border-blue-300'}`}><span className={`text-sm font-semibold ${selected ? 'text-blue-800' : 'text-slate-900'}`}>{stage.label}</span><span className="mt-2 block text-xs leading-5 text-slate-600">{stage.description}</span></button>
             })}
           </div>
+        </section>
+
+        <section className="border-b border-slate-200 pb-7">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div><p className="flex items-center gap-2 text-xs font-semibold text-blue-700"><CalendarDays size={16} />阶段化 14 训练日计划</p><h2 className="mt-2 text-xl font-semibold text-slate-950">{planProgress.isComplete ? '当前阶段计划已完成' : `下一步：第 ${planProgress.currentItem.day} 天 · ${planProgress.currentItem.title}`}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">按训练日推进，不要求连续打卡。已经完成的课程会自动计入，无需重做。</p></div>
+            <div className="shrink-0 text-left sm:text-right"><p className="text-xs font-semibold text-slate-500">阶段进度</p><p className="mt-1 text-2xl font-bold text-slate-950">{planProgress.completedCount}/14</p></div>
+          </div>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-blue-600 transition-all" style={{ width: `${planProgress.percent}%` }} /></div>
+
+          {!planProgress.isComplete && (
+            <div className="mt-5 flex flex-col justify-between gap-4 border-l-4 border-blue-600 bg-white px-4 py-4 sm:flex-row sm:items-center">
+              <div><p className="text-sm font-semibold text-slate-950">{planProgress.currentItem.title}</p><p className="mt-1 text-sm leading-6 text-slate-600">{planProgress.currentItem.description}</p></div>
+              <button type="button" onClick={() => navigate(planProgress.currentItem.route)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800">继续今天的训练<ArrowRight size={16} /></button>
+            </div>
+          )}
+
+          <details className="mt-5">
+            <summary className="cursor-pointer text-sm font-semibold text-slate-700">查看完整 14 训练日安排</summary>
+            <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+              {planProgress.items.map((item) => (
+                <div key={item.id} className="flex items-start gap-3 py-4">
+                  <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${item.completed ? 'bg-emerald-100 text-emerald-700' : item.id === planProgress.currentItem.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{item.completed ? <Check size={15} /> : item.id === planProgress.currentItem.id ? item.day : <Circle size={14} />}</span>
+                  <div className="min-w-0 flex-1"><div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center"><div><p className="text-xs font-semibold text-slate-500">第 {item.day} 训练日</p><p className="mt-1 text-sm font-semibold text-slate-900">{item.title}</p></div><button type="button" onClick={() => navigate(item.route)} className="inline-flex min-h-9 shrink-0 items-center justify-center gap-1 rounded-md border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700">{item.completed ? '复习' : '打开'}<ArrowRight size={14} /></button></div><p className="mt-1 text-xs leading-5 text-slate-600">{item.description}</p></div>
+                </div>
+              ))}
+            </div>
+          </details>
         </section>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

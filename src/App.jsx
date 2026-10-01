@@ -62,6 +62,7 @@ const RetailPreparationPack = lazy(() => import('./pages/programs/RetailPreparat
 const RetailScenarioTraining = lazy(() => import('./pages/programs/RetailScenarioTraining'))
 const BarServerPreparationPack = lazy(() => import('./pages/programs/BarServerPreparationPack'))
 const BarServerTrial = lazy(() => import('./pages/programs/BarServerTrial'))
+const BarServerListening = lazy(() => import('./pages/programs/BarServerListening'))
 const BarServerScenarioTraining = lazy(() => import('./pages/programs/BarServerScenarioTraining'))
 const FoundationCourse = lazy(() => import('./pages/programs/FoundationCourse'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
@@ -157,6 +158,7 @@ function App() {
               <Route path="/programs/retail/training" element={<RequireActivation productCode="retail_sales_pack"><RetailScenarioTraining /></RequireActivation>} />
               <Route path="/programs/bar-server" element={<BarServerPreparationPack />} />
               <Route path="/programs/bar-server/trial" element={<BarServerTrial />} />
+              <Route path="/programs/bar-server/listening" element={<RequireActivation productCode="bar_server_pack"><BarServerListening /></RequireActivation>} />
               <Route path="/programs/bar-server/training" element={<RequireActivation productCode="bar_server_pack"><BarServerScenarioTraining /></RequireActivation>} />
               <Route path="/programs/:jobSlug/foundation" element={<FoundationCourse />} />
               <Route path="/programs/:jobSlug/foundation/:dayId" element={<FoundationCourse />} />

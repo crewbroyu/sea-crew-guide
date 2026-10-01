@@ -17,7 +17,8 @@
     "test:career-report": "node scripts/test-career-report.mjs",
     "test:assessment": "node scripts/test-assessment-quality.mjs",
     "test:assessment-practical": "node scripts/test-assessment-practical.mjs",
-    "test:assessment-tts": "node scripts/test-assessment-tts.mjs"
+    "test:assessment-tts": "node scripts/test-assessment-tts.mjs",
+    "test:bar-listening": "node scripts/test-bar-server-listening.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

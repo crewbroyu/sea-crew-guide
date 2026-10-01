@@ -19,7 +19,8 @@
     "test:assessment-practical": "node scripts/test-assessment-practical.mjs",
     "test:assessment-tts": "node scripts/test-assessment-tts.mjs",
     "test:bar-listening": "node scripts/test-bar-server-listening.mjs",
-    "test:bar-plan": "node scripts/test-bar-server-plan.mjs"
+    "test:bar-plan": "node scripts/test-bar-server-plan.mjs",
+    "test:bar-readiness": "node scripts/test-bar-server-readiness.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

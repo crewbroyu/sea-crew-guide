@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ArrowRight, BookOpenCheck, CalendarDays, Check, CheckCircle2, Circle, FileText, Headphones, Mic, Sparkles, Target } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BarChart3, BookOpenCheck, CalendarDays, Check, CheckCircle2, Circle, FileText, Headphones, Mic, Sparkles, Target } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import useEffectiveAccess from '../../hooks/useEffectiveAccess'
 import { hasProductEntitlement } from '../../services/activationService'
@@ -171,6 +171,11 @@ export default function BarServerPreparationPack() {
           <div className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">工作听说</p><p className="mt-1 text-xl font-bold text-slate-950">{completedListening}/12 题</p></div>
           <div className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">岗位场景</p><p className="mt-1 text-xl font-bold text-slate-950">4 个等级</p></div>
           <div className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">岗位权益</p><p className="mt-1 text-xl font-bold text-slate-950">{hasPack ? '已开通' : '未开通'}</p></div>
+        </section>
+
+        <section className="flex flex-col justify-between gap-4 border-y border-slate-200 bg-white px-5 py-5 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3"><BarChart3 size={20} className="mt-0.5 shrink-0 text-blue-700" /><div><p className="text-xs font-semibold text-blue-700">第五项训练证据自动汇总</p><h2 className="mt-1 font-semibold text-slate-950">查看我的 Bar Server 岗位准备度</h2><p className="mt-2 text-sm leading-6 text-slate-600">综合基础知识、听力、开口回应、限时班次和 AI 场景结果，找出现在最该补的能力。</p></div></div>
+          <button type="button" onClick={() => navigate('/programs/bar-server/report')} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">查看准备度报告<ArrowRight size={16} /></button>
         </section>
 
         <section>

@@ -64,6 +64,7 @@ const BarServerPreparationPack = lazy(() => import('./pages/programs/BarServerPr
 const BarServerTrial = lazy(() => import('./pages/programs/BarServerTrial'))
 const BarServerListening = lazy(() => import('./pages/programs/BarServerListening'))
 const BarServerShiftChallenge = lazy(() => import('./pages/programs/BarServerShiftChallenge'))
+const BarServerReadinessReport = lazy(() => import('./pages/programs/BarServerReadinessReport'))
 const BarServerScenarioTraining = lazy(() => import('./pages/programs/BarServerScenarioTraining'))
 const FoundationCourse = lazy(() => import('./pages/programs/FoundationCourse'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
@@ -161,6 +162,7 @@ function App() {
               <Route path="/programs/bar-server/trial" element={<BarServerTrial />} />
               <Route path="/programs/bar-server/listening" element={<RequireActivation productCode="bar_server_pack"><BarServerListening /></RequireActivation>} />
               <Route path="/programs/bar-server/listening/shift" element={<RequireActivation productCode="bar_server_pack"><BarServerShiftChallenge /></RequireActivation>} />
+              <Route path="/programs/bar-server/report" element={<RequireActivation productCode="bar_server_pack"><BarServerReadinessReport /></RequireActivation>} />
               <Route path="/programs/bar-server/training" element={<RequireActivation productCode="bar_server_pack"><BarServerScenarioTraining /></RequireActivation>} />
               <Route path="/programs/:jobSlug/foundation" element={<FoundationCourse />} />
               <Route path="/programs/:jobSlug/foundation/:dayId" element={<FoundationCourse />} />

@@ -19,6 +19,9 @@ for (const drill of BAR_SERVER_LISTENING_DRILLS) {
   if (!drill.id || drillIds.has(drill.id)) fail(`duplicate or missing drill id: ${drill.id}`)
   if (!drill.prompt || prompts.has(drill.prompt)) fail(`duplicate or missing prompt: ${drill.id}`)
   if (!drill.context || !drill.task || !drill.explanation) fail(`missing learning copy: ${drill.id}`)
+  if (!drill.response || !drill.responseCue) fail(`missing workplace response practice: ${drill.id}`)
+  const responseWordCount = drill.response.trim().split(/\s+/).length
+  if (responseWordCount < 7 || responseWordCount > 30) fail(`response length is not suitable for short speaking practice: ${drill.id}`)
   drillIds.add(drill.id)
   prompts.add(drill.prompt)
   levels.add(drill.level)

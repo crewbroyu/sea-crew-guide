@@ -31,6 +31,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Atrium Bar · 登船日晚间，一家三口第一次点单。',
     prompt: 'Hi. Could I have one mojito, but not too sweet? And my wife would like a virgin piña colada.',
     task: '记录两杯饮品及关键修改要求。',
+    response: "Certainly. One mojito, not too sweet, and one virgin piña colada. I'll bring those for you.",
+    responseCue: '复述两杯饮品，并明确保留少甜和无酒精要求',
     type: 'capture',
     fields: [
       captureField('firstDrink', '第一杯', ['Mojito', 'Margarita', 'Mai Tai'], 'Mojito'),
@@ -47,6 +49,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Lounge Bar · 两位客人同时点相同饮品，但修改不同。',
     prompt: 'Two gin and tonics, please. One with no ice, and the other with light ice and extra lime.',
     task: '区分两杯相同饮品的不同要求。',
+    response: 'Let me confirm: one gin and tonic with no ice, and one with light ice and extra lime.',
+    responseCue: '分别复述两杯相同饮品的不同修改要求',
     type: 'capture',
     fields: [
       captureField('quantity', '数量', ['One', 'Two', 'Three'], 'Two'),
@@ -63,6 +67,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Wine Bar · 晚餐前快速点单。',
     prompt: 'May I have a glass of Cabernet Sauvignon and a bottle of sparkling water?',
     task: '识别酒类和水的类型。',
+    response: 'Certainly. One glass of Cabernet Sauvignon and one bottle of sparkling water.',
+    responseCue: '简洁复述酒款和水的类型',
     type: 'capture',
     fields: [
       captureField('wine', '葡萄酒', ['Cabernet Sauvignon', 'Chardonnay', 'Prosecco'], 'Cabernet Sauvignon'),
@@ -78,6 +84,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Pool Bar · 四位客人一起点啤酒。',
     prompt: 'We’ll have three lagers and one non-alcoholic beer. Please bring all four together.',
     task: '记录数量并识别无酒精饮品。',
+    response: "That's three lagers and one non-alcoholic beer, all served together.",
+    responseCue: '确认数量、无酒精饮品和一起送达',
     type: 'capture',
     fields: [
       captureField('lagerQuantity', '普通 Lager', ['Two', 'Three', 'Four'], 'Three'),
@@ -94,6 +102,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Whiskey Bar · 客人指定饮用方式。',
     prompt: 'I’d like a bourbon on the rocks, with just a small splash of water on the side.',
     task: '识别基酒、饮用方式和附加要求。',
+    response: 'Certainly. One bourbon on the rocks, with a little water on the side.',
+    responseCue: '确认基酒、加冰方式和水需分开放',
     type: 'capture',
     fields: [
       captureField('spirit', '基酒', ['Bourbon', 'Scotch', 'Brandy'], 'Bourbon'),
@@ -110,6 +120,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Atrium Bar · 客人询问升级基酒是否包含在套餐内。',
     prompt: 'Is the margarita with premium tequila included in my package, or will there be an extra charge?',
     task: '判断客人真正需要你确认的信息。',
+    response: 'Let me check your beverage package and confirm whether premium tequila has an additional charge.',
+    responseCue: '不做价格承诺，先说明会核实套餐范围',
     type: 'choice',
     options: [
       { id: 'a', text: '客人只是在问 Margarita 的配方' },
@@ -127,6 +139,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Pool Bar · 客人没有指定酒名，只描述口味。',
     prompt: 'I’m looking for something light and citrusy, but not too sweet. Gin is fine, but I don’t want anything creamy.',
     task: '抓住会改变推荐结果的偏好。',
+    response: "Certainly. I can recommend a light, citrusy gin cocktail that isn't too sweet or creamy.",
+    responseCue: '把口味偏好转成清晰的推荐方向',
     type: 'capture',
     fields: [
       captureField('style', '风格', ['Light and citrusy', 'Strong and smoky', 'Rich and creamy'], 'Light and citrusy'),
@@ -144,6 +158,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Busy Bar · 背景嘈杂，你没有听清最后一杯。',
     prompt: 'That’s a lager, a mojito with no straw, and a... sorry, did you get the last one?',
     task: '选择最专业的处理方式。',
+    response: 'I have the lager and the mojito with no straw. Could you repeat the last drink, please?',
+    responseCue: '先复述已听清内容，再只追问遗漏部分',
     type: 'choice',
     options: [
       { id: 'a', text: '凭感觉输入一杯常见饮品' },
@@ -161,6 +177,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Pool Bar · Bartender 告诉你薄荷暂时用完。',
     prompt: 'We’re out of mint, so please stop taking mojito orders and offer a similar refreshing alternative.',
     task: '判断你接下来要执行的动作。',
+    response: "I'm sorry, we're currently out of mint, so the mojito isn't available. May I suggest another refreshing cocktail?",
+    responseCue: '透明说明缺货，并主动提供相近替代',
     type: 'choice',
     options: [
       { id: 'a', text: '继续接 Mojito，等客人催单再解释' },
@@ -178,6 +196,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Lounge Bar · 客人等了很久，收到的酒又太甜。',
     prompt: 'This isn’t what I ordered. I’ve waited twenty minutes, and now it’s far too sweet.',
     task: '选择能同时回应等待和饮品问题的开场。',
+    response: "I'm sorry about the wait and that the drink isn't right. Let me confirm your order and have it corrected.",
+    responseCue: '同时承认等待和饮品错误，再给出处理动作',
     type: 'choice',
     options: [
       { id: 'a', text: 'The bartender made it, so you need to speak to him.' },
@@ -195,6 +215,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Opening Shift · 主管连续交代两项任务。',
     prompt: 'Please restock the highball glasses first, then check the lime and mint levels before we open.',
     task: '记录任务顺序。',
+    response: "Understood. I'll restock the highball glasses first, then check the lime and mint levels.",
+    responseCue: '按原顺序复述主管交代的两项任务',
     type: 'capture',
     fields: [
       captureField('firstTask', '先做什么', ['Restock highball glasses', 'Check lime', 'Check mint'], 'Restock highball glasses'),
@@ -210,6 +232,8 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     context: 'Casino Bar · 客人继续要求烈酒，主管给出处理指令。',
     prompt: 'Do not serve him another alcoholic drink. Offer water, stay nearby, and call me if he becomes aggressive.',
     task: '识别禁止事项、替代方案和升级条件。',
+    response: "Understood. I won't serve him any more alcohol. I'll offer water and call you if he becomes aggressive.",
+    responseCue: '复述停止供酒、提供水和升级条件',
     type: 'capture',
     fields: [
       captureField('doNot', '不能做', ['Serve more alcohol', 'Offer water', 'Stay nearby'], 'Serve more alcohol'),

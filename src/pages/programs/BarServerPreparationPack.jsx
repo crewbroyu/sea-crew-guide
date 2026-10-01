@@ -29,12 +29,12 @@ const courseSections = {
     action: '进入 9 天基础课',
   },
   listening: {
-    label: '工作听力 · 12 个短场景',
-    title: '酒吧日常听力训练',
-    description: '先隐藏原文听订单、偏好、客诉和主管指令，再提交关键信息。正常语速与慢速分开训练。',
+    label: '工作听说 · 12 个短场景',
+    title: '酒吧日常听说训练',
+    description: '先隐藏原文听订单、偏好、客诉和主管指令，再核对信息并开口回应。正常语速与慢速分开训练。',
     icon: Headphones,
     route: '/programs/bar-server/listening',
-    action: '开始工作听力',
+    action: '开始工作听说',
   },
   simulation: {
     label: '工作能力 · 情境决策',
@@ -109,7 +109,7 @@ export default function BarServerPreparationPack() {
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">基础课进度</p><p className="mt-1 text-xl font-bold text-slate-950">{completedDays}/{barServerFoundationDays.length} 天</p></div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">工作听力</p><p className="mt-1 text-xl font-bold text-slate-950">{completedListening}/12 题</p></div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">工作听说</p><p className="mt-1 text-xl font-bold text-slate-950">{completedListening}/12 题</p></div>
           <div className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">岗位场景</p><p className="mt-1 text-xl font-bold text-slate-950">4 个等级</p></div>
           <div className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-xs font-semibold text-slate-500">岗位权益</p><p className="mt-1 text-xl font-bold text-slate-950">{hasPack ? '已开通' : '未开通'}</p></div>
         </section>

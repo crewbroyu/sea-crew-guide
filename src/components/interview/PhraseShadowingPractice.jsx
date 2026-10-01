@@ -32,6 +32,8 @@ export default function PhraseShadowingPractice({
   requireListenBeforeRecord = false,
   title,
   description,
+  completeMessage,
+  incompleteMessage,
   savedLines = [],
   onToggleSavedLine,
 }) {
@@ -343,8 +345,8 @@ export default function PhraseShadowingPractice({
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
         <p className={`text-xs font-medium ${isPracticeComplete ? 'text-emerald-700' : 'text-slate-500'}`}>
           {isPracticeComplete
-            ? (phrases.length ? '表达训练已完成，可以开始修正后的第二次回答。' : '最终回答已完成 3 次跟练。')
-            : (phrases.length ? `已完成 ${completedPhraseCount}/${phrases.length} 条表达${referenceAnswer ? `，完整回答需至少练 ${requiredFullAnswerRepetitions} 次` : ''}。` : `完整回答需至少练 ${requiredFullAnswerRepetitions} 次。`)}
+            ? (completeMessage || (phrases.length ? '表达训练已完成，可以开始修正后的第二次回答。' : '最终回答已完成 3 次跟练。'))
+            : (incompleteMessage || (phrases.length ? `已完成 ${completedPhraseCount}/${phrases.length} 条表达${referenceAnswer ? `，完整回答需至少练 ${requiredFullAnswerRepetitions} 次` : ''}。` : `完整回答需至少练 ${requiredFullAnswerRepetitions} 次。`))}
         </p>
         {completedRecordingCount > 0 && (
           <button type="button" onClick={resetPractice} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-blue-700">

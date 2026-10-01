@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import PhraseShadowingPractice from '../../components/interview/PhraseShadowingPractice'
 import {
   BAR_LISTENING_PROGRESS_KEY,
   BAR_SERVER_LISTENING_DRILLS,
@@ -67,6 +68,9 @@ export default function BarServerListening() {
   const drill = BAR_SERVER_LISTENING_DRILLS[activeIndex]
   const drillProgress = progress[drill.id] || {}
   const completedCount = BAR_SERVER_LISTENING_DRILLS.filter((item) => progress[item.id]?.completedAt).length
+  const speakingCompletedCount = BAR_SERVER_LISTENING_DRILLS.filter(
+    (item) => progress[item.id]?.speakingPractice?.completedAt,
+  ).length
   const bestScores = BAR_SERVER_LISTENING_DRILLS
     .map((item) => progress[item.id]?.bestScore)
     .filter((score) => Number.isFinite(score))
@@ -92,6 +96,20 @@ export default function BarServerListening() {
   const updateProgress = (nextProgress) => {
     setProgress(nextProgress)
     saveProgress(nextProgress)
+  }
+
+  const updateSpeakingPractice = (speakingPractice) => {
+    setProgress((current) => {
+      const nextProgress = {
+        ...current,
+        [drill.id]: {
+          ...(current[drill.id] || {}),
+          speakingPractice,
+        },
+      }
+      saveProgress(nextProgress)
+      return nextProgress
+    })
   }
 
   const selectDrill = (index) => {
@@ -168,13 +186,14 @@ export default function BarServerListening() {
           </button>
           <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
-              <p className="text-sm font-semibold text-blue-700">工作听力 · 12 个短场景</p>
+              <p className="text-sm font-semibold text-blue-700">工作听说 · 12 个短场景</p>
               <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">先听懂关键信息，再学会正确处理</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">原文会在提交后出现。正常速度至少听一次，没听清再使用慢速；训练目标不是听懂每个单词，而是抓住会影响服务的关键信息。</p>
             </div>
-            <div className="grid min-w-full grid-cols-3 gap-2 md:min-w-[360px]">
-              <div className="border-l-2 border-blue-600 pl-3"><p className="text-xs text-slate-500">已通过</p><p className="mt-1 text-xl font-bold text-slate-950">{completedCount}/12</p></div>
-              <div className="border-l-2 border-emerald-600 pl-3"><p className="text-xs text-slate-500">最佳均分</p><p className="mt-1 text-xl font-bold text-slate-950">{averageScore}</p></div>
+            <div className="grid min-w-full grid-cols-2 gap-3 sm:grid-cols-4 md:min-w-[480px]">
+              <div className="border-l-2 border-blue-600 pl-3"><p className="text-xs text-slate-500">听力通过</p><p className="mt-1 text-xl font-bold text-slate-950">{completedCount}/12</p></div>
+              <div className="border-l-2 border-emerald-600 pl-3"><p className="text-xs text-slate-500">开口完成</p><p className="mt-1 text-xl font-bold text-slate-950">{speakingCompletedCount}/12</p></div>
+              <div className="border-l-2 border-violet-500 pl-3"><p className="text-xs text-slate-500">最佳均分</p><p className="mt-1 text-xl font-bold text-slate-950">{averageScore}</p></div>
               <div className="border-l-2 border-amber-500 pl-3"><p className="text-xs text-slate-500">正常速播放</p><p className="mt-1 text-xl font-bold text-slate-950">{normalPlayCount}</p></div>
             </div>
           </div>
@@ -207,7 +226,8 @@ export default function BarServerListening() {
           </div>
         </aside>
 
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="space-y-5">
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 bg-slate-950 px-5 py-5 text-white sm:px-7">
             <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
               <span className="rounded-md bg-white/10 px-2.5 py-1">第 {activeIndex + 1} 题</span>
@@ -320,18 +340,46 @@ export default function BarServerListening() {
                   <p className="mt-2 border-l-2 border-blue-500 pl-4 text-base leading-7 text-slate-900">{drill.prompt}</p>
                 </div>
 
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <div className="mt-6">
                   <button type="button" onClick={retry} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                     <RotateCcw size={17} />重新听这题
                   </button>
-                  <button type="button" onClick={nextDrill} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800">
-                    {isLastDrill && completedCount === BAR_SERVER_LISTENING_DRILLS.length ? '回到第一题复习' : '进入下一题'}<ArrowRight size={17} />
-                  </button>
+                  <p className="mt-3 text-xs leading-5 text-slate-500">听力核对完成。接下来把专业回应听一遍、开口两次，再进入下一题。</p>
                 </div>
               </div>
             )}
           </div>
-        </section>
+          </section>
+
+          {result && (
+            <>
+              <PhraseShadowingPractice
+                key={drill.id}
+                position="bar_server"
+                phrases={[drill.response]}
+                phraseCues={[drill.responseCue]}
+                practice={drillProgress.speakingPractice || {}}
+                onPracticeChange={updateSpeakingPractice}
+                requiredPhraseRepetitions={2}
+                requireListenBeforeRecord
+                title="听懂以后，怎么回应"
+                description="先听专业回应，再完整录音两次。重点练服务顺序和确认方式，不要求逐字死背。"
+                completeMessage="已完成两次开口训练，可以进入下一题。"
+                incompleteMessage="先听示范，再完成两次完整录音。"
+              />
+              <button
+                type="button"
+                onClick={nextDrill}
+                className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold transition ${drillProgress.speakingPractice?.completedAt ? 'bg-blue-700 text-white hover:bg-blue-800' : 'border border-slate-300 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
+              >
+                {drillProgress.speakingPractice?.completedAt
+                  ? (isLastDrill && completedCount === BAR_SERVER_LISTENING_DRILLS.length ? '听说训练完成，回到第一题复习' : '开口训练完成，进入下一题')
+                  : '暂时跳过开口训练，进入下一题'}
+                <ArrowRight size={17} />
+              </button>
+            </>
+          )}
+        </div>
       </main>
     </div>
   )

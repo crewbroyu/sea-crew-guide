@@ -41,7 +41,12 @@ const getQuestionsForDimension = (dimensionId, serviceBackground) => {
 
 export default function AssessmentContainer() {
   const navigate = useNavigate()
-  const { authChecked, isRegistered } = useAccessStore()
+  const {
+    authChecked,
+    isCheckingAuth,
+    isRegistered,
+    openRegisterModal,
+  } = useAccessStore()
   const [savedAssessmentResult] = useState(getSavedAssessmentResult)
   const practicalStep = 2 + DIMENSIONS.length
   const resultStep = practicalStep + 1
@@ -123,6 +128,11 @@ export default function AssessmentContainer() {
   }, [resultStep, savedAssessmentResult])
 
   const handleStartAssessment = () => {
+    if (!authChecked || isCheckingAuth) return
+    if (!isRegistered) {
+      openRegisterModal()
+      return
+    }
     setStep(1)
   }
 
@@ -259,6 +269,8 @@ export default function AssessmentContainer() {
         <WelcomePage
           attemptStatus={attemptStatus}
           attemptStatusLoading={attemptStatusLoading}
+          authChecked={authChecked}
+          isCheckingAuth={isCheckingAuth}
           isRegistered={isRegistered}
           onStart={handleStartAssessment}
         />

@@ -21,8 +21,16 @@ const dimensionIcons = {
   Route,
 }
 
-export default function WelcomePage({ attemptStatus, attemptStatusLoading, isRegistered, onStart }) {
+export default function WelcomePage({
+  attemptStatus,
+  attemptStatusLoading,
+  authChecked,
+  isCheckingAuth,
+  isRegistered,
+  onStart,
+}) {
   const navigate = useNavigate()
+  const authLoading = !authChecked || isCheckingAuth
   const limitReached = isRegistered
     && !attemptStatus?.isAdmin
     && attemptStatus?.remainingAttempts === 0
@@ -53,15 +61,25 @@ export default function WelcomePage({ attemptStatus, attemptStatusLoading, isReg
             <button
               type="button"
               onClick={onStart}
-              disabled={limitReached || attemptStatusLoading}
+              disabled={authLoading || (isRegistered && (limitReached || attemptStatusLoading))}
               className="flex items-center justify-between rounded-lg bg-blue-600 px-5 py-4 text-left text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
             >
               <span>
                 <span className="block font-semibold">
-                  {limitReached ? '完整评估次数已用完' : '开始职业测评'}
+                  {authLoading
+                    ? '正在确认登录状态'
+                    : limitReached
+                      ? '完整评估次数已用完'
+                      : isRegistered
+                        ? '开始职业测评'
+                        : '登录 / 注册后开始'}
                 </span>
                 <span className="mt-1 block text-sm text-blue-100">
-                  {attemptStatusLoading ? '正在读取剩余次数...' : '约 15 分钟，需要麦克风'}
+                  {authLoading
+                    ? '请稍候...'
+                    : attemptStatusLoading
+                      ? '正在读取剩余次数...'
+                      : '约 15 分钟，需要麦克风'}
                 </span>
               </span>
               <ChevronRight size={22} />
@@ -79,7 +97,7 @@ export default function WelcomePage({ attemptStatus, attemptStatusLoading, isReg
 
           <p className="mt-3 text-xs leading-5 text-slate-500">
             {!isRegistered
-              ? '登录后进入实战环节；每个邮箱账号最多成功完成 3 次完整评估。'
+              ? '为避免答题进度丢失，请先登录或注册；每个邮箱账号最多成功完成 3 次完整评估。'
               : attemptStatus?.isAdmin
                 ? '管理员账号不受完整评估次数限制。'
                 : attemptStatus

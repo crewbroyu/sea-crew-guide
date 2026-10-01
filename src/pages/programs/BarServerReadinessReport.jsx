@@ -15,7 +15,7 @@ import {
   BAR_SERVER_SKILL_LABELS,
   getBarServerReadinessReport,
 } from '../../data/barServerReadiness'
-import { readBarListeningProgress, readBarShiftHistory } from '../../data/barServerListening'
+import useBarServerPracticeProgress from '../../hooks/useBarServerPracticeProgress'
 import { readFoundationProgress } from '../../services/foundationProgressService'
 import { getMyScenarioProfile } from '../../services/scenarioTrainingService'
 
@@ -37,6 +37,7 @@ const scoreTone = (score) => {
 export default function BarServerReadinessReport() {
   const navigate = useNavigate()
   const access = useEffectiveAccess()
+  const { listeningProgress, shiftHistory, syncStatus } = useBarServerPracticeProgress()
   const [scenarioState, setScenarioState] = useState({ status: 'idle', profile: null, error: '' })
 
   useEffect(() => {
@@ -59,10 +60,10 @@ export default function BarServerReadinessReport() {
 
   const report = useMemo(() => getBarServerReadinessReport({
     foundationProgress: readFoundationProgress('bar_server'),
-    listeningProgress: readBarListeningProgress(),
-    shiftHistory: readBarShiftHistory(),
+    listeningProgress,
+    shiftHistory,
     scenarioProfile: scenarioState.profile,
-  }), [scenarioState.profile])
+  }), [listeningProgress, scenarioState.profile, shiftHistory])
 
   const scenarioLoading = access.isRegistered && scenarioState.status === 'idle'
   const scenarioError = scenarioState.error
@@ -92,6 +93,7 @@ export default function BarServerReadinessReport() {
               <p className="flex items-center gap-2 text-sm font-semibold text-blue-700"><BarChart3 size={18} />岗位准备度报告</p>
               <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">不是学了多少，而是现在能不能处理真实班次</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">报告综合岗位知识、工作听力、现场回应、限时班次和 AI 场景模拟。未训练的部分按零计入，避免少量高分造成虚高结论。</p>
+              <p className="mt-3 text-xs font-medium text-slate-500">{syncStatus === 'synced' ? '听说与班次记录已从账户同步' : syncStatus === 'local' ? '当前使用本机记录，联网后会再次同步' : '正在合并本机与账户记录…'}</p>
             </div>
             <div className="shrink-0 text-left md:text-right">
               <p className="text-xs font-semibold text-slate-500">综合准备度</p>

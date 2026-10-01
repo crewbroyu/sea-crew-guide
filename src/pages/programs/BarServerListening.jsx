@@ -5,6 +5,8 @@ import {
   BrainCircuit,
   Check,
   CheckCircle2,
+  Cloud,
+  CloudOff,
   Gauge,
   Headphones,
   Mic2,
@@ -16,7 +18,6 @@ import {
 import { useNavigate } from 'react-router-dom'
 import PhraseShadowingPractice from '../../components/interview/PhraseShadowingPractice'
 import {
-  BAR_LISTENING_PROGRESS_KEY,
   BAR_SERVER_LISTENING_DRILLS,
   getListeningDrillStatus,
   getListeningUnitStats,
@@ -25,17 +26,14 @@ import {
   readBarListeningProgress,
   scoreBarListeningAnswer,
 } from '../../data/barServerListening'
+import useBarServerPracticeProgress from '../../hooks/useBarServerPracticeProgress'
 import { speakEnglish, speakText, stopSpeech } from '../../services/ttsService'
 
 const PASSING_SCORE = 70
 
-const saveProgress = (progress) => {
-  localStorage.setItem(BAR_LISTENING_PROGRESS_KEY, JSON.stringify(progress))
-}
-
 export default function BarServerListening() {
   const navigate = useNavigate()
-  const [progress, setProgress] = useState(() => readBarListeningProgress())
+  const { listeningProgress: progress, syncStatus, updateListeningProgress: updateProgress } = useBarServerPracticeProgress()
   const [activeIndex, setActiveIndex] = useState(() => {
     const savedProgress = readBarListeningProgress()
     const firstIncomplete = BAR_SERVER_LISTENING_DRILLS.findIndex((drill) => !savedProgress[drill.id]?.completedAt)
@@ -75,22 +73,13 @@ export default function BarServerListening() {
 
   useEffect(() => () => stopSpeech(), [])
 
-  const updateProgress = (nextProgress) => {
-    setProgress(nextProgress)
-    saveProgress(nextProgress)
-  }
-
   const updateSpeakingPractice = (speakingPractice) => {
-    setProgress((current) => {
-      const nextProgress = {
-        ...current,
-        [drill.id]: {
-          ...(current[drill.id] || {}),
-          speakingPractice,
-        },
-      }
-      saveProgress(nextProgress)
-      return nextProgress
+    updateProgress({
+      ...progress,
+      [drill.id]: {
+        ...(progress[drill.id] || {}),
+        speakingPractice,
+      },
     })
   }
 
@@ -171,6 +160,7 @@ export default function BarServerListening() {
               <p className="text-sm font-semibold text-blue-700">工作听说 · 12 个短场景</p>
               <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">先听懂关键信息，再学会正确处理</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">原文会在提交后出现。正常速度至少听一次，没听清再使用慢速；训练目标不是听懂每个单词，而是抓住会影响服务的关键信息。</p>
+              <p className={`mt-3 flex items-center gap-2 text-xs font-medium ${syncStatus === 'local' ? 'text-amber-700' : 'text-emerald-700'}`}>{syncStatus === 'local' ? <CloudOff size={15} /> : <Cloud size={15} />}{syncStatus === 'synced' ? '账户进度已同步' : syncStatus === 'local' ? '当前保存在本机，联网后会再次同步' : '正在同步账户进度…'}</p>
               <button type="button" onClick={() => navigate('/programs/bar-server/listening/shift')} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800"><TimerReset size={17} />进入 5 题班次挑战</button>
             </div>
             <div className="grid min-w-full grid-cols-2 gap-3 sm:grid-cols-4 md:min-w-[480px]">

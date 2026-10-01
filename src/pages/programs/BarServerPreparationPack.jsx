@@ -8,10 +8,9 @@ import {
   BAR_SERVER_LEARNING_STAGES,
   BAR_SERVER_STAGE_KEY,
   getCompletedListeningDrills,
-  readBarShiftHistory,
-  readBarListeningProgress,
 } from '../../data/barServerListening'
 import { getBarServerPlanProgress } from '../../data/barServerLearningPlan'
+import useBarServerPracticeProgress from '../../hooks/useBarServerPracticeProgress'
 import { getMyScenarioProfile } from '../../services/scenarioTrainingService'
 
 const readFoundationProgress = () => {
@@ -78,9 +77,9 @@ export default function BarServerPreparationPack() {
   const [learningStage, setLearningStage] = useState(readLearningStage)
   const [scenarioCompletedCount, setScenarioCompletedCount] = useState(0)
   const access = useEffectiveAccess()
+  const { listeningProgress, shiftHistory } = useBarServerPracticeProgress()
   const hasPack = hasProductEntitlement(access, 'bar_server_pack')
   const foundationProgress = readFoundationProgress()
-  const listeningProgress = readBarListeningProgress()
   const completedDays = getCompletedFoundationDays(foundationProgress)
   const completedListening = getCompletedListeningDrills(listeningProgress)
   const selectedStage = BAR_SERVER_LEARNING_STAGES.find((stage) => stage.id === learningStage)
@@ -89,7 +88,7 @@ export default function BarServerPreparationPack() {
   const planProgress = getBarServerPlanProgress(selectedStage.id, {
     foundationProgress,
     listeningProgress,
-    shiftHistory: readBarShiftHistory(),
+    shiftHistory,
     scenarioCompletedCount,
     interviewCompleted: readInterviewCompletion(),
   })

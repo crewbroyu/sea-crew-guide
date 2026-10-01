@@ -254,6 +254,14 @@ export const readBarListeningProgress = () => {
   }
 }
 
+export const writeBarListeningProgress = (progress = {}) => {
+  localStorage.setItem(BAR_LISTENING_PROGRESS_KEY, JSON.stringify(progress))
+}
+
+export const writeBarShiftHistory = (history = []) => {
+  localStorage.setItem(BAR_SHIFT_HISTORY_KEY, JSON.stringify(history.slice(0, 10)))
+}
+
 export const getCompletedListeningDrills = (progress = readBarListeningProgress()) => (
   BAR_SERVER_LISTENING_DRILLS.filter((drill) => progress[drill.id]?.completedAt).length
 )

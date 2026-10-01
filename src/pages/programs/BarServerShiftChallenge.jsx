@@ -5,6 +5,8 @@ import {
   BarChart3,
   CheckCircle2,
   Clock3,
+  Cloud,
+  CloudOff,
   Headphones,
   RotateCcw,
   ShieldCheck,
@@ -13,13 +15,12 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
-  BAR_SHIFT_HISTORY_KEY,
   BAR_SHIFT_QUESTION_SECONDS,
   getShiftChallengeDrills,
   readBarListeningProgress,
-  readBarShiftHistory,
   scoreBarListeningAnswer,
 } from '../../data/barServerListening'
+import useBarServerPracticeProgress from '../../hooks/useBarServerPracticeProgress'
 import { speakEnglish, stopSpeech } from '../../services/ttsService'
 
 const getReadiness = (score) => {
@@ -28,13 +29,14 @@ const getReadiness = (score) => {
   return { label: '需要回到训练', detail: '目前在限时和正常语速下仍容易遗漏关键服务信息。', color: 'text-amber-700' }
 }
 
-const saveChallengeAttempt = (attempt) => {
-  const history = readBarShiftHistory()
-  localStorage.setItem(BAR_SHIFT_HISTORY_KEY, JSON.stringify([attempt, ...history].slice(0, 10)))
-}
-
 export default function BarServerShiftChallenge() {
   const navigate = useNavigate()
+  const {
+    listeningProgress,
+    shiftHistory,
+    syncStatus,
+    updateShiftHistory,
+  } = useBarServerPracticeProgress()
   const [phase, setPhase] = useState('intro')
   const [challengeDrills, setChallengeDrills] = useState(() => getShiftChallengeDrills(readBarListeningProgress()))
   const [activeIndex, setActiveIndex] = useState(0)
@@ -50,7 +52,7 @@ export default function BarServerShiftChallenge() {
   const drill = challengeDrills[activeIndex]
   const isLastQuestion = activeIndex === challengeDrills.length - 1
   const hasAnyAnswer = Object.values(answers).some(Boolean)
-  const previousAttempt = useMemo(() => readBarShiftHistory()[0] || null, [])
+  const previousAttempt = useMemo(() => shiftHistory[0] || null, [shiftHistory])
 
   const averageScore = results.length
     ? Math.round(results.reduce((sum, result) => sum + result.score, 0) / results.length)
@@ -98,7 +100,7 @@ export default function BarServerShiftChallenge() {
 
   const startChallenge = () => {
     stopSpeech()
-    setChallengeDrills(getShiftChallengeDrills(readBarListeningProgress()))
+    setChallengeDrills(getShiftChallengeDrills(listeningProgress))
     setActiveIndex(0)
     setResults([])
     setLatestAttempt(null)
@@ -135,7 +137,7 @@ export default function BarServerShiftChallenge() {
       completedAt: new Date().toISOString(),
       results,
     }
-    saveChallengeAttempt(attempt)
+    updateShiftHistory([attempt, ...shiftHistory])
     setLatestAttempt(attempt)
     setPhase('complete')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -152,6 +154,7 @@ export default function BarServerShiftChallenge() {
                 <p className="text-sm font-semibold text-red-700">SHIFT CHALLENGE · 5 个场景</p>
                 <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">模拟忙碌班次，检验真实反应</h1>
                 <p className="mt-3 text-sm leading-6 text-slate-600">系统会优先抽取你的弱项，并覆盖不同难度。挑战过程不提供慢速、原文或即时答案。</p>
+                <p className={`mt-3 flex items-center gap-2 text-xs font-medium ${syncStatus === 'local' ? 'text-amber-700' : 'text-emerald-700'}`}>{syncStatus === 'local' ? <CloudOff size={15} /> : <Cloud size={15} />}{syncStatus === 'synced' ? '账户进度已同步' : syncStatus === 'local' ? '当前保存在本机，联网后会再次同步' : '正在同步账户进度…'}</p>
               </div>
               <img src="/images/bar-server/ep01-busy-night.png" alt="Busy cruise ship bar shift" className="aspect-video w-full rounded-lg object-cover" />
             </div>

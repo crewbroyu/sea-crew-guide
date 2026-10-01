@@ -30,6 +30,14 @@ const PROGRESS_KEYS = [
   'task12_data',
   'interviewSelectedPosition',
   'seafarer-resume',
+  'bar_server_listening_progress_v1',
+  'bar_server_learning_stage',
+  'bar_server_shift_challenge_history_v1',
+  'foundation_saved_lines_v1:bar_server',
+  'foundation_saved_lines_v1:retail',
+  'foundation_placement_v1:bar_server',
+  'foundation_placement_v1:retail',
+  'retail_foundation_v1',
 ];
 
 const getDisplayName = (user) => user?.user_metadata?.name || user?.email?.split('@')[0];

@@ -1,6 +1,8 @@
 export const BAR_LISTENING_VERSION = 1
 export const BAR_LISTENING_PROGRESS_KEY = 'bar_server_listening_progress_v1'
 export const BAR_SERVER_STAGE_KEY = 'bar_server_learning_stage'
+export const BAR_SHIFT_HISTORY_KEY = 'bar_server_shift_challenge_history_v1'
+export const BAR_SHIFT_QUESTION_SECONDS = 30
 
 export const BAR_SERVER_LEARNING_STAGES = [
   {
@@ -321,4 +323,89 @@ export const getListeningUnitStats = (progress = readBarListeningProgress()) => 
     units.set(drill.unit, current)
   })
   return [...units.values()]
+}
+
+export const scoreBarListeningAnswer = (drill, answers = {}) => {
+  if (drill.type === 'choice') {
+    return {
+      score: answers.choice === drill.correctOptionId ? 100 : 0,
+      fields: [],
+    }
+  }
+
+  const fields = drill.fields.map((field) => ({
+    key: field.key,
+    label: field.label,
+    answer: answers[field.key] || '',
+    correct: field.correct,
+    isCorrect: answers[field.key] === field.correct,
+  }))
+  const correctCount = fields.filter((field) => field.isCorrect).length
+  return {
+    score: Math.round((correctCount / fields.length) * 100),
+    fields,
+  }
+}
+
+export const isBarListeningAnswerComplete = (drill, answers = {}) => (
+  drill.type === 'choice'
+    ? Boolean(answers.choice)
+    : drill.fields.every((field) => answers[field.key])
+)
+
+export const getShiftChallengeDrills = (progress = readBarListeningProgress(), count = 5) => {
+  const statusPriority = {
+    needs_listening: 500,
+    needs_normal_speed: 450,
+    needs_speaking: 350,
+    mastered: 300,
+    not_started: 200,
+  }
+  const candidates = BAR_SERVER_LISTENING_DRILLS.map((drill, index) => ({
+    drill,
+    index,
+    status: getListeningDrillStatus(drill, progress),
+  })).sort((a, b) => (
+    statusPriority[b.status] - statusPriority[a.status]
+    || Number(progress[a.drill.id]?.bestScore || 0) - Number(progress[b.drill.id]?.bestScore || 0)
+    || a.index - b.index
+  ))
+
+  const selected = []
+  const selectedIds = new Set()
+  const addCandidate = (candidate) => {
+    if (!candidate || selectedIds.has(candidate.drill.id) || selected.length >= count) return
+    selected.push(candidate.drill)
+    selectedIds.add(candidate.drill.id)
+  }
+
+  candidates
+    .filter((candidate) => ['needs_listening', 'needs_normal_speed'].includes(candidate.status))
+    .slice(0, 2)
+    .forEach(addCandidate)
+
+  const requiredLevels = [1, 2, 3]
+  requiredLevels.forEach((level) => addCandidate(
+    candidates.find((candidate) => candidate.drill.level === level && !selectedIds.has(candidate.drill.id)),
+  ))
+
+  const selectedUnits = new Set(selected.map((drill) => drill.unit))
+  candidates.forEach((candidate) => {
+    if (!selectedUnits.has(candidate.drill.unit) && selected.length < count) {
+      addCandidate(candidate)
+      selectedUnits.add(candidate.drill.unit)
+    }
+  })
+  candidates.forEach(addCandidate)
+
+  return selected.slice(0, count)
+}
+
+export const readBarShiftHistory = () => {
+  try {
+    const history = JSON.parse(localStorage.getItem(BAR_SHIFT_HISTORY_KEY) || '[]')
+    return Array.isArray(history) ? history : []
+  } catch {
+    return []
+  }
 }

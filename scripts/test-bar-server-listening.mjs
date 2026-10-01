@@ -4,6 +4,9 @@ import {
   getListeningDrillStatus,
   getListeningUnitStats,
   getRecommendedListeningDrill,
+  getShiftChallengeDrills,
+  isBarListeningAnswerComplete,
+  scoreBarListeningAnswer,
 } from '../src/data/barServerListening.js'
 
 const fail = (message) => {
@@ -88,5 +91,17 @@ const slowDependentProgress = {
   },
 }
 if (getListeningDrillStatus(firstDrill, slowDependentProgress) !== 'needs_normal_speed') fail('repeated slow playback should create a normal-speed review')
+
+const challengeDrills = getShiftChallengeDrills({}, 5)
+if (challengeDrills.length !== 5) fail('shift challenge must contain five drills')
+if (new Set(challengeDrills.map((drill) => drill.id)).size !== 5) fail('shift challenge drills must be unique')
+if (![1, 2, 3].every((level) => challengeDrills.some((drill) => drill.level === level))) fail('shift challenge must cover all three levels')
+if (new Set(challengeDrills.map((drill) => drill.unit)).size < 4) fail('shift challenge must cover at least four workplace skills')
+if (!getShiftChallengeDrills(failedProgress, 5).some((drill) => drill.id === firstDrill.id)) fail('shift challenge must prioritize an existing weak drill')
+
+const correctCaptureAnswers = Object.fromEntries(firstDrill.fields.map((field) => [field.key, field.correct]))
+if (!isBarListeningAnswerComplete(firstDrill, correctCaptureAnswers)) fail('complete capture answer was not detected')
+if (scoreBarListeningAnswer(firstDrill, correctCaptureAnswers).score !== 100) fail('correct capture answer must score 100')
+if (scoreBarListeningAnswer(firstDrill, {}).score !== 0) fail('empty capture answer must score 0')
 
 console.log('Bar Server listening contract passed (12 drills, 3 levels, 3 learning stages).')

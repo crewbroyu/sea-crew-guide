@@ -9,6 +9,7 @@ import {
   Headphones,
   Mic2,
   RotateCcw,
+  TimerReset,
   Volume2,
   X,
 } from 'lucide-react'
@@ -20,7 +21,9 @@ import {
   getListeningDrillStatus,
   getListeningUnitStats,
   getRecommendedListeningDrill,
+  isBarListeningAnswerComplete,
   readBarListeningProgress,
+  scoreBarListeningAnswer,
 } from '../../data/barServerListening'
 import { speakEnglish, speakText, stopSpeech } from '../../services/ttsService'
 
@@ -29,34 +32,6 @@ const PASSING_SCORE = 70
 const saveProgress = (progress) => {
   localStorage.setItem(BAR_LISTENING_PROGRESS_KEY, JSON.stringify(progress))
 }
-
-const scoreAnswer = (drill, answers) => {
-  if (drill.type === 'choice') {
-    return {
-      score: answers.choice === drill.correctOptionId ? 100 : 0,
-      fields: [],
-    }
-  }
-
-  const fields = drill.fields.map((field) => ({
-    key: field.key,
-    label: field.label,
-    answer: answers[field.key] || '',
-    correct: field.correct,
-    isCorrect: answers[field.key] === field.correct,
-  }))
-  const correctCount = fields.filter((field) => field.isCorrect).length
-  return {
-    score: Math.round((correctCount / fields.length) * 100),
-    fields,
-  }
-}
-
-const hasCompleteAnswer = (drill, answers) => (
-  drill.type === 'choice'
-    ? Boolean(answers.choice)
-    : drill.fields.every((field) => answers[field.key])
-)
 
 export default function BarServerListening() {
   const navigate = useNavigate()
@@ -89,7 +64,7 @@ export default function BarServerListening() {
   const recommendation = getRecommendedListeningDrill(progress)
   const unitStats = getListeningUnitStats(progress)
 
-  const canSubmit = hasCompleteAnswer(drill, answers)
+  const canSubmit = isBarListeningAnswerComplete(drill, answers)
   const hasListenedAtNormalSpeed = (drillProgress.normalPlays || 0) > 0
   const canUseSlowPlayback = hasListenedAtNormalSpeed
   const isLastDrill = activeIndex === BAR_SERVER_LISTENING_DRILLS.length - 1
@@ -154,7 +129,7 @@ export default function BarServerListening() {
 
   const submitAnswer = () => {
     if (!canSubmit || result) return
-    const scored = scoreAnswer(drill, answers)
+    const scored = scoreBarListeningAnswer(drill, answers)
     const previous = progress[drill.id] || {}
     const now = new Date().toISOString()
     const nextProgress = {
@@ -196,6 +171,7 @@ export default function BarServerListening() {
               <p className="text-sm font-semibold text-blue-700">工作听说 · 12 个短场景</p>
               <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">先听懂关键信息，再学会正确处理</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">原文会在提交后出现。正常速度至少听一次，没听清再使用慢速；训练目标不是听懂每个单词，而是抓住会影响服务的关键信息。</p>
+              <button type="button" onClick={() => navigate('/programs/bar-server/listening/shift')} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800"><TimerReset size={17} />进入 5 题班次挑战</button>
             </div>
             <div className="grid min-w-full grid-cols-2 gap-3 sm:grid-cols-4 md:min-w-[480px]">
               <div className="border-l-2 border-blue-600 pl-3"><p className="text-xs text-slate-500">听力通过</p><p className="mt-1 text-xl font-bold text-slate-950">{completedCount}/12</p></div>

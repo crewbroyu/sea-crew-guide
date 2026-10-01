@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
+  BrainCircuit,
   Check,
   CheckCircle2,
   Gauge,
   Headphones,
+  Mic2,
   RotateCcw,
   Volume2,
   X,
@@ -15,6 +17,9 @@ import PhraseShadowingPractice from '../../components/interview/PhraseShadowingP
 import {
   BAR_LISTENING_PROGRESS_KEY,
   BAR_SERVER_LISTENING_DRILLS,
+  getListeningDrillStatus,
+  getListeningUnitStats,
+  getRecommendedListeningDrill,
   readBarListeningProgress,
 } from '../../data/barServerListening'
 import { speakEnglish, speakText, stopSpeech } from '../../services/ttsService'
@@ -81,6 +86,8 @@ export default function BarServerListening() {
     (sum, item) => sum + (progress[item.id]?.normalPlays || 0),
     0,
   )
+  const recommendation = getRecommendedListeningDrill(progress)
+  const unitStats = getListeningUnitStats(progress)
 
   const canSubmit = hasCompleteAnswer(drill, answers)
   const hasListenedAtNormalSpeed = (drillProgress.normalPlays || 0) > 0
@@ -207,23 +214,53 @@ export default function BarServerListening() {
             {BAR_SERVER_LISTENING_DRILLS.map((item, index) => {
               const isActive = item.id === drill.id
               const isComplete = Boolean(progress[item.id]?.completedAt)
+              const status = getListeningDrillStatus(item, progress)
+              const isMastered = status === 'mastered'
+              const needsReview = ['needs_listening', 'needs_normal_speed'].includes(status)
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => selectDrill(index)}
-                  aria-label={`第 ${drillNumberById[item.id]} 题${isComplete ? '，已通过' : ''}`}
-                  className={`flex aspect-square items-center justify-center rounded-md border text-sm font-semibold transition ${isActive ? 'border-blue-600 bg-blue-600 text-white' : isComplete ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}`}
+                  aria-label={`第 ${drillNumberById[item.id]} 题${isMastered ? '，听说已完成' : isComplete ? '，待开口' : needsReview ? '，待复习' : ''}`}
+                  className={`flex aspect-square items-center justify-center rounded-md border text-sm font-semibold transition ${isActive ? 'border-blue-600 bg-blue-600 text-white' : isMastered ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : needsReview ? 'border-red-200 bg-red-50 text-red-700' : isComplete ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}`}
                 >
-                  {isComplete ? <Check size={17} /> : index + 1}
+                  {isMastered ? <Check size={17} /> : isComplete ? <Mic2 size={15} /> : index + 1}
                 </button>
               )
             })}
           </div>
           <div className="mt-5 border-t border-slate-200 pt-4 text-xs leading-5 text-slate-500">
             <p><span className="font-semibold text-slate-700">通过标准：</span>70 分</p>
-            <p className="mt-1">可以重复练习，系统保留每题最佳成绩。</p>
+            <p className="mt-1">绿色为听说完成，黄色为待开口，红色为待复习。</p>
           </div>
+
+          <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <div className="flex items-center gap-2 text-blue-800"><BrainCircuit size={17} /><p className="text-xs font-semibold">智能下一步</p></div>
+            <p className="mt-2 text-sm font-semibold leading-5 text-blue-950">第 {recommendation.index + 1} 题 · {recommendation.drill.unit}</p>
+            <p className="mt-1 text-xs leading-5 text-blue-800">{recommendation.reason}</p>
+            <button
+              type="button"
+              onClick={() => selectDrill(recommendation.index)}
+              disabled={recommendation.index === activeIndex}
+              className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-3 text-xs font-semibold text-white hover:bg-blue-800 disabled:cursor-default disabled:bg-blue-200 disabled:text-blue-700"
+            >
+              {recommendation.index === activeIndex ? '正在训练这一题' : `继续第 ${recommendation.index + 1} 题`}
+              {recommendation.index !== activeIndex && <ArrowRight size={14} />}
+            </button>
+          </div>
+
+          <details className="mt-5 border-t border-slate-200 pt-4">
+            <summary className="cursor-pointer text-xs font-semibold text-slate-700">查看能力分布</summary>
+            <div className="mt-3 space-y-3">
+              {unitStats.map((unit) => (
+                <div key={unit.unit}>
+                  <div className="flex items-center justify-between gap-2 text-xs"><span className="font-medium text-slate-700">{unit.unit}</span><span className="text-slate-500">听 {unit.listeningCompleted}/{unit.total} · 说 {unit.speakingCompleted}/{unit.total}</span></div>
+                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-emerald-500" style={{ width: `${unit.total ? (unit.speakingCompleted / unit.total) * 100 : 0}%` }} /></div>
+                </div>
+              ))}
+            </div>
+          </details>
         </aside>
 
         <div className="space-y-5">

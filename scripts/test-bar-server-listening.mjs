@@ -1,6 +1,9 @@
 import {
   BAR_SERVER_LEARNING_STAGES,
   BAR_SERVER_LISTENING_DRILLS,
+  getListeningDrillStatus,
+  getListeningUnitStats,
+  getRecommendedListeningDrill,
 } from '../src/data/barServerListening.js'
 
 const fail = (message) => {
@@ -50,5 +53,40 @@ if (units.size < 6) fail('drills must cover at least six workplace skills')
 const stageIds = BAR_SERVER_LEARNING_STAGES.map((stage) => stage.id)
 if (new Set(stageIds).size !== 3) fail('learning stages must be unique')
 if (!['job_search', 'first_contract', 'experienced'].every((id) => stageIds.includes(id))) fail('required learning stage missing')
+
+const firstDrill = BAR_SERVER_LISTENING_DRILLS[0]
+const secondDrill = BAR_SERVER_LISTENING_DRILLS[1]
+if (getRecommendedListeningDrill({}).drill.id !== firstDrill.id) fail('empty progress should recommend the first drill')
+
+const failedProgress = {
+  [firstDrill.id]: { normalPlays: 1, attempts: 1, bestScore: 0 },
+}
+if (getListeningDrillStatus(firstDrill, failedProgress) !== 'needs_listening') fail('failed drill status is incorrect')
+if (getRecommendedListeningDrill(failedProgress).drill.id !== firstDrill.id) fail('failed drill should be retried before new content')
+
+const listeningPassedProgress = {
+  [firstDrill.id]: { normalPlays: 1, attempts: 1, bestScore: 100, completedAt: '2026-01-01T00:00:00.000Z' },
+}
+if (getRecommendedListeningDrill(listeningPassedProgress).status !== 'needs_speaking') fail('passed listening should recommend speaking')
+
+const masteredFirstProgress = {
+  [firstDrill.id]: {
+    normalPlays: 1,
+    attempts: 1,
+    bestScore: 100,
+    completedAt: '2026-01-01T00:00:00.000Z',
+    speakingPractice: { completedAt: '2026-01-01T00:05:00.000Z' },
+  },
+}
+if (getRecommendedListeningDrill(masteredFirstProgress).drill.id !== secondDrill.id) fail('mastered drill should advance to new content')
+if (getListeningUnitStats(masteredFirstProgress).reduce((sum, unit) => sum + unit.total, 0) !== 12) fail('unit stats must include every drill')
+
+const slowDependentProgress = {
+  [firstDrill.id]: {
+    ...masteredFirstProgress[firstDrill.id],
+    slowPlays: 2,
+  },
+}
+if (getListeningDrillStatus(firstDrill, slowDependentProgress) !== 'needs_normal_speed') fail('repeated slow playback should create a normal-speed review')
 
 console.log('Bar Server listening contract passed (12 drills, 3 levels, 3 learning stages).')

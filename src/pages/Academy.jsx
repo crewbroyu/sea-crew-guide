@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { getInterviewPositionMeta } from '../utils/interviewPosition'
 import { getJobPreferences } from '../utils/jobPreferences'
+import useEffectiveAccess from '../hooks/useEffectiveAccess'
 
 const primaryModules = [
   {
@@ -141,6 +142,7 @@ const ModuleButton = ({ item, onOpen, compact = false }) => {
 
 export default function Academy() {
   const navigate = useNavigate()
+  const { isRegistered } = useEffectiveAccess()
   const preferences = useMemo(() => getJobPreferences(), [])
   const primaryPosition = getInterviewPositionMeta(preferences.primaryKey)
 
@@ -152,9 +154,9 @@ export default function Academy() {
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-5xl px-5 pb-6 pt-12">
-          <p className="text-sm font-medium text-blue-700">海乘学院</p>
+          <p className="text-sm font-medium text-blue-700">{isRegistered ? '训练中心' : '海乘学院'}</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-normal text-slate-950">
-            课程、实训和面试准备，各自解决一件事
+            {isRegistered ? '围绕目标岗位继续训练' : '课程、实训和面试准备，各自解决一件事'}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
             基础课程学习岗位知识，工作场景训练实际服务能力，面试题库负责把能力说出来。完整 AI 模拟面试与申请跟进统一放在求职中心。

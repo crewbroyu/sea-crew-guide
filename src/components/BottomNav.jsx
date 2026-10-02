@@ -1,57 +1,65 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { createElement } from 'react'
-import { Home, Map, GraduationCap, Briefcase, User } from 'lucide-react'
+import { Home, Route, GraduationCap, Briefcase, User } from 'lucide-react'
+import useEffectiveAccess from '../hooks/useEffectiveAccess'
+import {
+  getPrimaryNavigation,
+  isPrimaryNavigationActive,
+  isPrimaryNavigationVisible,
+} from '../data/appNavigation'
 
-const tabs = [
-  { icon: Home, label: '首页', to: '/' },
-  { icon: Map, label: '登船路径', to: '/tasks' },
-  { icon: GraduationCap, label: '海乘学院', to: '/academy' },
-  { icon: Briefcase, label: '求职中心', to: '/jobs' },
-  { icon: User, label: '我的', to: '/profile' },
-]
+const icons = {
+  home: Home,
+  route: Route,
+  training: GraduationCap,
+  jobs: Briefcase,
+  profile: User,
+}
 
-const matchesHiddenPath = (pathname, pattern) => {
-  if (pattern.endsWith('/*')) {
-    const prefix = pattern.slice(0, -2)
-    return pathname === prefix || pathname.startsWith(`${prefix}/`)
+const readPrimaryRole = () => {
+  try {
+    const task2 = JSON.parse(localStorage.getItem('task2_result') || '{}')
+    return task2.selectedTargetJob || task2.target_position || ''
+  } catch {
+    return ''
   }
-  return pathname === pattern
 }
 
-const isTabActive = (pathname, to) => {
-  if (to === '/') return pathname === '/'
-  if (to === '/academy') return pathname === '/academy'
-    || pathname.startsWith('/academy/')
-    || pathname.startsWith('/programs/')
-  return pathname === to || pathname.startsWith(`${to}/`)
-}
-
-export default function BottomNav({ hideNavPages = [] }) {
+export default function BottomNav() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { isRegistered } = useEffectiveAccess()
+  const tabs = getPrimaryNavigation({
+    isRegistered,
+    primaryRole: readPrimaryRole(),
+  })
 
-  if (hideNavPages.some((pattern) => matchesHiddenPath(location.pathname, pattern))) {
+  if (!isPrimaryNavigationVisible(location.pathname)) {
     return null
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 pb-safe z-50">
-      <div className="flex justify-around">
-        {tabs.map(({ icon, label, to }) => {
-          const isActive = isTabActive(location.pathname, to)
+    <nav aria-label="主导航" className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+      <div className="mx-auto grid h-16 max-w-xl grid-cols-5 px-1">
+        {tabs.map(({ id, icon, label, to }) => {
+          const isActive = isPrimaryNavigationActive(location.pathname, id)
           return (
             <button
-              key={to}
+              key={id}
+              type="button"
               onClick={() => navigate(to)}
-              className="flex flex-col items-center py-2 px-3"
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={label}
+              className="flex min-w-0 flex-col items-center justify-center gap-1 px-1"
             >
-              {createElement(icon, {
-                size: 22,
-                className: isActive ? 'text-blue-600' : 'text-gray-400',
+              {createElement(icons[icon], {
+                size: 21,
+                strokeWidth: isActive ? 2.3 : 1.8,
+                className: isActive ? 'text-blue-700' : 'text-slate-400',
               })}
               <span
-                className={`text-[10px] mt-1 ${
-                  isActive ? 'text-blue-600 font-medium' : 'text-gray-400'
+                className={`truncate text-[11px] ${
+                  isActive ? 'font-semibold text-blue-700' : 'font-medium text-slate-500'
                 }`}
               >
                 {label}
@@ -60,6 +68,6 @@ export default function BottomNav({ hideNavPages = [] }) {
           )
         })}
       </div>
-    </div>
+    </nav>
   )
 }

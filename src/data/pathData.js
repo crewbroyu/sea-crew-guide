@@ -42,7 +42,7 @@ const pathData = [
       {
         id: 5,
         title: '完成目标岗位基础训练',
-        subtitle: '进入学院学习岗位知识、英语表达和基础服务动作',
+        subtitle: '进入训练中心学习岗位知识、英语表达和基础服务动作',
         route: '/tasks/phase2/Task5',
         completionType: 'upload',
         timeLimit: 30,
@@ -64,7 +64,7 @@ const pathData = [
       {
         id: 7,
         title: '完成岗位口语训练',
-        subtitle: '在学院完成单题口语；岗位包用户可继续进入求职中心完整 AI 模拟',
+        subtitle: '在训练中心完成单题口语；岗位包用户可继续进入求职中心完整 AI 模拟',
         route: '/tasks/phase2/Task7',
         completionType: 'auto',
       },

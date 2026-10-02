@@ -73,23 +73,6 @@ const NotFound = lazy(() => import('./pages/NotFound'))
 const LegalDocument = lazy(() => import('./pages/LegalDocument'))
 
 function App() {
-  const hideNavPages = [
-    '/tasks/*',
-    '/academy/*',
-    '/jobs/preparation',
-    '/jobs/channels',
-    '/jobs/company-jobs',
-    '/jobs/platforms',
-    '/jobs/latest',
-    '/jobs/yuge',
-    '/jobs/brand-partners',
-    '/jobs/applications',
-    '/my-offer',
-    '/messages',
-    '/assessment',
-    '/boarding-materials'
-  ]
-
   return (
     <ErrorBoundary>
       <Router>
@@ -173,7 +156,7 @@ function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
-          <BottomNav hideNavPages={hideNavPages} />
+          <BottomNav />
         </div>
       </Router>
     </ErrorBoundary>

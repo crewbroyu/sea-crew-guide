@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   CheckCircle2,
-  ChevronLeft,
   ChevronRight,
   ClipboardCheck,
   FileText,
@@ -201,16 +200,7 @@ export default function Tasks() {
 
       <header className="border-b border-slate-200 bg-white px-6 pb-6 pt-12">
         <div className="mx-auto max-w-3xl">
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="mb-5 flex items-center gap-1 text-sm text-slate-500"
-          >
-            <ChevronLeft size={17} />
-            返回首页
-          </button>
-
-          <p className="mb-2 text-sm font-medium text-blue-700">申请进度中心</p>
+          <p className="mb-2 text-sm font-medium text-blue-700">我的路线</p>
           <h1 className="text-3xl font-bold leading-tight text-slate-950">
             按顺序准备海乘申请
           </h1>

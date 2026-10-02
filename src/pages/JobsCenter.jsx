@@ -5,7 +5,6 @@ import {
   BookOpen,
   Building2,
   CheckCircle2,
-  ChevronLeft,
   ChevronRight,
   ClipboardList,
   FileSearch,
@@ -167,10 +166,7 @@ export default function JobsCenter() {
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="border-b border-slate-200 bg-white px-6 pb-7 pt-12">
         <div className="mx-auto max-w-4xl">
-          <button type="button" onClick={() => navigate('/')} className="mb-5 flex items-center gap-1 text-sm text-slate-500">
-            <ChevronLeft size={17} />返回首页
-          </button>
-          <p className="text-sm font-medium text-blue-700">求职中心</p>
+          <p className="text-sm font-medium text-blue-700">求职</p>
           <h1 className="mt-2 text-3xl font-bold leading-tight text-slate-950">从面试准备到申请跟进</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
             岗位能力在学院训练；这里把个人经历整理成面试表现，再选择渠道、投递并跟进结果。
@@ -244,7 +240,7 @@ export default function JobsCenter() {
               <BookOpen size={20} className="mt-0.5 shrink-0 text-blue-700" />
               <div>
                 <h2 className="font-semibold text-slate-950">岗位知识或口语还不稳？</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">回海乘学院学习目标岗位课程、单题口语和真实工作场景。</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">回训练中心学习目标岗位课程、单题口语和真实工作场景。</p>
               </div>
             </div>
             <button type="button" onClick={() => navigate('/academy/position-english')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50">

@@ -126,9 +126,6 @@ export default function Premium() {
     try {
       const request = await createManualPurchaseRequest('bar_server_pack')
       setPurchaseRequest(request)
-      trackProductEvent('purchase_request_submitted', {
-        properties: { productCode: 'bar_server_pack', requestStatus: request?.status || 'requested' },
-      })
     } catch (error) {
       console.error('Manual purchase request failed:', error)
       setPurchaseRequestError('申请暂时未提交成功，请通过支持中心联系人工开通。')

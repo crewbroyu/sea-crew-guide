@@ -46,24 +46,57 @@ export default function AdminBetaDashboard() {
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
     const until = new Date().toISOString()
 
-    const [eventsResult, requestsResult, overviewResult, aiOverviewResult] = await Promise.all([
+    const [eventsResult, requestsResult, purchasesResult, activationsResult, overviewResult, aiOverviewResult] = await Promise.all([
       fetchProductEvents(since, until),
       supabase
         .from('support_requests')
         .select('id, category, message, status, created_at')
         .order('created_at', { ascending: false })
         .limit(30),
+      supabase
+        .from('manual_purchase_requests')
+        .select('id, user_id, product_code, created_at')
+        .gte('created_at', since)
+        .lte('created_at', until),
+      supabase
+        .from('activation_codes')
+        .select('code, used_by, product_code, used_at')
+        .not('used_at', 'is', null)
+        .gte('used_at', since)
+        .lte('used_at', until),
       supabase.rpc('get_admin_beta_overview', { input_days: 14 }),
       supabase.rpc('get_admin_ai_operations_overview', { input_days: 14 }),
     ])
 
-    if (eventsResult.error || requestsResult.error || overviewResult.error) {
-      setError(eventsResult.error?.message || requestsResult.error?.message || overviewResult.error?.message || '内测数据暂时无法加载。')
+    if (eventsResult.error || requestsResult.error || purchasesResult.error || activationsResult.error || overviewResult.error) {
+      setError(eventsResult.error?.message || requestsResult.error?.message || purchasesResult.error?.message || activationsResult.error?.message || overviewResult.error?.message || '内测数据暂时无法加载。')
       setStatus('error')
       return
     }
 
-    setEvents(eventsResult.data || [])
+    const clientEvents = (eventsResult.data || []).filter(
+      (event) => !['purchase_request_submitted', 'activation_succeeded'].includes(event.event_name),
+    )
+    const purchaseEvents = (purchasesResult.data || []).map((request) => ({
+      id: `purchase:${request.id}`,
+      user_id: request.user_id,
+      anonymous_id: null,
+      event_name: 'purchase_request_submitted',
+      product_code: request.product_code,
+      properties: { source: 'database' },
+      created_at: request.created_at,
+    }))
+    const activationEvents = (activationsResult.data || []).map((activation) => ({
+      id: `activation:${activation.code}`,
+      user_id: activation.used_by,
+      anonymous_id: null,
+      event_name: 'activation_succeeded',
+      product_code: activation.product_code,
+      properties: { source: 'database' },
+      created_at: activation.used_at,
+    }))
+
+    setEvents([...clientEvents, ...purchaseEvents, ...activationEvents])
     setRequests(requestsResult.data || [])
     setOverview(overviewResult.data || null)
     setAiOverview(aiOverviewResult.error ? null : aiOverviewResult.data || null)
@@ -169,7 +202,7 @@ export default function AdminBetaDashboard() {
 
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2"><BarChart3 size={19} className="text-blue-700" /><h2 className="font-semibold text-slate-950">测评到激活的完整漏斗</h2></div>
-            <p className="mt-1 text-sm text-slate-600">大数字是独立用户；转化率只计算同时出现在相邻两步的人。登录是条件节点，不参与连续转化率。</p>
+            <p className="mt-1 text-sm text-slate-600">大数字是独立用户；转化率只计算同时出现在相邻两步的人。登录是条件节点；购买申请和激活以数据库记录为准。</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {funnel.map((stage, index) => (
                 <div key={stage.id} className={`rounded-lg border p-4 ${stage.optional ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-slate-50'}`}>

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { activationService } from '../services/activationService';
 import { SUPPORT_WECHAT_ID } from '../config/contact';
-import { trackProductEvent } from '../services/productAnalyticsService';
 
 export default function ActivationCodeModal({ isOpen, onClose, onSuccess }) {
   const [code, setCode] = useState('');
@@ -19,11 +18,7 @@ export default function ActivationCodeModal({ isOpen, onClose, onSuccess }) {
     setError('');
 
     try {
-      const result = await activationService.activateCode(code.trim().toUpperCase());
-      trackProductEvent('activation_succeeded', {
-        productCode: result.productCode || 'bar_server_pack',
-        properties: { source: 'activation_code_modal' },
-      });
+      await activationService.activateCode(code.trim().toUpperCase());
       setShowSuccess(true);
       setTimeout(() => {
         onSuccess?.();

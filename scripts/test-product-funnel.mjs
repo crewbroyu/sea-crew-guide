@@ -21,8 +21,8 @@ const events = [
   event('career_report_generated', { user_id: 'user-a', properties: { targetRole: 'bar' } }),
   event('career_report_generated', { user_id: 'user-a', properties: { targetRole: 'bar', regenerate: true } }),
   event('free_trial_viewed', { user_id: 'user-a' }),
-  event('free_trial_scenario_completed', { user_id: 'user-a', properties: { scenarioNumber: 1 } }),
-  event('free_trial_scenario_completed', { user_id: 'user-a', properties: { scenarioNumber: 2 } }),
+  event('free_trial_scenario_completed', { user_id: 'user-a', properties: { scenarioNumber: 2, completionOrder: 1 } }),
+  event('free_trial_scenario_completed', { user_id: 'user-a', properties: { scenarioNumber: 1, completionOrder: 2 } }),
   event('free_trial_completed', { user_id: 'user-a' }),
   event('product_page_viewed', { user_id: 'user-a' }),
   event('product_page_viewed', { user_id: 'user-b', anonymous_id: 'browser-b' }),
@@ -38,7 +38,8 @@ assert.equal(funnel.assessment_auth_completed.actorCount, 1, 'only assessment-in
 assert.equal(funnel.assessment_auth_completed.conversionFromPrevious, null, 'conditional login must not distort the sequential funnel')
 assert.equal(funnel.assessment_started.actorCount, 1, 'anonymous and signed-in identities should merge')
 assert.equal(funnel.assessment_started.conversionFromPrevious, 100)
-assert.equal(funnel.free_trial_first_scene.actorCount, 1, 'only scenario one should match the first-scene stage')
+assert.equal(funnel.free_trial_first_scene.actorCount, 1, 'the first completed scenario should match regardless of scenario number')
+assert.equal(funnel.free_trial_first_scene.eventCount, 1, 'later completion of scenario one must not look like a first completion')
 assert.equal(funnel.product_page_viewed.actorCount, 2, 'direct downstream users remain visible')
 assert.equal(funnel.product_page_viewed.continuedActorCount, 1, 'continuation only includes actors from the previous stage')
 assert.equal(funnel.product_page_viewed.conversionFromPrevious, 100, 'direct entries must not push conversion above 100%')

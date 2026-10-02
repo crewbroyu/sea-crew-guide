@@ -32,9 +32,12 @@ import {
   BAR_SERVER_TRIAL_STORAGE_KEY,
   BAR_SERVER_TRIAL_VERSION,
   barServerTrialScenarios,
+  getBarTrialScenarioEntryStage,
+  getNextIncompleteBarTrialScenario,
   getReadinessLabel,
   getScoreDeltaMessage,
 } from '../../data/barServerTrial'
+import { readAssessmentTrialContext } from '../../data/assessmentExperienceBridge'
 
 const readTrial = () => {
   try {
@@ -65,14 +68,22 @@ export default function BarServerTrial() {
   const access = useEffectiveAccess()
   const { isRegistered, openRegisterModal } = access
   const hasBarServerPack = hasProductEntitlement(access, 'bar_server_pack')
-  const returnDestination = location.state?.from === 'task5'
+  const assessmentContext = useMemo(() => readAssessmentTrialContext(location.search), [location.search])
+  const returnDestination = assessmentContext
+    ? { route: '/assessment', label: '返回测评结果' }
+    : location.state?.from === 'task5'
     ? { route: '/programs/bar-server/foundation', label: '返回岗位基础课' }
     : { route: '/academy/interview-questions?position=bar_server', label: '返回 Bar Server 题库' }
   const savedTrial = useMemo(() => readTrial(), [])
-  const initialScenarioIndex = savedTrial?.scenarioIndex || 0
+  const savedScenarioIndex = Number.isInteger(savedTrial?.scenarioIndex)
+    && savedTrial.scenarioIndex >= 0
+    && savedTrial.scenarioIndex < barServerTrialScenarios.length
+    ? savedTrial.scenarioIndex
+    : 0
+  const initialScenarioIndex = assessmentContext?.scenarioIndex ?? savedScenarioIndex
   const initialScenario = barServerTrialScenarios[initialScenarioIndex]
   const [scenarioIndex, setScenarioIndex] = useState(initialScenarioIndex)
-  const [stage, setStage] = useState(savedTrial?.stage || (initialScenario?.lesson ? 'lesson' : 'briefing'))
+  const [stage, setStage] = useState(() => getBarTrialScenarioEntryStage(savedTrial, initialScenarioIndex))
   const [attemptsByScenario, setAttemptsByScenario] = useState(savedTrial?.attemptsByScenario || {})
   const [lessonProgressByScenario, setLessonProgressByScenario] = useState(savedTrial?.lessonProgressByScenario || {})
   const [transcript, setTranscript] = useState('')
@@ -101,7 +112,8 @@ export default function BarServerTrial() {
   const scoreDelta = retryAttempt ? retryScore - firstScore : 0
   const currentAttemptNumber = Math.min(attempts.length + 1, 2)
   const completedCount = barServerTrialScenarios.filter((item) => (attemptsByScenario[item.id] || []).length >= 2).length
-  const isLastScenario = scenarioIndex === barServerTrialScenarios.length - 1
+  const allScenariosCompleted = completedCount === barServerTrialScenarios.length
+  const nextIncompleteScenarioIndex = getNextIncompleteBarTrialScenario(attemptsByScenario, scenarioIndex)
   const completedScores = barServerTrialScenarios
     .map((item) => getAttemptScore((attemptsByScenario[item.id] || [])[1]))
     .filter((score) => score > 0)
@@ -112,9 +124,16 @@ export default function BarServerTrial() {
   useEffect(() => {
     trackProductEvent('free_trial_viewed', {
       oncePerSession: true,
-      properties: { scenarioIndex: initialScenarioIndex + 1 },
+      dedupeKey: assessmentContext ? `assessment:${initialScenarioIndex + 1}` : 'direct',
+      properties: {
+        scenarioIndex: initialScenarioIndex + 1,
+        source: assessmentContext ? 'assessment' : 'direct',
+        gap: assessmentContext?.gap || null,
+        primaryConcern: assessmentContext?.concern || null,
+        currentStage: assessmentContext?.currentStage || null,
+      },
     })
-  }, [initialScenarioIndex])
+  }, [assessmentContext, initialScenarioIndex])
 
   useEffect(() => {
     if (stage !== 'comparison' || !retryAttempt) return
@@ -124,15 +143,16 @@ export default function BarServerTrial() {
       properties: {
         scenarioNumber: scenarioIndex + 1,
         scenarioId: scenario.id,
+        completionOrder: completedCount,
         firstScore,
         retryScore,
         scoreDelta,
       },
     })
-  }, [firstScore, retryAttempt, retryScore, scenario.id, scenarioIndex, scoreDelta, stage])
+  }, [completedCount, firstScore, retryAttempt, retryScore, scenario.id, scenarioIndex, scoreDelta, stage])
 
   useEffect(() => {
-    if (stage !== 'comparison' || !isLastScenario || !retryAttempt) return
+    if (stage !== 'comparison' || !allScenariosCompleted || !retryAttempt) return
     trackProductEvent('free_trial_completed', {
       oncePerSession: true,
       dedupeKey: retryAttempt.completedAt,
@@ -145,7 +165,7 @@ export default function BarServerTrial() {
         properties: { readiness: overallReadiness },
       })
     }
-  }, [hasBarServerPack, isLastScenario, overallReadiness, retryAttempt, stage])
+  }, [allScenariosCompleted, hasBarServerPack, overallReadiness, retryAttempt, stage])
 
   useEffect(() => {
     localStorage.setItem(BAR_SERVER_TRIAL_STORAGE_KEY, JSON.stringify({
@@ -357,11 +377,11 @@ export default function BarServerTrial() {
   }
 
   const goToNextScenario = () => {
-    if (isLastScenario) return
+    if (nextIncompleteScenarioIndex < 0) return
     clearCurrentRecording()
-    const nextIndex = scenarioIndex + 1
+    const nextIndex = nextIncompleteScenarioIndex
     setScenarioIndex(nextIndex)
-    setStage(barServerTrialScenarios[nextIndex]?.lesson ? 'lesson' : 'briefing')
+    setStage(getBarTrialScenarioEntryStage({ attemptsByScenario, lessonProgressByScenario }, nextIndex))
   }
 
   const resetCurrentScenario = () => {
@@ -558,8 +578,8 @@ export default function BarServerTrial() {
           />
         )}
 
-        {!isLastScenario ? (
-          <button type="button" onClick={goToNextScenario} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">进入免费场景 {scenarioIndex + 2}/{barServerTrialScenarios.length} <ArrowRight size={18} /></button>
+        {!allScenariosCompleted ? (
+          <button type="button" onClick={goToNextScenario} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">继续免费场景 {nextIncompleteScenarioIndex + 1}/{barServerTrialScenarios.length} <ArrowRight size={18} /></button>
         ) : hasBarServerPack ? (
           <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
             <div className="flex items-start gap-3"><CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-700" /><div className="min-w-0 flex-1"><p className="text-xs font-semibold text-emerald-700">Bar Server 单职位全流程包已解锁</p><h2 className="mt-1 font-semibold text-emerald-950">免费体验完成，继续进入完整准备路径</h2><p className="mt-2 text-sm leading-6 text-emerald-900">先补齐基础知识，再用连续岗位场景检验能否真正服务客人；之后再进入题库和模拟面试。</p><div className="mt-4 grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => navigate('/programs/bar-server/foundation')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800">岗位基础课 <ChevronRight size={16} /></button><button type="button" onClick={() => navigate('/programs/bar-server/training')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">岗位场景训练 <ChevronRight size={16} /></button><button type="button" onClick={() => navigate('/tasks/phase2/Task7/voice?position=bar_server')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">岗位题库 <ChevronRight size={16} /></button></div></div></div>
@@ -570,7 +590,7 @@ export default function BarServerTrial() {
           </section>
         )}
 
-        {isLastScenario && (
+        {allScenariosCompleted && (
           <QuickFeedback context="Bar Server 免费 3 场景体验完成页" />
         )}
 
@@ -585,6 +605,19 @@ export default function BarServerTrial() {
         <div className="mx-auto max-w-3xl px-5 pb-7 pt-10">
           <button type="button" onClick={() => navigate(returnDestination.route)} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-700"><ArrowLeft size={17} />{returnDestination.label}</button>
           <div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Wine size={24} /></div><div><p className="text-sm font-medium text-blue-700">Bar Server 工作场景体验</p><h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">免费完成 3 个真实场景，再决定是否继续</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">每个免费场景都包含语音回答、岗位知识反馈、专业参考答案、针对性重练和前后对比，不用残缺体验催你付费。</p></div></div>
+
+          {assessmentContext && (
+            <section className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-left">
+              <div className="flex items-start gap-3">
+                <Target size={19} className="mt-0.5 shrink-0 text-blue-700" />
+                <div>
+                  <p className="text-xs font-semibold text-blue-700">根据你的测评，先验证最相关的一场</p>
+                  <p className="mt-1 text-sm font-semibold text-blue-950">当前短板：{assessmentContext.gapLabel} · 匹配场景：{initialScenario.shortTitle}</p>
+                  {(assessmentContext.concernLabel || assessmentContext.stageLabel) && <p className="mt-2 text-xs leading-5 text-blue-800">{assessmentContext.concernLabel ? `主要担忧：${assessmentContext.concernLabel}` : ''}{assessmentContext.concernLabel && assessmentContext.stageLabel ? ' · ' : ''}{assessmentContext.stageLabel ? `当前阶段：${assessmentContext.stageLabel}` : ''}</p>}
+                </div>
+              </div>
+            </section>
+          )}
 
           <div className="mt-6 grid grid-cols-3 gap-2 text-center text-xs font-medium">
             {barServerTrialScenarios.map((item, index) => {

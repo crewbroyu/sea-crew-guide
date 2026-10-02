@@ -291,3 +291,21 @@ export const getScoreDeltaMessage = (delta) => {
   if (delta === 0) return '两次表现基本持平，需要把反馈转化成更具体的句子和动作。'
   return '第二次分数暂时下降并不代表退步，请放慢速度，先只改一个关键问题。'
 }
+
+export const getBarTrialScenarioEntryStage = (savedTrial, scenarioIndex) => {
+  const scenario = barServerTrialScenarios[scenarioIndex]
+  if (!scenario) return 'briefing'
+  if (savedTrial?.scenarioIndex === scenarioIndex && savedTrial.stage) return savedTrial.stage
+  const attempts = savedTrial?.attemptsByScenario?.[scenario.id] || []
+  if (attempts.length >= 2) return 'comparison'
+  if (attempts.length === 1) return 'feedback'
+  if (scenario.lesson && !savedTrial?.lessonProgressByScenario?.[scenario.id]?.completedAt) return 'lesson'
+  return 'briefing'
+}
+
+export const getNextIncompleteBarTrialScenario = (attemptsByScenario = {}, currentIndex = 0) => (
+  Array.from(
+    { length: Math.max(0, barServerTrialScenarios.length - 1) },
+    (_, offset) => (currentIndex + offset + 1) % barServerTrialScenarios.length,
+  ).find((index) => (attemptsByScenario[barServerTrialScenarios[index].id] || []).length < 2) ?? -1
+)

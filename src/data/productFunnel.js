@@ -5,8 +5,8 @@ export const CONVERSION_FUNNEL_STAGES = [
   { id: 'assessment_completed', label: '完成测评', eventName: 'assessment_completed' },
   { id: 'career_report_generated', label: '生成职业报告', eventName: 'career_report_generated' },
   { id: 'free_trial_viewed', label: '进入免费场景', eventName: 'free_trial_viewed' },
-  { id: 'free_trial_first_scene', label: '完成第 1 场', eventName: 'free_trial_scenario_completed', property: ['scenarioNumber', 1] },
-  { id: 'free_trial_completed', label: '完成第 3 场', eventName: 'free_trial_completed' },
+  { id: 'free_trial_first_scene', label: '完成首个场景', eventName: 'free_trial_scenario_completed', property: ['completionOrder', 1], legacyProperty: ['scenarioNumber', 1] },
+  { id: 'free_trial_completed', label: '完成 3 个场景', eventName: 'free_trial_completed' },
   { id: 'product_page_viewed', label: '查看付费页', eventName: 'product_page_viewed' },
   { id: 'purchase_request_submitted', label: '提交开通申请', eventName: 'purchase_request_submitted' },
   { id: 'activation_succeeded', label: '激活成功', eventName: 'activation_succeeded' },
@@ -28,7 +28,10 @@ const matchesStage = (event, stage) => {
   if (event.event_name !== stage.eventName) return false
   if (!stage.property) return true
   const [key, expected] = stage.property
-  return event.properties?.[key] === expected
+  if (event.properties?.[key] === expected) return true
+  if (event.properties?.[key] != null || !stage.legacyProperty) return false
+  const [legacyKey, legacyExpected] = stage.legacyProperty
+  return event.properties?.[legacyKey] === legacyExpected
 }
 
 const buildIdentityResolver = (events) => {

@@ -207,7 +207,7 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
         setReport(saved.report)
         setIsEditing(false)
         saveReportLocally({ nextReport: saved.report, profile: restoredProfile, fallbackRecommendations })
-        onReportGenerated?.(saved.report)
+        onReportGenerated?.(saved.report, restoredProfile)
         setState('success')
       } catch (error) {
         if (!cancelled) {
@@ -265,7 +265,7 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
       setSavedProfile(safeProfile)
       setIsEditing(false)
       saveReportLocally({ nextReport, profile: safeProfile, fallbackRecommendations })
-      onReportGenerated?.(nextReport)
+      onReportGenerated?.(nextReport, safeProfile)
       setState('success')
     } catch (error) {
       console.error('Career report generation failed:', error)

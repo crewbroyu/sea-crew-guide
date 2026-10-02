@@ -25,7 +25,7 @@ export const getLatestCareerReport = async () => {
   return data?.report ? data : null
 }
 
-export const generateCareerReport = async ({ profile, assessment }) => {
+export const generateCareerReport = async ({ profile, assessment, regenerate = false }) => {
   const { data: { session }, error } = await supabase.auth.getSession()
 
   if (error || !session?.access_token) {
@@ -44,7 +44,7 @@ export const generateCareerReport = async ({ profile, assessment }) => {
         Authorization: `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ profile, assessment, clientRequestId }),
+      body: JSON.stringify({ profile, assessment, clientRequestId, regenerate }),
       signal: controller.signal,
     })
     const body = await response.json().catch(() => null)

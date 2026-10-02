@@ -72,8 +72,8 @@ const reserveCareerReport = async ({ supabase, requestId }) => {
 
   if (error) {
     const message = error.message || ''
-    if (message.includes('CAREER_REPORT_ALREADY_GENERATED')) {
-      throw new CareerReportApiError(429, 'RATE_LIMITED', '免费职业评估已生成，请先根据报告完成岗位确认。')
+    if (message.includes('CAREER_REPORT_LIMIT_REACHED') || message.includes('CAREER_REPORT_ALREADY_GENERATED')) {
+      throw new CareerReportApiError(429, 'RATE_LIMITED', '职业评估的两次生成机会已用完，请根据最新报告继续准备。')
     }
     if (message.includes('CAREER_REPORT_IN_PROGRESS')) {
       throw new CareerReportApiError(409, 'REPORT_IN_PROGRESS', '职业报告正在生成，请不要重复提交。')
@@ -97,7 +97,7 @@ const finalizeCareerReport = async ({ supabase, reservationId, completed }) => {
 const getExistingCareerReport = async (supabase) => {
   const { data, error } = await supabase
     .from('career_reports')
-    .select('profile, report, created_at')
+    .select('profile, assessment_snapshot, report, created_at')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -114,17 +114,21 @@ const redactSensitiveText = (value) => trimText(value, 1000)
   .replace(/(?<!\d)1[3-9]\d{9}(?!\d)/g, '[已隐藏手机号]')
   .replace(/(?:微信|wechat|vx|v信)\s*[:：]\s*[\w-]+/gi, '[已隐藏联系方式]')
 
+const sanitizeChoiceList = (value, allowedValues, max = 6) => Array.isArray(value)
+  ? [...new Set(value.map((item) => trimText(item, 40)).filter((item) => allowedValues.includes(item)))].slice(0, max)
+  : []
+
 const sanitizeProfile = (profile = {}) => ({
-  ageRange: trimText(profile.ageRange, 40),
-  education: trimText(profile.education, 40),
-  englishLevel: trimText(profile.englishLevel, 40),
-  experience: trimText(profile.experience, 40),
-  goal: trimText(profile.goal, 40),
+  targetRole: trimText(profile.targetRole, 40),
+  backupRole: trimText(profile.backupRole, 40),
   timeline: trimText(profile.timeline, 40),
-  budget: trimText(profile.budget, 40),
-  salesTolerance: trimText(profile.salesTolerance, 40),
-  workIntensity: trimText(profile.workIntensity, 40),
-  workSummary: redactSensitiveText(profile.workSummary),
+  currentStage: trimText(profile.currentStage, 40),
+  primaryConcern: trimText(profile.primaryConcern, 40),
+  hardLimits: sanitizeChoiceList(profile.hardLimits, [
+    'sales_targets', 'night_shifts', 'high_intensity', 'low_base_salary',
+    'long_contract', 'high_upfront_cost', 'none',
+  ]),
+  additionalContext: redactSensitiveText(profile.additionalContext || profile.workSummary).slice(0, 500),
 })
 
 const normalizeList = (value, fallback, max = 4) => Array.isArray(value)
@@ -132,23 +136,44 @@ const normalizeList = (value, fallback, max = 4) => Array.isArray(value)
   : fallback
 
 const profileLabels = {
-  englishLevel: { basic: '只能简单沟通', service: '可完成基础服务沟通', interview: '可用英文讲经历和回答常见问题' },
-  experience: { none: '暂无相关经验', hospitality: '酒店/服务', restaurant_bar: '餐饮/酒吧', retail_sales: '零售/销售', front_office: '前台/接待', other: '其他可迁移经验' },
-  goal: { stability: '先稳妥上船', income: '更看重收入', career: '更看重长期职业发展' },
-  timeline: { within_3_months: '3 个月内开始申请', '3_6_months': '3-6 个月开始申请', '6_12_months': '6-12 个月开始申请', exploring: '先了解再决定' },
-  workIntensity: { low: '希望节奏稳定', medium: '可接受忙碌', high: '能接受高强度和晚班' },
+  targetRole: Object.fromEntries([['undecided', '还不确定，希望获得推荐'], ...allowedRoles.map((role) => [role.id, role.title])]),
+  timeline: { within_3_months: '希望 3 个月内上船', '3_6_months': '希望 3-6 个月上船', '6_12_months': '希望 6-12 个月上船', exploring: '上船时间暂未确定' },
+  currentStage: {
+    exploring: '刚开始了解海乘', position_selected: '已经确定目标岗位',
+    interview_preparation: '正在准备或参加面试', waiting_contract: '已通过面试，等待合同',
+    waiting_onboard: '已拿到合同，等待登船', experienced: '有过上船经历',
+  },
+  primaryConcern: {
+    english: '英语听说跟不上', interview: '面试表现不稳定', experience: '相关经验不足',
+    role_knowledge: '不了解岗位实际工作', medical_visa: '体检、签证或证件',
+    route_reliability: '申请渠道是否可靠', cost: '前期费用和投入',
+    onboard_adaptation: '上船后的适应问题', other: '其他问题',
+  },
+  hardLimit: {
+    sales_targets: '不能接受强销售指标', night_shifts: '不能接受长期晚班',
+    high_intensity: '不能接受高体力强度', low_base_salary: '不能接受较低底薪',
+    long_contract: '不能接受较长合同', high_upfront_cost: '不能接受较高前期费用',
+    none: '目前没有明确限制',
+  },
 }
 
 const getProfileLabel = (field, value) => profileLabels[field]?.[value] || value || '尚未确认'
 
-const normalizeDecisionBasis = (value, profile) => {
+const getAssessmentEvidence = (assessment, scoreKey, dimensionKey, label) => {
+  const practicalScore = Number(assessment?.practicalAssessment?.[scoreKey])
+  if (Number.isFinite(practicalScore) && practicalScore > 0) return `${label} ${practicalScore}/100`
+  const dimensionScore = Number(assessment?.dimensionScores?.[dimensionKey])
+  return Number.isFinite(dimensionScore) && dimensionScore > 0 ? `${label} ${dimensionScore}/100` : '结合本次测评证据判断'
+}
+
+const normalizeDecisionBasis = (value, profile, assessment) => {
   const supplied = Array.isArray(value) ? value : []
   const basis = [
-    { key: 'english', label: '当前英语水平', value: getProfileLabel('englishLevel', profile.englishLevel), impact: '英语水平会影响可比较岗位的沟通复杂度和准备周期。' },
-    { key: 'experience', label: '相关工作经验', value: getProfileLabel('experience', profile.experience), impact: '已有经历决定哪些能力可以直接迁移到邮轮岗位。' },
+    { key: 'english', label: '当前英语水平', value: getAssessmentEvidence(assessment, 'englishScore', 'english', '英语实战'), impact: '英语水平会影响可比较岗位的沟通复杂度和准备周期。' },
+    { key: 'experience', label: '相关工作经验', value: getAssessmentEvidence(assessment, 'serviceExperienceScore', 'service_experience', '经历核验'), impact: '已有经历决定哪些能力可以直接迁移到邮轮岗位。' },
     { key: 'entry_threshold', label: '岗位进入门槛', value: '结合前三个方向比较', impact: '门槛较低通常更利于先上船，但不等于收入或长期发展更优。' },
     { key: 'competitiveness', label: '当前竞争力', value: '以现有英语、经历和准备度综合判断', impact: '匹配度反映当前准备状态，不是录取概率。' },
-    { key: 'core_goal', label: '你的核心诉求', value: `${getProfileLabel('goal', profile.goal)}；${getProfileLabel('timeline', profile.timeline)}；${getProfileLabel('workIntensity', profile.workIntensity)}`, impact: '核心诉求决定应优先考虑上船速度、收入、强度还是长期发展。' },
+    { key: 'core_goal', label: '你的核心诉求', value: `${getProfileLabel('targetRole', profile.targetRole)}；${getProfileLabel('timeline', profile.timeline)}；${getProfileLabel('currentStage', profile.currentStage)}`, impact: '核心诉求决定应优先比较目标岗位、上船速度还是现实限制。' },
   ]
 
   return basis.map((fallback) => {
@@ -162,19 +187,22 @@ const normalizeDecisionBasis = (value, profile) => {
   })
 }
 
-const deriveDecisionRisks = (profile, positions) => {
+const deriveDecisionRisks = (profile, positions, assessment) => {
   const primaryId = positions[0]?.id
   const risks = []
-  if (profile.goal === 'income' && ['restaurant', 'housekeeping'].includes(primaryId)) {
-    risks.push('当前推荐更偏向解决“先上船”问题，不一定是长期收益最优方案。')
+  if (profile.targetRole !== 'undecided' && profile.targetRole && primaryId !== profile.targetRole) {
+    risks.push('测评优先方向与你当前首选岗位不同，需要确认是调整目标，还是针对首选岗位补齐差距。')
   }
-  if (profile.goal === 'career' && ['restaurant', 'housekeeping'].includes(primaryId)) {
-    risks.push('当前较容易进入的方向，与长期职业发展最优方向可能并不相同。')
+  if (profile.hardLimits.includes('sales_targets') && ['bar', 'retail', 'beauty_spa'].includes(primaryId)) {
+    risks.push('当前方向通常包含推荐销售或业绩要求，与你不能接受强销售指标的限制存在冲突。')
   }
-  if (profile.workIntensity === 'low' && ['bar', 'restaurant', 'housekeeping'].includes(primaryId)) {
-    risks.push('当前优先方向通常工作节奏较快或体力强度较高，与你希望节奏稳定的诉求存在冲突。')
+  if (profile.hardLimits.includes('high_intensity') && ['bar', 'restaurant', 'housekeeping'].includes(primaryId)) {
+    risks.push('当前方向通常工作节奏或体力强度较高，与你的限制存在冲突。')
   }
-  if (profile.timeline === 'within_3_months' && profile.englishLevel === 'basic') {
+  if (profile.hardLimits.includes('night_shifts') && ['bar', 'front_office'].includes(primaryId)) {
+    risks.push('当前方向可能涉及晚班或轮班，需要在接受岗位前确认实际排班。')
+  }
+  if (profile.timeline === 'within_3_months' && Number(assessment?.practicalAssessment?.englishScore || assessment?.dimensionScores?.english || 0) < 60) {
     risks.push('尽快申请与补足岗位英语之间存在时间冲突，需要先确认是优先上船还是继续准备。')
   }
   return risks
@@ -182,9 +210,8 @@ const deriveDecisionRisks = (profile, positions) => {
 
 const normalizeManualCalibration = (value, profile, decisionRisks) => {
   const topics = normalizeList(value?.topics, [], 5)
-  if (profile.timeline === 'within_3_months' || profile.englishLevel === 'basic') topics.push('先上船还是继续准备')
-  if (profile.goal === 'income') topics.push('低门槛岗位还是高收入岗位')
-  if (profile.goal === 'career') topics.push('短期进入机会还是长期职业路径')
+  if (profile.timeline === 'within_3_months' || profile.primaryConcern === 'english') topics.push('先上船还是继续准备')
+  if (profile.targetRole !== 'undecided' && profile.targetRole) topics.push('目标岗位还是测评优先方向')
   if (decisionRisks.length) topics.push('是否接受短期妥协换取船上经验')
 
   return {
@@ -238,7 +265,7 @@ const parseProviderResponse = async (response) => {
   try { return JSON.parse(content) } catch { throw new CareerReportApiError(502, 'INVALID_AI_RESPONSE', '职业评估生成不完整，请重新提交。') }
 }
 
-const buildReport = (raw, fallbackRecommendations, profile) => {
+const buildReport = (raw, fallbackRecommendations, profile, assessment = {}) => {
   const fallback = fallbackRecommendations
     .map((item) => ({ ...allowedRoles.find((role) => role.id === item.id), matchScore: item.matchScore }))
     .filter((item) => item.id)
@@ -255,7 +282,7 @@ const buildReport = (raw, fallbackRecommendations, profile) => {
   })
   const routeId = ['diy', 'guide', 'agent'].includes(raw?.applicationRoute?.id) ? raw.applicationRoute.id : 'guide'
   const routeTitles = { diy: '低成本 DIY 路线', guide: '指导型 DIY 路线', agent: '渠道协助路线' }
-  const derivedRisks = deriveDecisionRisks(profile, positions)
+  const derivedRisks = deriveDecisionRisks(profile, positions, assessment)
   const decisionRisks = [...new Set([
     ...normalizeList(raw?.decisionRisks, [], 4),
     ...derivedRisks,
@@ -264,7 +291,7 @@ const buildReport = (raw, fallbackRecommendations, profile) => {
   return {
     decisionPrinciple: 'AI 帮你缩小选择范围，但不替你做最终决定。',
     summary: softenDecisionLanguage(raw?.summary) || '你的岗位方向需要结合英语、经历、工作偏好和准备周期逐步确认。',
-    decisionBasis: normalizeDecisionBasis(raw?.decisionBasis, profile),
+    decisionBasis: normalizeDecisionBasis(raw?.decisionBasis, profile, assessment),
     decisionRisks: decisionRisks.length ? decisionRisks : ['方向匹配度只反映当前信息；收入、工作强度和长期发展仍需在岗位确认前逐项比较。'],
     manualCalibration: normalizeManualCalibration(raw?.manualCalibration, profile, decisionRisks),
     recommendedPositions: positions,
@@ -290,20 +317,34 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
     const { supabase } = await authenticateRequest({ headers, config })
 
     const profile = sanitizeProfile(payload.profile)
-    const requiredProfileFields = ['ageRange', 'education', 'englishLevel', 'experience', 'goal', 'timeline', 'budget', 'salesTolerance', 'workIntensity']
-    if (requiredProfileFields.some((field) => !profile[field])) throw new CareerReportApiError(400, 'INCOMPLETE_PROFILE', '请补全职业评估所需的信息。')
+    const validRoleIds = ['undecided', ...allowedRoles.map((role) => role.id)]
+    const requiredProfileFields = ['targetRole', 'timeline', 'currentStage', 'primaryConcern']
+    if (requiredProfileFields.some((field) => !profile[field]) || !profile.hardLimits.length) {
+      throw new CareerReportApiError(400, 'INCOMPLETE_PROFILE', '请补全职业评估所需的信息。')
+    }
+    if (!validRoleIds.includes(profile.targetRole) || (profile.backupRole && !validRoleIds.slice(1).includes(profile.backupRole))) {
+      throw new CareerReportApiError(400, 'INVALID_TARGET_ROLE', '请选择有效的目标岗位。')
+    }
+    if (profile.targetRole === 'undecided') profile.backupRole = ''
+    if (profile.backupRole === profile.targetRole) profile.backupRole = ''
 
     const requestId = trimText(payload.clientRequestId, 200)
     if (!requestId) throw new CareerReportApiError(400, 'REQUEST_ID_REQUIRED', '本次职业评估请求无效，请重新提交。')
     const assessment = payload.assessment || {}
     const fallbackRecommendations = Array.isArray(assessment.ruleRecommendations) ? assessment.ruleRecommendations.slice(0, 3) : []
     const existingRecord = await getExistingCareerReport(supabase)
-    if (existingRecord) {
+    const regenerate = payload.regenerate === true
+    if (existingRecord && !regenerate) {
       return {
         status: 200,
         body: {
           success: true,
-          data: buildReport(existingRecord.report, fallbackRecommendations, existingRecord.profile || profile),
+          data: buildReport(
+            existingRecord.report,
+            fallbackRecommendations,
+            sanitizeProfile(existingRecord.profile || profile),
+            existingRecord.assessment_snapshot || assessment,
+          ),
           meta: { reusedExistingReport: true },
         },
       }
@@ -330,7 +371,7 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
       signal: AbortSignal.timeout(75_000),
     })
       const rawReport = await parseProviderResponse(response)
-      const report = buildReport(rawReport, fallbackRecommendations, profile)
+      const report = buildReport(rawReport, fallbackRecommendations, profile, assessment)
       const { error } = await supabase.rpc('save_ai_advisor_career_report', {
       input_profile: profile,
       input_assessment: assessment,

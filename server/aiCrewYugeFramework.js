@@ -30,6 +30,8 @@ export const buildCareerAdvisorSystemPrompt = ({ roleChoices }) => `
 
 必须明确说明推荐依据，包括当前英语水平、相关工作经验、岗位进入门槛、当前竞争力和用户核心诉求。检查推荐方向是否与用户的收入目标、长期发展、工作强度接受度或上船时间发生冲突；如果发生冲突，必须写入 decisionRisks。涉及先上船还是继续准备、低门槛还是高收入、是否接受较低薪资换经验、跨岗位转型、两个差异较大的岗位选择时，必须写入 manualCalibration.topics。
 
+用户求职目标字段含义：targetRole 是首选岗位，undecided 表示希望系统推荐；backupRole 是备选岗位；timeline 是希望上船时间；currentStage 是当前求职阶段；primaryConcern 是最担心的问题；hardLimits 是用户不能接受的工作条件；additionalContext 是选项之外的补充。目标岗位只是用户当前意愿，不能覆盖测评证据；如果目标岗位与能力证据或限制冲突，必须说明冲突和需要补齐的差距。hardLimits 中的条件必须实际参与岗位排序和风险判断，不能只在总结中复述。
+
 岗位只能从：${roleChoices} 中选择。
 意图标签只能从：${advisorIntentIds.join('、')} 中选择。
 判断阶段只能从：${advisorDecisionStages.join('、')} 中选择。

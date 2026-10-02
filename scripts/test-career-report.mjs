@@ -4,6 +4,7 @@ import { handleCareerReportRequest } from '../server/careerReport.js'
 const originalFetch = global.fetch
 const calls = []
 let existingCareerRecord = null
+let completedReportCount = 0
 
 global.fetch = async (url, options = {}) => {
   calls.push({ url: String(url), options })
@@ -17,6 +18,9 @@ global.fetch = async (url, options = {}) => {
     return new Response(JSON.stringify([]), { status: 200, headers: { 'content-range': '*/0', 'content-type': 'application/json' } })
   }
   if (String(url).includes('/rest/v1/rpc/reserve_career_report_generation')) {
+    if (completedReportCount >= 2) {
+      return new Response(JSON.stringify({ message: 'CAREER_REPORT_LIMIT_REACHED' }), { status: 400, headers: { 'content-type': 'application/json' } })
+    }
     return new Response(JSON.stringify({ reservation_id: '33333333-3333-4333-8333-333333333333' }), { status: 200 })
   }
   if (String(url).includes('/rest/v1/rpc/finalize_career_report_generation')) {
@@ -54,6 +58,7 @@ global.fetch = async (url, options = {}) => {
     }), { status: 200 })
   }
   if (String(url).includes('/rest/v1/rpc/save_ai_advisor_career_report')) {
+    completedReportCount += 1
     return new Response(JSON.stringify({ consultation_id: '22222222-2222-4222-8222-222222222222' }), { status: 200 })
   }
   throw new Error(`Unexpected fetch: ${url}`)
@@ -75,9 +80,11 @@ try {
     body: {
       clientRequestId: 'career-report-test-1',
       profile: {
-        ageRange: '21_25', education: 'diploma', englishLevel: 'service', experience: 'restaurant_bar', goal: 'income', timeline: '3_6_months', budget: '500_2000', salesTolerance: 'open', workIntensity: 'high', workSummary: '餐饮服务经验。',
+        targetRole: 'bar', backupRole: 'restaurant', timeline: '3_6_months',
+        currentStage: 'position_selected', primaryConcern: 'english',
+        hardLimits: ['high_upfront_cost'], additionalContext: '餐饮服务经验，不想填写手机号 13812345678。',
       },
-      assessment: { overallScore: 68, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
+      assessment: { overallScore: 68, dimensionScores: { english: 62, service_experience: 71 }, practicalAssessment: { englishScore: 64, serviceExperienceScore: 72 }, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
     },
     env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
   })
@@ -96,13 +103,18 @@ try {
   assert.ok(modelCall)
   assert.equal(JSON.parse(modelCall.options.body).max_completion_tokens, 2500)
   assert.ok(JSON.parse(modelCall.options.body).messages[0].content.includes('不替用户做最终决定'))
+  const modelProfile = JSON.parse(JSON.parse(modelCall.options.body).messages[1].content).profile
+  assert.equal(modelProfile.targetRole, 'bar')
+  assert.ok(modelProfile.additionalContext.includes('[已隐藏手机号]'))
   assert.ok(calls.some((call) => call.url.includes('save_ai_advisor_career_report')))
 
   const modelCallCount = calls.filter((call) => call.url.includes('/chat/completions')).length
   existingCareerRecord = {
     profile: {
-      englishLevel: 'service', experience: 'restaurant_bar', goal: 'income', timeline: '3_6_months', workIntensity: 'high',
+      targetRole: 'bar', backupRole: 'restaurant', timeline: '3_6_months',
+      currentStage: 'position_selected', primaryConcern: 'english', hardLimits: ['high_upfront_cost'],
     },
+    assessment_snapshot: { dimensionScores: { english: 62, service_experience: 71 } },
     report: result.body.data,
     created_at: new Date().toISOString(),
   }
@@ -112,7 +124,8 @@ try {
     body: {
       clientRequestId: 'career-report-test-2',
       profile: {
-        ageRange: '21_25', education: 'diploma', englishLevel: 'service', experience: 'restaurant_bar', goal: 'income', timeline: '3_6_months', budget: '500_2000', salesTolerance: 'open', workIntensity: 'high', workSummary: '餐饮服务经验。',
+        targetRole: 'bar', timeline: '3_6_months', currentStage: 'position_selected',
+        primaryConcern: 'english', hardLimits: ['high_upfront_cost'], additionalContext: '餐饮服务经验。',
       },
       assessment: { overallScore: 68, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
     },
@@ -121,6 +134,41 @@ try {
   assert.equal(restored.status, 200)
   assert.equal(restored.body.meta.reusedExistingReport, true)
   assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length, modelCallCount)
+
+  const revised = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-test-3',
+      regenerate: true,
+      profile: {
+        targetRole: 'retail', backupRole: 'bar', timeline: 'within_3_months',
+        currentStage: 'interview_preparation', primaryConcern: 'interview',
+        hardLimits: ['night_shifts'], additionalContext: '希望优先比较销售岗位。',
+      },
+      assessment: { overallScore: 68, dimensionScores: { english: 62 }, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(revised.status, 200)
+  assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length, modelCallCount + 1)
+
+  const limitReached = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-test-4',
+      regenerate: true,
+      profile: {
+        targetRole: 'retail', timeline: 'within_3_months', currentStage: 'interview_preparation',
+        primaryConcern: 'interview', hardLimits: ['night_shifts'], additionalContext: '',
+      },
+      assessment: { overallScore: 68, ruleRecommendations: [{ id: 'retail', matchScore: 74 }] },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(limitReached.status, 429)
+  assert.equal(limitReached.body.error.code, 'RATE_LIMITED')
   console.log('Career report API scenarios passed.')
 } finally {
   global.fetch = originalFetch

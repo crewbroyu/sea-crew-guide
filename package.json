@@ -24,7 +24,8 @@
     "test:bar-sync": "node scripts/test-bar-server-sync.mjs",
     "test:funnel": "node scripts/test-product-funnel.mjs",
     "test:assessment-bridge": "node scripts/test-assessment-experience-bridge.mjs",
-    "test:bar-trial-report": "node scripts/test-bar-trial-report.mjs"
+    "test:bar-trial-report": "node scripts/test-bar-trial-report.mjs",
+    "test:purchase-flow": "node scripts/test-purchase-flow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

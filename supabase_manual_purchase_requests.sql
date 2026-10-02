@@ -99,12 +99,23 @@ begin
     raise exception 'Product unavailable';
   end if;
 
+  if exists (
+    select 1
+    from public.user_entitlements
+    where user_id = actor_user_id
+      and product_code = selected_product.code
+      and status = 'active'
+      and (expires_at is null or expires_at > now())
+  ) then
+    raise exception 'Product already active';
+  end if;
+
   select *
   into existing_request
   from public.manual_purchase_requests
   where user_id = actor_user_id
     and product_code = selected_product.code
-    and status in ('requested', 'payment_confirmed')
+    and status in ('requested', 'payment_confirmed', 'activation_sent')
   order by created_at desc
   limit 1;
 

@@ -17,6 +17,8 @@ export const CONVERSION_EVENT_NAMES = [...new Set([
   'assessment_result_viewed',
   'assessment_training_recommended_clicked',
   'free_trial_scenario_completed',
+  'free_trial_report_viewed',
+  'free_trial_report_cta_clicked',
   'paywall_reached',
   'purchase_cta_clicked',
   'activation_cta_clicked',

@@ -6,11 +6,9 @@ import {
   BarChart3,
   BookOpen,
   CheckCircle2,
-  ChevronRight,
   Clock3,
   Lightbulb,
   LoaderCircle,
-  LockKeyhole,
   MessageSquareText,
   Mic,
   RefreshCcw,
@@ -24,6 +22,7 @@ import { hasProductEntitlement } from '../../services/activationService'
 import PhraseShadowingPractice from '../../components/interview/PhraseShadowingPractice'
 import EdgeReadAloudHint from '../../components/EdgeReadAloudHint'
 import QuickFeedback from '../../components/QuickFeedback'
+import BarServerTrialCompletionReport from '../../components/programs/BarServerTrialCompletionReport'
 import ScenarioLesson from '../../components/interview/ScenarioLesson'
 import { evaluateInterviewWithAi, transcribeInterviewAudio } from '../../services/interviewAiService'
 import { saveInterviewPracticeRecord } from '../../services/interviewPracticeService'
@@ -38,6 +37,7 @@ import {
   getScoreDeltaMessage,
 } from '../../data/barServerTrial'
 import { readAssessmentTrialContext } from '../../data/assessmentExperienceBridge'
+import { buildBarServerTrialReport } from '../../data/barServerTrialReport'
 
 const readTrial = () => {
   try {
@@ -120,6 +120,17 @@ export default function BarServerTrial() {
   const overallReadiness = completedScores.length
     ? Math.round(completedScores.reduce((sum, score) => sum + score, 0) / completedScores.length)
     : 0
+  const trialReport = useMemo(() => allScenariosCompleted
+    ? buildBarServerTrialReport({
+        attemptsByScenario,
+        currentStage: assessmentContext?.currentStage || '',
+      })
+    : null, [allScenariosCompleted, assessmentContext?.currentStage, attemptsByScenario])
+  const trialReportDedupeKey = trialReport
+    ? barServerTrialScenarios
+        .map((item) => (attemptsByScenario[item.id] || [])[1]?.completedAt || item.id)
+        .join(':')
+    : ''
 
   useEffect(() => {
     trackProductEvent('free_trial_viewed', {
@@ -166,6 +177,20 @@ export default function BarServerTrial() {
       })
     }
   }, [allScenariosCompleted, hasBarServerPack, overallReadiness, retryAttempt, stage])
+
+  useEffect(() => {
+    if (stage !== 'comparison' || !trialReport) return
+    trackProductEvent('free_trial_report_viewed', {
+      oncePerSession: true,
+      dedupeKey: trialReportDedupeKey,
+      properties: {
+        readiness: trialReport.readiness,
+        passedCount: trialReport.passedCount,
+        primaryGapScenario: trialReport.primaryGap.scenarioId,
+        source: assessmentContext ? 'assessment' : 'direct',
+      },
+    })
+  }, [assessmentContext, stage, trialReport, trialReportDedupeKey])
 
   useEffect(() => {
     localStorage.setItem(BAR_SERVER_TRIAL_STORAGE_KEY, JSON.stringify({
@@ -580,14 +605,24 @@ export default function BarServerTrial() {
 
         {!allScenariosCompleted ? (
           <button type="button" onClick={goToNextScenario} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">继续免费场景 {nextIncompleteScenarioIndex + 1}/{barServerTrialScenarios.length} <ArrowRight size={18} /></button>
-        ) : hasBarServerPack ? (
-          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-            <div className="flex items-start gap-3"><CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-700" /><div className="min-w-0 flex-1"><p className="text-xs font-semibold text-emerald-700">Bar Server 单职位全流程包已解锁</p><h2 className="mt-1 font-semibold text-emerald-950">免费体验完成，继续进入完整准备路径</h2><p className="mt-2 text-sm leading-6 text-emerald-900">先补齐基础知识，再用连续岗位场景检验能否真正服务客人；之后再进入题库和模拟面试。</p><div className="mt-4 grid gap-2 sm:grid-cols-3"><button type="button" onClick={() => navigate('/programs/bar-server/foundation')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800">岗位基础课 <ChevronRight size={16} /></button><button type="button" onClick={() => navigate('/programs/bar-server/training')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">岗位场景训练 <ChevronRight size={16} /></button><button type="button" onClick={() => navigate('/tasks/phase2/Task7/voice?position=bar_server')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">岗位题库 <ChevronRight size={16} /></button></div></div></div>
-          </section>
-        ) : (
-          <section className="rounded-lg border border-blue-200 bg-blue-50 p-5">
-            <div className="flex items-start gap-3"><LockKeyhole size={20} className="mt-0.5 shrink-0 text-blue-700" /><div className="min-w-0 flex-1"><p className="text-xs font-semibold text-blue-700">3 个免费场景已完整完成</p><h2 className="mt-1 font-semibold text-blue-950">当前 Bar Server 场景准备度：{overallReadiness}/100</h2><p className="mt-2 text-sm leading-6 text-blue-900">你已经体验了销售推荐、客诉补救和安全拒酒。后续完整训练将覆盖更多工作场景、岗位知识、高频面试题、完整模拟面试和最终准备度报告。</p><button type="button" onClick={() => navigate('/premium?source=bar-server-trial')} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-800">解锁完整 Bar Server 训练 <ChevronRight size={16} /></button></div></div>
-          </section>
+        ) : trialReport && (
+          <BarServerTrialCompletionReport
+            report={trialReport}
+            hasAccess={hasBarServerPack}
+            onContinue={() => {
+              trackProductEvent('free_trial_report_cta_clicked', {
+                properties: {
+                  readiness: trialReport.readiness,
+                  passedCount: trialReport.passedCount,
+                  primaryGapScenario: trialReport.primaryGap.scenarioId,
+                  hasAccess: hasBarServerPack,
+                },
+              })
+              navigate(hasBarServerPack
+                ? '/programs/bar-server/foundation'
+                : `/premium?source=bar-server-trial-report&gap=${encodeURIComponent(trialReport.primaryGap.scenarioId)}`)
+            }}
+          />
         )}
 
         {allScenariosCompleted && (

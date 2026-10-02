@@ -1,4 +1,4 @@
-import { createElement, useMemo, useState } from 'react'
+import { createElement, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen,
@@ -17,11 +17,8 @@ import {
   X,
 } from 'lucide-react'
 import useEffectiveAccess from '../hooks/useEffectiveAccess'
-import { getScoreData } from '../store/scoreStore'
-import pathData from '../data/pathData'
-import { BAR_SERVER_FOUNDATION_DAY_COUNT } from '../data/barServerFoundationMeta'
-import { retailFoundationDays } from '../data/retailFoundation'
 import { SUPPORT_EMAIL, SUPPORT_WECHAT_ID } from '../config/contact'
+import TodayDashboard from '../components/home/TodayDashboard'
 
 const publicLinks = [
   {
@@ -78,92 +75,12 @@ const serviceLinks = [
   },
 ]
 
-const readLocalJson = (key, fallback = {}) => {
-  try {
-    const value = localStorage.getItem(key)
-    return value ? JSON.parse(value) : fallback
-  } catch (error) {
-    console.warn(`Unable to read ${key}:`, error)
-    return fallback
-  }
-}
-
-const getHomeSnapshot = () => {
-  const progress = readLocalJson('boarding_progress')
-  const allTasks = pathData.flatMap((stage) => stage.tasks)
-  const currentTask = allTasks.find((task) => !progress[`task${task.id}`]?.completed) || allTasks[0]
-  const currentStage =
-    pathData.find((stage) => stage.tasks.some((task) => task.id === currentTask?.id)) || pathData[0]
-  const completedCount = allTasks.filter((task) => progress[`task${task.id}`]?.completed).length
-  const task2Result = readLocalJson('task2_result')
-  const targetJob = task2Result.selectedTargetJob || task2Result.currentJob?.[0]?.name || ''
-  const assessment = readLocalJson('assessment_result')
-  const task5 = readLocalJson('task5_result', readLocalJson('task5_data'))
-  const task6 = readLocalJson('task6_result')
-  const task7 = readLocalJson('task7_result')
-  const foundationCompletedDays = Number(task5.foundationCompletedDays || 0)
-    || Object.values(task5.foundationProgress || {}).filter((day) => day?.completedAt).length
-
-  let recommendedAction = {
-    label: `第 ${currentTask?.id || 1} 任务`,
-    title: currentTask?.title || '继续申请路线',
-    reason: '完成当前步骤后，系统会更新下一项建议。',
-    route: currentTask?.route || '/tasks',
-  }
-
-  if (!assessment.overallScore && !assessment.aiCareerReport) {
-    recommendedAction = {
-      label: '现在只做这一件事',
-      title: '先完成职业适配测评',
-      reason: '先确定岗位方向，后面的简历、知识和面试训练才不会走偏。',
-      route: '/assessment',
-    }
-  } else if ((currentTask?.id || 1) >= 5 && task5.selectedRole === 'barServer' && foundationCompletedDays < BAR_SERVER_FOUNDATION_DAY_COUNT) {
-    recommendedAction = {
-      label: '当前推荐行动',
-      title: `继续 Bar Server 基础训练（${foundationCompletedDays}/${BAR_SERVER_FOUNDATION_DAY_COUNT}）`,
-      reason: '先补齐酒水与服务动作，再把知识带进答案卡和语音训练。',
-      route: '/programs/bar-server/foundation',
-    }
-  } else if ((currentTask?.id || 1) >= 5 && task5.selectedRole === 'retail' && foundationCompletedDays < retailFoundationDays.length) {
-    recommendedAction = {
-      label: '当前推荐行动',
-      title: `继续 Retail Sales 基础训练（${foundationCompletedDays}/${retailFoundationDays.length}）`,
-      reason: '先练需求发现、产品匹配和合规销售，再进入答案卡与岗位模拟。',
-      route: '/programs/retail/foundation',
-    }
-  } else if ((currentTask?.id || 1) >= 6 && task5.selectedRole === 'barServer' && Number(task6.preparedAnswerCount || 0) < 3) {
-    recommendedAction = {
-      label: '当前推荐行动',
-      title: '完成 3 张个人面试答案卡',
-      reason: '把真实经历整理好，再进入语音训练，AI反馈才会具体。',
-      route: '/tasks/phase2/Task6',
-    }
-  } else if ((currentTask?.id || 1) >= 7 && Number(task7.evaluation?.overallScore || 0) > 0 && Number(task7.evaluation.overallScore) < 70) {
-    recommendedAction = {
-      label: '当前最大短板',
-      title: '专项重练任务7最低分问题',
-      reason: task7.evaluation.priorities?.[0] || '先把最低分问题练到稳定，再进入完整模拟面试。',
-      route: '/tasks/phase2/Task7/voice?position=bar_server',
-    }
-  }
-
-  return {
-    currentTask,
-    currentStage,
-    completedCount,
-    totalTasks: allTasks.length,
-    targetJob,
-    scoreData: getScoreData(),
-    recommendedAction,
-  }
-}
-
 export default function Home() {
   const navigate = useNavigate()
   const { isRegistered } = useEffectiveAccess()
   const [showWechatModal, setShowWechatModal] = useState(false)
-  const snapshot = useMemo(() => getHomeSnapshot(), [])
+
+  if (isRegistered) return <TodayDashboard />
 
   const handleServiceClick = (item) => {
     if (item.action === 'wechat') {
@@ -185,13 +102,6 @@ export default function Home() {
           <p className="text-slate-600 mt-3 leading-relaxed">
             用百科建立认知，用测评找到岗位方向，再按路线准备简历、英语、面试和登船材料。
           </p>
-
-          {snapshot.targetJob && (
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm text-blue-800">
-              <Target size={15} />
-              当前目标岗位：{snapshot.targetJob}
-            </div>
-          )}
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <button
@@ -291,69 +201,30 @@ export default function Home() {
         <section className="mb-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="font-bold text-slate-950">
-                {isRegistered ? '你的申请进度' : '个性化功能'}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {isRegistered ? '继续你当前最该完成的一步' : '登录后保存测评、岗位、简历和任务进度'}
-              </p>
+              <h2 className="font-bold text-slate-950">个性化功能</h2>
+              <p className="mt-1 text-sm text-slate-500">登录后保存测评、岗位、简历和任务进度</p>
             </div>
             <button
               type="button"
-              onClick={() => navigate(isRegistered ? '/profile' : '/tasks')}
+              onClick={() => navigate('/tasks')}
               className="text-sm text-blue-700"
             >
               查看
             </button>
           </div>
 
-          {isRegistered ? (
-            <>
-              <button
-                type="button"
-                onClick={() => navigate(snapshot.recommendedAction.route)}
-                className="mb-4 flex w-full items-center justify-between rounded-lg bg-blue-600 px-4 py-4 text-left text-white transition hover:bg-blue-700"
-              >
-                <span>
-                  <span className="block text-xs font-medium text-blue-100">
-                    {snapshot.recommendedAction.label}
-                  </span>
-                  <span className="mt-1 block font-semibold">{snapshot.recommendedAction.title}</span>
-                  <span className="mt-1 block text-xs leading-5 text-blue-100">{snapshot.recommendedAction.reason}</span>
-                </span>
-                <ChevronRight size={20} className="shrink-0" />
-              </button>
-
-              <div className="mb-4 grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="text-xl font-bold text-blue-700">{snapshot.completedCount}</p>
-                  <p className="mt-1 text-xs text-slate-500">完成任务</p>
-                </div>
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="text-xl font-bold text-emerald-700">{snapshot.scoreData?.totalScore || 0}</p>
-                  <p className="mt-1 text-xs text-slate-500">积分</p>
-                </div>
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <p className="text-xl font-bold text-amber-600">{snapshot.scoreData?.continuousDays || 0}</p>
-                  <p className="mt-1 text-xs text-slate-500">连续打卡</p>
-                </div>
-              </div>
-
-            </>
-          ) : (
-            <div className="rounded-lg bg-slate-50 p-4">
-              <p className="text-sm text-slate-600">
-                你可以先免费浏览内容。只有保存进度、简历、个人中心和申请记录时才需要登录。
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate('/assessment')}
-                className="mt-4 w-full rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
-              >
-                先做一次职业测评
-              </button>
-            </div>
-          )}
+          <div className="rounded-lg bg-slate-50 p-4">
+            <p className="text-sm text-slate-600">
+              你可以先免费浏览内容。只有保存进度、简历、个人中心和申请记录时才需要登录。
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/assessment')}
+              className="mt-4 w-full rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
+            >
+              先做一次职业测评
+            </button>
+          </div>
         </section>
 
         <section className="mb-8">

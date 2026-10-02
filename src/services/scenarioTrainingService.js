@@ -36,7 +36,7 @@ export const getMyScenarioHistory = async (jobKey = 'bar_server', limit = 30) =>
 
   const { data, error } = await supabase
     .from('scenario_training_sessions')
-    .select('id, scenario_id, difficulty, status, overall_readiness, skill_scores, created_at, completed_at')
+    .select('id, scenario_id, difficulty, status, overall_readiness, skill_scores, weaknesses, next_recommendation, created_at, completed_at')
     .eq('user_id', user.id)
     .eq('job_key', jobKey)
     .eq('status', 'completed')

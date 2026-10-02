@@ -74,6 +74,21 @@ try {
   assert.equal(unauthenticated.status, 401)
   assert.equal(unauthenticated.body.error.code, 'LOGIN_REQUIRED')
 
+  const invalidChoice = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-invalid-choice',
+      profile: {
+        targetRole: 'bar', timeline: 'tomorrow', currentStage: 'position_selected',
+        primaryConcern: 'english', hardLimits: ['none'],
+      },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(invalidChoice.status, 400)
+  assert.equal(invalidChoice.body.error.code, 'INVALID_PROFILE_CHOICE')
+
   const result = await handleCareerReportRequest({
     method: 'POST',
     headers: { authorization: 'Bearer mock-token' },
@@ -151,6 +166,31 @@ try {
     env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
   })
   assert.equal(revised.status, 200)
+  assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length, modelCallCount + 1)
+
+  existingCareerRecord = {
+    profile: {
+      targetRole: 'retail', backupRole: 'bar', timeline: 'within_3_months',
+      currentStage: 'interview_preparation', primaryConcern: 'interview',
+      hardLimits: ['night_shifts'], additionalContext: '希望优先比较销售岗位。',
+    },
+    assessment_snapshot: { dimensionScores: { english: 62 } },
+    report: revised.body.data,
+    created_at: new Date().toISOString(),
+  }
+  const revisionRetry = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-test-retry',
+      regenerate: true,
+      profile: existingCareerRecord.profile,
+      assessment: { overallScore: 68, ruleRecommendations: [{ id: 'retail', matchScore: 74 }] },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(revisionRetry.status, 200)
+  assert.equal(revisionRetry.body.meta.reusedExistingReport, true)
   assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length, modelCallCount + 1)
 
   const limitReached = await handleCareerReportRequest({

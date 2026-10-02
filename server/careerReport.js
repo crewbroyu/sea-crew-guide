@@ -20,6 +20,10 @@ const allowedRoles = [
   { id: 'youth_staff', title: 'Youth Staff' },
   { id: 'beauty_spa', title: 'Beauty / SPA Specialist' },
 ]
+const allowedTimelineValues = ['within_3_months', '3_6_months', '6_12_months', 'exploring']
+const allowedStageValues = ['exploring', 'position_selected', 'interview_preparation', 'waiting_contract', 'waiting_onboard', 'experienced']
+const allowedConcernValues = ['english', 'interview', 'experience', 'role_knowledge', 'medical_visa', 'route_reliability', 'cost', 'onboard_adaptation', 'other']
+const allowedHardLimitValues = ['sales_targets', 'night_shifts', 'high_intensity', 'low_base_salary', 'long_contract', 'high_upfront_cost', 'none']
 
 class CareerReportApiError extends Error {
   constructor(status, code, message) {
@@ -115,21 +119,25 @@ const redactSensitiveText = (value) => trimText(value, 1000)
   .replace(/(?:微信|wechat|vx|v信)\s*[:：]\s*[\w-]+/gi, '[已隐藏联系方式]')
 
 const sanitizeChoiceList = (value, allowedValues, max = 6) => Array.isArray(value)
-  ? [...new Set(value.map((item) => trimText(item, 40)).filter((item) => allowedValues.includes(item)))].slice(0, max)
+  ? [...new Set(value.map((item) => trimText(item, 40)).filter((item) => allowedValues.includes(item)))]
+    .sort((left, right) => allowedValues.indexOf(left) - allowedValues.indexOf(right))
+    .slice(0, max)
   : []
 
-const sanitizeProfile = (profile = {}) => ({
-  targetRole: trimText(profile.targetRole, 40),
-  backupRole: trimText(profile.backupRole, 40),
-  timeline: trimText(profile.timeline, 40),
-  currentStage: trimText(profile.currentStage, 40),
-  primaryConcern: trimText(profile.primaryConcern, 40),
-  hardLimits: sanitizeChoiceList(profile.hardLimits, [
-    'sales_targets', 'night_shifts', 'high_intensity', 'low_base_salary',
-    'long_contract', 'high_upfront_cost', 'none',
-  ]),
-  additionalContext: redactSensitiveText(profile.additionalContext || profile.workSummary).slice(0, 500),
-})
+const sanitizeProfile = (profile = {}) => {
+  const hardLimits = sanitizeChoiceList(profile.hardLimits, allowedHardLimitValues)
+  return {
+    targetRole: trimText(profile.targetRole, 40),
+    backupRole: trimText(profile.backupRole, 40),
+    timeline: trimText(profile.timeline, 40),
+    currentStage: trimText(profile.currentStage, 40),
+    primaryConcern: trimText(profile.primaryConcern, 40),
+    hardLimits: hardLimits.length > 1 ? hardLimits.filter((value) => value !== 'none') : hardLimits,
+    additionalContext: redactSensitiveText(profile.additionalContext || profile.workSummary).slice(0, 500),
+  }
+}
+
+const profilesMatch = (left, right) => JSON.stringify(sanitizeProfile(left)) === JSON.stringify(sanitizeProfile(right))
 
 const normalizeList = (value, fallback, max = 4) => Array.isArray(value)
   ? value.map((item) => trimText(item, 220)).filter(Boolean).slice(0, max).concat([])
@@ -325,6 +333,11 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
     if (!validRoleIds.includes(profile.targetRole) || (profile.backupRole && !validRoleIds.slice(1).includes(profile.backupRole))) {
       throw new CareerReportApiError(400, 'INVALID_TARGET_ROLE', '请选择有效的目标岗位。')
     }
+    if (!allowedTimelineValues.includes(profile.timeline)
+      || !allowedStageValues.includes(profile.currentStage)
+      || !allowedConcernValues.includes(profile.primaryConcern)) {
+      throw new CareerReportApiError(400, 'INVALID_PROFILE_CHOICE', '求职目标中包含无效选项，请刷新页面后重新选择。')
+    }
     if (profile.targetRole === 'undecided') profile.backupRole = ''
     if (profile.backupRole === profile.targetRole) profile.backupRole = ''
 
@@ -334,7 +347,7 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
     const fallbackRecommendations = Array.isArray(assessment.ruleRecommendations) ? assessment.ruleRecommendations.slice(0, 3) : []
     const existingRecord = await getExistingCareerReport(supabase)
     const regenerate = payload.regenerate === true
-    if (existingRecord && !regenerate) {
+    if (existingRecord && (!regenerate || profilesMatch(existingRecord.profile, profile))) {
       return {
         status: 200,
         body: {

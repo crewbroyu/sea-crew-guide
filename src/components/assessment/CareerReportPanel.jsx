@@ -60,6 +60,16 @@ const normalizeProfile = (profile = {}) => ({
   additionalContext: profile.additionalContext || profile.workSummary || '',
 })
 
+const redactSensitiveText = (value = '') => value
+  .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[已隐藏邮箱]')
+  .replace(/(?<!\d)1[3-9]\d{9}(?!\d)/g, '[已隐藏手机号]')
+  .replace(/(?:微信|wechat|vx|v信)\s*[:：]\s*[\w-]+/gi, '[已隐藏联系方式]')
+
+const sanitizeProfileForStorage = (profile) => ({
+  ...profile,
+  additionalContext: redactSensitiveText(profile.additionalContext),
+})
+
 const optionLabel = (options, value) => options.find(([key]) => key === value)?.[1] || '尚未确认'
 
 const buildLegacyDecisionBasis = (profile, assessment) => [
@@ -106,6 +116,7 @@ const SelectField = ({ label, value, options, onChange, optional = false, disabl
 const saveReportLocally = ({ nextReport, profile, fallbackRecommendations }) => {
   try {
     const current = JSON.parse(localStorage.getItem('assessment_result') || '{}')
+    const safeProfile = sanitizeProfileForStorage(profile)
     const recommendations = nextReport.recommendedPositions.map((position) => ({
       id: position.id,
       title: position.title,
@@ -116,7 +127,7 @@ const saveReportLocally = ({ nextReport, profile, fallbackRecommendations }) => 
     }))
     localStorage.setItem('assessment_result', JSON.stringify({
       ...current,
-      careerProfile: profile,
+      careerProfile: safeProfile,
       careerReport: nextReport,
       recommendations: recommendations.length ? recommendations : fallbackRecommendations,
       recommended_application_route: nextReport.applicationRoute?.id || null,
@@ -237,9 +248,11 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
         },
       })
       setReport(nextReport)
-      setSavedProfile(profile)
+      const safeProfile = sanitizeProfileForStorage(profile)
+      setProfile(safeProfile)
+      setSavedProfile(safeProfile)
       setIsEditing(false)
-      saveReportLocally({ nextReport, profile, fallbackRecommendations })
+      saveReportLocally({ nextReport, profile: safeProfile, fallbackRecommendations })
       onReportGenerated?.(nextReport)
       setState('success')
     } catch (error) {

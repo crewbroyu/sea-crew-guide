@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAccessStore } from '../store/accessStore';
 import { getAuthCallbackUrl, supabase } from '../supabase';
+import { trackProductEvent } from '../services/productAnalyticsService';
 
 export default function RegisterModal() {
   const { showRegisterModal, authModalMode, closeRegisterModal, register } = useAccessStore();
@@ -97,6 +98,8 @@ export default function RegisterModal() {
       return;
     }
     
+    const intentRoute = window.location.pathname;
+    try { sessionStorage.setItem('auth_intent_route', intentRoute); } catch { /* Continue without attribution. */ }
     setIsProcessing(true);
     
     try {
@@ -137,6 +140,10 @@ export default function RegisterModal() {
       if (result.data?.user) {
         // 注册/登录成功
         register(result.data.user, name || result.data.user.user_metadata?.name || result.data.user.email?.split('@')[0]);
+        trackProductEvent('auth_completed', {
+          productCode: null,
+          properties: { authMode: mode, intentRoute },
+        });
       }
     } catch (error) {
       console.error('Auth error:', error);

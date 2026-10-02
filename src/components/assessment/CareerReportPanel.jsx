@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAccessStore } from '../../store/accessStore'
 import useEffectiveAccess from '../../hooks/useEffectiveAccess'
 import { CareerReportError, generateCareerReport, getLatestCareerReport } from '../../services/careerReportService'
+import { trackProductEvent } from '../../services/productAnalyticsService'
 
 const roleOptions = [
   ['undecided', '还不确定，希望获得推荐'],
@@ -245,6 +246,17 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
           dimensionScores: assessment.dimensionScores,
           practicalAssessment: assessment.practicalAssessment,
           ruleRecommendations: fallbackRecommendations.map(({ id, title, matchScore }) => ({ id, title, matchScore })),
+        },
+      })
+      trackProductEvent('career_report_generated', {
+        productCode: null,
+        properties: {
+          targetRole: profile.targetRole,
+          backupRole: profile.backupRole || null,
+          timeline: profile.timeline,
+          currentStage: profile.currentStage,
+          primaryConcern: profile.primaryConcern,
+          regenerate: Boolean(report),
         },
       })
       setReport(nextReport)

@@ -2,21 +2,34 @@ import { createElement, useEffect, useMemo, useState } from 'react'
 import { Activity, ArrowLeft, BarChart3, CircleAlert, Clock3, Coins, FileText, LoaderCircle, MessageSquareText, Mic2, RefreshCcw, UserCheck, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
-
-const EVENT_NAMES = [
-  'free_trial_viewed',
-  'free_trial_completed',
-  'paywall_reached',
-  'quick_feedback_submitted',
-  'activation_cta_clicked',
-  'manual_purchase_requested',
-]
+import { buildConversionFunnel, buildTargetRoleBreakdown, CONVERSION_EVENT_NAMES } from '../data/productFunnel'
 
 const countEvents = (events, name) => events.filter((event) => event.event_name === name).length
 
 const feedbackCount = (events, response) => events.filter(
   (event) => event.event_name === 'quick_feedback_submitted' && event.properties?.response === response,
 ).length
+
+const fetchProductEvents = async (since, until) => {
+  const pageSize = 1000
+  const allEvents = []
+
+  for (let offset = 0; ; offset += pageSize) {
+    const result = await supabase
+      .from('product_events')
+      .select('id, user_id, anonymous_id, event_name, route, product_code, properties, created_at')
+      .in('event_name', CONVERSION_EVENT_NAMES)
+      .gte('created_at', since)
+      .lte('created_at', until)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + pageSize - 1)
+
+    if (result.error) return result
+    allEvents.push(...(result.data || []))
+    if ((result.data || []).length < pageSize) return { data: allEvents, error: null }
+  }
+}
 
 export default function AdminBetaDashboard() {
   const navigate = useNavigate()
@@ -31,15 +44,10 @@ export default function AdminBetaDashboard() {
     setStatus('loading')
     setError('')
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+    const until = new Date().toISOString()
 
     const [eventsResult, requestsResult, overviewResult, aiOverviewResult] = await Promise.all([
-      supabase
-        .from('product_events')
-        .select('id, user_id, anonymous_id, event_name, properties, created_at')
-        .eq('product_code', 'bar_server_pack')
-        .in('event_name', EVENT_NAMES)
-        .gte('created_at', since)
-        .order('created_at', { ascending: false }),
+      fetchProductEvents(since, until),
       supabase
         .from('support_requests')
         .select('id, category, message, status, created_at')
@@ -67,17 +75,9 @@ export default function AdminBetaDashboard() {
     return () => window.clearTimeout(timer)
   }, [])
 
-  const funnel = useMemo(() => ([
-    ['进入免费体验', countEvents(events, 'free_trial_viewed')],
-    ['完成 3 个场景', countEvents(events, 'free_trial_completed')],
-    ['到达付费墙', countEvents(events, 'paywall_reached')],
-    ['点击开通', countEvents(events, 'activation_cta_clicked')],
-    ['提交人工开通', countEvents(events, 'manual_purchase_requested')],
-  ]), [events])
-
-  const completed = countEvents(events, 'free_trial_completed')
-  const viewed = countEvents(events, 'free_trial_viewed')
-  const completionRate = viewed ? Math.round((completed / viewed) * 100) : 0
+  const funnel = useMemo(() => buildConversionFunnel(events), [events])
+  const roleBreakdown = useMemo(() => buildTargetRoleBreakdown(events), [events])
+  const stageById = useMemo(() => Object.fromEntries(funnel.map((stage) => [stage.id, stage])), [funnel])
   const openRequests = requests.filter((request) => request.status === 'open')
 
   return (
@@ -87,9 +87,9 @@ export default function AdminBetaDashboard() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <button type="button" onClick={() => navigate('/tasks')} className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-700"><ArrowLeft size={16} />返回登船路径</button>
-              <p className="text-sm font-medium text-blue-700">管理员 · 封闭测试</p>
-              <h1 className="mt-2 text-2xl font-semibold text-slate-950">Bar Server 内测观察</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-600">近 14 天数据。用它判断用户有没有练、在哪里退出、哪里需要人工处理。</p>
+              <p className="text-sm font-medium text-blue-700">管理员 · 产品数据</p>
+              <h1 className="mt-2 text-2xl font-semibold text-slate-950">转化与使用观察</h1>
+              <p className="mt-2 text-sm leading-6 text-slate-600">近 14 天数据。独立用户按登录账号与浏览器标识合并，用于判断用户在哪一步退出。</p>
             </div>
             <button type="button" onClick={load} disabled={status === 'loading'} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 disabled:opacity-60"><RefreshCcw size={16} className={status === 'loading' ? 'animate-spin' : ''} />刷新</button>
           </div>
@@ -109,7 +109,7 @@ export default function AdminBetaDashboard() {
               <Metric icon={Users} label="累计注册" value={overview?.registered_total || 0} detail={`近 14 天新增 ${overview?.registered_period || 0}`} />
               <Metric icon={UserCheck} label="邮箱已确认" value={overview?.confirmed_period || 0} detail="近 14 天完成验证" tone="emerald" />
               <Metric icon={BarChart3} label="职业测评" value={overview?.assessment_period || 0} detail="近 14 天保存记录" />
-              <Metric icon={FileText} label="AI 职业报告" value={overview?.career_report_period || 0} detail="近 14 天成功生成" />
+              <Metric icon={FileText} label="AI 报告用户" value={stageById.career_report_generated?.actorCount || 0} detail={`${overview?.career_report_period || 0} 个报告版本`} />
               <Metric icon={Mic2} label="场景训练" value={overview?.scenario_session_period || 0} detail="近 14 天完成会话" />
             </div>
           </section>
@@ -143,7 +143,7 @@ export default function AdminBetaDashboard() {
           </section>
 
           <section className="grid gap-3 sm:grid-cols-3">
-            <Metric icon={Users} label="体验完成率" value={`${completionRate}%`} detail={`${completed} / ${viewed || 0} 完成`} />
+            <Metric icon={Users} label="完成三场体验" value={stageById.free_trial_completed?.actorCount || 0} detail={`${stageById.free_trial_viewed?.actorCount || 0} 人进入免费体验`} />
             <Metric icon={MessageSquareText} label="快速反馈" value={countEvents(events, 'quick_feedback_submitted')} detail={`清楚 ${feedbackCount(events, 'clear')} · 犹豫 ${feedbackCount(events, 'uncertain')} · 卡住 ${feedbackCount(events, 'blocked')}`} />
             <Metric icon={CircleAlert} label="待处理支持单" value={openRequests.length} detail={`共读取 ${requests.length} 条最近记录`} tone={openRequests.length ? 'amber' : 'emerald'} />
           </section>
@@ -168,10 +168,30 @@ export default function AdminBetaDashboard() {
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2"><BarChart3 size={19} className="text-blue-700" /><h2 className="font-semibold text-slate-950">体验到开通的漏斗</h2></div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-5">
-              {funnel.map(([label, value]) => <div key={label} className="rounded-lg bg-slate-50 p-4"><p className="text-xs leading-5 text-slate-500">{label}</p><p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p></div>)}
+            <div className="flex items-center gap-2"><BarChart3 size={19} className="text-blue-700" /><h2 className="font-semibold text-slate-950">测评到激活的完整漏斗</h2></div>
+            <p className="mt-1 text-sm text-slate-600">大数字是独立用户；转化率只计算同时出现在相邻两步的人。登录是条件节点，不参与连续转化率。</p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {funnel.map((stage, index) => (
+                <div key={stage.id} className={`rounded-lg border p-4 ${stage.optional ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-slate-50'}`}>
+                  <p className="text-xs leading-5 text-slate-500">{index + 1}. {stage.label}</p>
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <p className="text-2xl font-semibold text-slate-950">{stage.actorCount}</p>
+                    {stage.conversionFromPrevious != null && <p className="text-sm font-semibold text-blue-700">{stage.conversionFromPrevious}%</p>}
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">{stage.optional ? '条件节点' : stage.conversionFromPrevious == null ? '漏斗起点' : `${stage.continuedActorCount} 人承接上一步`} · {stage.eventCount} 次事件</p>
+                </div>
+              ))}
             </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2"><FileText size={19} className="text-blue-700" /><h2 className="font-semibold text-slate-950">职业报告目标岗位</h2></div>
+            <p className="mt-1 text-sm text-slate-600">按生成过报告的独立用户统计，同一用户重复生成不会重复计入同一岗位。</p>
+            {roleBreakdown.length ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {roleBreakdown.map((item) => <div key={item.role} className="rounded-lg bg-slate-50 p-4"><p className="text-sm text-slate-600">{item.label}</p><p className="mt-2 text-2xl font-semibold text-slate-950">{item.count}</p></div>)}
+              </div>
+            ) : <p className="mt-4 text-sm text-slate-500">新埋点上线后，这里会开始显示岗位兴趣分布。</p>}
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

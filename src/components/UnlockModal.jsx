@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAccessStore } from '../store/accessStore';
 import { activationService, hasProductEntitlement } from '../services/activationService';
 import { SUPPORT_WECHAT_ID } from '../config/contact';
+import { trackProductEvent } from '../services/productAnalyticsService';
 
 export default function UnlockModal() {
   const {
@@ -35,6 +36,10 @@ export default function UnlockModal() {
 
       setShowSuccess(true);
       setAccessStatus({ ...access, unlockedAt: access.unlockedAt || result.unlockedAt, checked: true });
+      trackProductEvent('activation_succeeded', {
+        productCode: result.productCode || 'bar_server_pack',
+        properties: { source: 'unlock_modal' },
+      });
       
       setTimeout(() => {
         closeUnlockModal();

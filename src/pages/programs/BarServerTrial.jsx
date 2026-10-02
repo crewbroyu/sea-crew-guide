@@ -110,19 +110,40 @@ export default function BarServerTrial() {
     : 0
 
   useEffect(() => {
-    trackProductEvent('free_trial_viewed', { properties: { scenarioIndex: initialScenarioIndex + 1 } })
+    trackProductEvent('free_trial_viewed', {
+      oncePerSession: true,
+      properties: { scenarioIndex: initialScenarioIndex + 1 },
+    })
   }, [initialScenarioIndex])
 
   useEffect(() => {
+    if (stage !== 'comparison' || !retryAttempt) return
+    trackProductEvent('free_trial_scenario_completed', {
+      oncePerSession: true,
+      dedupeKey: `${scenario.id}:${retryAttempt.completedAt}`,
+      properties: {
+        scenarioNumber: scenarioIndex + 1,
+        scenarioId: scenario.id,
+        firstScore,
+        retryScore,
+        scoreDelta,
+      },
+    })
+  }, [firstScore, retryAttempt, retryScore, scenario.id, scenarioIndex, scoreDelta, stage])
+
+  useEffect(() => {
     if (stage !== 'comparison' || !isLastScenario || !retryAttempt) return
-    const eventKey = `bar_server_trial_completed_${retryAttempt.completedAt}`
-    if (sessionStorage.getItem(eventKey)) return
-    sessionStorage.setItem(eventKey, 'true')
     trackProductEvent('free_trial_completed', {
+      oncePerSession: true,
+      dedupeKey: retryAttempt.completedAt,
       properties: { readiness: overallReadiness, hasAccess: hasBarServerPack },
     })
     if (!hasBarServerPack) {
-      trackProductEvent('paywall_reached', { properties: { readiness: overallReadiness } })
+      trackProductEvent('paywall_reached', {
+        oncePerSession: true,
+        dedupeKey: retryAttempt.completedAt,
+        properties: { readiness: overallReadiness },
+      })
     }
   }, [hasBarServerPack, isLastScenario, overallReadiness, retryAttempt, stage])
 

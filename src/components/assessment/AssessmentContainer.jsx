@@ -16,6 +16,7 @@ import {
 import { syncLocalPathProfile } from '../../services/userPathService'
 import { getLatestCareerReport } from '../../services/careerReportService'
 import { getAssessmentAttemptStatus } from '../../services/assessmentAttemptService'
+import { trackProductEvent } from '../../services/productAnalyticsService'
 import { useAccessStore } from '../../store/accessStore'
 
 const getSavedAssessmentResult = () => {
@@ -62,6 +63,14 @@ export default function AssessmentContainer() {
   const [restoringReport, setRestoringReport] = useState(!savedAssessmentResult)
   const [attemptStatus, setAttemptStatus] = useState(null)
   const [attemptStatusLoading, setAttemptStatusLoading] = useState(false)
+
+  useEffect(() => {
+    trackProductEvent('assessment_viewed', {
+      productCode: null,
+      oncePerSession: true,
+      properties: { hasSavedResult: Boolean(savedAssessmentResult) },
+    })
+  }, [savedAssessmentResult])
 
   useEffect(() => {
     if (!authChecked || !isRegistered || step !== 0) return undefined
@@ -133,6 +142,10 @@ export default function AssessmentContainer() {
       openRegisterModal()
       return
     }
+    trackProductEvent('assessment_started', {
+      productCode: null,
+      properties: { hasPreviousAttempt: Boolean(attemptStatus?.totalAttempts) },
+    })
     setStep(1)
   }
 
@@ -205,6 +218,15 @@ export default function AssessmentContainer() {
       latest_assessment_score: finalOverallScore,
       latest_assessment_level: assessmentResult.level?.label || null,
       last_completed_task_id: 1,
+    })
+
+    trackProductEvent('assessment_completed', {
+      productCode: null,
+      properties: {
+        assessmentVersion: ASSESSMENT_VERSION,
+        overallScore: finalOverallScore,
+        level: assessmentResult.level?.label || null,
+      },
     })
 
     setStep(resultStep)

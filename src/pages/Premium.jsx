@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
@@ -52,6 +52,7 @@ const manualPurchaseStatus = {
 
 export default function Premium() {
   const navigate = useNavigate()
+  const location = useLocation()
   const access = useEffectiveAccess()
   const { isRegistered, openRegisterModal, openUnlockModal } = access
   const hasBarServerPack = hasProductEntitlement(access, 'bar_server_pack')
@@ -61,8 +62,13 @@ export default function Premium() {
   const [acceptedPurchaseRules, setAcceptedPurchaseRules] = useState(false)
 
   useEffect(() => {
-    trackProductEvent('product_page_viewed', { properties: { hasAccess: hasBarServerPack } })
-  }, [hasBarServerPack])
+    const source = new URLSearchParams(location.search).get('source') || 'direct'
+    trackProductEvent('product_page_viewed', {
+      oncePerSession: true,
+      dedupeKey: source,
+      properties: { hasAccess: hasBarServerPack, source },
+    })
+  }, [hasBarServerPack, location.search])
 
   useEffect(() => {
     let cancelled = false
@@ -103,6 +109,9 @@ export default function Premium() {
   }
 
   const handleManualPurchase = async () => {
+    trackProductEvent('purchase_cta_clicked', {
+      properties: { productCode: 'bar_server_pack', isRegistered },
+    })
     trackProductEvent('manual_purchase_requested', {
       properties: { productCode: 'bar_server_pack', isRegistered },
     })
@@ -117,6 +126,9 @@ export default function Premium() {
     try {
       const request = await createManualPurchaseRequest('bar_server_pack')
       setPurchaseRequest(request)
+      trackProductEvent('purchase_request_submitted', {
+        properties: { productCode: 'bar_server_pack', requestStatus: request?.status || 'requested' },
+      })
     } catch (error) {
       console.error('Manual purchase request failed:', error)
       setPurchaseRequestError('申请暂时未提交成功，请通过支持中心联系人工开通。')

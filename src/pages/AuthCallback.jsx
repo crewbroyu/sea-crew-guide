@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, CircleAlert, LoaderCircle, LogIn } from 'lucide-react'
 import { supabase } from '../supabase'
 import { useAccessStore } from '../store/accessStore'
+import { trackProductEvent } from '../services/productAnalyticsService'
 
 const getUrlError = () => {
   const search = new URLSearchParams(window.location.search)
@@ -60,6 +61,14 @@ export default function AuthCallback() {
         }
 
         register(session.user, session.user.user_metadata?.name || session.user.email?.split('@')[0])
+        let intentRoute = 'unknown'
+        try { intentRoute = sessionStorage.getItem('auth_intent_route') || 'unknown' } catch { /* Cross-browser confirmation has no original session. */ }
+        trackProductEvent('auth_completed', {
+          productCode: null,
+          oncePerSession: true,
+          dedupeKey: session.user.id,
+          properties: { authMode: 'email_confirmation', intentRoute },
+        })
         setState({ status: 'success', message: '邮箱已验证，正在进入 CrewPathGuide...' })
         window.setTimeout(() => navigate('/', { replace: true }), 900)
       } catch (error) {

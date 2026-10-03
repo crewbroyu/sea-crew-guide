@@ -79,5 +79,17 @@ assert.equal(retentionLoop.activity.weeklyCount, 3)
 assert.equal(retentionLoop.activity.activeDays, 3)
 assert.match(retentionLoop.activity.message, /今天已经推进过/)
 
+const afterMidnight = buildHomeToday({
+  careerReport: assessmentReport,
+  hasBarServerPack: true,
+  now: new Date(2026, 9, 3, 0, 15).getTime(),
+  shiftHistory: [{
+    score: 78,
+    completedAt: new Date(2026, 9, 2, 23, 45).toISOString(),
+  }],
+})
+assert.equal(afterMidnight.activity.daysSinceLatest, 1)
+assert.match(afterMidnight.activity.message, /昨天完成过/)
+
 console.log('Home Today dashboard tests passed.')
 

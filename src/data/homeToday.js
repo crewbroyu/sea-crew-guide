@@ -50,6 +50,11 @@ const toLocalDateKey = (value) => {
   ].join('-')
 }
 
+const toLocalDayStart = (value) => {
+  const date = new Date(value)
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+}
+
 const getRecentActivities = ({
   taskProgress = {},
   foundationProgress = {},
@@ -124,7 +129,7 @@ const getRecentActivities = ({
   const weeklyActivities = sorted.filter((activity) => toTime(activity.completedAt) >= sevenDaysAgo)
   const latestAt = sorted[0]?.completedAt || null
   const daysSinceLatest = latestAt
-    ? Math.max(0, Math.floor((now - toTime(latestAt)) / (24 * 60 * 60 * 1000)))
+    ? Math.max(0, Math.round((toLocalDayStart(now) - toLocalDayStart(latestAt)) / (24 * 60 * 60 * 1000)))
     : null
 
   let message = '完成第一项训练后，这里会保留你的进展。'

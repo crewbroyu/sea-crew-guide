@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { buildConversionFunnel, buildTargetRoleBreakdown } from '../src/data/productFunnel.js'
+import { getSafeAuthIntentRoute } from '../src/utils/authIntent.js'
 
 let id = 0
 const event = (eventName, values = {}) => ({
@@ -46,5 +47,11 @@ assert.equal(funnel.product_page_viewed.conversionFromPrevious, 100, 'direct ent
 
 const roles = buildTargetRoleBreakdown(events)
 assert.deepEqual(roles, [{ role: 'bar', label: 'Bar Server', count: 1 }], 'report revisions should not duplicate users')
+
+assert.equal(getSafeAuthIntentRoute('/assessment?source=home'), '/assessment?source=home')
+assert.equal(getSafeAuthIntentRoute('/programs/bar-server/trial?from=assessment'), '/programs/bar-server/trial?from=assessment')
+assert.equal(getSafeAuthIntentRoute('https://example.com/steal'), '/')
+assert.equal(getSafeAuthIntentRoute('//example.com/steal'), '/')
+assert.equal(getSafeAuthIntentRoute('/auth/callback?code=secret'), '/')
 
 console.log('Product funnel tests passed')

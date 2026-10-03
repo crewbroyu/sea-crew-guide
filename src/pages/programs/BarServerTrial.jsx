@@ -252,6 +252,10 @@ export default function BarServerTrial() {
   }
 
   const beginAttempt = (isRetry = false) => {
+    if (!isRegistered) {
+      openRegisterModal()
+      return
+    }
     clearCurrentRecording()
     setStage(isRetry ? 'retry' : 'practice')
   }
@@ -466,8 +470,11 @@ export default function BarServerTrial() {
         </div>
       </section>
 
+      {!isRegistered && isLessonComplete && (
+        <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">基础课程进度已经保留。登录后再开始回答，避免录音或文字在邮箱验证过程中丢失。</p>
+      )}
       <button type="button" onClick={() => (isLessonComplete ? beginAttempt(false) : setStage('lesson'))} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
-        {isLessonComplete ? `开始第 ${scenarioIndex + 1} 个场景回答` : '先完成基础学习'} <ArrowRight size={18} />
+        {isLessonComplete ? (isRegistered ? `开始第 ${scenarioIndex + 1} 个场景回答` : '登录后开始场景回答') : '先完成基础学习'} <ArrowRight size={18} />
       </button>
     </div>
   )
@@ -639,7 +646,7 @@ export default function BarServerTrial() {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-3xl px-5 pb-7 pt-10">
           <button type="button" onClick={() => navigate(returnDestination.route)} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-700"><ArrowLeft size={17} />{returnDestination.label}</button>
-          <div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Wine size={24} /></div><div><p className="text-sm font-medium text-blue-700">Bar Server 工作场景体验</p><h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">免费完成 3 个真实场景，再决定是否继续</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">每个免费场景都包含语音回答、岗位知识反馈、专业参考答案、针对性重练和前后对比，不用残缺体验催你付费。</p></div></div>
+          <div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Wine size={24} /></div><div><p className="text-sm font-medium text-blue-700">Bar Server 工作场景体验</p><h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">免费完成 3 个真实场景，再决定是否继续</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">每个免费场景都包含语音回答、岗位知识反馈、专业参考答案、针对性重练和前后对比。课程内容可以先看，提交回答和保留 AI 反馈需要登录。</p></div></div>
 
           {assessmentContext && (
             <section className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-left">
@@ -679,6 +686,7 @@ export default function BarServerTrial() {
             progress={lessonProgress}
             onProgressChange={setCurrentLessonProgress}
             onComplete={completeLesson}
+            requiredPhraseRepetitions={1}
           />
         )}
         {stage === 'briefing' && renderBriefing()}

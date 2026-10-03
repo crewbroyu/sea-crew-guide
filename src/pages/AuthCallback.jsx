@@ -4,6 +4,7 @@ import { CheckCircle2, CircleAlert, LoaderCircle, LogIn } from 'lucide-react'
 import { supabase } from '../supabase'
 import { useAccessStore } from '../store/accessStore'
 import { trackProductEvent } from '../services/productAnalyticsService'
+import { getSafeAuthIntentRoute } from '../utils/authIntent'
 
 const getUrlError = () => {
   const search = new URLSearchParams(window.location.search)
@@ -61,8 +62,9 @@ export default function AuthCallback() {
         }
 
         register(session.user, session.user.user_metadata?.name || session.user.email?.split('@')[0])
-        let intentRoute = 'unknown'
-        try { intentRoute = sessionStorage.getItem('auth_intent_route') || 'unknown' } catch { /* Cross-browser confirmation has no original session. */ }
+        let savedIntentRoute = ''
+        try { savedIntentRoute = sessionStorage.getItem('auth_intent_route') || '' } catch { /* Cross-browser confirmation has no original session. */ }
+        const intentRoute = getSafeAuthIntentRoute(savedIntentRoute)
         trackProductEvent('auth_completed', {
           productCode: null,
           oncePerSession: true,
@@ -70,7 +72,7 @@ export default function AuthCallback() {
           properties: { authMode: 'email_confirmation', intentRoute },
         })
         setState({ status: 'success', message: '邮箱已验证，正在进入 CrewPathGuide...' })
-        window.setTimeout(() => navigate('/', { replace: true }), 900)
+        window.setTimeout(() => navigate(intentRoute, { replace: true }), 900)
       } catch (error) {
         console.error('Email confirmation callback failed:', error)
         const message = error.message || ''

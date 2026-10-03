@@ -13,7 +13,7 @@ function ActivationCheckingFallback() {
   );
 }
 
-function ActivationRequiredFallback({ message, onActivate }) {
+function ActivationRequiredFallback({ message, onActivate, actionLabel = '前往激活' }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
       <div className="max-w-sm text-center">
@@ -26,7 +26,7 @@ function ActivationRequiredFallback({ message, onActivate }) {
           onClick={onActivate}
           className="mt-5 px-5 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
         >
-          前往激活
+          {actionLabel}
         </button>
       </div>
     </div>
@@ -110,6 +110,7 @@ export default function RequireActivation({
       <ActivationRequiredFallback
         message="请先登录，再使用此功能。"
         onActivate={openRegisterModal}
+        actionLabel="登录 / 注册"
       />
     );
   }

@@ -10,6 +10,7 @@ const metadata = [
   [/^\/programs\/bar-server\/listening\/shift/, 'Bar Server 班次挑战 · CrewPathGuide', '在限时、正常语速和无即时提示条件下检验邮轮酒吧工作听力。'],
   [/^\/programs\/bar-server\/listening/, 'Bar Server 工作听说 · CrewPathGuide', '训练邮轮酒吧点单、偏好、客诉和主管指令中的关键信息捕捉与现场回应。'],
   [/^\/programs\/bar-server\/report/, 'Bar Server 岗位准备度报告 · CrewPathGuide', '综合岗位知识、工作听力、现场回应、班次挑战与场景模拟生成准备度报告。'],
+  [/^\/programs\/bar-server\/trial/, 'Bar Server 免费场景体验 · CrewPathGuide', '免费体验饮品推荐、客诉补救和安全拒酒三个真实岗位场景。'],
   [/^\/programs\/retail\/foundation/, 'Retail Sales Associate 基础课 · CrewPathGuide', '学习邮轮零售接待、产品表达、销售、POS、库存与防损。'],
   [/^\/programs\/bar-server/, 'Bar Server 单职位全流程包 · CrewPathGuide', '从岗位知识到场景训练和 AI 模拟面试的 Bar Server 准备包。'],
   [/^\/programs\/retail/, 'Retail Sales Associate 岗位包 · CrewPathGuide', '邮轮免税店销售岗位基础课、场景训练和面试准备。'],

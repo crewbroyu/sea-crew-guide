@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAccessStore } from '../store/accessStore';
 import { getAuthCallbackUrl, supabase } from '../supabase';
 import { trackProductEvent } from '../services/productAnalyticsService';
+import { getCurrentAuthIntentRoute } from '../utils/authIntent';
 
 export default function RegisterModal() {
   const { showRegisterModal, authModalMode, closeRegisterModal, register } = useAccessStore();
@@ -98,7 +99,7 @@ export default function RegisterModal() {
       return;
     }
     
-    const intentRoute = window.location.pathname;
+    const intentRoute = getCurrentAuthIntentRoute();
     try { sessionStorage.setItem('auth_intent_route', intentRoute); } catch { /* Continue without attribution. */ }
     setIsProcessing(true);
     
@@ -195,10 +196,10 @@ export default function RegisterModal() {
   if (!showRegisterModal) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto px-4 py-4 sm:items-center">
       <div className="absolute inset-0 bg-black/70" />
       
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 mx-4">
+      <div className="relative my-auto w-full max-w-md rounded-lg bg-white p-5 shadow-2xl sm:p-8">
         <button
           type="button"
           aria-label="关闭注册或登录窗口"
@@ -216,11 +217,11 @@ export default function RegisterModal() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            {mode === 'register' ? 'Create Account · 创建账户' : 'Sign In · 登录'}
+          <h2 className="mb-2 text-xl font-bold text-gray-800 sm:text-2xl">
+            {mode === 'register' ? '创建账户' : '登录账户'}
           </h2>
           <p className="text-gray-600">
-            {mode === 'register' ? '注册新账户' : '登录您的账户'}
+            {mode === 'register' ? 'Create your account · 注册新账户' : 'Sign in · 继续上次进度'}
           </p>
         </div>
 
@@ -315,11 +316,11 @@ export default function RegisterModal() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Processing...
+                正在处理...
               </span>
             ) : (
               <span>
-                {mode === 'register' ? 'Sign Up · 注册' : 'Sign In · 登录'}
+                {mode === 'register' ? '注册并继续' : '登录并继续'}
               </span>
             )}
           </button>
@@ -335,8 +336,8 @@ export default function RegisterModal() {
             className="text-blue-600 hover:text-blue-700 text-sm"
           >
             {mode === 'register'
-              ? 'Already have an account? Sign In · 已有账户？直接登录'
-              : 'Need an account? Sign Up · 需要账户？注册'}
+              ? '已有账户？直接登录'
+              : '还没有账户？立即注册'}
           </button>
         </div>
       </div>

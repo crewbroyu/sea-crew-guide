@@ -22,7 +22,13 @@ const lessonSteps = [
   { id: 'decision', label: '判断', icon: ListChecks },
 ]
 
-export default function ScenarioLesson({ scenario, progress = {}, onProgressChange, onComplete }) {
+export default function ScenarioLesson({
+  scenario,
+  progress = {},
+  onProgressChange,
+  onComplete,
+  requiredPhraseRepetitions = 1,
+}) {
   const lesson = scenario.lesson
   const [isPlayingDialogue, setIsPlayingDialogue] = useState(false)
   const dialogueRunRef = useRef(0)
@@ -31,7 +37,10 @@ export default function ScenarioLesson({ scenario, progress = {}, onProgressChan
   const selectedOption = lesson.decisionCheck.options.find(
     (option) => option.id === progress.selectedOptionId,
   )
-  const phrasePracticeComplete = Boolean(progress.phrasePractice?.completedAt)
+  const phraseRepetitions = progress.phrasePractice?.phraseRepetitions || {}
+  const phrasePracticeComplete = lesson.sentencePatterns.every(
+    (phrase) => Number(phraseRepetitions[phrase] || 0) >= requiredPhraseRepetitions,
+  )
 
   useEffect(() => () => {
     dialogueRunRef.current += 1
@@ -181,9 +190,11 @@ export default function ScenarioLesson({ scenario, progress = {}, onProgressChan
         position="bar_server"
         phrases={lesson.sentencePatterns}
         practice={progress.phrasePractice || {}}
-        requiredPhraseRepetitions={3}
+        requiredPhraseRepetitions={requiredPhraseRepetitions}
         title="场景句型跟读"
-        description="每条先听清，再完整录音跟读 3 次；重复到第三次才算形成训练。"
+        description={requiredPhraseRepetitions === 1
+          ? '免费体验先把每条完整说一遍；正式课程会用重复跟读巩固表达。'
+          : `每条先听清，再完整录音跟读 ${requiredPhraseRepetitions} 次。`}
         onPracticeChange={(phrasePractice) => updateProgress({ phrasePractice })}
       />
 

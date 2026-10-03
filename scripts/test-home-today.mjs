@@ -58,5 +58,26 @@ assert.equal(retailUser.targetRole.label, '免税店 / Retail Sales')
 assert.equal(retailUser.readiness.metricLabel, '职业适配度')
 assert.equal(retailUser.todayAction.route, '/tasks/Task2')
 
+const retentionLoop = buildHomeToday({
+  careerReport: assessmentReport,
+  hasBarServerPack: true,
+  now: new Date('2026-10-03T12:00:00.000Z').getTime(),
+  foundationProgress: {
+    'service-role': { completedAt: '2026-10-01T08:00:00.000Z' },
+  },
+  listeningProgress: {
+    'order-mojito-family': {
+      bestScore: 100,
+      completedAt: '2026-10-02T08:00:00.000Z',
+      speakingPractice: { completedAt: '2026-10-03T08:00:00.000Z' },
+    },
+  },
+  shiftHistory: [{ score: 72, completedAt: '2026-10-02T10:00:00.000Z' }],
+})
+assert.equal(retentionLoop.activity.recent[0].type, '工作听说')
+assert.equal(retentionLoop.activity.weeklyCount, 3)
+assert.equal(retentionLoop.activity.activeDays, 3)
+assert.match(retentionLoop.activity.message, /今天已经推进过/)
+
 console.log('Home Today dashboard tests passed.')
 

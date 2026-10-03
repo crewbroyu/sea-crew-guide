@@ -1,4 +1,6 @@
 import pathData from './pathData.js'
+import { barServerFoundationDays } from './barServerFoundation.js'
+import { BAR_SERVER_LISTENING_DRILLS } from './barServerListening.js'
 import { getBarServerPlanProgress } from './barServerLearningPlan.js'
 import { getBarServerReadinessReport } from './barServerReadiness.js'
 
@@ -37,6 +39,108 @@ const getTrialCompletedCount = (trial = {}) => Object.values(trial.attemptsBySce
 const toTime = (value) => {
   const timestamp = new Date(value || 0).getTime()
   return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+const toLocalDateKey = (value) => {
+  const date = new Date(value)
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+const getRecentActivities = ({
+  taskProgress = {},
+  foundationProgress = {},
+  listeningProgress = {},
+  shiftHistory = [],
+  scenarioHistory = [],
+  now = Date.now(),
+}) => {
+  const activities = []
+
+  allTasks.forEach((task) => {
+    const completedAt = taskProgress[`task${task.id}`]?.completedAt
+    if (completedAt) activities.push({
+      id: `task-${task.id}`,
+      type: '路线任务',
+      title: task.title,
+      completedAt,
+      route: task.route,
+    })
+  })
+
+  barServerFoundationDays.forEach((day) => {
+    const completedAt = foundationProgress[day.id]?.completedAt
+    if (completedAt) activities.push({
+      id: `foundation-${day.id}`,
+      type: '岗位基础课',
+      title: `Day ${day.day} · ${day.title}`,
+      completedAt,
+      route: `/programs/bar-server/foundation/${day.id}`,
+    })
+  })
+
+  BAR_SERVER_LISTENING_DRILLS.forEach((drill) => {
+    const progress = listeningProgress[drill.id] || {}
+    const completedAt = progress.speakingPractice?.completedAt || progress.completedAt
+    if (completedAt) activities.push({
+      id: `listening-${drill.id}`,
+      type: progress.speakingPractice?.completedAt ? '工作听说' : '工作听力',
+      title: drill.unit,
+      score: Number.isFinite(Number(progress.bestScore)) ? Number(progress.bestScore) : null,
+      completedAt,
+      route: '/programs/bar-server/listening',
+    })
+  })
+
+  shiftHistory.forEach((attempt, index) => {
+    if (attempt?.completedAt) activities.push({
+      id: `shift-${attempt.id || index}`,
+      type: '班次挑战',
+      title: '5 题限时班次验证',
+      score: Number(attempt.score || 0),
+      completedAt: attempt.completedAt,
+      route: '/programs/bar-server/listening/shift',
+    })
+  })
+
+  scenarioHistory.forEach((session, index) => {
+    if (session?.completed_at) activities.push({
+      id: `scenario-${session.id || index}`,
+      type: '岗位场景',
+      title: session.next_recommendation || '连续岗位场景模拟',
+      score: Number(session.overall_readiness || 0),
+      completedAt: session.completed_at,
+      route: '/programs/bar-server/training',
+    })
+  })
+
+  const sorted = activities
+    .filter((activity) => toTime(activity.completedAt) > 0)
+    .sort((left, right) => toTime(right.completedAt) - toTime(left.completedAt))
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
+  const weeklyActivities = sorted.filter((activity) => toTime(activity.completedAt) >= sevenDaysAgo)
+  const latestAt = sorted[0]?.completedAt || null
+  const daysSinceLatest = latestAt
+    ? Math.max(0, Math.floor((now - toTime(latestAt)) / (24 * 60 * 60 * 1000)))
+    : null
+
+  let message = '完成第一项训练后，这里会保留你的进展。'
+  if (daysSinceLatest === 0) message = '今天已经推进过，下一项建议已按最新结果更新。'
+  else if (daysSinceLatest === 1) message = '昨天完成过训练，今天从系统推荐的下一步继续。'
+  else if (daysSinceLatest != null && daysSinceLatest <= 7) message = `上次训练在 ${daysSinceLatest} 天前，继续当前任务就能接上进度。`
+  else if (daysSinceLatest != null) message = `已经 ${daysSinceLatest} 天没有训练，先用一项短任务重新进入状态。`
+
+  return {
+    recent: sorted.slice(0, 4),
+    weeklyCount: weeklyActivities.length,
+    activeDays: new Set(weeklyActivities.map((activity) => toLocalDateKey(activity.completedAt))).size,
+    latestAt,
+    daysSinceLatest,
+    message,
+  }
 }
 
 const buildLatestFeedback = ({ scenarioHistory = [], shiftHistory = [] }) => {
@@ -95,6 +199,7 @@ export const buildHomeToday = ({
   interviewCompleted = false,
   hasBarServerPack = false,
   learningStage = 'job_search',
+  now = Date.now(),
 } = {}) => {
   const targetRole = resolveTargetRole({ pathProfile, jobPreparation, careerReport })
   const taskProgress = pathProfile?.task_progress || {}
@@ -107,6 +212,14 @@ export const buildHomeToday = ({
       || 0,
   )
   const hasAssessment = Boolean(assessmentScore || careerReport?.report)
+  const activity = getRecentActivities({
+    taskProgress,
+    foundationProgress,
+    listeningProgress,
+    shiftHistory,
+    scenarioHistory,
+    now,
+  })
 
   if (!hasAssessment) {
     return {
@@ -116,6 +229,7 @@ export const buildHomeToday = ({
       todayAction: { label: '今天只做这一件事', title: '完成职业适配测评', detail: '约 5-8 分钟，生成岗位方向、现实风险和下一步建议。', route: '/assessment' },
       routeProgress: { completedCount: completedTasks.length, total: allTasks.length, percent: Math.round((completedTasks.length / allTasks.length) * 100), items: [], currentItem: null, isBarPlan: false },
       latestFeedback: null,
+      activity,
     }
   }
 
@@ -148,6 +262,7 @@ export const buildHomeToday = ({
         isBarPlan: false,
       },
       latestFeedback: null,
+      activity,
     }
   }
 
@@ -214,6 +329,7 @@ export const buildHomeToday = ({
     todayAction,
     routeProgress: { ...plan, total: plan.items.length, isBarPlan: true },
     latestFeedback: buildLatestFeedback({ scenarioHistory, shiftHistory }),
+    activity,
     hasBarServerPack,
   }
 }

@@ -142,6 +142,10 @@ export default function BarServerListening() {
   }
 
   const nextDrill = () => {
+    if (isLastDrill && completedCount === BAR_SERVER_LISTENING_DRILLS.length && drillProgress.speakingPractice?.completedAt) {
+      navigate('/')
+      return
+    }
     const nextIndex = isLastDrill
       ? BAR_SERVER_LISTENING_DRILLS.findIndex((item) => !progress[item.id]?.completedAt)
       : activeIndex + 1
@@ -376,7 +380,7 @@ export default function BarServerListening() {
                 className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold transition ${drillProgress.speakingPractice?.completedAt ? 'bg-blue-700 text-white hover:bg-blue-800' : 'border border-slate-300 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
               >
                 {drillProgress.speakingPractice?.completedAt
-                  ? (isLastDrill && completedCount === BAR_SERVER_LISTENING_DRILLS.length ? '听说训练完成，回到第一题复习' : '开口训练完成，进入下一题')
+                  ? (isLastDrill && completedCount === BAR_SERVER_LISTENING_DRILLS.length ? '听说训练完成，返回今天' : '开口训练完成，进入下一题')
                   : '暂时跳过开口训练，进入下一题'}
                 <ArrowRight size={17} />
               </button>

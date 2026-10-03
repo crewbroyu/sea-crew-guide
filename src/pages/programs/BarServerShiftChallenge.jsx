@@ -218,10 +218,11 @@ export default function BarServerShiftChallenge() {
             )}
           </section>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button type="button" onClick={() => navigate('/')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 text-sm font-semibold text-white hover:bg-blue-800">完成本次训练，返回今天<ArrowRight size={17} /></button>
+            <button type="button" onClick={() => navigate('/programs/bar-server/listening')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-5 text-sm font-semibold text-blue-700 hover:bg-blue-50">复盘弱项训练<ArrowRight size={17} /></button>
+            <button type="button" onClick={() => navigate('/programs/bar-server/report')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-100"><BarChart3 size={17} />查看完整报告</button>
             <button type="button" onClick={startChallenge} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-100"><RotateCcw size={17} />重新抽题挑战</button>
-            <button type="button" onClick={() => navigate('/programs/bar-server/listening')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 text-sm font-semibold text-white hover:bg-blue-800">回到自适应训练<ArrowRight size={17} /></button>
-            <button type="button" onClick={() => navigate('/programs/bar-server/report')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 text-sm font-semibold text-white hover:bg-slate-800"><BarChart3 size={17} />查看完整报告</button>
           </div>
         </main>
       </div>

@@ -190,6 +190,7 @@ export default function FoundationCourse() {
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={() => navigate(`/programs/${course.slug}/foundation`)} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700">返回目录</button>
           {nextDay && <button type="button" disabled={!isFoundationDayFinished(course.jobKey, progress, selectedDay.id)} onClick={() => navigate(`/programs/${course.slug}/foundation/${nextDay.id}`)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">继续 Day {nextDay.day}<ArrowRight size={16} /></button>}
+          {!nextDay && isFoundationDayFinished(course.jobKey, progress, selectedDay.id) && <button type="button" onClick={() => navigate('/')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white">完成基础课，返回今天<ArrowRight size={16} /></button>}
         </div>
       </main>
     </div>

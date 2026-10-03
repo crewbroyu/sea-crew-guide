@@ -9,6 +9,7 @@ import {
   Check,
   ChevronRight,
   ClipboardList,
+  History,
   RefreshCw,
   Target,
 } from 'lucide-react'
@@ -18,6 +19,16 @@ import { getHomeDashboard } from '../../services/homeDashboardService'
 const formatDate = (value) => {
   if (!value) return ''
   return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(new Date(value))
+}
+
+const formatActivityTime = (value) => {
+  if (!value) return ''
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
 
 const LoadingState = () => (
@@ -96,7 +107,7 @@ export default function TodayDashboard() {
     )
   }
 
-  const { targetRole, readiness, gap, todayAction, routeProgress, latestFeedback } = dashboard
+  const { targetRole, readiness, gap, todayAction, routeProgress, latestFeedback, activity } = dashboard
   const upcomingItems = routeProgress.items?.filter((item) => !item.completed).slice(0, 3) || []
 
   return (
@@ -157,6 +168,40 @@ export default function TodayDashboard() {
               继续训练<ArrowRight size={17} />
             </button>
           </div>
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+            <div className="flex items-start gap-3">
+              <History size={19} className="mt-0.5 shrink-0 text-blue-700" />
+              <div>
+                <h2 className="font-semibold text-slate-950">最近训练轨迹</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{activity.message}</p>
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-4 text-sm">
+              <span><strong className="text-slate-950">{activity.weeklyCount}</strong><span className="ml-1 text-slate-500">项 / 近7天</span></span>
+              <span><strong className="text-slate-950">{activity.activeDays}</strong><span className="ml-1 text-slate-500">个训练日</span></span>
+            </div>
+          </div>
+
+          {activity.recent.length > 0 ? (
+            <div className="mt-4 divide-y divide-slate-100 border-y border-slate-100">
+              {activity.recent.map((item) => (
+                <button key={item.id} type="button" onClick={() => navigate(item.route)} className="flex w-full items-center gap-3 py-3 text-left">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold text-blue-700">{item.type}</span>
+                    <span className="mt-1 block truncate text-sm font-medium text-slate-900">{item.title}</span>
+                    <span className="mt-1 block text-xs text-slate-400">{formatActivityTime(item.completedAt)}</span>
+                  </span>
+                  {item.score != null && <span className="shrink-0 text-sm font-bold text-slate-800">{item.score}<span className="text-xs font-medium text-slate-400">/100</span></span>}
+                  <ChevronRight size={16} className="shrink-0 text-slate-400" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-600">还没有训练记录。完成上方推荐任务后，进度会自动出现在这里。</p>
+          )}
         </section>
 
         <div className="grid gap-5 md:grid-cols-2">

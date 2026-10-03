@@ -35,7 +35,7 @@ export const getHomeDashboard = async (access) => {
     getMyJobPreparation(),
     getLatestCareerReport(),
     getMyScenarioProfile('bar_server'),
-    getMyScenarioHistory('bar_server', 1),
+    getMyScenarioHistory('bar_server', 5),
   ])
 
   const cloudPathProfile = valueOf(results[0], null)

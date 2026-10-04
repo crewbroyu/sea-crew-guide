@@ -1,3 +1,4 @@
+import { useTrainingInspection } from '../../hooks/useTrainingInspection'
 import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
@@ -13,7 +14,7 @@ import {
   Square,
 } from 'lucide-react'
 import PhraseShadowingPractice from './PhraseShadowingPractice'
-import { speakEnglish, stopSpeech } from '../../services/ttsService'
+import { speakEnglish as liveSpeakEnglish, stopSpeech } from '../../services/ttsService'
 
 const lessonSteps = [
   { id: 'story', label: '剧情', icon: Headphones },
@@ -29,6 +30,8 @@ export default function ScenarioLesson({
   onComplete,
   requiredPhraseRepetitions = 1,
 }) {
+  const inspection = useTrainingInspection()
+  const speakEnglish = inspection ? async () => {} : liveSpeakEnglish
   const lesson = scenario.lesson
   const [isPlayingDialogue, setIsPlayingDialogue] = useState(false)
   const dialogueRunRef = useRef(0)
@@ -198,7 +201,7 @@ export default function ScenarioLesson({
         onPracticeChange={(phrasePractice) => updateProgress({ phrasePractice })}
       />
 
-      <button type="button" onClick={() => changeStep('decision')} disabled={!phrasePracticeComplete} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">{phrasePracticeComplete ? '进入场景判断' : '完成四条跟读后继续'} <ArrowRight size={17} /></button>
+      <button type="button" onClick={() => changeStep('decision')} disabled={!inspection && !phrasePracticeComplete} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">{inspection ? '巡检：跳过跟读，进入判断' : phrasePracticeComplete ? '进入场景判断' : '完成四条跟读后继续'} <ArrowRight size={17} /></button>
     </div>
   )
 
@@ -237,7 +240,7 @@ export default function ScenarioLesson({
         </section>
       )}
 
-      <button type="button" onClick={onComplete} disabled={!selectedOption?.correct} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">进入独立场景回答 <ArrowRight size={17} /></button>
+      <button type="button" onClick={onComplete} disabled={!inspection && !selectedOption?.correct} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">进入独立场景回答 <ArrowRight size={17} /></button>
     </div>
   )
 

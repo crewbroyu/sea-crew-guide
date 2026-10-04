@@ -1,3 +1,5 @@
+import { hasProductEntitlement, isCurrentEntitlement } from '../utils/accessPolicy.js';
+export { hasProductEntitlement } from '../utils/accessPolicy.js';
 import { supabase } from '../supabase';
 
 const normalizeCode = (inputCode) => inputCode.trim().toUpperCase();
@@ -140,7 +142,7 @@ export const getUserAccessStatus = async (user) => {
 
   const now = Date.now();
   const productEntitlements = (entitlementData || []).filter((entitlement) => (
-    !entitlement.expires_at || new Date(entitlement.expires_at).getTime() > now
+    isCurrentEntitlement(entitlement, now)
   ));
 
   let mentorProfile = null;
@@ -175,11 +177,7 @@ export const getUserAccessStatus = async (user) => {
   };
 };
 
-export const hasProductEntitlement = (access, productCode) => {
-  if (!productCode) return false;
-  if (access?.isAdmin || access?.role === 'admin') return true;
-  return (access?.productEntitlements || []).some((item) => item.product_code === productCode);
-};
+
 
 export const activationService = {
   async getCurrentUser() {

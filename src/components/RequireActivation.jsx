@@ -1,3 +1,4 @@
+import { hasLegacyAccess } from '../utils/accessPolicy.js';
 import { useEffect } from 'react';
 import useEffectiveAccess from '../hooks/useEffectiveAccess';
 import { hasProductEntitlement } from '../services/activationService';
@@ -57,7 +58,7 @@ export default function RequireActivation({
   const access = useEffectiveAccess();
   const {
     isRegistered,
-    isUnlocked,
+    accessStatus,
     authChecked,
     isCheckingAuth,
     accessChecked,
@@ -67,12 +68,12 @@ export default function RequireActivation({
   } = access;
   const hasRequiredAccess = productCode
     ? hasProductEntitlement(access, productCode)
-    : isUnlocked;
+    : hasLegacyAccess(access);
 
   const shouldAutoOpen = autoOpen ?? variant === 'page';
 
   useEffect(() => {
-    if (!shouldAutoOpen) return;
+    if (!shouldAutoOpen || (isRegistered && accessStatus !== 'active')) return;
 
     if (authChecked && !isCheckingAuth && !isRegistered) {
       openRegisterModal();
@@ -80,6 +81,7 @@ export default function RequireActivation({
       openUnlockModal();
     }
   }, [
+    accessStatus,
     accessChecked,
     authChecked,
     isCheckingAccess,
@@ -113,6 +115,10 @@ export default function RequireActivation({
         actionLabel="登录 / 注册"
       />
     );
+  }
+
+  if (accessStatus !== 'active') {
+    return <div role="alert" className="p-6 text-center text-sm text-slate-700">账户暂不可用，请联系支持。开通产品不能解除账户限制。</div>;
   }
 
   if (!hasRequiredAccess) {

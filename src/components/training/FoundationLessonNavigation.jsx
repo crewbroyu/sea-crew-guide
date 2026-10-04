@@ -1,3 +1,4 @@
+import { useTrainingInspection } from '../../hooks/useTrainingInspection'
 import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
 
 const FOUNDATION_LESSON_STEPS = [
@@ -10,6 +11,7 @@ const FOUNDATION_LESSON_STEPS = [
 ]
 
 export default function FoundationLessonNavigation({ activeStep, onStepChange, canAdvance = true, completed = false, showProgress = true, showControls = true }) {
+  const inspection = useTrainingInspection()
   const lastStep = activeStep === FOUNDATION_LESSON_STEPS.length - 1
   const goTo = (nextStep) => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -54,11 +56,11 @@ export default function FoundationLessonNavigation({ activeStep, onStepChange, c
         ) : (
           <button
             type="button"
-            disabled={!canAdvance}
+            disabled={!inspection && !canAdvance}
             onClick={() => goTo(activeStep + 1)}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            Next <ArrowRight size={16} />
+            {inspection && !canAdvance ? '跳过要求，查看下一步' : 'Next'} <ArrowRight size={16} />
           </button>
         )}
       </div>}

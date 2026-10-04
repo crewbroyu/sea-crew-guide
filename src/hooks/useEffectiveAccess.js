@@ -56,6 +56,7 @@ export default function useEffectiveAccess() {
     ...access,
     isRegistered: preview.isRegistered,
     isUnlocked: preview.isUnlocked,
+    premiumUntil: null, // Preview entitlements must not inherit the real account expiry.
     role: preview.role,
     plan: preview.plan,
     isAdmin: false,

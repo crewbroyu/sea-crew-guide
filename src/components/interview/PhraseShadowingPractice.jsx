@@ -1,7 +1,8 @@
+import { useTrainingInspection } from '../../hooks/useTrainingInspection'
 import { useEffect, useRef, useState } from 'react'
 import { Bookmark, Check, Mic, RotateCcw, Square, Volume2 } from 'lucide-react'
 import EdgeReadAloudHint from '../EdgeReadAloudHint'
-import { speakEnglish, stopSpeech } from '../../services/ttsService'
+import { speakEnglish as liveSpeakEnglish, stopSpeech } from '../../services/ttsService'
 
 const DEFAULT_REQUIRED_PHRASE_REPETITIONS = 3
 const DEFAULT_REQUIRED_FULL_ANSWER_REPETITIONS = 3
@@ -37,6 +38,8 @@ export default function PhraseShadowingPractice({
   savedLines = [],
   onToggleSavedLine,
 }) {
+  const inspection = useTrainingInspection()
+  const speakEnglish = inspection ? async () => {} : liveSpeakEnglish
   const legacyCompletedPhrases = practice.completedPhrases || []
   const phraseRepetitions = practice.phraseRepetitions || Object.fromEntries(
     legacyCompletedPhrases.map((phrase) => [phrase, 1]),
@@ -111,6 +114,7 @@ export default function PhraseShadowingPractice({
   }
 
   const playText = (text, key, phrase = '') => {
+    if (inspection) return
     setErrorMessage('')
     void speakEnglish(text, {
       position,
@@ -129,6 +133,7 @@ export default function PhraseShadowingPractice({
   }
 
   const handleStartRecording = async ({ text, key, phrase, isFullAnswer = false }) => {
+    if (inspection) return
     setErrorMessage('')
     stopSpeech()
     setSpeakingKey(null)
@@ -236,7 +241,7 @@ export default function PhraseShadowingPractice({
           <button
             type="button"
             onClick={() => playText(text, key, phrase)}
-            disabled={recordingKey !== null}
+            disabled={inspection || recordingKey !== null}
             title="播放示范"
             className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -251,7 +256,7 @@ export default function PhraseShadowingPractice({
             <button
               type="button"
               onClick={() => handleStartRecording({ text, key, phrase, isFullAnswer })}
-              disabled={isAnotherRecording || isListenRequired}
+              disabled={inspection || isAnotherRecording || isListenRequired}
               title={isListenRequired ? '请先听一遍示范' : recordingUrls[key] ? '继续跟读' : '开始跟读录音'}
               className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >

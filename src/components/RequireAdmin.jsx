@@ -1,7 +1,8 @@
+import { isActiveAdministrator } from '../utils/accessPolicy.js'
 import { useAccessStore } from '../store/accessStore'
 
 export default function RequireAdmin({ children }) {
-  const { authChecked, accessChecked, isCheckingAuth, isCheckingAccess, isRegistered, isAdmin, openRegisterModal } = useAccessStore()
+  const { authChecked, accessChecked, isCheckingAuth, isCheckingAccess, isRegistered, role, accessStatus, openRegisterModal } = useAccessStore()
 
   if (!authChecked || !accessChecked || isCheckingAuth || isCheckingAccess) {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600">正在检查管理员权限...</div>
@@ -15,7 +16,7 @@ export default function RequireAdmin({ children }) {
     )
   }
 
-  if (!isAdmin) {
+  if (!isActiveAdministrator({ role, accessStatus })) {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 text-center text-sm text-slate-600">此页面仅管理员可以访问。</div>
   }
 

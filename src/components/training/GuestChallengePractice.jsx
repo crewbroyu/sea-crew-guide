@@ -1,6 +1,7 @@
+import { useTrainingInspection } from '../../hooks/useTrainingInspection'
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, LockKeyhole, Mic, Square, Volume2 } from 'lucide-react'
-import { speakEnglish, stopSpeech } from '../../services/ttsService'
+import { speakEnglish as liveSpeakEnglish, stopSpeech } from '../../services/ttsService'
 
 const MINIMUM_RECORDING_SECONDS = 3
 
@@ -18,6 +19,8 @@ export default function GuestChallengePractice({
   locked = false,
   onChallengeChange,
 }) {
+  const inspection = useTrainingInspection()
+  const speakEnglish = inspection ? async () => {} : liveSpeakEnglish
   const [draft, setDraft] = useState(challenge.transcript || '')
   const [recording, setRecording] = useState(false)
   const [recordingUrl, setRecordingUrl] = useState('')
@@ -81,6 +84,7 @@ export default function GuestChallengePractice({
   }
 
   const startRecording = async () => {
+    if (inspection) return
     setErrorMessage('')
     stopSpeech()
 
@@ -184,7 +188,7 @@ export default function GuestChallengePractice({
       ) : (
         <>
           <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-700 pt-4">
-            <button type="button" onClick={() => speakEnglish(prompt, { position })} disabled={recording} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-white px-3 text-xs font-semibold text-slate-950 disabled:opacity-50">
+            <button type="button" onClick={() => speakEnglish(prompt, { position })} disabled={inspection || recording} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-white px-3 text-xs font-semibold text-slate-950 disabled:opacity-50">
               <Volume2 size={15} /> Listen to the guest
             </button>
             {recording ? (
@@ -192,7 +196,7 @@ export default function GuestChallengePractice({
                 <Square size={14} /> Stop answer
               </button>
             ) : (
-              <button type="button" onClick={startRecording} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white">
+              <button type="button" onClick={startRecording} disabled={inspection} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white">
                 <Mic size={14} /> {challenge.hasRecording ? 'Record again' : 'Record your answer'}
               </button>
             )}

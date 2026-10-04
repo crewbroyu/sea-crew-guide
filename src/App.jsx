@@ -28,6 +28,7 @@ const Task8MockInterview = lazy(() => import('./pages/tasks/phase2/Task8MockInte
 const Task8RealInterview = lazy(() => import('./pages/tasks/phase2/Task8RealInterview'))
 const ActivationCodeGenerator = lazy(() => import('./pages/ActivationCodeGenerator'))
 const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'))
+const AdminInspection = lazy(() => import('./pages/AdminInspection'))
 
 const Academy = lazy(() => import('./pages/Academy'))
 const Boarding = lazy(() => import('./pages/academy/Boarding'))
@@ -152,6 +153,7 @@ function App() {
               <Route path="/assessment" element={<AssessmentContainer />} />
               <Route path="/boarding-materials" element={<RequireActivation><BoardingMaterials /></RequireActivation>} />
               <Route path="/generate-codes" element={<RequireAdmin><ActivationCodeGenerator /></RequireAdmin>} />
+              <Route path="/admin/inspection" element={<RequireAdmin><AdminInspection /></RequireAdmin>} />
               <Route path="/admin/beta" element={<RequireAdmin><AdminBetaDashboard /></RequireAdmin>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

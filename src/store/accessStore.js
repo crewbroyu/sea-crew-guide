@@ -1,3 +1,4 @@
+import { isActiveAdministrator, hasLegacyAccess } from '../utils/accessPolicy.js';
 import { create } from 'zustand';
 
 const initialState = {
@@ -55,9 +56,9 @@ export const useAccessStore = create((set, get) => ({
     mentorStatus = 'inactive',
     checked = true,
   }) => {
-    const isAdmin = role === 'admin' && accessStatus === 'active';
+    const isAdmin = isActiveAdministrator({ role, accessStatus });
     set((state) => ({
-      isUnlocked: Boolean(isUnlocked || isAdmin),
+      isUnlocked: hasLegacyAccess({ role, accessStatus, isUnlocked: Boolean(isUnlocked), premiumUntil }),
       unlockedAt,
       role,
       plan,

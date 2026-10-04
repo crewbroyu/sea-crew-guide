@@ -1,8 +1,11 @@
+import { requiresAdministrator, isActiveAdministrator, hasLegacyAccess } from '../utils/accessPolicy.js';
+import { useAccessStore } from '../store/accessStore';
 import { useCallback } from 'react';
 import useEffectiveAccess from './useEffectiveAccess';
 
 const LOGIN_REQUIRED_ROUTES = [
   '/tasks/phase2/Task4',
+  '/tasks/phase2/Task8',
   '/jobs/applications',
   '/profile',
   '/my-offer',
@@ -15,7 +18,6 @@ const LOGIN_REQUIRED_ROUTES = [
 
 const UNLOCK_REQUIRED_ROUTES = [
   '/boarding-materials',
-  '/generate-codes',
 ];
 
 const routeStartsWithAny = (pathname, prefixes) =>
@@ -26,10 +28,12 @@ export const checkRouteNeedsUnlock = (pathname) => {
 };
 
 export const checkRouteNeedsLogin = (pathname) => {
-  return checkRouteNeedsUnlock(pathname) || routeStartsWithAny(pathname, LOGIN_REQUIRED_ROUTES);
+  return requiresAdministrator(pathname) || checkRouteNeedsUnlock(pathname) || routeStartsWithAny(pathname, LOGIN_REQUIRED_ROUTES);
 };
 
 export const useAccessGuard = () => {
+  const actualAccess = useAccessStore();
+  const effectiveAccess = useEffectiveAccess();
   const {
     isRegistered,
     isUnlocked,
@@ -37,9 +41,14 @@ export const useAccessGuard = () => {
     isCheckingAccess,
     openRegisterModal,
     openUnlockModal,
-  } = useEffectiveAccess();
+  } = effectiveAccess;
 
   const canAccess = useCallback((pathname) => {
+    if (requiresAdministrator(pathname)) {
+      if (!actualAccess.authChecked || !actualAccess.accessChecked || actualAccess.isCheckingAuth || actualAccess.isCheckingAccess) return { canAccess: false, reason: 'checking' };
+      if (!actualAccess.isRegistered) return { canAccess: false, reason: 'register' };
+      return isActiveAdministrator(actualAccess) ? { canAccess: true, reason: null } : { canAccess: false, reason: 'admin' };
+    }
     if (checkRouteNeedsLogin(pathname) && !isRegistered) {
       return { canAccess: false, reason: 'register' };
     }
@@ -48,12 +57,16 @@ export const useAccessGuard = () => {
       return { canAccess: false, reason: 'checking' };
     }
 
-    if (checkRouteNeedsUnlock(pathname) && !isUnlocked) {
+    if (checkRouteNeedsUnlock(pathname) && effectiveAccess.accessStatus !== 'active') {
+      return { canAccess: false, reason: 'restricted' };
+    }
+
+    if (checkRouteNeedsUnlock(pathname) && !hasLegacyAccess(effectiveAccess)) {
       return { canAccess: false, reason: 'unlock' };
     }
 
     return { canAccess: true, reason: null };
-  }, [accessChecked, isCheckingAccess, isRegistered, isUnlocked]);
+  }, [accessChecked, isCheckingAccess, isRegistered, actualAccess, effectiveAccess]);
 
   const guardRoute = useCallback((pathname) => {
     const result = canAccess(pathname);

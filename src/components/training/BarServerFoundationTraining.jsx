@@ -1,3 +1,4 @@
+import { useTrainingInspection } from '../../hooks/useTrainingInspection'
 import { useMemo, useState } from 'react'
 import {
   ArrowRight,
@@ -14,7 +15,7 @@ import {
 import PhraseShadowingPractice from '../interview/PhraseShadowingPractice'
 import GuestChallengePractice from './GuestChallengePractice'
 import FoundationLessonNavigation from './FoundationLessonNavigation'
-import { speakEnglish } from '../../services/ttsService'
+import { speakEnglish as liveSpeakEnglish } from '../../services/ttsService'
 import {
   BAR_SERVER_FOUNDATION_VERSION,
   barServerFoundationDays,
@@ -78,10 +79,13 @@ export default function BarServerFoundationTraining({
   onStartTask7,
   onStartScenarioTraining,
   onlyDayId = '',
+  initialLessonStep = 0,
   showCourseHeader = true,
   savedLines = [],
   onToggleSavedLine,
 }) {
+  const inspection = useTrainingInspection()
+  const speakEnglish = inspection ? async () => {} : liveSpeakEnglish
   const visibleDays = useMemo(
     () => onlyDayId ? barServerFoundationDays.filter((day) => day.id === onlyDayId) : barServerFoundationDays,
     [onlyDayId],
@@ -93,7 +97,7 @@ export default function BarServerFoundationTraining({
     [progress, visibleDays],
   )
   const [activeDayId, setActiveDayId] = useState(firstIncompleteDay)
-  const [lessonStep, setLessonStep] = useState(0)
+  const [lessonStep, setLessonStep] = useState(initialLessonStep)
 
   const completedDays = getCompletedFoundationDays(progress)
   const masteredDays = barServerFoundationDays.filter(
@@ -249,7 +253,7 @@ export default function BarServerFoundationTraining({
                                 <p className="mt-1 text-sm leading-6 text-slate-700">{item.example}</p>
                               </div>
                               <div className="flex gap-2">
-                                <button type="button" onClick={() => speakEnglish(`${item.term}. ${item.example}`, { position: 'bar_server' })} title={`Listen to ${item.term}`} aria-label={`Listen to ${item.term}`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50">
+                                <button type="button" disabled={inspection} onClick={() => speakEnglish(`${item.term}. ${item.example}`, { position: 'bar_server' })} title={`Listen to ${item.term}`} aria-label={`Listen to ${item.term}`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-blue-700 transition hover:border-blue-300 hover:bg-blue-50">
                                   <Volume2 size={17} />
                                 </button>
                                 <button type="button" onClick={() => onToggleSavedLine?.({ text: item.example, cue: `Vocabulary · ${item.term}`, day: day.day, dayId: day.id })} title="Save this example" aria-label={`Save example for ${item.term}`} className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition ${savedLines.some((line) => line.text === item.example) ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
@@ -282,7 +286,7 @@ export default function BarServerFoundationTraining({
                         role={shiftLab.challenge.role}
                         prompt={shiftLab.challenge.prompt}
                         challenge={dayProgress.guestChallenge || {}}
-                        locked={!dayProgress.shadowing?.completedAt}
+                        locked={!inspection && !dayProgress.shadowing?.completedAt}
                         onChallengeChange={(guestChallenge) => updateDayProgress(day, { guestChallenge })}
                       />}
                     </>

@@ -11,3 +11,11 @@ For the current production database, apply only new forward migrations in this o
 5. Run `supabase_production_verification.sql`. It is SELECT-only and may be rerun after every deployment.
 
 Application code may be deployed after steps 2, 3, and 4. Before those migrations are applied, Retail AI, new career-report generation, and practical assessment AI intentionally fail closed rather than bypassing quota controls.
+
+## Partner workspace (additive pilot)
+
+See PARTNER_WORKSPACE.md before applying supabase/migrations/20261004034103_partner_workspace.sql. This migration is independent of the historical product/AI baselines above; it requires the existing user_access, mentor_profiles and user_path_profiles tables. Do not replay old baseline files. The new UI fails closed until its RPC is installed.
+
+Apply `supabase/migrations/20261004035617_partner_directory_and_invites.sql` after the partner workspace migration for admin account search and personal pending-invite counts. The account directory is admin-only; it is not exposed to partner roles.
+
+Then apply `supabase/migrations/20261004105657_partner_service_tasks.sql` for service scheduling and learner-confirmed delivery. This is not a billing or settlement migration.

@@ -16,6 +16,7 @@ import {
   User,
   Users,
 } from 'lucide-react'
+import PartnerInviteNotice from '../components/PartnerInviteNotice'
 import FoundationLegacyImportNotice from '../components/FoundationLegacyImportNotice'
 import { supabase } from '../supabase'
 import { useAccessStore } from '../store/accessStore'
@@ -418,6 +419,7 @@ export default function Profile() {
       </div>
 
       <main className="px-6 -mt-3 space-y-5">
+        <PartnerInviteNotice />
         <FoundationLegacyImportNotice />
         <section className="bg-white rounded-xl shadow-sm p-4">
           <div className="flex items-start justify-between gap-3">
@@ -615,6 +617,7 @@ export default function Profile() {
         <section className="bg-white rounded-xl shadow-sm divide-y divide-gray-100">
           <MenuButton icon={FileText} label="查看个人简历" onClick={() => navigate('/resume')} />
           <MenuButton icon={Shield} label="登船证件" onClick={() => navigate('/tasks/Task10')} />
+          <MenuButton icon={Users} label="合作与进度授权" onClick={() => navigate('/partner')} />
           <MenuButton icon={Bell} label="站内消息" onClick={() => navigate('/messages')} />
         </section>
 

@@ -22,6 +22,7 @@ export default function AdminPreviewBar() {
         管理员预览
       </div>
       <Link to="/admin/inspection" className="mt-2 block rounded-lg bg-blue-600 px-3 py-2 text-center text-xs font-semibold text-white">打开只读巡检 · 自由跳步</Link>
+      <Link to="/admin/partners" className="mt-2 block text-center text-xs text-blue-700">机构与导师授权管理</Link>
       <select
         value={previewMode}
         onChange={(event) => setPreviewMode(event.target.value)}

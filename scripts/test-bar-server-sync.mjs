@@ -1,8 +1,21 @@
+import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
-import { BAR_SERVER_LISTENING_DRILLS } from '../src/data/barServerListening.js'
+import path, { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import {
+  BAR_SERVER_LISTENING_DRILLS,
+  readBarLearningStage,
+  readBarLearningStageUpdatedAt,
+  readBarListeningProgress,
+  readBarShiftHistory,
+  writeBarLearningStage,
+  writeBarLearningStageUpdatedAt,
+  writeBarListeningProgress,
+  writeBarShiftHistory,
+} from '../src/data/barServerListening.js'
 import {
   mergeBarListeningProgress,
+  mergeBarServerPractice,
   mergeBarShiftHistory,
 } from '../src/data/barServerProgressSync.js'
 
@@ -60,10 +73,100 @@ const history = mergeBarShiftHistory(
 )
 if (history.length !== 2 || history[0].id !== 'newer') fail('shift history must deduplicate and sort newest first')
 
+const newerStage = mergeBarServerPractice(
+  { learningStage: 'job_search', stageUpdatedAt: '2026-01-01' },
+  { learningStage: 'experienced', stageUpdatedAt: '2026-01-02' },
+)
+assert.equal(newerStage.learningStage, 'experienced')
+assert.equal(mergeBarServerPractice(newerStage, { listeningProgress: local }).learningStage, 'experienced', 'a listening update must not reset the learning stage')
+
+const storage = new Map()
+globalThis.localStorage = {
+  getItem: (key) => storage.get(key) || null,
+  setItem: (key, value) => storage.set(key, value),
+}
+writeBarListeningProgress(local, 'account-a')
+writeBarShiftHistory(history, 'account-a')
+writeBarLearningStage('experienced', 'account-a')
+writeBarLearningStageUpdatedAt('2026-01-02', 'account-a')
+assert.deepEqual(readBarListeningProgress('account-b'), {})
+assert.deepEqual(readBarShiftHistory('account-b'), [])
+assert.equal(readBarLearningStage('account-b'), 'job_search')
+assert.equal(readBarLearningStage('account-a'), 'experienced')
+assert.equal(readBarLearningStageUpdatedAt('account-a'), '2026-01-02')
+writeBarLearningStage('first_contract')
+assert.equal(readBarLearningStage('account-b'), 'job_search', 'legacy stage must not be assigned to a signed-in account')
+
+let row = {
+  user_id: 'account-a',
+  updated_at: '2026-01-01T00:00:00.000Z',
+  learning_records: { foundationCourses: { bar_server: { sentinel: true } } },
+}
+let userId = 'account-a'
+let writes = 0
+let failRead = false
+let conflict = true
+class Query {
+  constructor() { this.operation = 'read'; this.filters = [] }
+  select() { return this }
+  eq(key, value) { this.filters.push([key, value]); return this }
+  is(key, value) { return this.eq(key, value) }
+  update(value) { this.operation = 'update'; this.value = value; return this }
+  insert(value) { this.operation = 'insert'; this.value = value; return this }
+  async single() { return this.execute() }
+  async maybeSingle() { return this.execute() }
+  then(resolvePromise, rejectPromise) { return Promise.resolve(this.execute()).then(resolvePromise, rejectPromise) }
+  execute() {
+    if (this.operation === 'read') return failRead ? { error: new Error('offline') } : { data: structuredClone(row), error: null }
+    if (this.operation === 'insert') {
+      if (row) return { error: { code: '23505' } }
+      row = this.value; writes += 1
+      return { data: structuredClone(row), error: null }
+    }
+    if (conflict) {
+      conflict = false
+      row = { ...row, learning_records: { ...row.learning_records, concurrent: { preserved: true } }, updated_at: '2026-01-01T00:00:01.000Z' }
+      return { data: null, error: null }
+    }
+    if (this.filters.some(([key, value]) => row?.[key] !== value)) return { data: null, error: null }
+    row = { ...row, ...this.value }; writes += 1
+    return { data: structuredClone(row), error: null }
+  }
+}
+globalThis.__barSyncClient = {
+  auth: { getUser: async () => ({ data: { user: userId ? { id: userId, email: 'test@example.invalid' } : null }, error: null }) },
+  from: () => new Query(),
+}
+const serviceSource = (await readFile(new URL('../src/services/jobPreparationService.js', import.meta.url), 'utf8'))
+  .replace("import { supabase } from '../supabase'", 'const supabase=globalThis.__barSyncClient')
+  .replace("'../data/foundationSync'", JSON.stringify(pathToFileURL(path.resolve('src/data/foundationSync.js')).href))
+  .replace("'../data/retailPracticeProgress'", JSON.stringify(pathToFileURL(path.resolve('src/data/retailPracticeProgress.js')).href))
+  .replace("'../data/barServerProgressSync'", JSON.stringify(pathToFileURL(path.resolve('src/data/barServerProgressSync.js')).href))
+const service = await import(`data:text/javascript;base64,${Buffer.from(serviceSource).toString('base64')}`)
+await service.upsertMyBarServerPracticeState({
+  expectedUserId: 'account-a',
+  version: 1,
+  listeningProgress: local,
+  shiftHistory: history,
+  learningStage: 'experienced',
+  stageUpdatedAt: '2026-01-02',
+})
+assert.equal(row.learning_records.concurrent.preserved, true)
+assert.equal(row.learning_records.foundationCourses.bar_server.sentinel, true)
+assert.equal((await service.getMyBarServerPracticeState('account-a')).learningStage, 'experienced')
+const before = writes
+failRead = true
+await assert.rejects(() => service.getMyBarServerPracticeState('account-a'), /offline/)
+assert.equal(writes, before)
+failRead = false
+userId = 'account-b'
+await assert.rejects(() => service.upsertMyBarServerPracticeState({ expectedUserId: 'account-a' }), /Account changed/)
+assert.equal(writes, before)
+
 const root = resolve(new URL('..', import.meta.url).pathname.replace(/^\/(.:)/, '$1'))
 const accessGate = await readFile(resolve(root, 'src/components/AccessGate.jsx'), 'utf8')
 for (const key of ['bar_server_listening_progress_v1', 'bar_server_learning_stage', 'bar_server_shift_challenge_history_v1']) {
   if (!accessGate.includes(`'${key}'`)) fail(`account switch cleanup is missing ${key}`)
 }
 
-console.log('Bar Server progress sync contract passed (merge, history, account isolation).')
+console.log('Bar Server progress sync contract passed (account partitions, stage merge, cloud conflict retry, failed read and account switch).')

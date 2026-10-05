@@ -67,6 +67,11 @@ const BarServerListening = lazy(() => import('./pages/programs/BarServerListenin
 const BarServerShiftChallenge = lazy(() => import('./pages/programs/BarServerShiftChallenge'))
 const BarServerReadinessReport = lazy(() => import('./pages/programs/BarServerReadinessReport'))
 const BarServerScenarioTraining = lazy(() => import('./pages/programs/BarServerScenarioTraining'))
+const RetailListening = lazy(() => import('./pages/programs/RetailListening'))
+const RetailShiftChallenge = lazy(() => import('./pages/programs/RetailShiftChallenge'))
+const RetailSpecialistCourses = lazy(() => import('./pages/programs/RetailSpecialistCourses'))
+const RetailBrandLibrary = lazy(() => import('./pages/programs/RetailBrandLibrary'))
+const RetailReadinessReport = lazy(() => import('./pages/programs/RetailReadinessReport'))
 const FoundationCourse = lazy(() => import('./pages/programs/FoundationCourse'))
 const AssessmentContainer = lazy(() => import('./components/assessment/AssessmentContainer'))
 const BoardingMaterials = lazy(() => import('./pages/BoardingMaterials'))
@@ -141,6 +146,12 @@ function App() {
               <Route path="/legal/:document" element={<LegalDocument />} />
               <Route path="/founder-test" element={<RequireActivation productCode="bar_server_pack"><FounderBeta /></RequireActivation>} />
               <Route path="/programs/retail" element={<RetailPreparationPack />} />
+              <Route path="/programs/retail/listening" element={<RequireActivation productCode="retail_sales_pack"><RetailListening /></RequireActivation>} />
+              <Route path="/programs/retail/listening/shift" element={<RequireActivation productCode="retail_sales_pack"><RetailShiftChallenge /></RequireActivation>} />
+              <Route path="/programs/retail/specialists" element={<RequireActivation productCode="retail_sales_pack"><RetailSpecialistCourses /></RequireActivation>} />
+              <Route path="/programs/retail/specialists/:specialistId" element={<RequireActivation productCode="retail_sales_pack"><RetailSpecialistCourses /></RequireActivation>} />
+              <Route path="/programs/retail/brands" element={<RequireActivation productCode="retail_sales_pack"><RetailBrandLibrary /></RequireActivation>} />
+              <Route path="/programs/retail/report" element={<RequireActivation productCode="retail_sales_pack"><RetailReadinessReport /></RequireActivation>} />
               <Route path="/programs/retail/training" element={<RequireActivation productCode="retail_sales_pack"><RetailScenarioTraining /></RequireActivation>} />
               <Route path="/programs/bar-server" element={<BarServerPreparationPack />} />
               <Route path="/programs/bar-server/trial" element={<BarServerTrial />} />

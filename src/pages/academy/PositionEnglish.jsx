@@ -252,6 +252,9 @@ const barServerTrainingPath = [
 ]
 
 const retailTrainingPath = [
+  { phase: 'scenario', task: '工作听说', area: '海乘学院', title: '12 个零售听说场景', description: '听懂预算、尺码、促销和交接指令，再开口回应。', route: '/programs/retail/listening' },
+  { phase: 'scenario', task: '班次挑战', area: '海乘学院', title: '5 题限时班次挑战', description: '正常语速、单次播放、限时作答并集中复盘。', route: '/programs/retail/listening/shift' },
+  { phase: 'scenario', task: '准备度', area: '海乘学院', title: 'Retail 岗位准备度报告', description: '汇总基础课、听力、回应、班次与场景证据。', route: '/programs/retail/report' },
   { phase: 'foundation', task: '任务5', area: '海乘学院', title: '8 天邮轮零售基础课', description: '学习接待、需求发现、产品表达、KPI、异议、POS、库存与防损。', route: '/programs/retail/foundation' },
   { phase: 'scenario', task: '岗位模拟', area: '海乘学院', title: '5 级邮轮零售工作模拟', description: '与客人连续对话，并按六项岗位能力保存训练结果。', route: '/programs/retail/training' },
   { phase: 'interview', task: '任务6', area: '求职中心', title: '把销售经历变成英文回答', description: '整理业绩、需求发现、异议处理和高压服务案例。', route: '/tasks/phase2/Task6?source=task5' },

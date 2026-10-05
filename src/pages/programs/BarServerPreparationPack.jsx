@@ -6,20 +6,12 @@ import { hasProductEntitlement } from '../../services/activationService'
 import { barServerFoundationDays, getCompletedFoundationDays } from '../../data/barServerFoundation'
 import {
   BAR_SERVER_LEARNING_STAGES,
-  BAR_SERVER_STAGE_KEY,
   getCompletedListeningDrills,
 } from '../../data/barServerListening'
 import { getBarServerPlanProgress } from '../../data/barServerLearningPlan'
 import useBarServerPracticeProgress from '../../hooks/useBarServerPracticeProgress'
 import { getMyScenarioProfile } from '../../services/scenarioTrainingService'
-
-const readFoundationProgress = () => {
-  try {
-    return JSON.parse(localStorage.getItem('task5_data') || '{}')?.foundationProgress || {}
-  } catch {
-    return {}
-  }
-}
+import { readFoundationProgress } from '../../services/foundationProgressService'
 
 const courseSections = {
   foundation: {
@@ -62,8 +54,6 @@ const stageCourseOrder = {
   experienced: ['listening', 'simulation', 'foundation', 'interview'],
 }
 
-const readLearningStage = () => localStorage.getItem(BAR_SERVER_STAGE_KEY) || 'job_search'
-
 const readInterviewCompletion = () => {
   try {
     return Boolean(JSON.parse(localStorage.getItem('task6_result') || '{}')?.completedAt)
@@ -74,12 +64,13 @@ const readInterviewCompletion = () => {
 
 export default function BarServerPreparationPack() {
   const navigate = useNavigate()
-  const [learningStage, setLearningStage] = useState(readLearningStage)
-  const [scenarioCompletedCount, setScenarioCompletedCount] = useState(0)
   const access = useEffectiveAccess()
-  const { listeningProgress, shiftHistory } = useBarServerPracticeProgress()
+  const ownerId = access.isPreviewing ? 'preview' : access.userId || 'guest'
+  const [scenarioSnapshot, setScenarioSnapshot] = useState({ ownerId, completedCount: 0 })
+  const scenarioCompletedCount = scenarioSnapshot.ownerId === ownerId ? scenarioSnapshot.completedCount : 0
+  const { listeningProgress, shiftHistory, learningStage, selectLearningStage } = useBarServerPracticeProgress()
   const hasPack = hasProductEntitlement(access, 'bar_server_pack')
-  const foundationProgress = readFoundationProgress()
+  const foundationProgress = readFoundationProgress('bar_server', ownerId)
   const completedDays = getCompletedFoundationDays(foundationProgress)
   const completedListening = getCompletedListeningDrills(listeningProgress)
   const selectedStage = BAR_SERVER_LEARNING_STAGES.find((stage) => stage.id === learningStage)
@@ -94,20 +85,15 @@ export default function BarServerPreparationPack() {
   })
 
   useEffect(() => {
-    if (!access.isRegistered) return undefined
+    if (!access.isRegistered || access.isPreviewing || !access.userId) return undefined
     let active = true
     getMyScenarioProfile('bar_server')
       .then((profile) => {
-        if (active) setScenarioCompletedCount(Number(profile?.completed_scenario_count || 0))
+        if (active) setScenarioSnapshot({ ownerId, completedCount: Number(profile?.completed_scenario_count || 0) })
       })
       .catch((error) => console.warn('Unable to load Bar Server plan scenario progress:', error))
     return () => { active = false }
-  }, [access.isRegistered])
-
-  const selectLearningStage = (stageId) => {
-    setLearningStage(stageId)
-    localStorage.setItem(BAR_SERVER_STAGE_KEY, stageId)
-  }
+  }, [access.isPreviewing, access.isRegistered, access.userId, ownerId])
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">

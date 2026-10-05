@@ -17,7 +17,8 @@ import {
 export default function RetailFoundationTraining({ onStartSimulation, onStartQuestions, initialProgress, onProgressChange, onlyDayId = '', initialLessonStep = 0, showCourseHeader = true, savedLines = [], onToggleSavedLine }) {
   const inspection = useTrainingInspection()
   const speakEnglish = inspection ? async () => {} : liveSpeakEnglish
-  const [progress, setProgress] = useState(() => initialProgress || (inspection ? { days: {} } : getRetailFoundationProgress()))
+  const [localProgress, setProgress] = useState(() => initialProgress || (inspection ? { days: {} } : getRetailFoundationProgress()))
+  const progress=initialProgress || localProgress
   const [activeDayId, setActiveDayId] = useState(() => {
     if (onlyDayId) return onlyDayId
     const savedProgress = initialProgress || (inspection ? { days: {} } : getRetailFoundationProgress())
@@ -29,7 +30,8 @@ export default function RetailFoundationTraining({ onStartSimulation, onStartQue
   const [lessonStep, setLessonStep] = useState(initialLessonStep)
 
   const updateDay = (day, patch) => {
-    setProgress((current) => {
+    {
+      const current=progress
       const previous = current.days?.[day.id] || {}
       const nextDay = { ...previous, ...patch }
       const shadowingDone = Boolean(nextDay.shadowing?.completedAt)
@@ -38,10 +40,10 @@ export default function RetailFoundationTraining({ onStartSimulation, onStartQue
       const requirementsDone = shadowingDone && challengeDone && quizDone
       nextDay.completedAt = previous.completedAt || (requirementsDone ? new Date().toISOString() : null)
       const next = { ...current, days: { ...(current.days || {}), [day.id]: nextDay } }
-      if (!inspection) localStorage.setItem(RETAIL_FOUNDATION_STORAGE_KEY, JSON.stringify(next))
+      if (!inspection && !onProgressChange) localStorage.setItem(RETAIL_FOUNDATION_STORAGE_KEY, JSON.stringify(next))
       onProgressChange?.(next)
-      return next
-    })
+      setProgress(next)
+    }
   }
 
   const showLessonStep = (step) => !onlyDayId || lessonStep === step

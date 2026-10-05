@@ -1,6 +1,7 @@
 import { BAR_SERVER_TRIAL_STORAGE_KEY } from '../data/barServerTrial.js'
-import { BAR_SERVER_STAGE_KEY, readBarListeningProgress, readBarShiftHistory } from '../data/barServerListening.js'
-import { mergeBarListeningProgress, mergeBarShiftHistory } from '../data/barServerProgressSync.js'
+import { readBarLearningStage, readBarLearningStageUpdatedAt, readBarListeningProgress, readBarShiftHistory } from '../data/barServerListening.js'
+import { mergeBarServerPractice } from '../data/barServerProgressSync.js'
+import { mergeFoundationProgress } from '../data/foundationSync.js'
 import { buildHomeToday } from '../data/homeToday.js'
 import { hasProductEntitlement } from './activationService.js'
 import { getLatestCareerReport } from './careerReportService.js'
@@ -17,22 +18,13 @@ const readJson = (key, fallback) => {
   }
 }
 
-const mergeObjects = (cloudValue, localValue) => {
-  if (!cloudValue || typeof cloudValue !== 'object' || Array.isArray(cloudValue)) return localValue ?? cloudValue
-  if (!localValue || typeof localValue !== 'object' || Array.isArray(localValue)) return localValue ?? cloudValue
-  return Object.fromEntries([...new Set([...Object.keys(cloudValue), ...Object.keys(localValue)])].map((key) => [
-    key,
-    mergeObjects(cloudValue[key], localValue[key]),
-  ]))
-}
-
 const valueOf = (result, fallback) => result.status === 'fulfilled' ? result.value : fallback
 
 export const getHomeDashboard = async (access) => {
-  const learningStage = localStorage.getItem(BAR_SERVER_STAGE_KEY) || 'job_search'
+  const ownerId = access.isPreviewing ? 'preview' : access.userId || 'guest'
   const results = await Promise.allSettled([
     getMyPathProfile(),
-    getMyJobPreparation(),
+    getMyJobPreparation(access.isRegistered && !access.isPreviewing ? access.userId : undefined),
     getLatestCareerReport(),
     getMyScenarioProfile('bar_server'),
     getMyScenarioHistory('bar_server', 5),
@@ -61,15 +53,13 @@ export const getHomeDashboard = async (access) => {
   } : null)
   const cloudFoundation = jobPreparation?.learning_records?.foundationCourses?.bar_server?.progress || {}
   const cloudPractice = jobPreparation?.learning_records?.barServerPractice || {}
-  const foundationProgress = mergeObjects(cloudFoundation, readFoundationProgress('bar_server'))
-  const listeningProgress = mergeBarListeningProgress(
-    cloudPractice.listeningProgress || {},
-    readBarListeningProgress(),
-  )
-  const shiftHistory = mergeBarShiftHistory(
-    cloudPractice.shiftHistory || [],
-    readBarShiftHistory(),
-  )
+  const foundationProgress = mergeFoundationProgress(cloudFoundation, readFoundationProgress('bar_server', ownerId))
+  const practice = mergeBarServerPractice(cloudPractice, {
+    listeningProgress: readBarListeningProgress(ownerId),
+    shiftHistory: readBarShiftHistory(ownerId),
+    learningStage: readBarLearningStage(ownerId),
+    stageUpdatedAt: readBarLearningStageUpdatedAt(ownerId),
+  })
 
   return {
     dashboard: buildHomeToday({
@@ -77,14 +67,14 @@ export const getHomeDashboard = async (access) => {
       jobPreparation,
       careerReport,
       foundationProgress,
-      listeningProgress,
-      shiftHistory,
+      listeningProgress: practice.listeningProgress,
+      shiftHistory: practice.shiftHistory,
       scenarioProfile,
       scenarioHistory,
       trial: readJson(BAR_SERVER_TRIAL_STORAGE_KEY, {}),
       interviewCompleted: Boolean(readJson('task6_result', {}).completedAt),
       hasBarServerPack: hasProductEntitlement(access, 'bar_server_pack'),
-      learningStage,
+      learningStage: practice.learningStage,
     }),
     isPartial: results.some((result) => result.status === 'rejected'),
   }

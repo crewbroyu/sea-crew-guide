@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -15,7 +15,7 @@ import {
   Volume2,
   X,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import PhraseShadowingPractice from '../../components/interview/PhraseShadowingPractice'
 import {
   BAR_SERVER_LISTENING_DRILLS,
@@ -31,31 +31,39 @@ import { speakEnglish, speakText, stopSpeech } from '../../services/ttsService'
 
 const PASSING_SCORE = 70
 
-export default function BarServerListening() {
+const defaultConfig = { drills:BAR_SERVER_LISTENING_DRILLS, getListeningDrillStatus, getListeningUnitStats, getRecommendedListeningDrill, isBarListeningAnswerComplete, scoreBarListeningAnswer, readProgress:readBarListeningProgress, usePracticeProgress:useBarServerPracticeProgress, position:'bar_server', packRoute:'/programs/bar-server', label:'Bar Server' }
+
+export default function BarServerListening({ config = defaultConfig }) {
+  const {drills,getListeningDrillStatus,getListeningUnitStats,getRecommendedListeningDrill,isBarListeningAnswerComplete,scoreBarListeningAnswer,usePracticeProgress} = config
   const navigate = useNavigate()
-  const { listeningProgress: progress, syncStatus, updateListeningProgress: updateProgress } = useBarServerPracticeProgress()
+  const [searchParams] = useSearchParams()
+  const { listeningProgress: progress, syncStatus, updateListeningProgress: updateProgress } = usePracticeProgress()
   const [activeIndex, setActiveIndex] = useState(() => {
-    const savedProgress = readBarListeningProgress()
-    const firstIncomplete = BAR_SERVER_LISTENING_DRILLS.findIndex((drill) => !savedProgress[drill.id]?.completedAt)
+    const requested = drills.findIndex(item => item.id === searchParams.get('drill'))
+    if (requested >= 0) return requested
+    const savedProgress = progress
+    const firstIncomplete = drills.findIndex((drill) => !savedProgress[drill.id]?.completedAt)
     return firstIncomplete === -1 ? 0 : firstIncomplete
   })
   const [answers, setAnswers] = useState({})
   const [result, setResult] = useState(null)
   const [playingMode, setPlayingMode] = useState(null)
+  const [playbackError, setPlaybackError] = useState('')
+  const playbackAttempt = useRef(0)
 
-  const drill = BAR_SERVER_LISTENING_DRILLS[activeIndex]
+  const drill = drills[activeIndex]
   const drillProgress = progress[drill.id] || {}
-  const completedCount = BAR_SERVER_LISTENING_DRILLS.filter((item) => progress[item.id]?.completedAt).length
-  const speakingCompletedCount = BAR_SERVER_LISTENING_DRILLS.filter(
+  const completedCount = drills.filter((item) => progress[item.id]?.completedAt).length
+  const speakingCompletedCount = drills.filter(
     (item) => progress[item.id]?.speakingPractice?.completedAt,
   ).length
-  const bestScores = BAR_SERVER_LISTENING_DRILLS
+  const bestScores = drills
     .map((item) => progress[item.id]?.bestScore)
     .filter((score) => Number.isFinite(score))
   const averageScore = bestScores.length
     ? Math.round(bestScores.reduce((sum, score) => sum + score, 0) / bestScores.length)
     : 0
-  const normalPlayCount = BAR_SERVER_LISTENING_DRILLS.reduce(
+  const normalPlayCount = drills.reduce(
     (sum, item) => sum + (progress[item.id]?.normalPlays || 0),
     0,
   )
@@ -65,13 +73,13 @@ export default function BarServerListening() {
   const canSubmit = isBarListeningAnswerComplete(drill, answers)
   const hasListenedAtNormalSpeed = (drillProgress.normalPlays || 0) > 0
   const canUseSlowPlayback = hasListenedAtNormalSpeed
-  const isLastDrill = activeIndex === BAR_SERVER_LISTENING_DRILLS.length - 1
+  const isLastDrill = activeIndex === drills.length - 1
 
   const drillNumberById = useMemo(() => Object.fromEntries(
-    BAR_SERVER_LISTENING_DRILLS.map((item, index) => [item.id, index + 1]),
-  ), [])
+    drills.map((item, index) => [item.id, index + 1]),
+  ), [drills])
 
-  useEffect(() => () => stopSpeech(), [])
+  useEffect(() => () => { playbackAttempt.current += 1; stopSpeech() }, [])
 
   const updateSpeakingPractice = (speakingPractice) => {
     updateProgress({
@@ -84,6 +92,8 @@ export default function BarServerListening() {
   }
 
   const selectDrill = (index) => {
+    playbackAttempt.current += 1
+    setPlaybackError('')
     stopSpeech()
     setPlayingMode(null)
     setActiveIndex(index)
@@ -94,30 +104,30 @@ export default function BarServerListening() {
 
   const playPrompt = async (mode) => {
     if (playingMode) return
-    const countKey = mode === 'normal' ? 'normalPlays' : 'slowPlays'
-    const nextProgress = {
-      ...progress,
-      [drill.id]: {
-        ...drillProgress,
-        [countKey]: (drillProgress[countKey] || 0) + 1,
-      },
-    }
-    updateProgress(nextProgress)
-
-    const options = {
-      lang: 'en-US',
-      onStart: () => setPlayingMode(mode),
-      onEnd: () => setPlayingMode(null),
-    }
-    if (mode === 'normal') {
-      await speakEnglish(drill.prompt, { ...options, position: 'bar_server' })
-    } else {
-      await speakText(drill.prompt, { ...options, rate: 0.72 })
+    const attempt = ++playbackAttempt.current
+    setPlayingMode(mode)
+    setPlaybackError('')
+    try {
+      const options = { lang: 'en-US', position: config.position }
+      const played = mode === 'normal'
+        ? await speakEnglish(drill.prompt, options)
+        : await speakText(drill.prompt, { ...options, rate: 0.72 })
+      if (attempt !== playbackAttempt.current) return
+      if (!played || ['none', 'cancelled'].includes(played.provider)) {
+        setPlaybackError('音频未能播放，请检查浏览器声音支持后重试。')
+        return
+      }
+      const countKey = mode === 'normal' ? 'normalPlays' : 'slowPlays'
+      updateProgress({ ...progress, [drill.id]: { ...drillProgress, [countKey]: (drillProgress[countKey] || 0) + 1 } })
+    } catch {
+      if (attempt === playbackAttempt.current) setPlaybackError('音频播放失败，请重试。')
+    } finally {
+      if (attempt === playbackAttempt.current) setPlayingMode(null)
     }
   }
 
   const submitAnswer = () => {
-    if (!canSubmit || result) return
+    if (!canSubmit || result || !hasListenedAtNormalSpeed || playingMode) return
     const scored = scoreBarListeningAnswer(drill, answers)
     const previous = progress[drill.id] || {}
     const now = new Date().toISOString()
@@ -142,12 +152,12 @@ export default function BarServerListening() {
   }
 
   const nextDrill = () => {
-    if (isLastDrill && completedCount === BAR_SERVER_LISTENING_DRILLS.length && drillProgress.speakingPractice?.completedAt) {
+    if (isLastDrill && completedCount === drills.length && drillProgress.speakingPractice?.completedAt) {
       navigate('/')
       return
     }
     const nextIndex = isLastDrill
-      ? BAR_SERVER_LISTENING_DRILLS.findIndex((item) => !progress[item.id]?.completedAt)
+      ? drills.findIndex((item) => !progress[item.id]?.completedAt)
       : activeIndex + 1
     selectDrill(nextIndex === -1 ? 0 : nextIndex)
   }
@@ -156,8 +166,8 @@ export default function BarServerListening() {
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-5 pb-7 pt-10">
-          <button type="button" onClick={() => navigate('/programs/bar-server')} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-700">
-            <ArrowLeft size={17} />返回 Bar Server 学习包
+          <button type="button" onClick={() => navigate(config.packRoute)} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-700">
+            <ArrowLeft size={17} />返回 {config.label} 学习包
           </button>
           <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
@@ -165,7 +175,7 @@ export default function BarServerListening() {
               <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">先听懂关键信息，再学会正确处理</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">原文会在提交后出现。正常速度至少听一次，没听清再使用慢速；训练目标不是听懂每个单词，而是抓住会影响服务的关键信息。</p>
               <p className={`mt-3 flex items-center gap-2 text-xs font-medium ${syncStatus === 'local' ? 'text-amber-700' : 'text-emerald-700'}`}>{syncStatus === 'local' ? <CloudOff size={15} /> : <Cloud size={15} />}{syncStatus === 'synced' ? '账户进度已同步' : syncStatus === 'local' ? '当前保存在本机，联网后会再次同步' : '正在同步账户进度…'}</p>
-              <button type="button" onClick={() => navigate('/programs/bar-server/listening/shift')} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800"><TimerReset size={17} />进入 5 题班次挑战</button>
+              <button type="button" onClick={() => navigate(config.packRoute + '/listening/shift')} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800"><TimerReset size={17} />进入 5 题班次挑战</button>
             </div>
             <div className="grid min-w-full grid-cols-2 gap-3 sm:grid-cols-4 md:min-w-[480px]">
               <div className="border-l-2 border-blue-600 pl-3"><p className="text-xs text-slate-500">听力通过</p><p className="mt-1 text-xl font-bold text-slate-950">{completedCount}/12</p></div>
@@ -181,7 +191,7 @@ export default function BarServerListening() {
         <aside className="self-start lg:sticky lg:top-5">
           <p className="text-xs font-semibold text-slate-500">训练进度</p>
           <div className="mt-3 grid grid-cols-6 gap-2 sm:grid-cols-12 lg:grid-cols-4">
-            {BAR_SERVER_LISTENING_DRILLS.map((item, index) => {
+            {drills.map((item, index) => {
               const isActive = item.id === drill.id
               const isComplete = Boolean(progress[item.id]?.completedAt)
               const status = getListeningDrillStatus(item, progress)
@@ -246,6 +256,7 @@ export default function BarServerListening() {
           </div>
 
           <div className="p-5 sm:p-7">
+            {playbackError && <p role="alert" className="mb-3 text-sm text-amber-800">{playbackError}</p>}
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -327,7 +338,7 @@ export default function BarServerListening() {
                 <button
                   type="button"
                   onClick={submitAnswer}
-                  disabled={!canSubmit || !hasListenedAtNormalSpeed}
+                  disabled={!canSubmit || !hasListenedAtNormalSpeed || Boolean(playingMode)}
                   className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
                 >
                   <CheckCircle2 size={18} />提交答案
@@ -362,7 +373,7 @@ export default function BarServerListening() {
             <>
               <PhraseShadowingPractice
                 key={drill.id}
-                position="bar_server"
+                position={config.position}
                 phrases={[drill.response]}
                 phraseCues={[drill.responseCue]}
                 practice={drillProgress.speakingPractice || {}}
@@ -380,7 +391,7 @@ export default function BarServerListening() {
                 className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold transition ${drillProgress.speakingPractice?.completedAt ? 'bg-blue-700 text-white hover:bg-blue-800' : 'border border-slate-300 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
               >
                 {drillProgress.speakingPractice?.completedAt
-                  ? (isLastDrill && completedCount === BAR_SERVER_LISTENING_DRILLS.length ? '听说训练完成，返回今天' : '开口训练完成，进入下一题')
+                  ? (isLastDrill && completedCount === drills.length ? '听说训练完成，返回今天' : '开口训练完成，进入下一题')
                   : '暂时跳过开口训练，进入下一题'}
                 <ArrowRight size={17} />
               </button>

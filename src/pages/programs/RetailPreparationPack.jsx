@@ -1,95 +1,63 @@
-import { useMemo, useState } from 'react'
+import RetailLearningOverview from '../../components/training/RetailLearningOverview'
+import useRetailScenarioSummary from '../../hooks/useRetailScenarioSummary'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, BookOpenCheck, CheckCircle2, FileText, Mic, ShoppingBag, Sparkles, Target } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpenCheck, CalendarDays, Check, FileText, Headphones, Sparkles, TimerReset, BarChart3 } from 'lucide-react'
+
+
+
 import useEffectiveAccess from '../../hooks/useEffectiveAccess'
+import useRetailPracticeProgress from '../../hooks/useRetailPracticeProgress'
+import useRetailFoundationSummary from '../../hooks/useRetailFoundationSummary'
 import { hasProductEntitlement } from '../../services/activationService'
-import { getCompletedRetailDays, getRetailFoundationProgress, retailFoundationDays } from '../../data/retailFoundation'
+import { getCompletedRetailDays } from '../../data/retailFoundation'
+import { RETAIL_LEARNING_STAGES, RETAIL_LISTENING_DRILLS } from '../../data/retailListening'
+import { getRetailPlanProgress } from '../../data/retailLearningPlan'
 
-const PRODUCT_CODE = 'retail_sales_pack'
 
-const stages = [
-  { title: 'A · 岗位基础课', description: '8 天完成岗位、销售流程、KPI、异议、POS、仓储与服务补救；配套产品知识库覆盖主要船上零售品类。', icon: BookOpenCheck },
-  { title: 'B · 工作场景实训', description: '与 Guest 连续对话，从自然接待一路练到 Sea Day 高压销售，单独记录岗位能力成绩。', icon: Sparkles },
-  { title: 'C · 面试表达训练', description: '用题库和单题口语把岗位能力转成真实可讲的面试证据，再进入 AI 模拟面试。', icon: FileText },
+const sections=[
+ {id:'specialists',title:'三条独立专修课程',description:'Beauty Specialist、Chanel Ambassador 与 Watch Specialist；每条 6 单元，独立练习与进度。',route:'/programs/retail/specialists',icon:BookOpenCheck},
+ {id:'brands',title:'品牌基础与船店样本',description:'首批 12 个品牌；按运营公司、船舶及商品类型学习，分清历史来源与当前库存。',route:'/programs/retail/brands',icon:BookOpenCheck},
+ {id:'foundation',title:'8 天岗位基础课',description:'从接待和需求发现，到产品表达、KPI、POS、库存和服务补救。',route:'/programs/retail/foundation',icon:BookOpenCheck},
+ {id:'knowledge',title:'产品与运营知识库',description:'十个品类与运营模块，完成判断题、英文表达自检，再连接听说和实训。',route:'/programs/retail/foundation?view=knowledge',icon:BookOpenCheck},
+ {id:'listening',title:'工作听说 · 12 个场景',description:'先听预算、尺码、促销和指令，再核对信息并完成开口回应。',route:'/programs/retail/listening',icon:Headphones},
+ {id:'simulation',title:'岗位模拟 · 5 个等级',description:'从自然接待到 Sea Day 高峰，与客人连续对话并复盘六项能力。',route:'/programs/retail/training',icon:Sparkles},
+ {id:'shift',title:'限时班次 · 5 题挑战',description:'正常语速只听一次，30 秒内作答；结束后集中复盘。',route:'/programs/retail/listening/shift',icon:TimerReset},
+ {id:'interview',title:'面试与真实经历',description:'整理销售经历、异议处理和团队合作，形成自己的英文案例。',route:'/tasks/phase2/Task6?source=task5',icon:FileText},
 ]
+const orders={job_search:['foundation','knowledge','brands','specialists','interview','listening','simulation','shift'],first_contract:['foundation','knowledge','brands','specialists','listening','simulation','shift','interview'],experienced:['shift','listening','simulation','knowledge','brands','specialists','foundation','interview']}
 
 export default function RetailPreparationPack() {
-  const navigate = useNavigate()
-  const access = useEffectiveAccess()
-  const hasPack = hasProductEntitlement(access, PRODUCT_CODE)
-  const [activeView, setActiveView] = useState('overview')
-  const [foundationProgress] = useState(() => getRetailFoundationProgress())
-  const completedDays = useMemo(() => getCompletedRetailDays(foundationProgress), [foundationProgress])
-
-  const startTraining = () => {
-    navigate('/programs/retail/foundation')
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-5 pb-7 pt-11">
-          <button type="button" onClick={() => navigate('/academy/position-english?position=retail')} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-700"><ArrowLeft size={17} />返回免税店岗位课程</button>
-          <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div>
-              <p className="text-sm font-medium text-blue-700">第二个完整岗位模板 · 内测中</p>
-              <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">Retail Sales Associate 邮轮免税店岗位包</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">不是泛泛学销售，也不是背面试答案。先掌握真实船上零售、仓储与跨品类产品基础，立即开口服务客人，再用连续场景检查你是否真的能做这份工作。</p>
-            </div>
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-5 py-4">
-              <p className="text-xs font-medium text-blue-700">FOUNDATION PROGRESS</p>
-              <p className="mt-1 text-2xl font-bold text-blue-950">{completedDays}/{retailFoundationDays.length} days</p>
-              <p className="mt-1 text-xs text-blue-800">{hasPack ? 'Retail 岗位权益已开通' : '完整训练需 Retail 岗位权益'}</p>
-            </div>
-          </div>
-
-          <figure className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-            <img src="/images/retail/scenarios/sea-day-event.webp" alt="Retail associates serving guests during a busy promotional event on a cruise ship" className="aspect-[16/7] w-full object-cover" />
-            <figcaption className="border-t border-slate-200 bg-white px-4 py-2 text-xs leading-5 text-slate-500">真实工作不只在柜台成交：你还要接待、需求发现、产品说明、活动协作、POS、补货和高峰期排队管理。</figcaption>
-          </figure>
-
-          <div className="mt-6 flex gap-2 overflow-x-auto border-b border-slate-200">
-            {[['overview', '岗位包首页'], ['course', '8 天基础课 + 知识库'], ['simulator', '岗位模拟器']].map(([key, label]) => <button key={key} type="button" onClick={() => key === 'course' ? startTraining() : setActiveView(key)} className={`shrink-0 border-b-2 px-3 py-3 text-sm font-semibold ${activeView === key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500'}`}>{label}</button>)}
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-5 py-7">
-        {activeView === 'overview' && (
-          <div className="space-y-7">
-            <section className="grid gap-4 md:grid-cols-2">
-              <div className="border-l-4 border-emerald-500 bg-white px-5 py-4"><h2 className="font-semibold text-slate-950">适合这样的人</h2><p className="mt-2 text-sm leading-6 text-slate-600">有销售、客服、美妆、珠宝、腕表、奢侈品、酒店或其他面对客人经验，愿意主动交流并接受销售目标。</p></div>
-              <div className="border-l-4 border-amber-500 bg-white px-5 py-4"><h2 className="font-semibold text-slate-950">先接受现实</h2><p className="mt-2 text-sm leading-6 text-slate-600">这不是轻松逛店。你需要长时间站立、主动接近客人、学习多个品类，在 Sea Day 和活动时段承受客流与 KPI 压力。</p></div>
-            </section>
-
-            <section>
-              <p className="text-sm font-medium text-blue-700">完整训练闭环</p>
-              <h2 className="mt-1 text-xl font-semibold text-slate-950">从会介绍，到能成交，再到能通过面试</h2>
-              <div className="mt-4 grid gap-4 md:grid-cols-3">{stages.map((stage) => { const Icon = stage.icon; return <article key={stage.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Icon size={20} /></div><h3 className="mt-4 font-semibold text-slate-950">{stage.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{stage.description}</p></article> })}</div>
-            </section>
-
-            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center"><div><p className="text-xs font-semibold text-blue-700">YOUR NEXT STEP</p><h2 className="mt-1 font-semibold text-slate-950">先完成 Day 1，再决定这个岗位是否适合你</h2><p className="mt-2 text-sm leading-6 text-slate-600">Day 1 可免费体验完整学习流程；Day 2 起需要对应岗位包权益。第二岗位包仍处于内部验收阶段。</p></div><button type="button" onClick={startTraining} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white">{hasPack ? '继续 8 天基础课' : '免费体验 Day 1'}<ArrowRight size={17} /></button></div>
-            </section>
-
-            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <button type="button" onClick={() => navigate('/programs/retail/foundation?view=knowledge')} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left text-sm font-semibold text-slate-800"><span className="flex items-center gap-2"><BookOpenCheck size={18} className="text-blue-700" />产品与运营知识库</span><ArrowRight size={16} /></button>
-              <button type="button" onClick={() => navigate('/assessment')} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left text-sm font-semibold text-slate-800"><span className="flex items-center gap-2"><Target size={18} className="text-blue-700" />岗位适配评估</span><ArrowRight size={16} /></button>
-              <button type="button" onClick={() => navigate('/tasks/phase2/Task6?source=task5')} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left text-sm font-semibold text-slate-800"><span className="flex items-center gap-2"><Mic size={18} className="text-blue-700" />整理英文答案</span><ArrowRight size={16} /></button>
-              <button type="button" onClick={() => navigate('/academy/interview-questions?position=retail')} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left text-sm font-semibold text-slate-800"><span className="flex items-center gap-2"><FileText size={18} className="text-blue-700" />Retail 公开题库</span><ArrowRight size={16} /></button>
-              <button type="button" onClick={() => navigate('/tasks/phase2/Task4')} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left text-sm font-semibold text-slate-800"><span className="flex items-center gap-2"><ShoppingBag size={18} className="text-blue-700" />整理 Retail 简历</span><ArrowRight size={16} /></button>
-            </section>
-          </div>
-        )}
-
-        {activeView === 'simulator' && (
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-start gap-3"><Sparkles size={22} className="mt-0.5 shrink-0 text-blue-700" /><div><p className="text-xs font-semibold text-blue-700">CRUISE JOB SIMULATOR</p><h2 className="mt-1 text-xl font-semibold text-slate-950">5 levels of onboard retail practice</h2><p className="mt-2 text-sm leading-6 text-slate-600">Approach, discovery, recommendation, objections, service recovery and a high-pressure Sea Day interaction. Each simulation includes an AI follow-up, six skill scores, history and weakest-skill recommendation.</p></div></div>
-            <button type="button" onClick={() => navigate('/programs/retail/training')} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white">Enter the Retail Job Simulator<ArrowRight size={17} /></button>
-            <p className="mt-3 flex items-center gap-2 text-xs text-slate-500"><CheckCircle2 size={14} className="text-emerald-600" />Training history is stored separately from Bar Server progress.</p>
-          </section>
-        )}
-      </main>
-    </div>
-  )
+ const navigate=useNavigate(),access=useEffectiveAccess()
+ const practice=useRetailPracticeProgress()
+ const {progress:foundationProgress,error:foundationError}=useRetailFoundationSummary()
+ const scenario=useRetailScenarioSummary()
+ const hasPack=hasProductEntitlement(access,'retail_sales_pack')
+ const plan=getRetailPlanProgress(practice.stageId,{...practice,foundationProgress,scenarioCompletedCount:scenario.profile?.completed_scenario_count})
+ const stage=RETAIL_LEARNING_STAGES.find(item=>item.id===practice.stageId) || RETAIL_LEARNING_STAGES[0]
+ const completedDays=getCompletedRetailDays(foundationProgress)
+ const listeningCount=RETAIL_LISTENING_DRILLS.filter(drill=>practice.listeningProgress[drill.id]?.completedAt).length
+ const speakingCount=RETAIL_LISTENING_DRILLS.filter(drill=>practice.listeningProgress[drill.id]?.speakingPractice?.completedAt).length
+ const ordered=orders[stage.id].map(id=>sections.find(section=>section.id===id))
+ return <div className="min-h-screen bg-slate-50 pb-24">
+  <header className="border-b border-slate-200 bg-white"><div className="mx-auto max-w-5xl px-5 pb-7 pt-10">
+   <button type="button" onClick={()=>navigate('/academy/position-english?position=retail')} className="mb-6 inline-flex items-center gap-2 text-sm text-slate-600"><ArrowLeft size={17}/>返回免税店岗位课程</button>
+   <div className="grid gap-6 md:grid-cols-[1fr_280px] md:items-center"><div><p className="text-sm font-semibold text-blue-700">完整岗位课程 · Retail Sales Associate</p><h1 className="mt-2 text-3xl font-semibold text-slate-950">从接待客人，到完成销售，再到应对真实班次</h1><p className="mt-3 text-sm leading-6 text-slate-600">基础课、产品知识、工作听说、场景实训和面试表达，按你的阶段安排下一步。</p><p className="mt-3 text-xs text-blue-700">{hasPack?'Retail 岗位权益已开通':'Day 1 免费体验 · 完整训练需 Retail 岗位权益'}</p></div><img src="/images/retail/scenarios/sea-day-event.webp" alt="邮轮零售团队在繁忙活动中服务客人" className="aspect-video w-full rounded-lg object-cover"/></div>
+  </div></header>
+  <main className="mx-auto max-w-5xl space-y-7 px-5 py-7">
+   <section><h2 className="text-xl font-semibold text-slate-950">你目前在哪个阶段？</h2><p className="mt-2 text-sm text-slate-600">切换阶段只调整学习顺序，已完成的训练继续计入。</p><div className="mt-4 grid gap-3 md:grid-cols-3">{RETAIL_LEARNING_STAGES.map(item=><button type="button" key={item.id} onClick={()=>practice.selectLearningStage(item.id)} aria-pressed={stage.id===item.id} className={'rounded-lg border p-4 text-left '+(stage.id===item.id?'border-blue-600 bg-blue-50':'border-slate-200 bg-white')}><span className="block font-semibold text-slate-900">{item.label}</span><span className="mt-2 block text-xs leading-5 text-slate-600">{item.description}</span></button>)}</div></section>
+   <section className="rounded-lg border border-slate-200 bg-white p-5"><p className="flex items-center gap-2 text-xs font-semibold text-blue-700"><CalendarDays size={16}/>阶段化 14 训练日计划</p><div className="mt-3 flex items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-slate-950">{plan.isComplete?'当前阶段计划已完成':'下一步：第 '+plan.currentItem.day+' 天 · '+plan.currentItem.title}</h2><p className="mt-2 text-sm leading-6 text-slate-600">按训练日推进，不要求连续打卡。基础课与场景旧记录自动计入，新增听说和班次单独记录。</p></div><span className="shrink-0 text-2xl font-bold text-slate-950">{plan.completedCount}/14</span></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-blue-600" style={{width:plan.percent+'%'}}/></div>
+    <button type="button" onClick={()=>navigate(plan.isComplete?'/programs/retail/report':plan.currentItem.route)} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 text-sm font-semibold text-white">{plan.isComplete?'查看准备度报告':'继续今天的训练'}<ArrowRight size={16}/></button>
+    <details className="mt-5"><summary className="cursor-pointer text-sm font-semibold text-slate-700">查看完整 14 训练日安排</summary><div className="mt-3 divide-y divide-slate-200">{plan.items.map(item=><div key={item.id} className="flex items-start gap-3 py-4"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm text-blue-700">{item.completed?<Check size={15}/>:item.day}</span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">{item.title}</p><p className="mt-1 text-xs leading-5 text-slate-600">{item.description}</p></div><button type="button" onClick={()=>navigate(item.route)} className="min-h-9 shrink-0 px-2 text-sm font-semibold text-blue-700">{item.completed?'复习':'打开'}</button></div>)}</div></details>
+    <p className="mt-4 text-xs text-slate-500">{practice.syncStatus==='synced'?'训练记录和阶段选择已同步到账户':practice.syncStatus==='local'?(access.isRegistered?'当前使用本机记录，可重试账户同步':'当前保存在本机，登录后可使用账户同步'):'正在同步训练记录…'}</p>{practice.syncStatus==='local' && access.isRegistered && <button type="button" onClick={practice.retrySync} className="mt-2 text-xs font-semibold text-blue-700">重试同步</button>}
+    {(foundationError || scenario.error) && <p className="mt-3 text-sm text-amber-800">{foundationError} {scenario.error}</p>}
+   </section>
+   <section className="grid grid-cols-2 gap-3 md:grid-cols-4">{[['基础课',completedDays+'/8 天'],['听力通过',listeningCount+'/12'],['开口完成',speakingCount+'/12'],['最近班次',practice.shiftHistory.length?practice.shiftHistory[0].score+' 分':'尚未挑战']].map(([label,value])=><div key={label} className="rounded-lg border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-2 text-xl font-bold text-slate-950">{value}</p></div>)}</section>
+   <RetailLearningOverview progress={practice.moduleProgress}/>
+   <section className="flex flex-col justify-between gap-4 rounded-lg bg-slate-950 p-5 text-white sm:flex-row sm:items-center"><div><h2 className="flex items-center gap-2 font-semibold"><BarChart3 size={20}/>我的 Retail 岗位准备度</h2><p className="mt-2 text-sm leading-6 text-slate-300">汇总五项训练证据，查看目前缺少什么、下一步练什么。</p></div><button type="button" onClick={()=>navigate('/programs/retail/report')} className="min-h-11 shrink-0 rounded-lg bg-white px-4 text-sm font-semibold text-slate-950">查看报告</button></section>
+   <section><h2 className="text-xl font-semibold text-slate-950">为“{stage.label}”推荐的课程顺序</h2><div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">{ordered.map((section,index)=>{const Icon=section.icon;return <article key={section.id} className="flex flex-col rounded-lg border border-slate-200 bg-white p-5"><div className="flex items-center justify-between text-blue-700"><Icon size={21}/><span className="text-xs text-slate-400">0{index+1}</span></div><h3 className="mt-4 font-semibold text-slate-950">{section.title}</h3><p className="mt-2 flex-1 text-sm leading-6 text-slate-600">{section.description}</p><button type="button" onClick={()=>navigate(section.route)} className="mt-4 inline-flex min-h-11 items-center justify-between rounded-lg bg-blue-50 px-4 text-sm font-semibold text-blue-700">进入训练<ArrowRight size={16}/></button></article>})}</div></section>
+   <section className="rounded-lg border border-slate-200 bg-white p-5"><h2 className="font-semibold text-slate-950">我的面试经历素材</h2><p className="mt-2 text-sm leading-6 text-slate-600">完成 Task6 后，确认已整理需求发现、异议处理和团队协作三个真实案例。这是素材完成标记，不是口语评分。</p><button type="button" disabled={Boolean(practice.interviewCompletedAt)} onClick={practice.markInterviewReady} className="mt-3 min-h-11 rounded-lg border border-blue-200 px-4 text-sm font-semibold text-blue-700 disabled:text-emerald-700">{practice.interviewCompletedAt?'已确认素材整理完成':'我已整理三个真实案例'}</button></section>
+   <section className="rounded-lg border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">先体验，再决定是否继续</h2><p className="mt-2 text-sm leading-6 text-amber-900">Day 1 保持免费。Day 2 起、产品知识库及完整实训沿用 Retail 岗位包权益。</p><button type="button" onClick={()=>navigate('/programs/retail/foundation/retail-role-rhythm')} className="mt-3 min-h-11 rounded-lg bg-amber-700 px-4 text-sm font-semibold text-white">体验 Day 1</button></section>
+   <nav className="flex flex-wrap gap-3">{[['Retail 公开题库','/academy/interview-questions?position=retail'],['AI 模拟面试','/tasks/phase2/Task7/mock?position=retail'],['岗位适配评估','/assessment'],['整理简历','/tasks/phase2/Task4']].map(([title,route])=><button key={title} type="button" onClick={()=>navigate(route)} className="min-h-11 rounded-lg border border-slate-200 bg-white px-4 text-sm text-slate-700">{title}</button>)}</nav>
+  </main>
+ </div>
 }

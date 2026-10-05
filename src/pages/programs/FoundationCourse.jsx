@@ -1,4 +1,7 @@
-import { createElement, useEffect, useMemo, useState } from 'react'
+import { getFoundationLineId, mergeFoundationProgress, mergeFoundationSavedLines, nextPreparationTimestamp } from '../../data/foundationSync'
+import useEffectiveAccess from '../../hooks/useEffectiveAccess'
+import { TrainingInspectionContext } from '../../hooks/useTrainingInspection'
+import { createElement, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Bookmark, BookOpen, CheckCircle2, CircleAlert, ClipboardCheck, Dumbbell, LockKeyhole, Sparkles } from 'lucide-react'
 import RequireActivation from '../../components/RequireActivation'
@@ -16,9 +19,11 @@ import {
   isFoundationDayFinished,
   readFoundationPlacement,
   readFoundationProgress,
+  readSavedFoundationLineChanges,
   readSavedFoundationLines,
   writeFoundationPlacement,
   writeFoundationProgress,
+  writeSavedFoundationLineChanges,
   writeSavedFoundationLines,
 } from '../../services/foundationProgressService'
 
@@ -39,32 +44,31 @@ const getRecommendedStart = (course, answers) => {
   return { score: correct, total: questionCount, dayId: firstGap?.id || course.days[0].id, label: `建议从 Day ${firstGap?.day || 1} 开始打好基础` }
 }
 
-const mergeObjects = (cloudValue, localValue) => {
-  if (!cloudValue || typeof cloudValue !== 'object' || Array.isArray(cloudValue)) return localValue ?? cloudValue
-  if (!localValue || typeof localValue !== 'object' || Array.isArray(localValue)) return localValue ?? cloudValue
-  return Object.fromEntries([...new Set([...Object.keys(cloudValue), ...Object.keys(localValue)])].map((key) => [
-    key,
-    mergeObjects(cloudValue[key], localValue[key]),
-  ]))
-}
-
-const mergeSavedLines = (cloudLines = [], localLines = []) => {
-  const byText = new Map()
-  ;[...cloudLines, ...localLines].forEach((line) => {
-    if (line?.text) byText.set(line.text, line)
-  })
-  return [...byText.values()].slice(0, 100)
-}
-
 export default function FoundationCourse() {
+ const access=useEffectiveAccess(), {jobSlug}=useParams()
+ const ownerId=access.isPreviewing?'preview':access.isRegistered?access.userId:null
+ if(access.isRegistered && !ownerId)return <p className="p-6">正在确认账户…</p>
+ return <TrainingInspectionContext.Provider value={access.isPreviewing}><FoundationCourseContent key={(ownerId || 'guest')+':'+jobSlug} ownerId={ownerId} readOnly={access.isPreviewing}/></TrainingInspectionContext.Provider>
+}
+
+function FoundationCourseContent({ownerId,readOnly}) {
+ const storageOwner=ownerId || 'guest'
+ const {jobSlug: storageSlug}=useParams()
+ const pendingKey='foundation_pending_v1:'+storageOwner+':'+storageSlug
+ const [dirty,setDirty]=useState(()=>{try{return localStorage.getItem(pendingKey)==='1'}catch{return false}}),[syncError,setSyncError]=useState(''),[retry,setRetry]=useState(0)
+ const revision=useRef(0)
+ const markDirty=()=>{revision.current+=1;setDirty(true);localStorage.setItem(pendingKey,'1');setSyncError('')}
+ useEffect(()=>{const online=()=>setRetry(value=>value+1);window.addEventListener('online',online);return()=>window.removeEventListener('online',online)},[])
+
   const { jobSlug, dayId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const course = getFoundationCourse(jobSlug)
-  const [progress, setProgress] = useState(() => course ? readFoundationProgress(course.jobKey) : {})
-  const [savedLines, setSavedLines] = useState(() => course ? readSavedFoundationLines(course.jobKey) : [])
+  const [progress, setProgress] = useState(() => course ? readFoundationProgress(course.jobKey, storageOwner) : {})
+  const [savedLines, setSavedLines] = useState(() => course ? readSavedFoundationLines(course.jobKey, storageOwner) : [])
+  const [savedLineChanges, setSavedLineChanges] = useState(() => course ? readSavedFoundationLineChanges(course.jobKey, storageOwner) : {})
   const [placementAnswers, setPlacementAnswers] = useState({})
-  const [placement, setPlacement] = useState(() => course ? readFoundationPlacement(course.jobKey) : null)
+  const [placement, setPlacement] = useState(() => course ? readFoundationPlacement(course.jobKey, storageOwner) : null)
   const [scenarioProfile, setScenarioProfile] = useState(null)
   const [cloudReady, setCloudReady] = useState(false)
   const view = searchParams.get('view') || 'course'
@@ -73,51 +77,77 @@ export default function FoundationCourse() {
     : baseViewOptions
 
   useEffect(() => {
-    if (!course) return
+    if (!course || !ownerId || readOnly) return
     let active = true
     getMyScenarioProfile(course.jobKey)
       .then((profile) => { if (active) setScenarioProfile(profile) })
       .catch(() => {})
     return () => { active = false }
-  }, [course])
+  }, [course, ownerId, readOnly, storageOwner, retry])
 
   useEffect(() => {
-    if (!course) return
+    if (!course || !ownerId || readOnly) return
     let active = true
-    getMyFoundationCourseState(course.jobKey)
+    getMyFoundationCourseState(course.jobKey, ownerId)
       .then((cloudState) => {
         if (!active || !cloudState || cloudState.version !== course.version) return
-        const mergedProgress = mergeObjects(cloudState.progress || {}, readFoundationProgress(course.jobKey))
-        const mergedLines = mergeSavedLines(cloudState.savedLines, readSavedFoundationLines(course.jobKey))
-        const localPlacement = readFoundationPlacement(course.jobKey)
+        const mergedProgress = mergeFoundationProgress(cloudState.progress || {}, readFoundationProgress(course.jobKey, storageOwner))
+        const mergedLines = mergeFoundationSavedLines(
+          cloudState,
+          {
+            savedLines: readSavedFoundationLines(course.jobKey, storageOwner),
+            savedLineChanges: readSavedFoundationLineChanges(course.jobKey, storageOwner),
+          },
+        )
+        const localPlacement = readFoundationPlacement(course.jobKey, storageOwner)
         const mergedPlacement = localPlacement || cloudState.placement || null
         setProgress(mergedProgress)
-        setSavedLines(mergedLines)
+        setSavedLines(mergedLines.savedLines)
+        setSavedLineChanges(mergedLines.savedLineChanges)
         setPlacement(mergedPlacement)
-        writeFoundationProgress(course.jobKey, mergedProgress)
-        writeSavedFoundationLines(course.jobKey, mergedLines)
-        if (mergedPlacement) writeFoundationPlacement(course.jobKey, mergedPlacement)
+        writeFoundationProgress(course.jobKey, mergedProgress, storageOwner)
+        writeSavedFoundationLines(course.jobKey, mergedLines.savedLines, storageOwner)
+        writeSavedFoundationLineChanges(course.jobKey, mergedLines.savedLineChanges, storageOwner)
+        if (mergedPlacement) writeFoundationPlacement(course.jobKey, mergedPlacement, storageOwner)
       })
-      .catch((error) => console.warn('Unable to restore foundation course state:', error))
+      .catch(() => {if(active)setSyncError('账户记录暂未载入；你的操作保存在本机，可重试同步。')})
       .finally(() => { if (active) setCloudReady(true) })
     return () => { active = false }
-  }, [course])
+  }, [course, ownerId, readOnly, storageOwner, retry])
 
   useEffect(() => {
-    if (!course || !cloudReady) return undefined
+    if (!course || !cloudReady || !dirty || !ownerId || readOnly) return undefined
+    let active=true
+    const editRevision=revision.current
     const timeout = window.setTimeout(() => {
       upsertMyFoundationCourseState({
+        expectedUserId: ownerId,
         jobKey: course.jobKey,
         roleKey: course.roleKey,
         roleTitle: course.title,
         version: course.version,
         progress,
         savedLines,
+        savedLineChanges,
         placement,
-      }).catch((error) => console.warn('Unable to sync foundation course state:', error))
+      }).then((profile) => {
+        if(!active || revision.current!==editRevision)return
+        const cloudState=profile?.learning_records?.foundationCourses?.[course.jobKey]
+        const merged=cloudState?.progress
+        if(merged){setProgress(merged);writeFoundationProgress(course.jobKey,merged,storageOwner)}
+        if(cloudState){
+          const mergedLines=mergeFoundationSavedLines({savedLines,savedLineChanges},cloudState)
+          setSavedLines(mergedLines.savedLines)
+          setSavedLineChanges(mergedLines.savedLineChanges)
+          writeSavedFoundationLines(course.jobKey,mergedLines.savedLines,storageOwner)
+          writeSavedFoundationLineChanges(course.jobKey,mergedLines.savedLineChanges,storageOwner)
+        }
+        localStorage.removeItem(pendingKey)
+        setDirty(false);setSyncError('')
+      }).catch(() => {if(active)setSyncError('同步未成功，记录仍保存在本机。请重试。')})
     }, 800)
-    return () => window.clearTimeout(timeout)
-  }, [cloudReady, course, placement, progress, savedLines])
+    return () => {active=false;window.clearTimeout(timeout)}
+  }, [cloudReady, course, placement, progress, savedLineChanges, savedLines, dirty, ownerId, readOnly, retry, pendingKey, storageOwner])
 
   const completedCount = course ? getFoundationCompletedCount(course, progress) : 0
   const continueDay = course ? findContinueFoundationDay(course, progress) : null
@@ -155,21 +185,38 @@ export default function FoundationCourse() {
   }
 
   const updateProgress = (next) => {
+    if(readOnly)return
+    markDirty()
     setProgress(next)
-    writeFoundationProgress(course.jobKey, next)
+    writeFoundationProgress(course.jobKey, next, storageOwner)
   }
 
   const toggleSavedLine = (line) => {
+    if(readOnly)return
+    markDirty()
     const exists = savedLines.some((item) => item.text === line.text)
     const next = exists ? savedLines.filter((item) => item.text !== line.text) : [...savedLines, line]
+    const lineId = getFoundationLineId(line)
+    const nextChanges = {
+      ...savedLineChanges,
+      [lineId]: {
+        line,
+        deleted: exists,
+        updatedAt: nextPreparationTimestamp(savedLineChanges[lineId]?.updatedAt),
+      },
+    }
     setSavedLines(next)
-    writeSavedFoundationLines(course.jobKey, next)
+    setSavedLineChanges(nextChanges)
+    writeSavedFoundationLines(course.jobKey, next, storageOwner)
+    writeSavedFoundationLineChanges(course.jobKey, nextChanges, storageOwner)
   }
 
   const submitPlacement = () => {
+    if(readOnly)return
+    markDirty()
     const result = { ...getRecommendedStart(course, placementAnswers), completedAt: new Date().toISOString() }
     setPlacement(result)
-    writeFoundationPlacement(course.jobKey, result)
+    writeFoundationPlacement(course.jobKey, result, storageOwner)
   }
 
   const lessonPage = selectedDay ? (
@@ -200,7 +247,7 @@ export default function FoundationCourse() {
     ? <RequireActivation productCode={course.productCode}>{lessonPage}</RequireActivation>
     : lessonPage
 
-  return lesson || (
+  return <> {!readOnly && <div role="status" className="mx-auto max-w-5xl border-b border-slate-200 bg-blue-50 px-5 py-3 text-sm text-slate-700">{syncError || (!ownerId?'访客练习保存在本机，登录后使用独立的账户进度。':dirty?'本机已保存，等待账户同步…':!cloudReady?'正在载入账户记录…':'正在使用当前账户的课程记录。')}{syncError && <button type="button" onClick={()=>setRetry(value=>value+1)} className="ml-3 font-semibold text-blue-700">重试同步</button>}</div>} {lesson || (
         <div className="min-h-screen bg-slate-50 pb-24">
           <header className="border-b border-slate-200 bg-white"><div className="mx-auto max-w-4xl px-5 pb-6 pt-10"><button type="button" onClick={() => navigate(course.packRoute)} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600"><ArrowLeft size={17} />返回岗位包</button><p className="mt-5 text-xs font-semibold text-blue-700">{course.label} · FOUNDATION</p><h1 className="mt-2 text-2xl font-semibold text-slate-950">{course.title}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{course.description}</p><div className="mt-5 flex items-center justify-between text-xs text-slate-500"><span>课程进度</span><span>{completedCount}/{course.days.length} 天</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${(completedCount / course.days.length) * 100}%` }} /></div></div></header>
           <main className="mx-auto max-w-4xl px-5 py-6">
@@ -215,5 +262,5 @@ export default function FoundationCourse() {
             {view === 'placement' && <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5"><p className="text-xs font-semibold text-blue-700">EXPERIENCED LEARNER CHECK</p><h2 className="mt-1 text-xl font-semibold text-slate-950">判断从哪一天开始</h2><p className="mt-2 text-sm leading-6 text-slate-600">这只会推荐起点，不会伪造跟读或 Guest Challenge 完成记录。</p><div className="mt-5 space-y-6">{course.days.filter((day) => day.quiz).map((day) => <fieldset key={day.id}><legend className="text-sm font-semibold leading-6 text-slate-950">Day {day.day} · {day.quiz.question}</legend><div className="mt-2 space-y-2">{day.quiz.options.map((option) => <label key={option.id} className={`flex cursor-pointer gap-3 rounded-lg border p-3 text-sm leading-6 ${placementAnswers[day.id] === option.id ? 'border-blue-300 bg-blue-50' : 'border-slate-200'}`}><input type="radio" name={`placement-${day.id}`} value={option.id} checked={placementAnswers[day.id] === option.id} onChange={() => setPlacementAnswers((current) => ({ ...current, [day.id]: option.id }))} /><span>{option.text}</span></label>)}</div></fieldset>)}<button type="button" disabled={Object.keys(placementAnswers).length < course.days.filter((day) => day.quiz).length} onClick={submitPlacement} className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:bg-slate-300">生成建议起点</button></div>{placement && <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4"><div className="flex items-center gap-2 text-emerald-800"><CheckCircle2 size={18} /><p className="font-semibold">{placement.label}</p></div><p className="mt-2 text-sm text-emerald-900">得分 {placement.score}/{placement.total}。这是学习起点建议，不代表已完成实操。</p><button type="button" onClick={() => navigate(`/programs/${course.slug}/foundation/${placement.dayId}`)} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800">从建议位置开始<ArrowRight size={16} /></button></div>}</section>}
           </main>
         </div>
-      )
+      )} </>
 }

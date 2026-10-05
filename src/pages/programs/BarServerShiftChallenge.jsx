@@ -29,20 +29,24 @@ const getReadiness = (score) => {
   return { label: '需要回到训练', detail: '目前在限时和正常语速下仍容易遗漏关键服务信息。', color: 'text-amber-700' }
 }
 
-export default function BarServerShiftChallenge() {
+const defaultConfig = { getShiftChallengeDrills, scoreBarListeningAnswer, readProgress:readBarListeningProgress, usePracticeProgress:useBarServerPracticeProgress, position:'bar_server', packRoute:'/programs/bar-server', image:'/images/bar-server/ep01-busy-night.png', imageAlt:'Busy cruise ship bar shift' }
+
+export default function BarServerShiftChallenge({ config = defaultConfig }) {
+  const {getShiftChallengeDrills,scoreBarListeningAnswer,usePracticeProgress} = config
   const navigate = useNavigate()
   const {
     listeningProgress,
     shiftHistory,
     syncStatus,
     updateShiftHistory,
-  } = useBarServerPracticeProgress()
+  } = usePracticeProgress()
   const [phase, setPhase] = useState('intro')
-  const [challengeDrills, setChallengeDrills] = useState(() => getShiftChallengeDrills(readBarListeningProgress()))
+  const [challengeDrills, setChallengeDrills] = useState(() => getShiftChallengeDrills(listeningProgress))
   const [activeIndex, setActiveIndex] = useState(0)
   const [answers, setAnswers] = useState({})
   const [hasPlayed, setHasPlayed] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [playbackError, setPlaybackError] = useState('')
   const [secondsLeft, setSecondsLeft] = useState(BAR_SHIFT_QUESTION_SECONDS)
   const [locked, setLocked] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
@@ -75,7 +79,7 @@ export default function BarServerShiftChallenge() {
     ])
     setTimedOut(wasTimedOut)
     setLocked(true)
-  }, [answers, drill, locked, secondsLeft])
+  }, [answers, drill, locked, secondsLeft, scoreBarListeningAnswer])
 
   useEffect(() => () => stopSpeech(), [])
 
@@ -111,12 +115,20 @@ export default function BarServerShiftChallenge() {
 
   const playPrompt = async () => {
     if (hasPlayed || isPlaying) return
-    setHasPlayed(true)
-    await speakEnglish(drill.prompt, {
-      position: 'bar_server',
-      onStart: () => setIsPlaying(true),
-      onEnd: () => setIsPlaying(false),
-    })
+    setIsPlaying(true)
+    setPlaybackError('')
+    try {
+      const played = await speakEnglish(drill.prompt, { position: config.position })
+      if (!played || ['none', 'cancelled'].includes(played.provider)) {
+        setPlaybackError('音频未能播放，本题尚未计时，请重试。')
+        return
+      }
+      setHasPlayed(true)
+    } catch {
+      setPlaybackError('音频播放失败，本题尚未计时，请重试。')
+    } finally {
+      setIsPlaying(false)
+    }
   }
 
   const continueChallenge = () => {
@@ -148,7 +160,7 @@ export default function BarServerShiftChallenge() {
       <div className="min-h-screen bg-slate-50 pb-24">
         <header className="border-b border-slate-200 bg-white">
           <div className="mx-auto max-w-5xl px-5 pb-8 pt-10">
-            <button type="button" onClick={() => navigate('/programs/bar-server/listening')} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-700"><ArrowLeft size={17} />返回工作听说训练</button>
+            <button type="button" onClick={() => navigate(config.packRoute + '/listening')} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-700"><ArrowLeft size={17} />返回工作听说训练</button>
             <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_360px] md:items-center">
               <div>
                 <p className="text-sm font-semibold text-red-700">SHIFT CHALLENGE · 5 个场景</p>
@@ -156,7 +168,7 @@ export default function BarServerShiftChallenge() {
                 <p className="mt-3 text-sm leading-6 text-slate-600">系统会优先抽取你的弱项，并覆盖不同难度。挑战过程不提供慢速、原文或即时答案。</p>
                 <p className={`mt-3 flex items-center gap-2 text-xs font-medium ${syncStatus === 'local' ? 'text-amber-700' : 'text-emerald-700'}`}>{syncStatus === 'local' ? <CloudOff size={15} /> : <Cloud size={15} />}{syncStatus === 'synced' ? '账户进度已同步' : syncStatus === 'local' ? '当前保存在本机，联网后会再次同步' : '正在同步账户进度…'}</p>
               </div>
-              <img src="/images/bar-server/ep01-busy-night.png" alt="Busy cruise ship bar shift" className="aspect-video w-full rounded-lg object-cover" />
+              <img src={config.image} alt={config.imageAlt} className="aspect-video w-full rounded-lg object-cover" />
             </div>
           </div>
         </header>
@@ -220,8 +232,8 @@ export default function BarServerShiftChallenge() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <button type="button" onClick={() => navigate('/')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 text-sm font-semibold text-white hover:bg-blue-800">完成本次训练，返回今天<ArrowRight size={17} /></button>
-            <button type="button" onClick={() => navigate('/programs/bar-server/listening')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-5 text-sm font-semibold text-blue-700 hover:bg-blue-50">复盘弱项训练<ArrowRight size={17} /></button>
-            <button type="button" onClick={() => navigate('/programs/bar-server/report')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-100"><BarChart3 size={17} />查看完整报告</button>
+            <button type="button" onClick={() => navigate(config.packRoute + '/listening')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-5 text-sm font-semibold text-blue-700 hover:bg-blue-50">复盘弱项训练<ArrowRight size={17} /></button>
+            <button type="button" onClick={() => navigate(config.packRoute + '/report')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-100"><BarChart3 size={17} />查看完整报告</button>
             <button type="button" onClick={startChallenge} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-100"><RotateCcw size={17} />重新抽题挑战</button>
           </div>
         </main>
@@ -233,7 +245,7 @@ export default function BarServerShiftChallenge() {
     <div className="min-h-screen bg-slate-950 pb-24 text-white">
       <header className="border-b border-slate-800">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-5">
-          <div><button type="button" onClick={() => navigate('/programs/bar-server/listening')} className="mb-2 inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-white"><ArrowLeft size={14} />退出挑战</button><p className="text-xs font-semibold text-red-400">SHIFT CHALLENGE</p><p className="mt-1 text-sm text-slate-300">场景 {activeIndex + 1}/{challengeDrills.length} · 难度 {drill.level}</p></div>
+          <div><button type="button" onClick={() => navigate(config.packRoute + '/listening')} className="mb-2 inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-white"><ArrowLeft size={14} />退出挑战</button><p className="text-xs font-semibold text-red-400">SHIFT CHALLENGE</p><p className="mt-1 text-sm text-slate-300">场景 {activeIndex + 1}/{challengeDrills.length} · 难度 {drill.level}</p></div>
           <div className={`flex min-w-20 items-center justify-center gap-2 rounded-md px-3 py-2 text-lg font-bold ${secondsLeft <= 10 ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-100'}`}><Clock3 size={18} />{secondsLeft}s</div>
         </div>
         <div className="h-1 bg-slate-800"><div className={`h-full transition-all ${secondsLeft <= 10 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${(secondsLeft / BAR_SHIFT_QUESTION_SECONDS) * 100}%` }} /></div>
@@ -245,6 +257,7 @@ export default function BarServerShiftChallenge() {
 
         <button type="button" onClick={playPrompt} disabled={hasPlayed || isPlaying} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-white px-5 text-sm font-semibold text-slate-950 hover:bg-blue-50 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-400"><Volume2 size={20} />{isPlaying ? '场景播放中…' : hasPlayed ? '本题已播放' : '播放场景并开始计时'}</button>
 
+        {playbackError && <p role="alert" className="mt-3 text-sm text-amber-300">{playbackError}</p>}
         <section className="mt-7 border-t border-slate-700 pt-6">
           {!hasPlayed && <p className="text-sm text-slate-400">播放完成后才能作答。</p>}
           {drill.type === 'capture' ? (

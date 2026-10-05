@@ -1,193 +1,77 @@
 import { supabase } from '../supabase'
+import { mergeFoundationProgress, mergeFoundationSavedLines, nextPreparationTimestamp } from '../data/foundationSync'
+import { mergeRetailPractice } from '../data/retailPracticeProgress'
+import { mergeBarServerPractice } from '../data/barServerProgressSync'
 
-const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser()
-
-  if (error || !user?.id) {
-    return null
+const currentUser=async(expectedUserId)=>{
+ const {data:{user},error}=await supabase.auth.getUser()
+ if(error)throw error
+ if(expectedUserId && user?.id!==expectedUserId)throw new Error('Account changed; progress was not synced')
+ return user
+}
+// Every writer of this shared JSON document must compare the version it read.
+const updateProfile=async(expectedUserId,build)=>{
+ const user=await currentUser(expectedUserId)
+ if(!user)throw new Error('Sign in before syncing progress')
+ for(let attempt=0;attempt<3;attempt++){
+  await currentUser(user.id)
+  const {data:existing,error:readError}=await supabase.from('job_preparation_profiles').select('*').eq('user_id',user.id).maybeSingle()
+  if(readError)throw readError
+  const patch={...build(existing || {}),updated_at:nextPreparationTimestamp(existing?.updated_at)}
+  await currentUser(user.id)
+  if(!existing){
+   const {data,error}=await supabase.from('job_preparation_profiles').insert({user_id:user.id,email:user.email || null,...patch}).select('*').single()
+   if(!error)return data
+   if(error.code==='23505')continue
+   throw error
   }
-
-  return user
+  let query=supabase.from('job_preparation_profiles').update(patch).eq('user_id',user.id)
+  query=existing.updated_at?query.eq('updated_at',existing.updated_at):query.is('updated_at',null)
+  const {data,error}=await query.select('*').maybeSingle()
+  if(error)throw error
+  if(data)return data
+ }
+ throw new Error('Progress changed on another page; retry sync')
 }
-
-const removeUndefinedValues = (payload) =>
-  Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
-
-export const upsertMyJobPreparation = async ({
-  selectedRole = null,
-  roleTitle = '',
-  preparationChecklist = [],
-  completedResources = [],
-  learningRecords = {},
-  completedCourseDetails = {},
-  sourceTaskId = 5,
-} = {}) => {
-  const user = await getCurrentUser()
-  if (!user) return null
-
-  const completedChecklistCount = preparationChecklist.filter((item) => item.completed).length
-  const checklistTotal = preparationChecklist.length
-
-  const payload = removeUndefinedValues({
-    user_id: user.id,
-    email: user.email || null,
-    selected_role: selectedRole,
-    role_title: roleTitle || null,
-    preparation_checklist: preparationChecklist,
-    completed_resources: completedResources,
-    learning_records: learningRecords,
-    completed_course_details: completedCourseDetails,
-    completed_checklist_count: completedChecklistCount,
-    checklist_total: checklistTotal,
-    source_task_id: sourceTaskId,
-    preparation_status:
-      checklistTotal > 0 && completedChecklistCount >= checklistTotal ? 'completed' : 'in_progress',
-    updated_at: new Date().toISOString(),
-  })
-
-  const { data, error } = await supabase
-    .from('job_preparation_profiles')
-    .upsert(payload, { onConflict: 'user_id' })
-    .select('*')
-    .single()
-
-  if (error) throw error
-  return data
+const mergeRecords=(cloud={},local={})=>{
+ const records={...cloud,...local}
+ if(local.retailPractice)records.retailPractice=mergeRetailPractice(cloud.retailPractice,local.retailPractice)
+ if(cloud.foundationCourses || local.foundationCourses)records.foundationCourses=mergeFoundationProgress(cloud.foundationCourses,local.foundationCourses)
+ // Task5 snapshots do not own the dedicated listening or foundation namespaces.
+ if(cloud.barServerPractice)records.barServerPractice=cloud.barServerPractice
+ return records
 }
-
-export const getMyJobPreparation = async () => {
-  const user = await getCurrentUser()
-  if (!user) return null
-
-  const { data, error } = await supabase
-    .from('job_preparation_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (error) throw error
-  return data
+export const upsertMyJobPreparation=async({selectedRole=null,roleTitle='',preparationChecklist=[],completedResources=[],learningRecords={},completedCourseDetails={},sourceTaskId=5,expectedUserId}={})=>updateProfile(expectedUserId,existing=>{
+ const count=preparationChecklist.filter(item=>item.completed).length,total=preparationChecklist.length
+ return {selected_role:selectedRole,role_title:roleTitle || null,preparation_checklist:preparationChecklist,completed_resources:completedResources,learning_records:mergeRecords(existing.learning_records,learningRecords),completed_course_details:{...existing.completed_course_details,...completedCourseDetails},completed_checklist_count:count,checklist_total:total,source_task_id:sourceTaskId,preparation_status:total>0 && count>=total?'completed':'in_progress'}
+})
+export const getMyJobPreparation=async(expectedUserId)=>{
+ const user=await currentUser(expectedUserId)
+ if(!user)return null
+ const {data,error}=await supabase.from('job_preparation_profiles').select('*').eq('user_id',user.id).maybeSingle()
+ if(error)throw error
+ return data
 }
-
-export const getMyFoundationCourseState = async (jobKey) => {
-  const profile = await getMyJobPreparation()
-  return profile?.learning_records?.foundationCourses?.[jobKey] || null
+export const getMyFoundationCourseState=async(jobKey,expectedUserId)=>{
+ const profile=await getMyJobPreparation(expectedUserId)
+ return profile?.learning_records?.foundationCourses?.[jobKey] || null
 }
-
-export const getMyBarServerPracticeState = async () => {
-  const profile = await getMyJobPreparation()
-  return profile?.learning_records?.barServerPractice || null
+export const getMyBarServerPracticeState=async(expectedUserId)=>{
+ const profile=await getMyJobPreparation(expectedUserId)
+ return profile?.learning_records?.barServerPractice || null
 }
-
-export const upsertMyBarServerPracticeState = async ({
-  version,
-  listeningProgress,
-  shiftHistory,
-}) => {
-  const user = await getCurrentUser()
-  if (!user) return null
-
-  const { data: existing, error: readError } = await supabase
-    .from('job_preparation_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (readError) throw readError
-
-  const updatedAt = new Date().toISOString()
-  const learningRecords = existing?.learning_records || {}
-  const payload = {
-    user_id: user.id,
-    email: user.email || existing?.email || null,
-    selected_role: existing?.selected_role || 'bar_server',
-    role_title: existing?.role_title || 'Bar Server',
-    preparation_checklist: existing?.preparation_checklist || [],
-    completed_resources: existing?.completed_resources || [],
-    learning_records: {
-      ...learningRecords,
-      barServerPractice: {
-        version,
-        listeningProgress: listeningProgress || {},
-        shiftHistory: Array.isArray(shiftHistory) ? shiftHistory.slice(0, 10) : [],
-        updatedAt,
-      },
-    },
-    completed_course_details: existing?.completed_course_details || {},
-    completed_checklist_count: existing?.completed_checklist_count || 0,
-    checklist_total: existing?.checklist_total || 0,
-    source_task_id: existing?.source_task_id || 5,
-    preparation_status: existing?.preparation_status || 'in_progress',
-    updated_at: updatedAt,
-  }
-
-  const { data, error } = await supabase
-    .from('job_preparation_profiles')
-    .upsert(payload, { onConflict: 'user_id' })
-    .select('*')
-    .single()
-
-  if (error) throw error
-  return data?.learning_records?.barServerPractice || null
+export const upsertMyBarServerPracticeState=async({version,listeningProgress,shiftHistory,learningStage,stageUpdatedAt,expectedUserId})=>{
+ const data=await updateProfile(expectedUserId,existing=>{
+  const records=existing.learning_records || {},old=records.barServerPractice || {}
+  return {learning_records:{...records,barServerPractice:{...mergeBarServerPractice(old,{version,listeningProgress,shiftHistory,learningStage,stageUpdatedAt}),updatedAt:new Date().toISOString()}}}
+ })
+ return data?.learning_records?.barServerPractice || null
 }
-
-export const upsertMyFoundationCourseState = async ({
-  jobKey,
-  roleKey,
-  roleTitle,
-  version,
-  progress,
-  savedLines,
-  placement,
-}) => {
-  const user = await getCurrentUser()
-  if (!user || !jobKey) return null
-
-  const { data: existing, error: readError } = await supabase
-    .from('job_preparation_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (readError) throw readError
-
-  const learningRecords = existing?.learning_records || {}
-  const foundationCourses = learningRecords.foundationCourses || {}
-  const updatedAt = new Date().toISOString()
-  const payload = {
-    user_id: user.id,
-    email: user.email || existing?.email || null,
-    selected_role: existing?.selected_role || roleKey || null,
-    role_title: existing?.role_title || roleTitle || null,
-    preparation_checklist: existing?.preparation_checklist || [],
-    completed_resources: existing?.completed_resources || [],
-    learning_records: {
-      ...learningRecords,
-      foundationCourses: {
-        ...foundationCourses,
-        [jobKey]: {
-          version,
-          progress: progress || {},
-          savedLines: Array.isArray(savedLines) ? savedLines.slice(0, 100) : [],
-          placement: placement || null,
-          updatedAt,
-        },
-      },
-    },
-    completed_course_details: existing?.completed_course_details || {},
-    completed_checklist_count: existing?.completed_checklist_count || 0,
-    checklist_total: existing?.checklist_total || 0,
-    source_task_id: existing?.source_task_id || 5,
-    preparation_status: existing?.preparation_status || 'in_progress',
-    updated_at: updatedAt,
-  }
-
-  const { data, error } = await supabase
-    .from('job_preparation_profiles')
-    .upsert(payload, { onConflict: 'user_id' })
-    .select('*')
-    .single()
-
-  if (error) throw error
-  return data
+export const upsertMyFoundationCourseState=async({jobKey,roleKey,roleTitle,version,progress,savedLines,savedLineChanges,placement,expectedUserId})=>{
+ if(!jobKey)throw new Error('Missing course')
+ return updateProfile(expectedUserId,existing=>{
+  const records=existing.learning_records || {},courses=records.foundationCourses || {},old=courses[jobKey]
+  const mergedLines=mergeFoundationSavedLines(old,{savedLines,savedLineChanges})
+  return {selected_role:existing.selected_role || roleKey || null,role_title:existing.role_title || roleTitle || null,learning_records:{...records,foundationCourses:{...courses,[jobKey]:{version,progress:mergeFoundationProgress(old?.version===version?old.progress:null,progress || {}),...mergedLines,placement:placement || old?.placement || null,updatedAt:new Date().toISOString()}}}}
+ })
 }

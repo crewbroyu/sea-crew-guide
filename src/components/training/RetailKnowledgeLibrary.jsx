@@ -1,8 +1,14 @@
+import { Link, useSearchParams } from 'react-router-dom'
+import useRetailPracticeProgress from '../../hooks/useRetailPracticeProgress'
+import { useTrainingInspection } from '../../hooks/useTrainingInspection'
+import { RETAIL_KNOWLEDGE_CURRICULUM } from '../../data/retailKnowledgeCurriculum'
+import { moduleComplete, moduleProgressKey } from '../../data/retailModuleProgress'
+import RetailModulePractice from './RetailModulePractice'
 import { useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, BookOpen, Boxes, CheckCircle2, ChevronDown, ExternalLink, Search, ShieldCheck, Volume2 } from 'lucide-react'
 import EdgeReadAloudHint from '../EdgeReadAloudHint'
 import { retailKnowledgeCategories, retailKnowledgeModules, retailKnowledgeSources, retailKnowledgeVisuals } from '../../data/retailKnowledgeLibrary'
-import { speakEnglish } from '../../services/ttsService'
+import { speakEnglish as liveSpeakEnglish } from '../../services/ttsService'
 
 const searchableText = (module) => [
   module.title,
@@ -40,9 +46,14 @@ function RetailKnowledgeVisual({ visual }) {
 }
 
 export default function RetailKnowledgeLibrary() {
+  const [params] = useSearchParams()
+  const inspection = useTrainingInspection()
+  const speakEnglish = inspection ? async () => {} : liveSpeakEnglish
+  const practice = useRetailPracticeProgress({readOnly:inspection})
+  const complete = Object.values(RETAIL_KNOWLEDGE_CURRICULUM).filter(lesson=>moduleComplete(practice.moduleProgress[moduleProgressKey(lesson)])).length
   const [category, setCategory] = useState('All')
   const [query, setQuery] = useState('')
-  const [openId, setOpenId] = useState(retailKnowledgeModules[0].id)
+  const [openId, setOpenId] = useState(params.get('module') || retailKnowledgeModules[0].id)
 
   const filteredModules = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -54,6 +65,7 @@ export default function RetailKnowledgeLibrary() {
 
   return (
     <div className="mt-6 space-y-5">
+      <nav className="flex flex-wrap gap-4 text-sm font-semibold text-blue-700"><span>训练完成 {complete}/10 · {practice.syncStatus === 'synced' ? '已同步' : '本机保存 / 待同步'}</span><Link to="/programs/retail/brands">进入品牌基础与船店样本 →</Link></nav>
       <section className="border-l-4 border-blue-600 bg-white px-5 py-4">
         <div className="flex items-start gap-3">
           <BookOpen size={22} className="mt-0.5 shrink-0 text-blue-700" />
@@ -99,7 +111,7 @@ export default function RetailKnowledgeLibrary() {
                 <section>
                   <h3 className="text-sm font-bold text-slate-950">Essential vocabulary</h3>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    {module.terms.map(([term, meaning]) => <div key={term} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2"><div><p className="text-sm font-semibold text-slate-900">{term}</p><p className="mt-0.5 text-xs text-slate-500">{meaning}</p></div><button type="button" onClick={() => speakEnglish(term, { position: 'retail' })} title={`Listen to ${term}`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-blue-700 hover:bg-blue-50"><Volume2 size={17} /></button></div>)}
+                    {module.terms.map(([term, meaning]) => <div key={term} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2"><div><p className="text-sm font-semibold text-slate-900">{term}</p><p className="mt-0.5 text-xs text-slate-500">{meaning}</p></div><button type="button" disabled={inspection} onClick={() => speakEnglish(term, { position: 'retail' })} title={`Listen to ${term}`} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-blue-700 hover:bg-blue-50"><Volume2 size={17} /></button></div>)}
                   </div>
                 </section>
 
@@ -121,6 +133,7 @@ export default function RetailKnowledgeLibrary() {
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4"><div className="flex gap-2"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-amber-700" /><div><p className="text-xs font-bold text-amber-900">SAFETY / AUTHORITY BOUNDARY</p><p className="mt-1 text-sm leading-6 text-amber-950">{module.boundary}</p></div></div></div>
 
                 <div className="rounded-lg border border-slate-200 p-4"><p className="text-xs font-semibold text-slate-500">QUICK CHECK</p><p className="mt-2 text-sm font-semibold leading-6 text-slate-950">{module.check.question}</p><details className="mt-3"><summary className="cursor-pointer text-sm font-semibold text-blue-700">查看标准判断</summary><p className="mt-2 border-l-2 border-emerald-500 pl-3 text-sm leading-6 text-slate-700">{module.check.answer}</p></details></div>
+                <RetailModulePractice key={module.id} lesson={RETAIL_KNOWLEDGE_CURRICULUM[module.id]} question={module.check.question} progress={practice.moduleProgress} onSave={practice.updateModuleProgress} readOnly={inspection}/>
                 <EdgeReadAloudHint />
               </div>}
             </article>

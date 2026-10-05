@@ -18,6 +18,10 @@
     "test:assessment": "node scripts/test-assessment-quality.mjs",
     "test:assessment-practical": "node scripts/test-assessment-practical.mjs",
     "test:assessment-tts": "node scripts/test-assessment-tts.mjs",
+    "test:retail-overview": "node scripts/test-retail-overview.mjs",
+    "test:retail-specialists": "node scripts/test-retail-specialists.mjs",
+    "test:retail-knowledge": "node scripts/test-retail-knowledge.mjs",
+    "test:retail-pack": "node scripts/test-retail-pack.mjs",
     "test:bar-listening": "node scripts/test-bar-server-listening.mjs",
     "test:bar-plan": "node scripts/test-bar-server-plan.mjs",
     "test:bar-readiness": "node scripts/test-bar-server-readiness.mjs",
@@ -27,7 +31,9 @@
     "test:bar-trial-report": "node scripts/test-bar-trial-report.mjs",
     "test:purchase-flow": "node scripts/test-purchase-flow.mjs",
     "test:home-today": "node scripts/test-home-today.mjs",
-    "test:navigation": "node scripts/test-primary-navigation.mjs"
+    "test:navigation": "node scripts/test-primary-navigation.mjs",
+    "test:foundation-sync": "node scripts/test-foundation-sync.mjs",
+    "test:foundation-import": "node scripts/test-foundation-legacy-import.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

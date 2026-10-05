@@ -16,6 +16,7 @@ import {
   User,
   Users,
 } from 'lucide-react'
+import FoundationLegacyImportNotice from '../components/FoundationLegacyImportNotice'
 import { supabase } from '../supabase'
 import { useAccessStore } from '../store/accessStore'
 import useEffectiveAccess from '../hooks/useEffectiveAccess'
@@ -417,6 +418,7 @@ export default function Profile() {
       </div>
 
       <main className="px-6 -mt-3 space-y-5">
+        <FoundationLegacyImportNotice />
         <section className="bg-white rounded-xl shadow-sm p-4">
           <div className="flex items-start justify-between gap-3">
             <div>

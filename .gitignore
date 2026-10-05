@@ -41,3 +41,6 @@ dist-ssr
 !.env.example
 
 .vercel
+
+# Supabase CLI local state
+supabase/.temp/

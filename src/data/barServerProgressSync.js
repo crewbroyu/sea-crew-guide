@@ -53,8 +53,8 @@ const mergeDrillProgress = (cloud = {}, local = {}) => {
   }
 }
 
-export const mergeBarListeningProgress = (cloud = {}, local = {}) => Object.fromEntries(
-  BAR_SERVER_LISTENING_DRILLS
+export const mergeListeningProgress = (drills, cloud = {}, local = {}) => Object.fromEntries(
+  drills
     .filter((drill) => cloud[drill.id] || local[drill.id])
     .map((drill) => [drill.id, mergeDrillProgress(cloud[drill.id], local[drill.id])]),
 )
@@ -71,4 +71,23 @@ export const mergeBarShiftHistory = (...histories) => {
   return [...attempts.values()]
     .sort((left, right) => new Date(right.completedAt || 0) - new Date(left.completedAt || 0))
     .slice(0, 10)
+}
+
+export const mergeBarListeningProgress = (cloud, local) => mergeListeningProgress(BAR_SERVER_LISTENING_DRILLS, cloud, local)
+
+export const mergeBarServerPractice = (cloud = {}, local = {}) => {
+  const localStageIsNewer = Boolean(local.learningStage) && (
+    !cloud.learningStage
+    || new Date(local.stageUpdatedAt || 0).getTime() > new Date(cloud.stageUpdatedAt || 0).getTime()
+  )
+  const stageSource = localStageIsNewer ? local : cloud
+  return {
+    ...cloud,
+    ...local,
+    version: BAR_SERVER_PRACTICE_VERSION,
+    listeningProgress: mergeBarListeningProgress(cloud.listeningProgress, local.listeningProgress),
+    shiftHistory: mergeBarShiftHistory(cloud.shiftHistory || [], local.shiftHistory || []),
+    learningStage: stageSource.learningStage || 'job_search',
+    stageUpdatedAt: latestTimestamp(cloud.stageUpdatedAt, local.stageUpdatedAt),
+  }
 }

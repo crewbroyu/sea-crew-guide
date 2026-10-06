@@ -80,15 +80,6 @@ const readSavedInterviewPosition = () => {
   }
 };
 
-const readTask6AnswerCards = () => {
-  try {
-    const result = JSON.parse(localStorage.getItem('task6_result') || '{}');
-    return Array.isArray(result.answerCards) ? result.answerCards : [];
-  } catch {
-    return [];
-  }
-};
-
 const pickInterviewer = () =>
   INTERVIEWERS[Math.floor(Math.random() * INTERVIEWERS.length)];
 
@@ -187,7 +178,6 @@ function Task8MockInterview() {
   const stopRecordingResolverRef = useRef(null);
   const answerReadyRef = useRef(false);
   const textOnlyModeRef = useRef(false);
-  const task6AnswerCardsRef = useRef(readTask6AnswerCards());
   const followUpRequestCountRef = useRef(0);
   const generatedFollowUpCountRef = useRef(0);
 
@@ -409,7 +399,6 @@ function Task8MockInterview() {
           position: POSITION_NAMES[selectedPosition] || selectedPosition,
           mainQuestion: question?.question || '',
           answer: finalAnswer,
-          task6AnswerCards: task6AnswerCardsRef.current,
         });
         if (followUp.shouldFollowUp && followUp.question) {
           generatedFollowUpCountRef.current += 1;
@@ -584,7 +573,6 @@ function Task8MockInterview() {
     textOnlyModeRef.current = false;
     followUpRequestCountRef.current = 0;
     generatedFollowUpCountRef.current = 0;
-    task6AnswerCardsRef.current = readTask6AnswerCards();
 
     if (selectedPosition) {
       const questions = buildInterviewQuestions(selectedPosition);

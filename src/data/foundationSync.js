@@ -6,12 +6,26 @@ export function mergeFoundationProgress(cloud, local) {
  const result={...cloud}
  for(const [key,value] of Object.entries(local)) {
   if(key==='completedAt')result[key]=[cloud[key],value].filter(Boolean).sort()[0] || null
-  else if(['bestScore','fullAnswerRepetitions','attempts'].includes(key))result[key]=Math.max(Number(cloud[key]) || 0,Number(value) || 0)
+  else if(['bestScore','fullAnswerRepetitions','attempts','attemptCount'].includes(key))result[key]=Math.max(Number(cloud[key]) || 0,Number(value) || 0)
+  else if(['aiAttempts','recordingAttempts'].includes(key))result[key]=longerEvidenceList(cloud[key],value)
   else if(key==='phraseRepetitions')result[key]=Object.fromEntries([...new Set([...Object.keys(cloud[key] || {}),...Object.keys(value || {})])].map(phrase=>[phrase,Math.max(Number(cloud[key]?.[phrase]) || 0,Number(value?.[phrase]) || 0)]))
   else if(key==='listenedPhrases')result[key]=[...new Set([...(cloud[key] || []),...(value || [])])]
   else result[key]=mergeFoundationProgress(cloud[key],value)
  }
+ // Guest Challenge: once either device has completed, an older pending AI request must not reopen it.
+ if(result.completedAt && 'pendingRequestId' in result){
+  result.pendingRequestId=null
+  result.pendingTranscript=null
+  result.aiRecoveryRequired=false
+ }
  return result
+}
+
+// Attempt lists only grow on one device at a time; keep the side with more evidence.
+const longerEvidenceList=(cloudList,localList)=>{
+ const cloudItems=Array.isArray(cloudList)?cloudList:[]
+ const localItems=Array.isArray(localList)?localList:[]
+ return cloudItems.length>localItems.length?cloudItems:localItems
 }
 export const nextPreparationTimestamp=previous=>new Date(Math.max(Date.now(),(Date.parse(previous) || 0)+1)).toISOString()
 

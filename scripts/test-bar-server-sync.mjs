@@ -165,8 +165,10 @@ assert.equal(writes, before)
 
 const root = resolve(new URL('..', import.meta.url).pathname.replace(/^\/(.:)/, '$1'))
 const accessGate = await readFile(resolve(root, 'src/components/AccessGate.jsx'), 'utf8')
+if (!accessGate.includes('bindProgressStorageToUser')) fail('AccessGate must clear user-scoped progress on account switch')
+const { USER_SCOPED_PROGRESS_KEYS } = await import(pathToFileURL(resolve(root, 'src/data/userScopedStorage.js')).href)
 for (const key of ['bar_server_listening_progress_v1', 'bar_server_learning_stage', 'bar_server_shift_challenge_history_v1']) {
-  if (!accessGate.includes(`'${key}'`)) fail(`account switch cleanup is missing ${key}`)
+  if (!USER_SCOPED_PROGRESS_KEYS.includes(key)) fail(`account switch cleanup is missing ${key}`)
 }
 
 console.log('Bar Server progress sync contract passed (account partitions, stage merge, cloud conflict retry, failed read and account switch).')

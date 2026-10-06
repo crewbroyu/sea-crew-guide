@@ -1014,16 +1014,29 @@ const generateAssessmentFollowUp = async ({ body, config }) => {
 
 const normalizeMockAnswerCards = (value) => (
   Array.isArray(value)
-    ? value.slice(0, 8).map((card) => ({
-        id: trimText(card?.id, 100),
-        title: trimText(card?.title, 180),
-        completed: Boolean(card?.completed),
-        generated: trimText(card?.generated, 1800),
-      })).filter((card) => card.completed && (card.generated || card.title))
+    ? value.slice(0, 8).map((card) => {
+        const generated = typeof card?.generated === 'object' && card.generated
+          ? [trimText(card.generated.concise, 900), trimText(card.generated.basic, 1800)].filter(Boolean).join('\n')
+          : trimText(card?.generated, 1800)
+        const answerEvidence = card?.answers && typeof card.answers === 'object'
+          ? Object.entries(card.answers)
+            .filter(([key, answer]) => key !== 'aiCoach' && key !== 'followUpAnswers' && typeof answer === 'string')
+            .map(([key, answer]) => ({ key: trimText(key, 80), answer: trimText(answer, 500) }))
+            .filter((item) => item.key && item.answer)
+            .slice(0, 8)
+          : []
+        return {
+          id: trimText(card?.id, 100),
+          title: trimText(card?.title, 180),
+          completed: Boolean(card?.completed),
+          generated,
+          answerEvidence,
+        }
+      }).filter((card) => card.completed && (card.generated || card.answerEvidence.length))
     : []
 )
 
-const getMockAnswerCards = async ({ supabase, userId, fallback }) => {
+const getMockAnswerCards = async ({ supabase, userId }) => {
   try {
     const { data, error } = await supabase
       .from('interview_answer_profiles')
@@ -1032,14 +1045,12 @@ const getMockAnswerCards = async ({ supabase, userId, fallback }) => {
       .maybeSingle()
     if (error) {
       console.error('Mock interview answer-card lookup failed:', error.message)
-      return normalizeMockAnswerCards(fallback)
+      return []
     }
-    return normalizeMockAnswerCards(data?.answer_cards).length
-      ? normalizeMockAnswerCards(data.answer_cards)
-      : normalizeMockAnswerCards(fallback)
+    return normalizeMockAnswerCards(data?.answer_cards)
   } catch (error) {
     console.error('Mock interview answer-card lookup failed:', error?.message || error)
-    return normalizeMockAnswerCards(fallback)
+    return []
   }
 }
 
@@ -1053,7 +1064,6 @@ const generateMockInterviewFollowUp = async ({ body, config, supabase, userId })
   const answerCards = await getMockAnswerCards({
     supabase,
     userId,
-    fallback: body.task6AnswerCards,
   })
   const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
     method: 'POST',

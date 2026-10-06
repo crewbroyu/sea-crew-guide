@@ -29,12 +29,12 @@ const getAccessToken = async () => {
   return session.access_token
 }
 
-const createRequestId = () => (
+export const createInterviewRequestId = () => (
   globalThis.crypto?.randomUUID?.()
   || `ai-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 )
 
-const requestInterviewAi = async (payload, requestId = createRequestId()) => {
+const requestInterviewAi = async (payload, requestId = createInterviewRequestId()) => {
   const accessToken = await getAccessToken()
   const controller = new AbortController()
   const timeoutMs = payload.action === 'assessment_evaluate' ? 120_000 : 90_000
@@ -122,16 +122,15 @@ export const evaluateInterviewWithAi = ({
   scenarioId,
 })
 
-export const generateMockInterviewFollowUp = ({ position, mainQuestion, answer, task6AnswerCards = [] }) => requestInterviewAi({
+export const generateMockInterviewFollowUp = ({ position, mainQuestion, answer }) => requestInterviewAi({
   action: 'mock_followup',
   mode: 'premium_mock',
   position,
   mainQuestion,
   answer,
-  task6AnswerCards,
 })
 
-export const evaluateFoundationChallenge = ({ position, dayId, prompt, answer, reference }) => requestInterviewAi({
+export const evaluateFoundationChallenge = ({ position, dayId, prompt, answer, reference, requestId }) => requestInterviewAi({
   action: 'evaluate',
   mode: 'premium_practice',
   trainingContext: 'foundation_challenge',
@@ -140,7 +139,7 @@ export const evaluateFoundationChallenge = ({ position, dayId, prompt, answer, r
   foundationReference: reference,
   questions: [{ id: `foundation:${dayId}`, question: prompt, focus: reference?.mission || '' }],
   answers: [{ textAnswer: answer }],
-})
+}, requestId)
 
 export const generateAssessmentFollowUp = ({
   serviceBackground,

@@ -2,9 +2,18 @@ import { useTrainingInspection } from '../../hooks/useTrainingInspection'
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, LoaderCircle, LockKeyhole, Mic, RotateCcw, Square, Volume2 } from 'lucide-react'
 import { speakEnglish as liveSpeakEnglish, stopSpeech } from '../../services/ttsService'
-import { evaluateFoundationChallenge } from '../../services/interviewAiService'
+import { createInterviewRequestId, evaluateFoundationChallenge } from '../../services/interviewAiService'
+import {
+  addGuestChallengeAiAttempt,
+  canCompleteGuestChallengeWithSelfReview,
+  canRequestGuestChallengeAi,
+  completeGuestChallengeWithSelfReview,
+  getGuestChallengeAiAttempts,
+  recordGuestChallengeAttempt,
+} from '../../data/guestChallengeState'
 
 const MINIMUM_RECORDING_SECONDS = 3
+const AMBIGUOUS_REQUEST_ERRORS = new Set(['AI_TIMEOUT', 'NETWORK_ERROR', 'AI_REQUEST_IN_PROGRESS', 'AI_REQUEST_ALREADY_COMPLETED'])
 
 const pickRecordingMimeType = () => [
   'audio/webm;codecs=opus',
@@ -36,10 +45,16 @@ export default function GuestChallengePractice({
   const draftRef = useRef(draft)
   const recordingUrlRef = useRef('')
   const discardRecordingRef = useRef(false)
+  // Recorder and AI callbacks resolve after re-renders; always build on the latest saved state.
+  const challengeRef = useRef(challenge)
 
   useEffect(() => {
     draftRef.current = draft
   }, [draft])
+
+  useEffect(() => {
+    challengeRef.current = challenge
+  }, [challenge])
 
   useEffect(() => () => {
     discardRecordingRef.current = true
@@ -54,8 +69,13 @@ export default function GuestChallengePractice({
     if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current)
   }, [])
 
-  const emitChange = (nextValue) => onChallengeChange?.({
-    ...challenge,
+  const commitChallenge = (nextChallenge) => {
+    challengeRef.current = nextChallenge
+    onChallengeChange?.(nextChallenge)
+  }
+
+  const emitChange = (nextValue) => commitChallenge({
+    ...challengeRef.current,
     ...nextValue,
   })
 
@@ -137,13 +157,12 @@ export default function GuestChallengePractice({
         if (recordingUrlRef.current) URL.revokeObjectURL(recordingUrlRef.current)
         recordingUrlRef.current = nextUrl
         setRecordingUrl(nextUrl)
-        emitChange({
-          hasRecording: true,
-          attemptCount: Number(challenge.attemptCount || 0) + 1,
-          transcript: draftRef.current.trim(),
-          lastRecordedAt: new Date().toISOString(),
-          completedAt: null,
-        })
+        if (!challengeRef.current.completedAt) {
+          commitChallenge(recordGuestChallengeAttempt(challengeRef.current, {
+            transcript: draftRef.current,
+            recordedAt: new Date().toISOString(),
+          }))
+        }
       }
       recorder.start()
       startRecognition()
@@ -161,15 +180,22 @@ export default function GuestChallengePractice({
   }
 
   const saveDraft = () => {
-    if (draft.trim() !== (challenge.transcript || '').trim()) {
-      emitChange({ transcript: draft.trim(), completedAt: null })
+    if (challengeRef.current.completedAt) return
+    if (draft.trim() !== (challengeRef.current.transcript || '').trim()) {
+      emitChange({ transcript: draft.trim() })
     }
   }
 
   const completeChallenge = async () => {
+    if (evaluating) return
+    const challenge = challengeRef.current
     const transcript = draft.trim()
-    if (!challenge.hasRecording || !transcript) return
-    const previousAttempts = Array.isArray(challenge.aiAttempts) ? challenge.aiAttempts : []
+    const previousAttempts = getGuestChallengeAiAttempts(challenge)
+    if (!canRequestGuestChallengeAi({ ...challenge, transcript })) return
+    if (challenge.aiRecoveryRequired) {
+      setErrorMessage('The earlier AI request could not be recovered safely. Record twice and use self-review to avoid another charge.')
+      return
+    }
     const previousAttempt = previousAttempts.at(-1)
     if (previousAttempts.length === 1 && Number(challenge.attemptCount || 0) <= Number(previousAttempt?.recordingAttemptCount || 0)) {
       setErrorMessage('Record your improved answer before asking AI to compare it.')
@@ -177,6 +203,10 @@ export default function GuestChallengePractice({
     }
     setEvaluating(true)
     setErrorMessage('')
+    const requestId = challenge.pendingRequestId || createInterviewRequestId()
+    if (!challenge.pendingRequestId) {
+      emitChange({ pendingRequestId: requestId, pendingTranscript: transcript })
+    }
     try {
       const evaluation = await evaluateFoundationChallenge({
         position: position === 'retail' ? 'Retail Sales Associate' : 'Bar Server',
@@ -189,6 +219,7 @@ export default function GuestChallengePractice({
           serviceLines: reference.serviceLines?.map((item) => typeof item === 'string' ? item : item.line),
           requiredActions: reference.requiredActions,
         },
+        requestId,
       })
       const feedback = evaluation.questionScores?.[0] || {}
       const attempt = {
@@ -202,26 +233,33 @@ export default function GuestChallengePractice({
         recordingAttemptCount: Number(challenge.attemptCount || 0),
         evaluatedAt: new Date().toISOString(),
       }
-      const aiAttempts = [...previousAttempts, attempt].slice(0, 2)
-      const completed = aiAttempts.length >= 2
-      emitChange({
-        transcript,
-        aiAttempts,
-        bestScore: Math.max(...aiAttempts.map((item) => Number(item.score || 0))),
-        scoreDelta: completed ? aiAttempts[1].score - aiAttempts[0].score : null,
-        completedAt: completed ? challenge.completedAt || new Date().toISOString() : null,
-      })
+      commitChallenge(addGuestChallengeAiAttempt(challengeRef.current, attempt, new Date().toISOString()))
     } catch (error) {
-      setErrorMessage(error.message || 'AI feedback is temporarily unavailable. Please try again.')
+      const ambiguous = AMBIGUOUS_REQUEST_ERRORS.has(error.code)
+      emitChange({
+        pendingRequestId: ambiguous ? requestId : null,
+        pendingTranscript: ambiguous ? transcript : null,
+        aiRecoveryRequired: error.code === 'AI_REQUEST_ALREADY_COMPLETED',
+      })
+      setErrorMessage(ambiguous
+        ? 'The AI request status is uncertain, so this page will not create a new charge. Record a second answer and complete with self-review.'
+        : `${error.message || 'AI feedback is temporarily unavailable.'} You can still record twice and complete this step with self-review.`)
     } finally {
       setEvaluating(false)
     }
   }
 
-  const aiAttempts = Array.isArray(challenge.aiAttempts) ? challenge.aiAttempts : []
+  const completeWithSelfReview = () => {
+    if (evaluating || !canCompleteGuestChallengeWithSelfReview(challengeRef.current)) return
+    commitChallenge(completeGuestChallengeWithSelfReview(challengeRef.current, new Date().toISOString()))
+    setErrorMessage('')
+  }
+
+  const aiAttempts = getGuestChallengeAiAttempts(challenge)
   const firstFeedback = aiAttempts[0]
   const latestFeedback = aiAttempts.at(-1)
   const needsNewRecording = aiAttempts.length === 1 && Number(challenge.attemptCount || 0) <= Number(firstFeedback?.recordingAttemptCount || 0)
+  const canSelfReview = canCompleteGuestChallengeWithSelfReview(challenge)
 
   return (
     <section className="mt-5 bg-slate-950 p-4 text-white sm:rounded-lg">
@@ -247,8 +285,8 @@ export default function GuestChallengePractice({
                 <Square size={14} /> Stop answer
               </button>
             ) : (
-              <button type="button" onClick={startRecording} disabled={inspection} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white">
-                <Mic size={14} /> {challenge.hasRecording ? 'Record again' : 'Record your answer'}
+              <button type="button" onClick={startRecording} disabled={inspection || evaluating} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white disabled:opacity-50">
+                <Mic size={14} /> {challenge.completedAt ? 'Practice again' : challenge.hasRecording ? 'Record again' : 'Record your answer'}
               </button>
             )}
           </div>
@@ -264,22 +302,32 @@ export default function GuestChallengePractice({
             placeholder="Your English answer will appear here when browser speech recognition is available. You can correct it manually."
             className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-slate-500 focus:border-blue-400"
           />
-          <p className="mt-2 text-xs leading-5 text-slate-400">Your audio stays on this page. Two AI feedback checks are used: first attempt and guided retry.</p>
+          <p className="mt-2 text-xs leading-5 text-slate-400">Your audio stays on this page. AI coaching is optional. Two complete recordings can finish this step with self-review.</p>
 
-          {firstFeedback && <div className="mt-4 rounded-lg border border-amber-700 bg-amber-950 p-4"><div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold text-amber-200">AI COACH · FIRST ATTEMPT</p><span className="text-lg font-bold text-white">{firstFeedback.score}/100</span></div><p className="mt-2 text-sm leading-6 text-amber-50">{firstFeedback.comment}</p><ul className="mt-2 space-y-1 text-xs leading-5 text-amber-100">{firstFeedback.retryChecklist.slice(0, 3).map((item) => <li key={item}>• {item}</li>)}</ul>{firstFeedback.improvedAnswer && <div className="mt-3 border-l-2 border-blue-400 pl-3 text-sm leading-6 text-blue-100">{firstFeedback.improvedAnswer}</div>}{aiAttempts.length === 1 && <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-white"><RotateCcw size={14} />Record a new answer in your own words, then compare.</p>}</div>}
+          {firstFeedback && <div className="mt-4 rounded-lg border border-amber-700 bg-amber-950 p-4"><div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold text-amber-200">AI COACH · FIRST ATTEMPT</p><span className="text-lg font-bold text-white">{firstFeedback.score}/100</span></div><p className="mt-2 text-sm leading-6 text-amber-50">{firstFeedback.comment}</p><ul className="mt-2 space-y-1 text-xs leading-5 text-amber-100">{(firstFeedback.retryChecklist || firstFeedback.improvements || []).slice(0, 3).map((item) => <li key={item}>• {item}</li>)}</ul>{firstFeedback.improvedAnswer && <div className="mt-3 border-l-2 border-blue-400 pl-3 text-sm leading-6 text-blue-100">{firstFeedback.improvedAnswer}</div>}{aiAttempts.length === 1 && <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-white"><RotateCcw size={14} />Record a new answer in your own words, then compare.</p>}</div>}
 
           {aiAttempts.length >= 2 && <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-lg border border-emerald-700 bg-emerald-950 p-4 text-center"><div><p className="text-xs text-emerald-200">First</p><p className="text-2xl font-bold">{aiAttempts[0].score}</p></div><span className="text-emerald-300">→</span><div><p className="text-xs text-emerald-200">Retry</p><p className="text-2xl font-bold">{aiAttempts[1].score}</p><p className="text-xs font-semibold text-emerald-200">{challenge.scoreDelta >= 0 ? '+' : ''}{challenge.scoreDelta}</p></div></div>}
 
           {errorMessage && <p className="mt-3 rounded-lg bg-red-950 px-3 py-2 text-xs leading-5 text-red-200">{errorMessage}</p>}
 
+          {!challenge.completedAt && <button
+            type="button"
+            onClick={completeWithSelfReview}
+            disabled={!canSelfReview || evaluating}
+            className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-900 px-4 text-sm font-semibold text-white transition hover:border-slate-400 disabled:cursor-not-allowed disabled:text-slate-500"
+          >
+            <CheckCircle2 size={17} />
+            {canSelfReview ? 'Complete with self-review' : `Self-review unlocks after 2 recordings · ${Math.min(Number(challenge.attemptCount || 0), 2)}/2`}
+          </button>}
+
           <button
             type="button"
             onClick={completeChallenge}
-            disabled={evaluating || !challenge.hasRecording || !draft.trim() || needsNewRecording || challenge.completedAt}
+            disabled={evaluating || !challenge.hasRecording || !draft.trim() || needsNewRecording || challenge.completedAt || challenge.aiRecoveryRequired}
             className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
           >
             {evaluating ? <LoaderCircle size={17} className="animate-spin" /> : <CheckCircle2 size={17} />}
-            {evaluating ? 'AI is reviewing...' : challenge.completedAt ? `Completed · ${latestFeedback?.score || 0}/100` : aiAttempts.length ? 'Compare my retry' : 'Get AI feedback'}
+            {evaluating ? 'AI is reviewing...' : challenge.completedAt ? (challenge.completionMode === 'self_review' ? 'Completed · Self-review' : latestFeedback ? `Completed · ${latestFeedback.score}/100` : 'Completed') : challenge.aiRecoveryRequired ? 'AI retry paused · use self-review' : aiAttempts.length ? 'Compare my retry' : 'Get optional AI feedback'}
           </button>
         </>
       )}

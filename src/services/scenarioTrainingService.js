@@ -65,7 +65,7 @@ export const getMyInProgressScenarioSession = async (jobKey = 'bar_server') => {
   return data
 }
 
-export const createScenarioTrainingDraft = async ({ scenario, turns }) => {
+export const createScenarioTrainingDraft = async ({ scenario, turns, retryContext = null }) => {
   const user = await getCurrentUser()
   if (!user) return null
 
@@ -76,7 +76,7 @@ export const createScenarioTrainingDraft = async ({ scenario, turns }) => {
       job_key: scenario.jobKey,
       scenario_id: scenario.id,
       difficulty: scenario.difficulty,
-      scenario_context: scenario,
+      scenario_context: retryContext ? { ...scenario, retry: retryContext } : scenario,
       turns,
       status: 'in_progress',
     })
@@ -102,7 +102,7 @@ export const updateScenarioTrainingDraft = async ({ sessionId, turns }) => {
   return data
 }
 
-export const saveScenarioTrainingResult = async ({ sessionId, scenario, turns, evaluation }) => {
+export const saveScenarioTrainingResult = async ({ sessionId, scenario, turns, evaluation, retryContext = null }) => {
   const user = await getCurrentUser()
   if (!user) return null
 
@@ -118,7 +118,7 @@ export const saveScenarioTrainingResult = async ({ sessionId, scenario, turns, e
       job_key: scenario.jobKey,
       scenario_id: scenario.id,
       difficulty: scenario.difficulty,
-      scenario_context: scenario,
+      scenario_context: retryContext ? { ...scenario, retry: retryContext } : scenario,
       turns,
       status: 'completed',
       overall_readiness: clampScore(evaluation?.overallReadiness),

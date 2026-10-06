@@ -57,6 +57,9 @@ export default function TodayDashboard() {
     try {
       const result = await getHomeDashboard({
         isAdmin: access.isAdmin,
+        isPreviewing: access.isPreviewing,
+        isRegistered: access.isRegistered,
+        userId: access.userId,
         role: access.role,
         productEntitlements: access.productEntitlements,
       })
@@ -68,7 +71,7 @@ export default function TodayDashboard() {
     } finally {
       if (!quiet) setLoading(false)
     }
-  }, [access.isAdmin, access.productEntitlements, access.role])
+  }, [access.isAdmin, access.isPreviewing, access.isRegistered, access.productEntitlements, access.role, access.userId])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => loadDashboard(), 0)
@@ -151,7 +154,7 @@ export default function TodayDashboard() {
             <p className="mt-1 text-xs text-slate-600">完成更多实训后判断会更准确</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <p className="text-xs font-semibold text-slate-500">{routeProgress.isBarPlan ? '14 天路线' : '求职路线'}</p>
+            <p className="text-xs font-semibold text-slate-500">{routeProgress.planLabel || (routeProgress.isBarPlan ? '14 天路线' : '求职路线')}</p>
             <p className="mt-2 text-3xl font-bold text-emerald-700">{routeProgress.completedCount}<span className="ml-1 text-sm font-semibold text-slate-400">/{routeProgress.total}</span></p>
             <p className="mt-1 text-xs text-slate-600">已完成 {routeProgress.percent}%</p>
           </div>
@@ -250,7 +253,7 @@ export default function TodayDashboard() {
         <section className="rounded-lg border border-slate-200 bg-white p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="flex items-center gap-2 text-xs font-semibold text-blue-700"><CalendarDays size={16} />{routeProgress.isBarPlan ? '14 天岗位路线' : '完整求职路线'}</p>
+              <p className="flex items-center gap-2 text-xs font-semibold text-blue-700"><CalendarDays size={16} />{routeProgress.planLabel || (routeProgress.isBarPlan ? '14 天岗位路线' : '完整求职路线')}</p>
               <h2 className="mt-2 text-lg font-semibold text-slate-950">{routeProgress.completedCount}/{routeProgress.total} 已完成</h2>
             </div>
             <span className="text-sm font-bold text-slate-700">{routeProgress.percent}%</span>
@@ -270,8 +273,8 @@ export default function TodayDashboard() {
             </div>
           )}
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <button type="button" onClick={() => navigate(routeProgress.isBarPlan ? '/programs/bar-server' : '/tasks')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700"><BookOpenCheck size={16} />全部训练</button>
-            <button type="button" onClick={() => navigate(routeProgress.isBarPlan ? (dashboard.hasBarServerPack ? '/programs/bar-server/report' : '/programs/bar-server/trial') : '/assessment')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700"><BarChart3 size={16} />查看报告</button>
+            <button type="button" onClick={() => navigate(routeProgress.programRoute || (routeProgress.isBarPlan ? '/programs/bar-server' : '/tasks'))} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700"><BookOpenCheck size={16} />全部训练</button>
+            <button type="button" onClick={() => navigate(routeProgress.reportRoute || (routeProgress.isBarPlan ? (dashboard.hasBarServerPack ? '/programs/bar-server/report' : '/programs/bar-server/trial') : '/assessment'))} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700"><BarChart3 size={16} />查看报告</button>
             <button type="button" onClick={() => navigate('/profile')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700"><Target size={16} />我的目标</button>
           </div>
         </section>

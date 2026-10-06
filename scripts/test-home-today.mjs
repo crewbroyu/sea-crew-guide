@@ -55,8 +55,27 @@ const retailUser = buildHomeToday({
   },
 })
 assert.equal(retailUser.targetRole.label, '免税店 / Retail Sales')
-assert.equal(retailUser.readiness.metricLabel, '职业适配度')
-assert.equal(retailUser.todayAction.route, '/tasks/Task2')
+assert.equal(retailUser.readiness.metricLabel, '岗位准备度')
+assert.equal(retailUser.todayAction.route, '/programs/retail')
+assert.equal(retailUser.routeProgress.planLabel, 'Retail 岗位路线')
+
+const paidRetailUser = buildHomeToday({
+  pathProfile: {
+    target_position: 'retail',
+    latest_assessment_score: 81,
+    task_progress: { task1: { completed: true } },
+  },
+  hasRetailPack: true,
+  foundationProgress: {
+    days: {
+      'retail-role-rhythm': { completedAt: '2026-10-01T00:00:00.000Z' },
+    },
+  },
+})
+assert.equal(paidRetailUser.todayAction.label, '第 2 训练日')
+assert.equal(paidRetailUser.todayAction.route, '/programs/retail/foundation/retail-discovery')
+assert.equal(paidRetailUser.routeProgress.total, 14)
+assert.equal(paidRetailUser.activity.recent[0].route, '/programs/retail/foundation/retail-role-rhythm')
 
 const retentionLoop = buildHomeToday({
   careerReport: assessmentReport,

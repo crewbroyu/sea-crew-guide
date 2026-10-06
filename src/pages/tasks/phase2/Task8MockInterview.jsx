@@ -12,6 +12,7 @@ import RequireActivation from '../../../components/RequireActivation';
 import { useAccessStore } from '../../../store/accessStore';
 import {
   evaluateInterviewWithAi,
+  generateMockInterviewFollowUp,
   transcribeInterviewAudio,
 } from '../../../services/interviewAiService';
 import { syncLocalPathProfile } from '../../../services/userPathService';
@@ -76,6 +77,15 @@ const readSavedInterviewPosition = () => {
     );
   } catch {
     return normalizeInterviewPosition(localStorage.getItem('interviewSelectedPosition'));
+  }
+};
+
+const readTask6AnswerCards = () => {
+  try {
+    const result = JSON.parse(localStorage.getItem('task6_result') || '{}');
+    return Array.isArray(result.answerCards) ? result.answerCards : [];
+  } catch {
+    return [];
   }
 };
 
@@ -177,6 +187,9 @@ function Task8MockInterview() {
   const stopRecordingResolverRef = useRef(null);
   const answerReadyRef = useRef(false);
   const textOnlyModeRef = useRef(false);
+  const task6AnswerCardsRef = useRef(readTask6AnswerCards());
+  const followUpRequestCountRef = useRef(0);
+  const generatedFollowUpCountRef = useRef(0);
 
   // 同步 ref
   useEffect(() => { currentQuestionIndexRef.current = currentQuestionIndex; }, [currentQuestionIndex]);
@@ -388,6 +401,36 @@ function Task8MockInterview() {
     answersRef.current = updatedAnswers;
     answerDetailsRef.current = updatedDetails;
 
+    if (!question?.isFollowUp && followUpRequestCountRef.current < 3 && generatedFollowUpCountRef.current < 2) {
+      followUpRequestCountRef.current += 1;
+      setCurrentStatus('analyzing');
+      try {
+        const followUp = await generateMockInterviewFollowUp({
+          position: POSITION_NAMES[selectedPosition] || selectedPosition,
+          mainQuestion: question?.question || '',
+          answer: finalAnswer,
+          task6AnswerCards: task6AnswerCardsRef.current,
+        });
+        if (followUp.shouldFollowUp && followUp.question) {
+          generatedFollowUpCountRef.current += 1;
+          const followUpQuestion = {
+            id: `${question?.id || `question-${currentIdx + 1}`}-follow-up`,
+            question: followUp.question,
+            keywords: [],
+            isFollowUp: true,
+            followUpFocus: followUp.focus,
+            usesTask6Context: followUp.usedPreparedAnswerCards,
+          };
+          const expandedQuestions = [...extractedQuestionsRef.current];
+          expandedQuestions.splice(currentIdx + 1, 0, followUpQuestion);
+          extractedQuestionsRef.current = expandedQuestions;
+          setExtractedQuestions(expandedQuestions);
+        }
+      } catch (error) {
+        console.warn('Mock interview follow-up skipped:', error?.code || error?.message || error);
+      }
+    }
+
     const nextIdx = currentIdx + 1;
     if (nextIdx < extractedQuestionsRef.current.length) {
       setCurrentQuestionIndex(nextIdx);
@@ -539,6 +582,9 @@ function Task8MockInterview() {
     setRecognitionStatus('idle');
     isTransitioningRef.current = false;
     textOnlyModeRef.current = false;
+    followUpRequestCountRef.current = 0;
+    generatedFollowUpCountRef.current = 0;
+    task6AnswerCardsRef.current = readTask6AnswerCards();
 
     if (selectedPosition) {
       const questions = buildInterviewQuestions(selectedPosition);
@@ -875,6 +921,11 @@ function Task8MockInterview() {
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-800 mb-1">{selectedInterviewer?.name || 'AI面试官'}：</p>
+                      {extractedQuestions[currentQuestionIndex]?.isFollowUp && (
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                          针对上一回答的追问{extractedQuestions[currentQuestionIndex]?.usesTask6Context ? ' · 已参考 Task 6 答案卡' : ''}
+                        </p>
+                      )}
                       <p className="text-gray-600">{extractedQuestions[currentQuestionIndex]?.question}</p>
                     </div>
                   </div>
@@ -906,6 +957,11 @@ function Task8MockInterview() {
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-800 mb-1">{selectedInterviewer?.name || 'AI面试官'}：</p>
+                      {extractedQuestions[currentQuestionIndex]?.isFollowUp && (
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                          针对上一回答的追问{extractedQuestions[currentQuestionIndex]?.usesTask6Context ? ' · 已参考 Task 6 答案卡' : ''}
+                        </p>
+                      )}
                       <p className="text-gray-600">{extractedQuestions[currentQuestionIndex]?.question}</p>
                     </div>
                   </div>

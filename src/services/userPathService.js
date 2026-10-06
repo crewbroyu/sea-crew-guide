@@ -37,6 +37,8 @@ export const writeLocalTaskProgress = (progress) => {
 
 export const markLocalTaskComplete = (taskId) => {
   const progress = getLocalTaskProgress()
+  const current = progress[`task${taskId}`]
+  if (current?.completed) return progress
   progress[`task${taskId}`] = {
     completed: true,
     completedAt: new Date().toISOString(),

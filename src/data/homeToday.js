@@ -3,6 +3,10 @@ import { barServerFoundationDays } from './barServerFoundation.js'
 import { BAR_SERVER_LISTENING_DRILLS } from './barServerListening.js'
 import { getBarServerPlanProgress } from './barServerLearningPlan.js'
 import { getBarServerReadinessReport } from './barServerReadiness.js'
+import { retailFoundationDays } from './retailFoundation.js'
+import { RETAIL_LISTENING_DRILLS } from './retailListening.js'
+import { getRetailPlanProgress } from './retailLearningPlan.js'
+import { getRetailReadinessReport } from './retailReadiness.js'
 
 const ROLE_LABELS = {
   bar: '酒吧服务 / Bar Server',
@@ -26,6 +30,7 @@ const STAGE_MAP = {
 const allTasks = pathData.flatMap((stage) => stage.tasks.map((task) => ({ ...task, stageName: stage.name })))
 
 const isBarRole = (value = '') => /(^bar$|bar.?server|酒吧)/i.test(String(value))
+const isRetailRole = (value = '') => /retail|免税|零售/i.test(String(value))
 
 const getCompletedTasks = (progress = {}) => allTasks.filter((task) => progress[`task${task.id}`]?.completed)
 
@@ -61,9 +66,14 @@ const getRecentActivities = ({
   listeningProgress = {},
   shiftHistory = [],
   scenarioHistory = [],
+  jobKey = 'bar_server',
   now = Date.now(),
 }) => {
   const activities = []
+  const isRetail = jobKey === 'retail'
+  const foundationDays = isRetail ? retailFoundationDays : barServerFoundationDays
+  const listeningDrills = isRetail ? RETAIL_LISTENING_DRILLS : BAR_SERVER_LISTENING_DRILLS
+  const programBase = isRetail ? '/programs/retail' : '/programs/bar-server'
 
   allTasks.forEach((task) => {
     const completedAt = taskProgress[`task${task.id}`]?.completedAt
@@ -76,18 +86,18 @@ const getRecentActivities = ({
     })
   })
 
-  barServerFoundationDays.forEach((day) => {
-    const completedAt = foundationProgress[day.id]?.completedAt
+  foundationDays.forEach((day) => {
+    const completedAt = isRetail ? foundationProgress.days?.[day.id]?.completedAt : foundationProgress[day.id]?.completedAt
     if (completedAt) activities.push({
       id: `foundation-${day.id}`,
       type: '岗位基础课',
       title: `Day ${day.day} · ${day.title}`,
       completedAt,
-      route: `/programs/bar-server/foundation/${day.id}`,
+      route: `${programBase}/foundation/${day.id}`,
     })
   })
 
-  BAR_SERVER_LISTENING_DRILLS.forEach((drill) => {
+  listeningDrills.forEach((drill) => {
     const progress = listeningProgress[drill.id] || {}
     const completedAt = progress.speakingPractice?.completedAt || progress.completedAt
     if (completedAt) activities.push({
@@ -96,7 +106,7 @@ const getRecentActivities = ({
       title: drill.unit,
       score: Number.isFinite(Number(progress.bestScore)) ? Number(progress.bestScore) : null,
       completedAt,
-      route: '/programs/bar-server/listening',
+      route: `${programBase}/listening`,
     })
   })
 
@@ -107,7 +117,7 @@ const getRecentActivities = ({
       title: '5 题限时班次验证',
       score: Number(attempt.score || 0),
       completedAt: attempt.completedAt,
-      route: '/programs/bar-server/listening/shift',
+      route: `${programBase}/listening/shift`,
     })
   })
 
@@ -118,7 +128,7 @@ const getRecentActivities = ({
       title: session.next_recommendation || '连续岗位场景模拟',
       score: Number(session.overall_readiness || 0),
       completedAt: session.completed_at,
-      route: '/programs/bar-server/training',
+      route: `${programBase}/training`,
     })
   })
 
@@ -148,9 +158,10 @@ const getRecentActivities = ({
   }
 }
 
-const buildLatestFeedback = ({ scenarioHistory = [], shiftHistory = [] }) => {
+const buildLatestFeedback = ({ scenarioHistory = [], shiftHistory = [], jobKey = 'bar_server' }) => {
   const scenario = scenarioHistory[0]
   const shift = shiftHistory[0]
+  const programBase = jobKey === 'retail' ? '/programs/retail' : '/programs/bar-server'
 
   if (!scenario && !shift) return null
 
@@ -162,7 +173,7 @@ const buildLatestFeedback = ({ scenarioHistory = [], shiftHistory = [] }) => {
         || scenario.next_recommendation
         || '结果已计入岗位准备度，继续完成系统推荐的弱项训练。',
       completedAt: scenario.completed_at,
-      route: '/programs/bar-server/training',
+      route: `${programBase}/training`,
     }
   }
 
@@ -174,7 +185,7 @@ const buildLatestFeedback = ({ scenarioHistory = [], shiftHistory = [] }) => {
       ? `${weakResult.unit || '现场反应'}仍需加强，先复盘遗漏信息再挑战一次。`
       : '最近一次班次挑战已完成，可以继续用岗位场景验证稳定性。',
     completedAt: shift.completedAt,
-    route: '/programs/bar-server/listening/shift',
+    route: `${programBase}/listening/shift`,
   }
 }
 
@@ -188,6 +199,7 @@ const resolveTargetRole = ({ pathProfile, jobPreparation, careerReport }) => {
     raw,
     label: ROLE_LABELS[raw] || fallbackTitle || raw || '尚未确定',
     isBarServer: isBarRole(raw) || isBarRole(fallbackTitle),
+    isRetail: isRetailRole(raw) || isRetailRole(fallbackTitle),
   }
 }
 
@@ -203,6 +215,7 @@ export const buildHomeToday = ({
   trial = {},
   interviewCompleted = false,
   hasBarServerPack = false,
+  hasRetailPack = false,
   learningStage = 'job_search',
   now = Date.now(),
 } = {}) => {
@@ -223,6 +236,7 @@ export const buildHomeToday = ({
     listeningProgress,
     shiftHistory,
     scenarioHistory,
+    jobKey: targetRole.isRetail ? 'retail' : 'bar_server',
     now,
   })
 
@@ -238,7 +252,7 @@ export const buildHomeToday = ({
     }
   }
 
-  if (!targetRole.isBarServer) {
+  if (!targetRole.isBarServer && !targetRole.isRetail) {
     return {
       targetRole,
       readiness: {
@@ -268,6 +282,41 @@ export const buildHomeToday = ({
       },
       latestFeedback: null,
       activity,
+    }
+  }
+
+  if (targetRole.isRetail) {
+    const readiness = getRetailReadinessReport({ foundationProgress, listeningProgress, shiftHistory, scenarioProfile })
+    const stageId = STAGE_MAP[careerReport?.profile?.currentStage] || learningStage || 'job_search'
+    const plan = getRetailPlanProgress(stageId, {
+      foundationProgress,
+      listeningProgress,
+      shiftHistory,
+      scenarioCompletedCount: readiness.scenarioCompletedCount,
+      interviewCompletedAt: interviewCompleted ? new Date(now).toISOString() : null,
+    })
+    const weakest = readiness.recommendations[0]
+    const todayAction = hasRetailPack ? {
+      label: plan.isComplete ? '保持工作状态' : `第 ${plan.currentItem.day} 训练日`,
+      title: plan.isComplete ? '再做一次零售岗位场景验证' : plan.currentItem.title,
+      detail: plan.isComplete ? '岗位路线已经完成，用完整销售场景继续验证稳定性。' : plan.currentItem.description,
+      route: plan.isComplete ? '/programs/retail/training' : plan.currentItem.route,
+    } : {
+      label: 'Retail 岗位训练',
+      title: '查看完整 Retail 岗位训练方案',
+      detail: '查看基础课、品牌与产品知识、听说训练和岗位模拟。',
+      route: '/programs/retail',
+    }
+
+    return {
+      targetRole,
+      readiness: { score: readiness.overallScore, evidencePercent: readiness.evidencePercent, label: readiness.level.label, metricLabel: '岗位准备度' },
+      gap: weakest ? { label: weakest.label, score: weakest.score, detail: `${weakest.description} · ${weakest.evidence}`, route: weakest.route, action: weakest.action } : { label: '继续保持稳定', detail: '目前没有明显低分项，继续用岗位场景检验稳定性。', route: '/programs/retail/training' },
+      todayAction,
+      routeProgress: { ...plan, total: plan.items.length, isBarPlan: false, isJobPlan: true, planLabel: 'Retail 岗位路线', programRoute: '/programs/retail', reportRoute: '/programs/retail/report' },
+      latestFeedback: buildLatestFeedback({ scenarioHistory, shiftHistory, jobKey: 'retail' }),
+      activity,
+      hasRetailPack,
     }
   }
 
@@ -332,8 +381,8 @@ export const buildHomeToday = ({
       route: '/programs/bar-server/training',
     },
     todayAction,
-    routeProgress: { ...plan, total: plan.items.length, isBarPlan: true },
-    latestFeedback: buildLatestFeedback({ scenarioHistory, shiftHistory }),
+    routeProgress: { ...plan, total: plan.items.length, isBarPlan: true, isJobPlan: true, planLabel: '14 天岗位路线', programRoute: '/programs/bar-server', reportRoute: hasBarServerPack ? '/programs/bar-server/report' : '/programs/bar-server/trial' },
+    latestFeedback: buildLatestFeedback({ scenarioHistory, shiftHistory, jobKey: 'bar_server' }),
     activity,
     hasBarServerPack,
   }

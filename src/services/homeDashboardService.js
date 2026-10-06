@@ -3,6 +3,7 @@ import { readBarLearningStage, readBarLearningStageUpdatedAt, readBarListeningPr
 import { mergeBarServerPractice } from '../data/barServerProgressSync.js'
 import { mergeFoundationProgress } from '../data/foundationSync.js'
 import { buildHomeToday } from '../data/homeToday.js'
+import { mergeRetailPractice, readRetailPractice } from '../data/retailPracticeProgress.js'
 import { hasProductEntitlement } from './activationService.js'
 import { getLatestCareerReport } from './careerReportService.js'
 import { readFoundationProgress } from './foundationProgressService.js'
@@ -22,19 +23,15 @@ const valueOf = (result, fallback) => result.status === 'fulfilled' ? result.val
 
 export const getHomeDashboard = async (access) => {
   const ownerId = access.isPreviewing ? 'preview' : access.userId || 'guest'
-  const results = await Promise.allSettled([
+  const baseResults = await Promise.allSettled([
     getMyPathProfile(),
     getMyJobPreparation(access.isRegistered && !access.isPreviewing ? access.userId : undefined),
     getLatestCareerReport(),
-    getMyScenarioProfile('bar_server'),
-    getMyScenarioHistory('bar_server', 5),
   ])
 
-  const cloudPathProfile = valueOf(results[0], null)
-  const jobPreparation = valueOf(results[1], null)
-  const cloudCareerReport = valueOf(results[2], null)
-  const scenarioProfile = valueOf(results[3], null)
-  const scenarioHistory = valueOf(results[4], [])
+  const cloudPathProfile = valueOf(baseResults[0], null)
+  const jobPreparation = valueOf(baseResults[1], null)
+  const cloudCareerReport = valueOf(baseResults[2], null)
   const localAssessment = readJson('assessment_result', {})
   const localTask2 = readJson('task2_result', {})
   const pathProfile = cloudPathProfile ? {
@@ -51,15 +48,25 @@ export const getHomeDashboard = async (access) => {
     assessment_snapshot: localAssessment,
     report: localAssessment.careerReport,
   } : null)
-  const cloudFoundation = jobPreparation?.learning_records?.foundationCourses?.bar_server?.progress || {}
-  const cloudPractice = jobPreparation?.learning_records?.barServerPractice || {}
-  const foundationProgress = mergeFoundationProgress(cloudFoundation, readFoundationProgress('bar_server', ownerId))
-  const practice = mergeBarServerPractice(cloudPractice, {
-    listeningProgress: readBarListeningProgress(ownerId),
-    shiftHistory: readBarShiftHistory(ownerId),
-    learningStage: readBarLearningStage(ownerId),
-    stageUpdatedAt: readBarLearningStageUpdatedAt(ownerId),
-  })
+  const roleValue = pathProfile.target_position || jobPreparation?.selected_role || careerReport?.profile?.targetRole || jobPreparation?.role_title || ''
+  const isRetail = /retail|免税|零售/i.test(String(roleValue))
+  const isBarServer = /(^bar$|bar.?server|酒吧)/i.test(String(roleValue))
+  const jobKey = isRetail ? 'retail' : 'bar_server'
+  const scenarioResults = isRetail || isBarServer
+    ? await Promise.allSettled([getMyScenarioProfile(jobKey), getMyScenarioHistory(jobKey, 5)])
+    : []
+  const scenarioProfile = valueOf(scenarioResults[0] || {}, null)
+  const scenarioHistory = valueOf(scenarioResults[1] || {}, [])
+  const cloudFoundation = jobPreparation?.learning_records?.foundationCourses?.[jobKey]?.progress || {}
+  const foundationProgress = mergeFoundationProgress(cloudFoundation, readFoundationProgress(jobKey, ownerId))
+  const practice = isRetail
+    ? mergeRetailPractice(jobPreparation?.learning_records?.retailPractice, readRetailPractice(ownerId))
+    : mergeBarServerPractice(jobPreparation?.learning_records?.barServerPractice || {}, {
+        listeningProgress: readBarListeningProgress(ownerId),
+        shiftHistory: readBarShiftHistory(ownerId),
+        learningStage: readBarLearningStage(ownerId),
+        stageUpdatedAt: readBarLearningStageUpdatedAt(ownerId),
+      })
 
   return {
     dashboard: buildHomeToday({
@@ -72,11 +79,12 @@ export const getHomeDashboard = async (access) => {
       scenarioProfile,
       scenarioHistory,
       trial: readJson(BAR_SERVER_TRIAL_STORAGE_KEY, {}),
-      interviewCompleted: Boolean(readJson('task6_result', {}).completedAt),
+      interviewCompleted: Boolean(practice.interviewCompletedAt || readJson('task6_result', {}).completedAt),
       hasBarServerPack: hasProductEntitlement(access, 'bar_server_pack'),
-      learningStage: practice.learningStage,
+      hasRetailPack: hasProductEntitlement(access, 'retail_sales_pack'),
+      learningStage: practice.learningStage || practice.stageId,
     }),
-    isPartial: results.some((result) => result.status === 'rejected'),
+    isPartial: [...baseResults, ...scenarioResults].some((result) => result.status === 'rejected'),
   }
 }
 

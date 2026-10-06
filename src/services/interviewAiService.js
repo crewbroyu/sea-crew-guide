@@ -122,6 +122,26 @@ export const evaluateInterviewWithAi = ({
   scenarioId,
 })
 
+export const generateMockInterviewFollowUp = ({ position, mainQuestion, answer, task6AnswerCards = [] }) => requestInterviewAi({
+  action: 'mock_followup',
+  mode: 'premium_mock',
+  position,
+  mainQuestion,
+  answer,
+  task6AnswerCards,
+})
+
+export const evaluateFoundationChallenge = ({ position, dayId, prompt, answer, reference }) => requestInterviewAi({
+  action: 'evaluate',
+  mode: 'premium_practice',
+  trainingContext: 'foundation_challenge',
+  position,
+  scenarioId: `foundation:${dayId}`,
+  foundationReference: reference,
+  questions: [{ id: `foundation:${dayId}`, question: prompt, focus: reference?.mission || '' }],
+  answers: [{ textAnswer: answer }],
+})
+
 export const generateAssessmentFollowUp = ({
   serviceBackground,
   history,

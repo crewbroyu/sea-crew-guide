@@ -246,6 +246,25 @@ export const BAR_SERVER_LISTENING_DRILLS = [
     ],
     explanation: '安全指令包含三部分：停止供酒、提供水、客人变得 aggressive 时立即升级。',
   },
+  {
+    id: 'allergy-order-handover',
+    unit: '过敏与安全交接',
+    level: 3,
+    role: 'Supervisor',
+    context: 'Cocktail Bar · 客人说明严重坚果过敏后，主管给出处理指令。',
+    prompt: 'Hold the order. Tell the bartender about the severe nut allergy, check the approved ingredient information, and do not promise the drink is allergen-free.',
+    task: '识别暂停动作、必须交接的信息、核实来源和禁止承诺。',
+    response: "Understood. I'll hold the order, alert the bartender, check the approved ingredient information, and avoid making an allergen-free guarantee.",
+    responseCue: '复述暂停订单、通知调酒师、核实资料和不作无过敏原保证',
+    type: 'capture',
+    fields: [
+      captureField('firstAction', '第一步', ['Hold the order', 'Prepare it immediately', 'Remove the garnish only'], 'Hold the order'),
+      captureField('handover', '必须通知谁', ['The bartender', 'Another guest', 'No one'], 'The bartender'),
+      captureField('source', '核实来源', ['Approved ingredient information', 'Personal memory', 'A social-media post'], 'Approved ingredient information'),
+      captureField('boundary', '不能做什么', ['Promise it is allergen-free', 'Confirm the allergen', 'Escalate uncertainty'], 'Promise it is allergen-free'),
+    ],
+    explanation: '严重过敏信息必须停止并准确交接。核实 approved information 后仍不能作超出流程和交叉接触控制能力的保证。',
+  },
 ]
 
 const accountStorageKey = (ownerId, kind) => `${BAR_ACCOUNT_STORAGE_PREFIX}:${ownerId}:${kind}`

@@ -492,6 +492,7 @@ export const barServerFoundationDays = [
       { name: 'Personal hygiene', profile: '正确洗手、干净制服、伤口保护、避免徒手接触即食食品', examples: '开始工作、污染后、如厕后、处理脏杯后都要按船上程序洗手' },
       { name: 'Illness reporting', profile: '呕吐、腹泻等症状必须立即报告，不带病处理饮品或 garnish', examples: '不要隐瞒症状，也不要自行决定何时恢复食品服务工作' },
       { name: 'Cross-contamination', profile: '把脏杯、清洁杯、化学品、冰、工具和 garnish 分开', examples: '冰铲有固定洁净存放位置；破杯后的冰槽按程序停用和处理' },
+      { name: 'Allergy communication', profile: '确认具体过敏原，暂停制作并通过 approved ingredient information 和指定负责人核实', examples: '不能凭记忆保证 allergy-free；不确定时停止、升级并把信息清楚交接给 Bartender / Supervisor' },
       { name: 'Clean then sanitize', profile: 'Cleaning 去除污物，sanitizing 在清洁之后降低微生物风险', examples: '浓度、接触时间、温度和检测方法以设备标签及船公司 SOP 为准' },
     ],
     sections: [
@@ -502,6 +503,15 @@ export const barServerFoundationDays = [
           '手接触脸、手机、脏杯、垃圾、清洁布或化学品后，按程序洗手再回到饮品与 garnish 操作。',
           '食品接触面必须先清洁再消毒；不能用同一块脏布在吧台、杯口和设备间来回擦。',
           '化学品保持原标签或正确工作标签，远离饮品、冰和 garnish；绝不凭感觉混配浓度。',
+        ],
+      },
+      {
+        title: '客人说明过敏时的安全动作链',
+        items: [
+          '先确认客人所说的具体过敏原和当前订单，不判断严重程度，也不把 intolerance、preference 和 allergy 混为一谈。',
+          '暂停下单或制作，清楚标记并通知 Bartender / Supervisor；只查当前 approved ingredient、recipe 和 allergen information，不凭记忆回答。',
+          '按船上流程评估工具、冰、garnish、mixer 和工作面的 cross-contact 风险；不能确认时必须升级，不能说 “completely safe” 或 “allergy-free”。',
+          '向接手人员复述过敏原和已采取动作，送达前再次核对正确饮品与客人；若客人出现症状，立即启动指定医疗和应急流程。',
         ],
       },
       {

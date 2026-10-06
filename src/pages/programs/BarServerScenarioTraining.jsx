@@ -27,6 +27,9 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
   const [seconds, setSeconds] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
   const [result, setResult] = useState(null)
+  const [baselineResult, setBaselineResult] = useState(null)
+  const [baselineSessionId, setBaselineSessionId] = useState(null)
+  const [completedSessionId, setCompletedSessionId] = useState(null)
   const [draft, setDraft] = useState(null)
   const [activeSessionId, setActiveSessionId] = useState(null)
   const recorderRef = useRef(null)
@@ -72,6 +75,30 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
     setTurns([])
     setAnswer('')
     setResult(null)
+    setBaselineResult(null)
+    setBaselineSessionId(null)
+    setCompletedSessionId(null)
+    setErrorMessage('')
+    setRecording(false)
+    setTranscribing(false)
+    setSeconds(0)
+    setActiveSessionId(null)
+    firstTurnRequestIdRef.current = null
+    finalEvaluationRequestIdRef.current = null
+  }
+
+  const startGuidedRetry = () => {
+    if (!result || busy) return
+    if (timerRef.current) window.clearInterval(timerRef.current)
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    setBaselineResult(result)
+    setBaselineSessionId(completedSessionId)
+    setCompletedSessionId(null)
+    setStage('first')
+    setTurns([])
+    setAnswer('')
+    setResult(null)
     setErrorMessage('')
     setRecording(false)
     setTranscribing(false)
@@ -84,11 +111,14 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
   const resumeDraft = () => {
     const savedScenario = getScenarioById(draft?.scenario_id)
     const savedTurns = Array.isArray(draft?.turns) ? draft.turns : []
+    const savedRetry = draft?.scenario_context?.retry || null
     if (!savedScenario || savedTurns.length < 3) return
     resetScenario(savedScenario.id)
     setScenarioId(savedScenario.id)
     setTurns(savedTurns)
     setActiveSessionId(draft.id)
+    setBaselineResult(savedRetry?.baselineResult || null)
+    setBaselineSessionId(savedRetry?.sessionId || null)
     setStage('followup')
     setDraft(null)
   }
@@ -154,7 +184,8 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
         firstTurnRequestIdRef.current ||= createRequestId()
         const followUp = await continueScenarioRoleplay({ scenarioId: scenario.id, firstAnswer: response, position: simulator.position, requestId: firstTurnRequestIdRef.current })
         const followUpTurns = [...firstTurns, { role: followUp.role, content: followUp.message, isFollowUp: true }]
-        const savedDraft = await createScenarioTrainingDraft({ scenario, turns: followUpTurns })
+        const retryContext = baselineResult ? { sessionId: baselineSessionId, baselineResult } : null
+        const savedDraft = await createScenarioTrainingDraft({ scenario, turns: followUpTurns, retryContext })
         setTurns(followUpTurns)
         setActiveSessionId(savedDraft?.id || null)
         firstTurnRequestIdRef.current = null
@@ -165,9 +196,11 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
         await updateScenarioTrainingDraft({ sessionId: activeSessionId, turns: finalTurns })
         finalEvaluationRequestIdRef.current ||= createRequestId()
         const evaluation = await evaluateScenarioSimulation({ scenarioId: scenario.id, turns: finalTurns, position: simulator.position, requestId: finalEvaluationRequestIdRef.current })
-        const saved = await saveScenarioTrainingResult({ sessionId: activeSessionId, scenario, turns: finalTurns, evaluation })
+        const retryContext = baselineResult ? { sessionId: baselineSessionId, baselineResult } : null
+        const saved = await saveScenarioTrainingResult({ sessionId: activeSessionId, scenario, turns: finalTurns, evaluation, retryContext })
         finalEvaluationRequestIdRef.current = null
         setActiveSessionId(null)
+        setCompletedSessionId(saved?.session?.id || null)
         setDraft(null)
         setTurns(finalTurns)
         setResult(evaluation)
@@ -194,7 +227,7 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      <header className="border-b border-slate-200 bg-white"><div className="mx-auto max-w-3xl px-5 pb-5 pt-10"><button type="button" onClick={() => navigate(simulator.backRoute)} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-700"><ArrowLeft size={16} />Return to the job pack</button><p className="mt-5 text-xs font-medium text-blue-700">{simulator.label} · CRUISE JOB SIMULATOR</p><h1 className="mt-2 text-2xl font-semibold text-slate-950">{simulator.title}</h1><p className="mt-2 text-sm leading-6 text-slate-600">Brief, practical knowledge. Respond to a guest, handle one follow-up, then train your weakest skill next.</p></div></header>
+      <header className="border-b border-slate-200 bg-white"><div className="mx-auto max-w-3xl px-5 pb-5 pt-10"><button type="button" onClick={() => navigate(simulator.backRoute)} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-700"><ArrowLeft size={16} />Return to the job pack</button><p className="mt-5 text-xs font-medium text-blue-700">{simulator.label} · CRUISE JOB SIMULATOR</p><h1 className="mt-2 text-2xl font-semibold text-slate-950">{simulator.title}</h1><p className="mt-2 text-sm leading-6 text-slate-600">Respond to the guest, handle one follow-up, review the feedback, then say it again and compare your result.</p></div></header>
       <main className="mx-auto max-w-3xl space-y-5 px-5 py-6">
         <JobReadinessDashboard profile={profile} jobKey={jobKey} onOpenScenario={(id) => resetScenario(id)} />
         {draft && getScenarioById(draft.scenario_id) && (
@@ -208,10 +241,10 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
           {scenario.image && <img src={scenario.image} alt={scenario.imageAlt || scenario.title} className="mt-4 aspect-video w-full rounded-lg border border-slate-200 object-cover" />}
           <div className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">{[['LOCATION', scenario.location], ['GUEST', scenario.guestType], ['WORKLOAD', scenario.workload], ['NOISE', scenario.noiseLevel]].map(([label, value]) => <div key={label} className="rounded-lg bg-slate-50 p-3"><p className="text-slate-500">{label}</p><p className="mt-1 font-medium text-slate-800">{value}</p></div>)}</div>
           {stage === 'briefing' && <><div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4"><p className="text-xs font-semibold text-blue-700">WHAT YOU NEED FOR THIS SIMULATION</p><ul className="mt-2 space-y-1.5 text-sm leading-6 text-blue-950">{scenario.knowledgeRequired.map((item) => <li key={item}>• {item}</li>)}</ul></div><div className="mt-4 rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-950">This simulation includes one role-play follow-up and one skills evaluation. Completing it uses 2 AI feedback credits. Your progress is saved if you leave early.</div><div className="mt-5 border-l-4 border-blue-500 bg-slate-50 px-4 py-3"><p className="text-xs font-semibold text-blue-700">{scenario.aiRole}</p><p className="mt-1 text-base font-medium leading-7 text-slate-950">“{scenario.openingLine}”</p></div><EdgeReadAloudHint /><button type="button" onClick={() => setStage('first')} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700">Respond to the guest <ArrowRight size={18} /></button></>}
-          {(stage === 'first' || stage === 'followup') && <div className="mt-5 space-y-4"><div className="space-y-3">{stage === 'first' ? <div className="border-l-4 border-blue-500 bg-blue-50 px-4 py-3"><p className="text-xs font-semibold text-blue-700">{scenario.aiRole}</p><p className="mt-1 text-sm font-medium leading-6 text-blue-950">“{scenario.openingLine}”</p></div> : turns.map((turn, index) => <div key={`${turn.role}-${index}`} className={turn.role === 'trainee' ? 'ml-6 rounded-lg bg-slate-900 px-4 py-3 text-sm leading-6 text-white' : 'mr-6 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950'}><p className="mb-1 text-xs font-semibold opacity-70">{turn.role === 'trainee' ? 'You' : turn.role}</p>{turn.content}</div>)}</div><EdgeReadAloudHint />
+          {(stage === 'first' || stage === 'followup') && <div className="mt-5 space-y-4">{baselineResult && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-semibold text-amber-800">GUIDED RETRY · FIRST SCORE {baselineResult.overallReadiness}/100</p><p className="mt-2 text-sm font-semibold text-amber-950">Use these priorities in your own words:</p><ul className="mt-2 space-y-1 text-sm leading-6 text-amber-900">{baselineResult.weaknesses.slice(0, 3).map((item) => <li key={item}>• {item}</li>)}</ul></div>}<div className="space-y-3">{stage === 'first' ? <div className="border-l-4 border-blue-500 bg-blue-50 px-4 py-3"><p className="text-xs font-semibold text-blue-700">{scenario.aiRole}</p><p className="mt-1 text-sm font-medium leading-6 text-blue-950">“{scenario.openingLine}”</p></div> : turns.map((turn, index) => <div key={`${turn.role}-${index}`} className={turn.role === 'trainee' ? 'ml-6 rounded-lg bg-slate-900 px-4 py-3 text-sm leading-6 text-white' : 'mr-6 border-l-4 border-blue-500 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950'}><p className="mb-1 text-xs font-semibold opacity-70">{turn.role === 'trainee' ? 'You' : turn.role}</p>{turn.content}</div>)}</div><EdgeReadAloudHint />
             <div className="rounded-lg border border-slate-200 p-4"><div className="flex items-center justify-between gap-3"><div><p className="font-semibold text-slate-950">{stage === 'first' ? 'Your first response' : 'Respond to the guest follow-up'}</p><p className="mt-1 text-xs text-slate-500">Aim for 20-60 seconds. Audio is transcribed but never stored.</p></div>{recording ? <button type="button" onClick={stopRecording} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white"><Square size={15} />Stop {formatTime(seconds)}</button> : <button type="button" onClick={startRecording} disabled={transcribing || busy} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:bg-slate-300">{transcribing ? <LoaderCircle size={15} className="animate-spin" /> : <Mic size={15} />}{transcribing ? 'Transcribing' : 'Record'}</button>}</div><textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={5} placeholder="Record your answer or type it in English." className="mt-4 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" /></div>
             {errorMessage && <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700"><p>{errorMessage}</p><button type="button" onClick={() => navigate(`/support?category=ai_training&context=${jobKey}_job_simulator&error=ai_simulation_error`)} className="mt-2 font-semibold underline underline-offset-2">Need help? Send the training issue</button></div>}<button type="button" onClick={submitAnswer} disabled={busy || recording || transcribing || !answer.trim()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white disabled:bg-slate-300">{busy ? <LoaderCircle size={18} className="animate-spin" /> : <Send size={18} />}{busy ? 'AI is working...' : stage === 'first' ? 'Continue the simulation' : 'Generate my skills result'}</button></div>}
-          {stage === 'result' && result && <div className="mt-5 space-y-4"><div className="flex items-start justify-between rounded-lg border border-emerald-100 bg-emerald-50 p-4"><div><p className="text-xs font-semibold text-emerald-700">SIMULATION COMPLETE</p><h3 className="mt-1 text-lg font-semibold text-emerald-950">Simulation readiness {result.overallReadiness}/100</h3><p className="mt-1 text-sm leading-6 text-emerald-900">{result.nextTrainingRecommendation}</p></div><CheckCircle2 className="shrink-0 text-emerald-600" /></div><div className="grid gap-3 sm:grid-cols-2">{[['What worked', result.strengths, 'emerald'], ['Improve next time', result.weaknesses, 'amber']].map(([title, items, tone]) => <div key={title} className={`rounded-lg border p-4 ${tone === 'emerald' ? 'border-emerald-100 bg-emerald-50' : 'border-amber-100 bg-amber-50'}`}><p className="font-semibold text-slate-950">{title}</p><ul className="mt-2 space-y-1.5 text-sm leading-6 text-slate-700">{items.map((item) => <li key={item}>• {item}</li>)}</ul></div>)}</div>{result.criticalMistakes?.length > 0 && <div className="rounded-lg border border-red-100 bg-red-50 p-4"><p className="font-semibold text-red-950">Critical risks</p><ul className="mt-2 space-y-1.5 text-sm leading-6 text-red-800">{result.criticalMistakes.map((item) => <li key={item}>• {item}</li>)}</ul></div>}<div className="rounded-lg border border-blue-200 bg-blue-50 p-4"><div className="flex items-center gap-2"><MessageSquareText size={17} className="text-blue-700" /><p className="font-semibold text-blue-950">A response you can say again</p></div><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-blue-950">{result.betterResponse}</p></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{skills.map(({ key, label }) => <div key={key} className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-lg font-semibold text-slate-950">{result.skillScores[key]}</p></div>)}</div>{(latest || best) && <p className="text-xs text-slate-500">Simulation history:{latest ? ` Latest ${latest}` : ''}{best ? ` · Best ${best}` : ''}</p>}<div className="grid gap-3 sm:grid-cols-2"><button type="button" onClick={() => resetScenario()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700"><RotateCcw size={17} />Try this simulation again</button><button type="button" onClick={() => resetScenario(profile?.recommended_scenario_id || scenarios[0].id)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700">Train my weakest skill <ArrowRight size={17} /></button><button type="button" onClick={() => navigate('/')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white sm:col-span-2">Finish and return to Today <ArrowRight size={17} /></button></div></div>}
+          {stage === 'result' && result && <div className="mt-5 space-y-4"><div className="flex items-start justify-between rounded-lg border border-emerald-100 bg-emerald-50 p-4"><div><p className="text-xs font-semibold text-emerald-700">SIMULATION COMPLETE</p><h3 className="mt-1 text-lg font-semibold text-emerald-950">Simulation readiness {result.overallReadiness}/100</h3><p className="mt-1 text-sm leading-6 text-emerald-900">{result.nextTrainingRecommendation}</p></div><CheckCircle2 className="shrink-0 text-emerald-600" /></div>{baselineResult && <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4"><div className="text-center"><p className="text-xs text-slate-500">First attempt</p><p className="mt-1 text-2xl font-bold text-slate-800">{baselineResult.overallReadiness}</p></div><ArrowRight size={18} className="text-blue-500" /><div className="text-center"><p className="text-xs text-blue-700">After retry</p><p className="mt-1 text-2xl font-bold text-blue-950">{result.overallReadiness}</p><p className={`text-xs font-semibold ${result.overallReadiness >= baselineResult.overallReadiness ? 'text-emerald-700' : 'text-red-600'}`}>{result.overallReadiness - baselineResult.overallReadiness >= 0 ? '+' : ''}{result.overallReadiness - baselineResult.overallReadiness}</p></div></div>}<div className="grid gap-3 sm:grid-cols-2">{[['What worked', result.strengths, 'emerald'], ['Improve next time', result.weaknesses, 'amber']].map(([title, items, tone]) => <div key={title} className={`rounded-lg border p-4 ${tone === 'emerald' ? 'border-emerald-100 bg-emerald-50' : 'border-amber-100 bg-amber-50'}`}><p className="font-semibold text-slate-950">{title}</p><ul className="mt-2 space-y-1.5 text-sm leading-6 text-slate-700">{items.map((item) => <li key={item}>• {item}</li>)}</ul></div>)}</div>{result.criticalMistakes?.length > 0 && <div className="rounded-lg border border-red-100 bg-red-50 p-4"><p className="font-semibold text-red-950">Critical risks</p><ul className="mt-2 space-y-1.5 text-sm leading-6 text-red-800">{result.criticalMistakes.map((item) => <li key={item}>• {item}</li>)}</ul></div>}<div className="rounded-lg border border-blue-200 bg-blue-50 p-4"><div className="flex items-center gap-2"><MessageSquareText size={17} className="text-blue-700" /><p className="font-semibold text-blue-950">A response you can say again</p></div><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-blue-950">{result.betterResponse}</p></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{skills.map(({ key, label }) => <div key={key} className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-lg font-semibold text-slate-950">{result.skillScores[key]}</p></div>)}</div>{(latest || best) && <p className="text-xs text-slate-500">Simulation history:{latest ? ` Latest ${latest}` : ''}{best ? ` · Best ${best}` : ''}</p>}<div className="grid gap-3 sm:grid-cols-2">{!baselineResult && <button type="button" onClick={startGuidedRetry} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white sm:col-span-2"><RotateCcw size={17} />Say it again and compare</button>}<button type="button" onClick={() => resetScenario()} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700"><RotateCcw size={17} />Start over</button><button type="button" onClick={() => resetScenario(profile?.recommended_scenario_id || scenarios[0].id)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700">Train my weakest skill <ArrowRight size={17} /></button><button type="button" onClick={() => navigate('/')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white sm:col-span-2">Finish and return to Today <ArrowRight size={17} /></button></div></div>}
         </section>
       </main>
     </div>

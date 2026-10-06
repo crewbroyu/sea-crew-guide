@@ -285,6 +285,7 @@ export default function BarServerFoundationTraining({
                         position="bar_server"
                         role={shiftLab.challenge.role}
                         prompt={shiftLab.challenge.prompt}
+                        reference={{ dayId: day.id, mission: shiftLab.mission, knowledge: day.sections?.flatMap((section) => section.items || []) || [], serviceLines: shiftLab.serviceLines }}
                         challenge={dayProgress.guestChallenge || {}}
                         locked={!inspection && !dayProgress.shadowing?.completedAt}
                         onChallengeChange={(guestChallenge) => updateDayProgress(day, { guestChallenge })}

@@ -106,6 +106,8 @@ assert.equal(quotaReservations[0].input_product_code, 'bar_server_pack')
 assert.equal(quotaReservations[0].input_action, 'evaluate')
 assert.equal(quotaReservations[0].input_mode, 'scenario_trial')
 const feedback = result.body.data.questionScores[0]
+assert.equal(result.body.data.overallScore, 30, 'server must derive overall score from question scores')
+assert.equal(result.body.data.rating, 2, 'server must derive rating from the normalized overall score')
 assert.equal(feedback.improvedAnswer, scenarioEvaluation.questionScores[0].improvedAnswer)
 assert.deepEqual(feedback.knowledgeNotes, scenarioEvaluation.questionScores[0].knowledgeNotes)
 assert.deepEqual(feedback.usefulPhrases, scenarioEvaluation.questionScores[0].usefulPhrases)
@@ -114,6 +116,8 @@ assert.equal(evaluationRequests[0].model, 'qwen3.7-plus')
 assert.equal(evaluationRequests[0].max_completion_tokens, 2500)
 assert.equal(evaluationRequests[0].response_format.type, 'json_schema')
 assert.equal(evaluationRequests[0].response_format.json_schema.strict, true)
+assert.match(evaluationRequests[0].messages[0].content, /分数锚点/)
+assert.equal(evaluationRequests[0].messages[1].content.includes('19-20'), true)
 
 providerEvaluation = {
   overallScore: 35,

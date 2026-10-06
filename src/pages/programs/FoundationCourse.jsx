@@ -12,6 +12,7 @@ import { getFoundationCourse } from '../../data/foundationCourseCatalog'
 import { getJobSkills, getScenarioById } from '../../data/jobScenarioCatalog'
 import { getMyScenarioProfile } from '../../services/scenarioTrainingService'
 import { getMyFoundationCourseState, upsertMyFoundationCourseState } from '../../services/jobPreparationService'
+import { completeFoundationTask } from '../../services/foundationTaskCompletionService'
 import {
   findContinueFoundationDay,
   getFoundationCompletedCount,
@@ -71,6 +72,8 @@ function FoundationCourseContent({ownerId,readOnly}) {
   const [placement, setPlacement] = useState(() => course ? readFoundationPlacement(course.jobKey, storageOwner) : null)
   const [scenarioProfile, setScenarioProfile] = useState(null)
   const [cloudReady, setCloudReady] = useState(false)
+  const [completingTask, setCompletingTask] = useState(false)
+  const [taskCompletionError, setTaskCompletionError] = useState('')
   const view = searchParams.get('view') || 'course'
   const viewOptions = course?.jobKey === 'retail'
     ? [baseViewOptions[0], { key: 'knowledge', label: '产品知识库', icon: BookOpen }, ...baseViewOptions.slice(1)]
@@ -219,6 +222,34 @@ function FoundationCourseContent({ownerId,readOnly}) {
     writeFoundationPlacement(course.jobKey, result, storageOwner)
   }
 
+  const finishFoundationCourse = async () => {
+    if (readOnly || completingTask) return
+    setCompletingTask(true)
+    setTaskCompletionError('')
+    try {
+      const result = await completeFoundationTask({
+        course,
+        progress,
+        savedLines,
+        savedLineChanges,
+        placement,
+        ownerId,
+      })
+      if (!result.foundationSynced || !result.pathSynced) {
+        setTaskCompletionError('课程和 Task 5 已保存在本机，但账户同步未完成。请保持联网并重试。')
+        return
+      }
+      localStorage.removeItem(pendingKey)
+      setDirty(false)
+      navigate(`${course.task6Route}&justCompleted=5`)
+    } catch (error) {
+      console.error('Failed to complete foundation Task 5:', error)
+      setTaskCompletionError('暂时无法完成 Task 5。请确认所有课程日均已完成后重试。')
+    } finally {
+      setCompletingTask(false)
+    }
+  }
+
   const lessonPage = selectedDay ? (
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -230,15 +261,16 @@ function FoundationCourseContent({ownerId,readOnly}) {
       </header>
       <main className="mx-auto max-w-3xl px-5 py-6">
         {course.jobKey === 'bar_server' ? (
-          <BarServerFoundationTraining key={selectedDay.id} progress={progress} onProgressChange={updateProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartTask6={() => navigate(course.task6Route)} onStartTask7={() => navigate('/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task5')} onStartScenarioTraining={() => navigate(course.simulatorRoute)} />
+          <BarServerFoundationTraining key={selectedDay.id} progress={progress} onProgressChange={updateProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartTask6={finishFoundationCourse} onStartTask7={() => navigate('/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task5')} onStartScenarioTraining={() => navigate(course.simulatorRoute)} />
         ) : (
           <RetailFoundationTraining key={selectedDay.id} initialProgress={progress} onProgressChange={updateProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartQuestions={() => navigate('/academy/interview-questions?position=retail')} onStartSimulation={() => navigate(course.simulatorRoute)} />
         )}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={() => navigate(`/programs/${course.slug}/foundation`)} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700">返回目录</button>
           {nextDay && <button type="button" disabled={!isFoundationDayFinished(course.jobKey, progress, selectedDay.id)} onClick={() => navigate(`/programs/${course.slug}/foundation/${nextDay.id}`)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">继续 Day {nextDay.day}<ArrowRight size={16} /></button>}
-          {!nextDay && isFoundationDayFinished(course.jobKey, progress, selectedDay.id) && <button type="button" onClick={() => navigate('/')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white">完成基础课，返回今天<ArrowRight size={16} /></button>}
+          {!nextDay && isFoundationDayFinished(course.jobKey, progress, selectedDay.id) && <button type="button" disabled={completingTask} onClick={finishFoundationCourse} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:bg-slate-300">{completingTask ? '正在同步完成状态…' : '完成 Task 5，进入面试准备'}<ArrowRight size={16} /></button>}
         </div>
+        {taskCompletionError && <div role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">{taskCompletionError}<button type="button" disabled={completingTask} onClick={finishFoundationCourse} className="ml-2 font-semibold text-amber-950 underline">重试</button></div>}
       </main>
     </div>
   ) : null
@@ -253,7 +285,7 @@ function FoundationCourseContent({ownerId,readOnly}) {
           <main className="mx-auto max-w-4xl px-5 py-6">
             <nav className={`grid gap-2 rounded-lg border border-slate-200 bg-white p-1 ${course.jobKey === 'retail' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>{viewOptions.map(({ key, label, icon }) => <button key={key} type="button" onClick={() => setSearchParams(key === 'course' ? {} : { view: key })} className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-2 text-xs font-semibold sm:text-sm ${view === key ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>{createElement(icon, { size: 16 })}{label}</button>)}</nav>
 
-            {view === 'course' && <div className="mt-6 space-y-5"><section className="flex flex-col gap-4 rounded-lg border border-blue-200 bg-blue-50 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold text-blue-700">YOUR NEXT STEP</p><h2 className="mt-1 font-semibold text-blue-950">{completedCount === course.days.length ? '基础课已完成，可复习或进入岗位模拟' : `继续 Day ${continueDay.day} · ${continueDay.title}`}</h2></div><button type="button" onClick={() => navigate(`/programs/${course.slug}/foundation/${continueDay.id}`)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white">{completedCount ? '继续学习' : '开始课程'}<ArrowRight size={16} /></button></section><section className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">{course.days.map((day, index) => { const done = isFoundationDayFinished(course.jobKey, progress, day.id); const free = index < course.freeDayCount; return <button key={day.id} type="button" onClick={() => navigate(`/programs/${course.slug}/foundation/${day.id}`)} className="flex min-h-20 w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${done ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{done ? <CheckCircle2 size={18} /> : day.day}</span><span className="min-w-0 flex-1"><span className="block text-xs text-slate-500">DAY {day.day} · {day.duration}{free ? ' · 免费体验' : ''}</span><span className="mt-1 block font-semibold text-slate-900">{day.title}</span></span>{free || done ? <ArrowRight size={17} className="shrink-0 text-slate-400" /> : <LockKeyhole size={16} className="shrink-0 text-slate-400" />}</button> })}</section></div>}
+            {view === 'course' && <div className="mt-6 space-y-5"><section className="flex flex-col gap-4 rounded-lg border border-blue-200 bg-blue-50 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold text-blue-700">YOUR NEXT STEP</p><h2 className="mt-1 font-semibold text-blue-950">{completedCount === course.days.length ? '基础课已完成，可完成 Task 5 并进入面试准备' : `继续 Day ${continueDay.day} · ${continueDay.title}`}</h2></div>{completedCount === course.days.length ? <button type="button" disabled={completingTask} onClick={finishFoundationCourse} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:bg-slate-300">{completingTask ? '正在同步…' : '进入 Task 6'}<ArrowRight size={16} /></button> : <button type="button" onClick={() => navigate(`/programs/${course.slug}/foundation/${continueDay.id}`)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white">{completedCount ? '继续学习' : '开始课程'}<ArrowRight size={16} /></button>}</section>{taskCompletionError && <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">{taskCompletionError}<button type="button" disabled={completingTask} onClick={finishFoundationCourse} className="ml-2 font-semibold text-amber-950 underline">重试</button></div>}<section className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">{course.days.map((day, index) => { const done = isFoundationDayFinished(course.jobKey, progress, day.id); const free = index < course.freeDayCount; return <button key={day.id} type="button" onClick={() => navigate(`/programs/${course.slug}/foundation/${day.id}`)} className="flex min-h-20 w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${done ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{done ? <CheckCircle2 size={18} /> : day.day}</span><span className="min-w-0 flex-1"><span className="block text-xs text-slate-500">DAY {day.day} · {day.duration}{free ? ' · 免费体验' : ''}</span><span className="mt-1 block font-semibold text-slate-900">{day.title}</span></span>{free || done ? <ArrowRight size={17} className="shrink-0 text-slate-400" /> : <LockKeyhole size={16} className="shrink-0 text-slate-400" />}</button> })}</section></div>}
 
             {view === 'knowledge' && course.jobKey === 'retail' && <RequireActivation productCode={course.productCode}><RetailKnowledgeLibrary /></RequireActivation>}
 

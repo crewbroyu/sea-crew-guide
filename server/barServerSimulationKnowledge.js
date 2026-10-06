@@ -31,6 +31,14 @@ const simulationKnowledge = {
     salesGoal: 'Not applicable. Safety overrides sales.',
     knowledge: ['A beverage package never overrides responsible-service policy.', 'Use neutral language rather than calling a guest drunk to their face.', 'Notify a supervisor early and request security or medical support if needed.'],
   },
+  bar_sim_allergy_safety: {
+    role: 'Concerned Guest',
+    openingLine: "I have a severe nut allergy. Is your signature cocktail completely safe for me? I'm in a hurry.",
+    followUpFocus: 'Pressure the server for a guarantee and test whether they pause, verify, hand over, and explain uncertainty clearly.',
+    serviceGoal: 'Clarify the allergen, pause the order, verify approved information, prevent unsafe assumptions, and complete a clear handover.',
+    salesGoal: 'No upsell. Safety and accurate communication come first.',
+    knowledge: ['Never guarantee a drink is allergen-free from memory.', 'Check approved recipe and ingredient information and alert the bartender or supervisor.', 'Follow ship procedure for possible cross-contact from tools, ice, garnishes, mixers, and work surfaces.'],
+  },
   retail_sim_guest_approach: {
     jobKey: 'retail', position: 'Retail Sales Associate', role: 'Guest',
     openingLine: "Thanks, I'm just looking. I don't really need anything today.",

@@ -53,6 +53,14 @@ export const barServerSimulationScenarios = [
     aiRole: 'Drunk Guest', openingLine: "I've got the package. Just give me another whisky. Don't make this difficult.",
     followUpFocus: 'Challenge the package entitlement and test a calm refusal with appropriate escalation.', evaluationFocus: ['communication', 'service', 'problemSolving', 'english'],
   },
+  {
+    id: 'bar_sim_allergy_safety', jobKey: 'bar_server', title: 'Protect a Guest With a Severe Allergy', episode: 'Level 4 · Safety & Handover', difficulty: 4,
+    location: 'Cocktail Bar · Evening Service', guestType: 'A guest with a severe nut allergy who wants a quick answer', guestAccent: 'Clear British English', workload: 'High', noiseLevel: 'Medium',
+    serviceGoal: 'Clarify the allergen, pause the order, verify approved information, prevent unsafe assumptions, and complete a clear handover.', salesGoal: 'No upsell. Safety and accurate communication come first.',
+    knowledgeRequired: ['Never guarantee a drink is allergen-free from memory.', 'Check the approved recipe and ingredient information and alert the bartender or supervisor.', 'Consider cross-contact from tools, ice, garnishes, mixers, and work surfaces under the ship procedure.'],
+    aiRole: 'Concerned Guest', openingLine: "I have a severe nut allergy. Is your signature cocktail completely safe for me? I'm in a hurry.",
+    followUpFocus: 'Pressure the server for a guarantee and test whether they pause, verify, hand over, and explain uncertainty clearly.', evaluationFocus: ['communication', 'barKnowledge', 'service', 'problemSolving', 'english'],
+  },
 ]
 
 export const retailSimulationScenarios = [

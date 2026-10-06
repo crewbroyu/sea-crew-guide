@@ -1,7 +1,8 @@
 import { useTrainingInspection } from '../../hooks/useTrainingInspection'
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, LockKeyhole, Mic, Square, Volume2 } from 'lucide-react'
+import { CheckCircle2, LoaderCircle, LockKeyhole, Mic, RotateCcw, Square, Volume2 } from 'lucide-react'
 import { speakEnglish as liveSpeakEnglish, stopSpeech } from '../../services/ttsService'
+import { evaluateFoundationChallenge } from '../../services/interviewAiService'
 
 const MINIMUM_RECORDING_SECONDS = 3
 
@@ -15,6 +16,7 @@ export default function GuestChallengePractice({
   position = '',
   role,
   prompt,
+  reference = {},
   challenge = {},
   locked = false,
   onChallengeChange,
@@ -25,6 +27,7 @@ export default function GuestChallengePractice({
   const [recording, setRecording] = useState(false)
   const [recordingUrl, setRecordingUrl] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [evaluating, setEvaluating] = useState(false)
   const recorderRef = useRef(null)
   const streamRef = useRef(null)
   const recognitionRef = useRef(null)
@@ -163,14 +166,62 @@ export default function GuestChallengePractice({
     }
   }
 
-  const completeChallenge = () => {
+  const completeChallenge = async () => {
     const transcript = draft.trim()
     if (!challenge.hasRecording || !transcript) return
-    emitChange({
-      transcript,
-      completedAt: challenge.completedAt || new Date().toISOString(),
-    })
+    const previousAttempts = Array.isArray(challenge.aiAttempts) ? challenge.aiAttempts : []
+    const previousAttempt = previousAttempts.at(-1)
+    if (previousAttempts.length === 1 && Number(challenge.attemptCount || 0) <= Number(previousAttempt?.recordingAttemptCount || 0)) {
+      setErrorMessage('Record your improved answer before asking AI to compare it.')
+      return
+    }
+    setEvaluating(true)
+    setErrorMessage('')
+    try {
+      const evaluation = await evaluateFoundationChallenge({
+        position: position === 'retail' ? 'Retail Sales Associate' : 'Bar Server',
+        dayId: reference.dayId || role,
+        prompt,
+        answer: transcript,
+        reference: {
+          mission: reference.mission,
+          knowledge: reference.knowledge,
+          serviceLines: reference.serviceLines?.map((item) => typeof item === 'string' ? item : item.line),
+          requiredActions: reference.requiredActions,
+        },
+      })
+      const feedback = evaluation.questionScores?.[0] || {}
+      const attempt = {
+        score: Number(evaluation.overallScore || 0),
+        transcript,
+        comment: feedback.comment || '',
+        strengths: feedback.strengths || [],
+        improvements: feedback.improvements || [],
+        improvedAnswer: feedback.improvedAnswer || '',
+        retryChecklist: feedback.retryChecklist || feedback.improvements || [],
+        recordingAttemptCount: Number(challenge.attemptCount || 0),
+        evaluatedAt: new Date().toISOString(),
+      }
+      const aiAttempts = [...previousAttempts, attempt].slice(0, 2)
+      const completed = aiAttempts.length >= 2
+      emitChange({
+        transcript,
+        aiAttempts,
+        bestScore: Math.max(...aiAttempts.map((item) => Number(item.score || 0))),
+        scoreDelta: completed ? aiAttempts[1].score - aiAttempts[0].score : null,
+        completedAt: completed ? challenge.completedAt || new Date().toISOString() : null,
+      })
+    } catch (error) {
+      setErrorMessage(error.message || 'AI feedback is temporarily unavailable. Please try again.')
+    } finally {
+      setEvaluating(false)
+    }
   }
+
+  const aiAttempts = Array.isArray(challenge.aiAttempts) ? challenge.aiAttempts : []
+  const firstFeedback = aiAttempts[0]
+  const latestFeedback = aiAttempts.at(-1)
+  const needsNewRecording = aiAttempts.length === 1 && Number(challenge.attemptCount || 0) <= Number(firstFeedback?.recordingAttemptCount || 0)
 
   return (
     <section className="mt-5 bg-slate-950 p-4 text-white sm:rounded-lg">
@@ -213,18 +264,22 @@ export default function GuestChallengePractice({
             placeholder="Your English answer will appear here when browser speech recognition is available. You can correct it manually."
             className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm leading-6 text-white outline-none transition placeholder:text-slate-500 focus:border-blue-400"
           />
-          <p className="mt-2 text-xs leading-5 text-slate-400">The recording stays on this page. This step does not use your AI quota.</p>
+          <p className="mt-2 text-xs leading-5 text-slate-400">Your audio stays on this page. Two AI feedback checks are used: first attempt and guided retry.</p>
+
+          {firstFeedback && <div className="mt-4 rounded-lg border border-amber-700 bg-amber-950 p-4"><div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold text-amber-200">AI COACH · FIRST ATTEMPT</p><span className="text-lg font-bold text-white">{firstFeedback.score}/100</span></div><p className="mt-2 text-sm leading-6 text-amber-50">{firstFeedback.comment}</p><ul className="mt-2 space-y-1 text-xs leading-5 text-amber-100">{firstFeedback.retryChecklist.slice(0, 3).map((item) => <li key={item}>• {item}</li>)}</ul>{firstFeedback.improvedAnswer && <div className="mt-3 border-l-2 border-blue-400 pl-3 text-sm leading-6 text-blue-100">{firstFeedback.improvedAnswer}</div>}{aiAttempts.length === 1 && <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-white"><RotateCcw size={14} />Record a new answer in your own words, then compare.</p>}</div>}
+
+          {aiAttempts.length >= 2 && <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-lg border border-emerald-700 bg-emerald-950 p-4 text-center"><div><p className="text-xs text-emerald-200">First</p><p className="text-2xl font-bold">{aiAttempts[0].score}</p></div><span className="text-emerald-300">→</span><div><p className="text-xs text-emerald-200">Retry</p><p className="text-2xl font-bold">{aiAttempts[1].score}</p><p className="text-xs font-semibold text-emerald-200">{challenge.scoreDelta >= 0 ? '+' : ''}{challenge.scoreDelta}</p></div></div>}
 
           {errorMessage && <p className="mt-3 rounded-lg bg-red-950 px-3 py-2 text-xs leading-5 text-red-200">{errorMessage}</p>}
 
           <button
             type="button"
             onClick={completeChallenge}
-            disabled={!challenge.hasRecording || !draft.trim()}
+            disabled={evaluating || !challenge.hasRecording || !draft.trim() || needsNewRecording || challenge.completedAt}
             className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
           >
-            <CheckCircle2 size={17} />
-            {challenge.completedAt ? 'Guest Challenge completed' : 'Complete Guest Challenge'}
+            {evaluating ? <LoaderCircle size={17} className="animate-spin" /> : <CheckCircle2 size={17} />}
+            {evaluating ? 'AI is reviewing...' : challenge.completedAt ? `Completed · ${latestFeedback?.score || 0}/100` : aiAttempts.length ? 'Compare my retry' : 'Get AI feedback'}
           </button>
         </>
       )}

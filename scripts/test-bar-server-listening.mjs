@@ -14,7 +14,7 @@ const fail = (message) => {
   process.exit(1)
 }
 
-if (BAR_SERVER_LISTENING_DRILLS.length !== 12) fail('expected exactly 12 drills')
+if (BAR_SERVER_LISTENING_DRILLS.length !== 13) fail('expected exactly 13 drills')
 
 const drillIds = new Set()
 const prompts = new Set()
@@ -82,7 +82,7 @@ const masteredFirstProgress = {
   },
 }
 if (getRecommendedListeningDrill(masteredFirstProgress).drill.id !== secondDrill.id) fail('mastered drill should advance to new content')
-if (getListeningUnitStats(masteredFirstProgress).reduce((sum, unit) => sum + unit.total, 0) !== 12) fail('unit stats must include every drill')
+if (getListeningUnitStats(masteredFirstProgress).reduce((sum, unit) => sum + unit.total, 0) !== 13) fail('unit stats must include every drill')
 
 const slowDependentProgress = {
   [firstDrill.id]: {
@@ -104,4 +104,8 @@ if (!isBarListeningAnswerComplete(firstDrill, correctCaptureAnswers)) fail('comp
 if (scoreBarListeningAnswer(firstDrill, correctCaptureAnswers).score !== 100) fail('correct capture answer must score 100')
 if (scoreBarListeningAnswer(firstDrill, {}).score !== 0) fail('empty capture answer must score 0')
 
-console.log('Bar Server listening contract passed (12 drills, 3 levels, 3 learning stages).')
+const allergyDrill = BAR_SERVER_LISTENING_DRILLS.find((drill) => drill.id === 'allergy-order-handover')
+if (!allergyDrill || allergyDrill.level !== 3) fail('allergy safety drill is missing')
+if (!allergyDrill.prompt.includes('approved ingredient information')) fail('allergy drill must require an approved information source')
+
+console.log('Bar Server listening contract passed (13 drills, 3 levels, 3 learning stages).')

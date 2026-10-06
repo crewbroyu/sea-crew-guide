@@ -11,6 +11,8 @@ const MAX_AUDIO_DATA_LENGTH = 3_500_000
 const MAX_AUDIO_DURATION_SECONDS = 120
 const MAX_QUESTIONS = 10
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+const MAX_PROVIDER_COMPLETION_TOKENS = 8_192
+const MOCK_ANSWER_CARD_CHAR_BUDGET = 6_000
 const EVALUATION_TIME_BUDGET_MS = 80_000
 const MIN_RETRY_WINDOW_MS = 25_000
 const PRACTICE_MODE = 'practice'
@@ -734,19 +736,22 @@ const hasValidScenarioContract = (evaluation, itemCount) => {
 const hasValidMockInterviewContract = (evaluation, itemCount) => {
   const scores = evaluation?.questionScores
   if (!Array.isArray(scores) || scores.length !== itemCount) return false
-  return scores.every((score) => (
-    Number.isFinite(score?.score)
-    && score.score >= 0
-    && score.score <= 20
-    && trimText(score?.comment)
-    && trimText(score?.improvedAnswer)
-    && Array.isArray(score?.improvements)
-  ))
+  return scores.every((score) => {
+    // json_object output sometimes quotes numbers; normalizeEvaluation already coerces them.
+    const value = Number(score?.score)
+    return Number.isFinite(value)
+      && value >= 0
+      && value <= 20
+      && trimText(score?.comment)
+      && trimText(score?.improvedAnswer)
+      && Array.isArray(score?.improvements)
+  })
 }
 
 // The base budget fitted 7 questions; follow-ups can add up to 2 more.
+// Capped at 8,192, the common provider ceiling, so a 9-question report is never rejected outright.
 const getMockInterviewTokenLimit = (itemCount) => Math.min(
-  10_000,
+  MAX_PROVIDER_COMPLETION_TOKENS,
   Math.max(OUTPUT_TOKEN_LIMITS.mockInterview, 1_500 + itemCount * 800),
 )
 
@@ -1052,29 +1057,49 @@ const generateAssessmentFollowUp = async ({ body, config }) => {
   }
 }
 
-const normalizeMockAnswerCards = (value) => (
-  Array.isArray(value)
-    ? value.slice(0, 8).map((card) => {
-        const generated = typeof card?.generated === 'object' && card.generated
-          ? [trimText(card.generated.concise, 900), trimText(card.generated.basic, 1800)].filter(Boolean).join('\n')
-          : trimText(card?.generated, 1800)
-        const answerEvidence = card?.answers && typeof card.answers === 'object'
-          ? Object.entries(card.answers)
-            .filter(([key, answer]) => key !== 'aiCoach' && key !== 'followUpAnswers' && typeof answer === 'string')
-            .map(([key, answer]) => ({ key: trimText(key, 80), answer: trimText(answer, 500) }))
-            .filter((item) => item.key && item.answer)
-            .slice(0, 8)
-          : []
-        return {
-          id: trimText(card?.id, 100),
-          title: trimText(card?.title, 180),
-          completed: Boolean(card?.completed),
-          generated,
-          answerEvidence,
-        }
-      }).filter((card) => card.completed && (card.generated || card.answerEvidence.length))
-    : []
-)
+// Answer cards are context for one short follow-up decision, so they share a fixed character budget:
+// every card's prepared summary first (concise version preferred), then raw answer evidence while room remains.
+const normalizeMockAnswerCards = (value) => {
+  if (!Array.isArray(value)) return []
+
+  const candidates = value.slice(0, 8).map((card) => {
+    const generated = card?.generated
+    const summary = typeof generated === 'object' && generated
+      ? trimText(generated.concise, 900) || trimText(generated.basic, 1800)
+      : trimText(generated, 1800)
+    const answers = card?.answers && typeof card.answers === 'object'
+      ? Object.entries(card.answers)
+        .filter(([key, answer]) => key !== 'aiCoach' && key !== 'followUpAnswers' && typeof answer === 'string')
+        .map(([key, answer]) => ({ key: trimText(key, 80), answer: trimText(answer, 500) }))
+        .filter((item) => item.key && item.answer)
+        .slice(0, 8)
+      : []
+    return {
+      id: trimText(card?.id, 100),
+      title: trimText(card?.title, 180),
+      completed: Boolean(card?.completed),
+      summary,
+      answers,
+    }
+  }).filter((card) => card.completed && (card.summary || card.answers.length))
+
+  let remaining = MOCK_ANSWER_CARD_CHAR_BUDGET
+  const cards = candidates.map((card) => {
+    const generated = card.summary.slice(0, remaining)
+    remaining -= generated.length
+    return { id: card.id, title: card.title, completed: true, generated, answerEvidence: [] }
+  })
+  candidates.forEach((card, index) => {
+    card.answers.forEach((item) => {
+      const cost = item.key.length + item.answer.length
+      if (cost > remaining) return
+      remaining -= cost
+      cards[index].answerEvidence.push(item)
+    })
+  })
+
+  return cards.filter((card) => card.generated || card.answerEvidence.length)
+}
 
 const getMockAnswerCards = async ({ supabase, userId }) => {
   try {

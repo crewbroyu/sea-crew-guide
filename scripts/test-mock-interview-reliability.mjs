@@ -14,6 +14,7 @@ const finalizeOutcomes = []
 const usageEvents = []
 const providerRequests = []
 let providerReplies = []
+let cloudAnswerCards = []
 
 const reply = (content) => Response.json({ choices: [{ message: { content } }] })
 const questionScore = (index) => ({
@@ -44,7 +45,7 @@ globalThis.fetch = async (url, options = {}) => {
   if (target.includes('/rest/v1/user_entitlements')) {
     return Response.json({ user_id: userId, product_code: 'bar_server_pack', status: 'active', starts_at: '2026-01-01T00:00:00.000Z', expires_at: '2027-01-01T00:00:00.000Z', ai_feedback_limit: 100, mock_interview_limit: 10 })
   }
-  if (target.includes('/rest/v1/interview_answer_profiles')) return Response.json({ answer_cards: [] })
+  if (target.includes('/rest/v1/interview_answer_profiles')) return Response.json({ answer_cards: cloudAnswerCards })
   if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) return Response.json({ reservation_id: '00000000-0000-4000-8000-000000000401', unlimited: false })
   if (target.includes('/rest/v1/rpc/finalize_ai_usage_reservation')) {
     finalizeOutcomes.push(JSON.parse(options.body || '{}').input_outcome)
@@ -107,7 +108,7 @@ assert.equal(result.status, 200)
 assert.equal(providerRequests.length, 2, 'an incomplete report must be retried once')
 assert.equal(result.body.data.questionScores.length, 9)
 assert.equal(result.body.data.overallScore, 60, 'total must be derived from question scores, not the model claim')
-assert.equal(providerRequests[0].max_completion_tokens, 8_700, 'token budget must grow with follow-up questions')
+assert.equal(providerRequests[0].max_completion_tokens, 8_192, '9-question budget must stay within the provider ceiling')
 assert.deepEqual(usageEvents, ['mock_interview'])
 assert.deepEqual(finalizeOutcomes, ['completed'])
 
@@ -117,6 +118,45 @@ providerReplies = ['{"overallScore": 70, "questionScores": [', mockReport(9)]
 result = await call(mockBody('retry-truncated'))
 assert.equal(result.status, 200)
 assert.equal(providerRequests.length, 2)
+
+// 4b. Quoted numeric scores are accepted rather than retried into a failure.
+resetLedger()
+const quotedReport = JSON.parse(mockReport(9))
+quotedReport.questionScores = quotedReport.questionScores.map((score) => ({ ...score, score: String(score.score) }))
+providerReplies = [JSON.stringify(quotedReport)]
+result = await call(mockBody('quoted-scores'))
+assert.equal(result.status, 200)
+assert.equal(providerRequests.length, 1, 'quoted scores must pass the contract on the first attempt')
+assert.equal(result.body.data.overallScore, 60)
+
+// 4c. Shorter interviews keep a budget that grows with the question count.
+resetLedger()
+providerReplies = [mockReport(7)]
+result = await call({ ...mockBody('seven-questions'), questions: questions.slice(0, 7), answers: answers.slice(0, 7) })
+assert.equal(result.status, 200)
+assert.equal(providerRequests[0].max_completion_tokens, 7_100)
+
+// 4d. Oversized answer cards are trimmed to a fixed budget; summaries come before raw answers.
+resetLedger()
+const longText = (label) => `${label} `.repeat(400)
+cloudAnswerCards = Array.from({ length: 8 }, (_, index) => ({
+  id: `card-${index}`,
+  title: `Card ${index}`,
+  completed: true,
+  answers: Object.fromEntries(Array.from({ length: 8 }, (_, field) => [`field${field}`, longText(`answer-${index}-${field}`)])),
+  generated: { concise: longText(`concise-${index}`), basic: longText(`basic-${index}`) },
+}))
+providerReplies = [JSON.stringify({ shouldFollowUp: false, question: '', focus: 'evidence' })]
+result = await call({ action: 'mock_followup', mode: 'premium_mock', position: 'Bar Server', mainQuestion: 'Tell me about yourself.', answer: 'I have worked in hotel bars for two years.', clientRequestId: 'card-budget' })
+assert.equal(result.status, 200)
+const promptCards = JSON.parse(providerRequests[0].messages[1].content).privatePreparedAnswerCards
+const promptChars = promptCards.reduce((total, card) => total + card.generated.length
+  + card.answerEvidence.reduce((sum, item) => sum + item.key.length + item.answer.length, 0), 0)
+assert.ok(promptChars <= 6_000, `answer-card context must stay within budget (got ${promptChars})`)
+assert.ok(promptCards.every((card) => !card.generated.includes('basic-')), 'the concise summary is preferred over the full answer')
+assert.ok(promptCards[0].generated.startsWith('concise-0'), 'the first card summary is included before any raw answers')
+assert.equal(result.body.data.usedPreparedAnswerCards, true)
+cloudAnswerCards = []
 
 // 5. Two incomplete reports are rejected: nothing is saved or charged, and the attempt counts as failed.
 resetLedger()

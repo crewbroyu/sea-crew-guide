@@ -113,6 +113,7 @@ export const evaluateInterviewWithAi = ({
   questions,
   answers,
   scenarioId = '',
+  requestId,
 }) => requestInterviewAi({
   action: 'evaluate',
   mode,
@@ -120,7 +121,7 @@ export const evaluateInterviewWithAi = ({
   questions,
   answers,
   scenarioId,
-})
+}, requestId)
 
 export const generateMockInterviewFollowUp = ({ position, mainQuestion, answer }) => requestInterviewAi({
   action: 'mock_followup',

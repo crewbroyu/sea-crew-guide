@@ -11,6 +11,8 @@ const MAX_AUDIO_DATA_LENGTH = 3_500_000
 const MAX_AUDIO_DURATION_SECONDS = 120
 const MAX_QUESTIONS = 10
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+const EVALUATION_TIME_BUDGET_MS = 80_000
+const MIN_RETRY_WINDOW_MS = 25_000
 const PRACTICE_MODE = 'practice'
 const SCENARIO_TRIAL_MODE = 'scenario_trial'
 const PREMIUM_SCENARIO_MODE = 'premium_scenario'
@@ -412,12 +414,13 @@ const completeAssessmentAttempt = async ({ supabase, body, data }) => {
   return status
 }
 
-const finalizePersistentQuota = async ({ supabase, reservationId, completed }) => {
+// outcome: 'completed' (charged), 'released' (no charge, not a failure), 'failed' (counts toward the failure limit).
+const finalizePersistentQuota = async ({ supabase, reservationId, outcome }) => {
   if (!reservationId) return
 
   const { error } = await supabase.rpc('finalize_ai_usage_reservation', {
     input_reservation_id: reservationId,
-    input_outcome: completed ? 'completed' : 'failed',
+    input_outcome: outcome,
   })
 
   if (error) {
@@ -727,6 +730,26 @@ const hasValidScenarioContract = (evaluation, itemCount) => {
   )
 }
 
+// Mock reports are scored from per-question scores, so every asked question must be present.
+const hasValidMockInterviewContract = (evaluation, itemCount) => {
+  const scores = evaluation?.questionScores
+  if (!Array.isArray(scores) || scores.length !== itemCount) return false
+  return scores.every((score) => (
+    Number.isFinite(score?.score)
+    && score.score >= 0
+    && score.score <= 20
+    && trimText(score?.comment)
+    && trimText(score?.improvedAnswer)
+    && Array.isArray(score?.improvements)
+  ))
+}
+
+// The base budget fitted 7 questions; follow-ups can add up to 2 more.
+const getMockInterviewTokenLimit = (itemCount) => Math.min(
+  10_000,
+  Math.max(OUTPUT_TOKEN_LIMITS.mockInterview, 1_500 + itemCount * 800),
+)
+
 const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, model) => {
   const hasRichFeedback = isPremium || isScenarioTrial
   const scoreCandidates = rawEvaluation?.questionScores
@@ -895,14 +918,21 @@ const evaluateInterview = async ({ body, config }) => {
       enable_thinking: false,
       temperature: 0.2,
       max_completion_tokens: body.mode === PREMIUM_MOCK_MODE
-        ? OUTPUT_TOKEN_LIMITS.mockInterview
+        ? getMockInterviewTokenLimit(items.length)
         : OUTPUT_TOKEN_LIMITS.singleFeedback,
     }
 
-  const maxAttempts = isScenarioTrial ? 2 : 1
+  const isMockInterview = body.mode === PREMIUM_MOCK_MODE
+  const maxAttempts = isScenarioTrial || isMockInterview ? 2 : 1
+  // Stay inside the 90 s serverless limit so a retry never leaves a reservation stuck mid-call.
+  const deadline = Date.now() + EVALUATION_TIME_BUDGET_MS
   let rawEvaluation
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const remainingMs = deadline - Date.now()
+    if (attempt > 1 && remainingMs < MIN_RETRY_WINDOW_MS) {
+      throw new InterviewApiError(502, 'INVALID_AI_RESPONSE', 'AI 专业反馈生成不完整，请重新提交本次回答。')
+    }
     const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -910,14 +940,24 @@ const evaluateInterview = async ({ body, config }) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestPayload),
-      signal: AbortSignal.timeout(75_000),
+      signal: AbortSignal.timeout(Math.min(75_000, remainingMs)),
     })
 
     const providerBody = await readProviderResponse(response)
-    rawEvaluation = parseJsonContent(providerBody.choices?.[0]?.message?.content)
-    if (!isScenarioTrial || hasValidScenarioContract(rawEvaluation, items.length)) break
+    try {
+      rawEvaluation = parseJsonContent(providerBody.choices?.[0]?.message?.content)
+    } catch (error) {
+      // A truncated mock report is retried like any other contract mismatch.
+      if (!isMockInterview) throw error
+      rawEvaluation = null
+    }
+    const contractValid = isScenarioTrial
+      ? hasValidScenarioContract(rawEvaluation, items.length)
+      : !isMockInterview || hasValidMockInterviewContract(rawEvaluation, items.length)
+    if (contractValid) break
 
-    console.warn('DashScope scenario response contract mismatch:', {
+    console.warn('DashScope evaluation response contract mismatch:', {
+      mode: body.mode,
       model: evaluationModel,
       requestId: providerBody.request_id || null,
       attempt,
@@ -1876,6 +1916,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
       body: payload,
     })
     let usageRecorded = false
+    let releaseWithoutCharge = false
 
     try {
       let data = action === 'transcribe'
@@ -1894,16 +1935,22 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
             ? await evaluateScenarioSimulation({ body: payload, config, supabase: auth.supabase, userId: auth.user.id })
             : await evaluateInterview({ body: payload, config })
 
-      await recordAiUsage({
-        supabase: auth.supabase,
-        userId: auth.user.id,
-        action,
-        mode,
-        body: payload,
-        data,
-        config,
-      })
-      usageRecorded = true
+      // A follow-up check that decides not to ask anything is free for the learner.
+      const isBillable = !(action === 'mock_followup' && !data?.shouldFollowUp)
+      if (isBillable) {
+        await recordAiUsage({
+          supabase: auth.supabase,
+          userId: auth.user.id,
+          action,
+          mode,
+          body: payload,
+          data,
+          config,
+        })
+        usageRecorded = true
+      } else {
+        releaseWithoutCharge = true
+      }
 
       if (mode === ASSESSMENT_MODE && action === 'assessment_evaluate') {
         const attemptStatus = await completeAssessmentAttempt({
@@ -1931,7 +1978,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
       await finalizePersistentQuota({
         supabase: auth.supabase,
         reservationId: quotaReservationId,
-        completed: usageRecorded,
+        outcome: usageRecorded ? 'completed' : releaseWithoutCharge ? 'released' : 'failed',
       })
     }
   } catch (error) {

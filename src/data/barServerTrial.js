@@ -1,5 +1,41 @@
 export const BAR_SERVER_TRIAL_VERSION = 3
+// Legacy unpartitioned key. Trial results now live under `${key}:${ownerId}` because AI attempts are tied to an
+// account and use that account's server-side free quota; they are local only, so they must survive sign-out.
 export const BAR_SERVER_TRIAL_STORAGE_KEY = 'bar_server_trial_v3'
+
+const NON_ACCOUNT_OWNERS = new Set(['guest', 'preview'])
+
+export const getBarServerTrialStorageKey = (ownerId) => `${BAR_SERVER_TRIAL_STORAGE_KEY}:${ownerId || 'guest'}`
+
+const parseTrial = (raw) => {
+  try {
+    const parsed = raw ? JSON.parse(raw) : null
+    return parsed?.version === BAR_SERVER_TRIAL_VERSION ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+// Reads the owner's trial. A legacy unpartitioned record moves into a real account only when this device was last
+// bound to that same account (or never bound), so another person's attempts are never adopted.
+export const readBarServerTrial = (storage, ownerId) => {
+  const scopedKey = getBarServerTrialStorageKey(ownerId)
+  const scoped = parseTrial(storage.getItem(scopedKey))
+  if (scoped) return scoped
+  if (!ownerId || NON_ACCOUNT_OWNERS.has(ownerId)) return null
+
+  const boundUserId = storage.getItem('current_user_id')
+  if (boundUserId && boundUserId !== ownerId) return null
+  const legacy = parseTrial(storage.getItem(BAR_SERVER_TRIAL_STORAGE_KEY))
+  if (!legacy) return null
+  storage.setItem(scopedKey, JSON.stringify(legacy))
+  storage.removeItem(BAR_SERVER_TRIAL_STORAGE_KEY)
+  return legacy
+}
+
+export const writeBarServerTrial = (storage, ownerId, trial) => {
+  storage.setItem(getBarServerTrialStorageKey(ownerId), JSON.stringify(trial))
+}
 
 export const barServerTrialScenarios = [
   {

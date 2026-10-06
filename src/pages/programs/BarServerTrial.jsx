@@ -28,27 +28,17 @@ import { evaluateInterviewWithAi, transcribeInterviewAudio } from '../../service
 import { saveInterviewPracticeRecord } from '../../services/interviewPracticeService'
 import { trackProductEvent } from '../../services/productAnalyticsService'
 import {
-  BAR_SERVER_TRIAL_STORAGE_KEY,
   BAR_SERVER_TRIAL_VERSION,
   barServerTrialScenarios,
   getBarTrialScenarioEntryStage,
   getNextIncompleteBarTrialScenario,
   getReadinessLabel,
   getScoreDeltaMessage,
+  readBarServerTrial,
+  writeBarServerTrial,
 } from '../../data/barServerTrial'
 import { readAssessmentTrialContext } from '../../data/assessmentExperienceBridge'
 import { buildBarServerTrialReport } from '../../data/barServerTrialReport'
-
-const readTrial = () => {
-  try {
-    const value = localStorage.getItem(BAR_SERVER_TRIAL_STORAGE_KEY)
-    const parsed = value ? JSON.parse(value) : null
-    return parsed?.version === BAR_SERVER_TRIAL_VERSION ? parsed : null
-  } catch (error) {
-    console.warn('Unable to read Bar Server trial:', error)
-    return null
-  }
-}
 
 const formatTime = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 const getAttemptFeedback = (attempt) => attempt?.evaluation?.questionScores?.[0] || null
@@ -62,7 +52,15 @@ const buildSavedAttempt = ({ transcript, durationSeconds, evaluation, attemptNum
   completedAt: new Date().toISOString(),
 })
 
+// Each account (and guest/preview) gets its own trial state; remounting on owner change re-reads the right record.
 export default function BarServerTrial() {
+  const access = useEffectiveAccess()
+  const ownerId = access.isPreviewing ? 'preview' : access.userId || 'guest'
+  if (access.isRegistered && !access.isPreviewing && !access.userId) return <p className="p-6">正在确认账户…</p>
+  return <BarServerTrialContent key={ownerId} ownerId={ownerId} />
+}
+
+function BarServerTrialContent({ ownerId }) {
   const navigate = useNavigate()
   const location = useLocation()
   const access = useEffectiveAccess()
@@ -74,7 +72,7 @@ export default function BarServerTrial() {
     : location.state?.from === 'task5'
     ? { route: '/programs/bar-server/foundation', label: '返回岗位基础课' }
     : { route: '/academy/interview-questions?position=bar_server', label: '返回 Bar Server 题库' }
-  const savedTrial = useMemo(() => readTrial(), [])
+  const savedTrial = useMemo(() => readBarServerTrial(localStorage, ownerId), [ownerId])
   const savedScenarioIndex = Number.isInteger(savedTrial?.scenarioIndex)
     && savedTrial.scenarioIndex >= 0
     && savedTrial.scenarioIndex < barServerTrialScenarios.length
@@ -193,15 +191,15 @@ export default function BarServerTrial() {
   }, [assessmentContext, stage, trialReport, trialReportDedupeKey])
 
   useEffect(() => {
-    localStorage.setItem(BAR_SERVER_TRIAL_STORAGE_KEY, JSON.stringify({
+    writeBarServerTrial(localStorage, ownerId, {
       version: BAR_SERVER_TRIAL_VERSION,
       scenarioIndex,
       stage,
       attemptsByScenario,
       lessonProgressByScenario,
       updatedAt: new Date().toISOString(),
-    }))
-  }, [attemptsByScenario, lessonProgressByScenario, scenarioIndex, stage])
+    })
+  }, [attemptsByScenario, lessonProgressByScenario, ownerId, scenarioIndex, stage])
 
   useEffect(() => () => {
     if (timerRef.current) window.clearInterval(timerRef.current)

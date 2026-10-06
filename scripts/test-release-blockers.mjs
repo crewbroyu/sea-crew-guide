@@ -2,9 +2,17 @@ import assert from 'node:assert/strict'
 import {
   USER_SCOPED_PROGRESS_KEYS,
   bindProgressStorageToUser,
+  buildSignOutWarning,
   hasUnsavedPrivateDrafts,
   releaseProgressStorageOnSignOut,
 } from '../src/data/userScopedStorage.js'
+import {
+  BAR_SERVER_TRIAL_STORAGE_KEY,
+  BAR_SERVER_TRIAL_VERSION,
+  getBarServerTrialStorageKey,
+  readBarServerTrial,
+  writeBarServerTrial,
+} from '../src/data/barServerTrial.js'
 import {
   addGuestChallengeAiAttempt,
   canCompleteGuestChallengeWithSelfReview,
@@ -64,6 +72,56 @@ signOutValues.set('task6_data', JSON.stringify({ answerCardData: { service_case:
 assert.equal(hasUnsavedPrivateDrafts(signOutStorage), false, 'blank drafts must not warn')
 signOutValues.set('task6_data', '{corrupt')
 assert.equal(hasUnsavedPrivateDrafts(signOutStorage), false, 'a corrupt draft must not block sign-out')
+
+// Sign-out warns about every irreplaceable local item, including legacy course progress not yet imported.
+assert.equal(buildSignOutWarning({}), '', 'nothing to lose means no confirmation')
+assert.match(buildSignOutWarning({ hasPrivateDrafts: true }), /Task 6/)
+assert.doesNotMatch(buildSignOutWarning({ hasPrivateDrafts: true }), /旧版基础课/)
+const legacyWarning = buildSignOutWarning({ hasUnimportedLegacyProgress: true })
+assert.match(legacyWarning, /旧版基础课进度/)
+assert.match(legacyWarning, /导入/)
+assert.match(buildSignOutWarning({ hasPrivateDrafts: true, hasUnimportedLegacyProgress: true }), /Task 6[\s\S]*旧版基础课/)
+
+// Free-trial results are per account: they survive sign-out and are never adopted by another account.
+const makeStorage = (entries) => {
+  const map = new Map(entries)
+  return {
+    map,
+    getItem: (key) => map.get(key) ?? null,
+    setItem: (key, value) => map.set(key, value),
+    removeItem: (key) => map.delete(key),
+    key: (index) => [...map.keys()][index] ?? null,
+    get length() { return map.size },
+  }
+}
+const trialRecord = (marker) => JSON.stringify({ version: BAR_SERVER_TRIAL_VERSION, marker, attemptsByScenario: { s1: [{}, {}] } })
+
+let trialStorage = makeStorage([['current_user_id', 'user-a'], [BAR_SERVER_TRIAL_STORAGE_KEY, trialRecord('legacy-a')]])
+assert.equal(readBarServerTrial(trialStorage, 'user-a').marker, 'legacy-a', 'the bound account adopts its legacy trial')
+assert.equal(trialStorage.map.has(BAR_SERVER_TRIAL_STORAGE_KEY), false, 'the legacy record moves, not copies')
+assert.equal(JSON.parse(trialStorage.map.get(getBarServerTrialStorageKey('user-a'))).marker, 'legacy-a')
+
+trialStorage = makeStorage([['current_user_id', 'user-a'], [BAR_SERVER_TRIAL_STORAGE_KEY, trialRecord('legacy-a')]])
+assert.equal(readBarServerTrial(trialStorage, 'user-b'), null, 'another account must not adopt the legacy trial')
+assert.equal(trialStorage.map.has(BAR_SERVER_TRIAL_STORAGE_KEY), true)
+
+trialStorage = makeStorage([[BAR_SERVER_TRIAL_STORAGE_KEY, trialRecord('legacy-unbound')]])
+assert.equal(readBarServerTrial(trialStorage, 'guest'), null, 'guests never adopt account trial attempts')
+assert.equal(readBarServerTrial(trialStorage, 'preview'), null, 'admin preview never adopts real attempts')
+assert.equal(readBarServerTrial(trialStorage, 'user-c').marker, 'legacy-unbound', 'an unbound device migrates into the signing-in account')
+
+trialStorage = makeStorage([['current_user_id', 'user-a']])
+writeBarServerTrial(trialStorage, 'user-a', JSON.parse(trialRecord('scoped-a')))
+trialStorage.map.set(BAR_SERVER_TRIAL_STORAGE_KEY, trialRecord('stale-legacy'))
+releaseProgressStorageOnSignOut(trialStorage)
+assert.equal(readBarServerTrial(trialStorage, 'user-a').marker, 'scoped-a', 'sign-out keeps the account trial so re-login sees it')
+assert.equal(trialStorage.map.has(BAR_SERVER_TRIAL_STORAGE_KEY), false, 'sign-out still clears the unpartitioned legacy key')
+assert.equal(readBarServerTrial(trialStorage, 'user-b'), null, 'the next account starts with its own trial')
+
+trialStorage = makeStorage([[getBarServerTrialStorageKey('user-a'), JSON.stringify({ version: 2 })]])
+assert.equal(readBarServerTrial(trialStorage, 'user-a'), null, 'old trial versions are ignored')
+trialStorage = makeStorage([[getBarServerTrialStorageKey('user-a'), '{corrupt']])
+assert.equal(readBarServerTrial(trialStorage, 'user-a'), null, 'corrupt trial data is ignored')
 
 let challenge = recordGuestChallengeAttempt({}, {
   transcript: 'First answer',

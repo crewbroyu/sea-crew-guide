@@ -28,6 +28,7 @@ export const USER_SCOPED_PROGRESS_KEYS = [
   'bar_server_listening_progress_v1',
   'bar_server_learning_stage',
   'bar_server_shift_challenge_history_v1',
+  // Legacy unpartitioned trial only; per-account `bar_server_trial_v3:{id}` records are kept.
   'bar_server_trial_v3',
   'foundation_saved_lines_v1:bar_server',
   'foundation_saved_lines_v1:retail',
@@ -53,6 +54,16 @@ export const hasUnsavedPrivateDrafts = (storage) => {
     // A corrupt draft is not worth blocking sign-out for.
   }
   return listStorageKeys(storage).some((key) => SIGN_OUT_PRIVATE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)))
+}
+
+// Confirmation text for sign-out, or '' when nothing irreplaceable would be removed.
+export const buildSignOutWarning = ({ hasPrivateDrafts = false, hasUnimportedLegacyProgress = false } = {}) => {
+  const losses = [
+    hasPrivateDrafts && '未提交的 Task 6 答案草稿和未完成的模拟面试',
+    hasUnimportedLegacyProgress && '尚未导入账户的旧版基础课进度（可先取消，在本页点击“导入”后再退出）',
+  ].filter(Boolean)
+  if (!losses.length) return ''
+  return `退出后，本设备上的以下内容会被清除且无法恢复，以免下一位使用者看到：\n- ${losses.join('\n- ')}\n\n确定退出吗？`
 }
 
 // Explicit sign-out on a possibly shared device: drop unpartitioned progress and private drafts so the next

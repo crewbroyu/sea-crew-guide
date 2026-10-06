@@ -118,6 +118,43 @@ assert.equal(readBarServerTrial(trialStorage, 'user-a').marker, 'scoped-a', 'sig
 assert.equal(trialStorage.map.has(BAR_SERVER_TRIAL_STORAGE_KEY), false, 'sign-out still clears the unpartitioned legacy key')
 assert.equal(readBarServerTrial(trialStorage, 'user-b'), null, 'the next account starts with its own trial')
 
+// Signing in mid-trial keeps the guest's lesson progress, chosen scenario and stage.
+const guestTrial = JSON.stringify({
+  version: BAR_SERVER_TRIAL_VERSION,
+  scenarioIndex: 1,
+  stage: 'briefing',
+  attemptsByScenario: {},
+  lessonProgressByScenario: { s2: { completedAt: '2026-10-06T09:00:00.000Z' } },
+})
+trialStorage = makeStorage([[getBarServerTrialStorageKey('guest'), guestTrial]])
+const adoptedGuest = readBarServerTrial(trialStorage, 'user-d')
+assert.equal(adoptedGuest.scenarioIndex, 1, 'sign-in must return to the scenario the guest was on')
+assert.equal(adoptedGuest.stage, 'briefing')
+assert.ok(adoptedGuest.lessonProgressByScenario.s2.completedAt, 'guest lesson progress must carry over')
+assert.equal(trialStorage.map.has(getBarServerTrialStorageKey('guest')), false, 'the guest record moves into the account')
+assert.equal(readBarServerTrial(trialStorage, 'user-d').scenarioIndex, 1, 'later reads use the account record')
+
+trialStorage = makeStorage([[getBarServerTrialStorageKey('guest'), trialRecord('guest-with-attempts')]])
+assert.equal(readBarServerTrial(trialStorage, 'user-d'), null, 'a guest record with AI attempts is never adopted')
+assert.equal(trialStorage.map.has(getBarServerTrialStorageKey('guest')), true)
+
+trialStorage = makeStorage([
+  ['current_user_id', 'user-a'],
+  [BAR_SERVER_TRIAL_STORAGE_KEY, trialRecord('legacy-a')],
+  [getBarServerTrialStorageKey('guest'), guestTrial],
+])
+assert.equal(readBarServerTrial(trialStorage, 'user-a').marker, 'legacy-a', 'the account’s own legacy attempts win over guest lessons')
+
+trialStorage = makeStorage([
+  ['current_user_id', 'user-a'],
+  [BAR_SERVER_TRIAL_STORAGE_KEY, trialRecord('legacy-a')],
+  [getBarServerTrialStorageKey('guest'), guestTrial],
+])
+const otherAccount = readBarServerTrial(trialStorage, 'user-b')
+assert.equal(otherAccount.marker, undefined, 'another account never receives the legacy attempts')
+assert.equal(otherAccount.scenarioIndex, 1, 'but may continue the attempt-free guest session it signed in from')
+assert.equal(trialStorage.map.has(BAR_SERVER_TRIAL_STORAGE_KEY), true)
+
 trialStorage = makeStorage([[getBarServerTrialStorageKey('user-a'), JSON.stringify({ version: 2 })]])
 assert.equal(readBarServerTrial(trialStorage, 'user-a'), null, 'old trial versions are ignored')
 trialStorage = makeStorage([[getBarServerTrialStorageKey('user-a'), '{corrupt']])

@@ -16,8 +16,14 @@ const parseTrial = (raw) => {
   }
 }
 
-// Reads the owner's trial. A legacy unpartitioned record moves into a real account only when this device was last
-// bound to that same account (or never bound), so another person's attempts are never adopted.
+const hasAiAttempts = (trial) => Object.values(trial?.attemptsByScenario || {})
+  .some((attempts) => Array.isArray(attempts) && attempts.length > 0)
+
+// Reads the owner's trial. When a real account has no record yet, it takes over, in order:
+// 1. the legacy unpartitioned record, only if this device was last bound to this account (or never bound),
+//    so another person's attempts are never adopted;
+// 2. the guest record from signing in mid-trial (lesson progress, chosen scenario and stage). Guests cannot
+//    create AI attempts, and a guest record that somehow has attempts is ignored.
 export const readBarServerTrial = (storage, ownerId) => {
   const scopedKey = getBarServerTrialStorageKey(ownerId)
   const scoped = parseTrial(storage.getItem(scopedKey))
@@ -25,12 +31,21 @@ export const readBarServerTrial = (storage, ownerId) => {
   if (!ownerId || NON_ACCOUNT_OWNERS.has(ownerId)) return null
 
   const boundUserId = storage.getItem('current_user_id')
-  if (boundUserId && boundUserId !== ownerId) return null
-  const legacy = parseTrial(storage.getItem(BAR_SERVER_TRIAL_STORAGE_KEY))
-  if (!legacy) return null
-  storage.setItem(scopedKey, JSON.stringify(legacy))
-  storage.removeItem(BAR_SERVER_TRIAL_STORAGE_KEY)
-  return legacy
+  const legacy = !boundUserId || boundUserId === ownerId
+    ? parseTrial(storage.getItem(BAR_SERVER_TRIAL_STORAGE_KEY))
+    : null
+  if (legacy) {
+    storage.setItem(scopedKey, JSON.stringify(legacy))
+    storage.removeItem(BAR_SERVER_TRIAL_STORAGE_KEY)
+    return legacy
+  }
+
+  const guestKey = getBarServerTrialStorageKey('guest')
+  const guest = parseTrial(storage.getItem(guestKey))
+  if (!guest || hasAiAttempts(guest)) return null
+  storage.setItem(scopedKey, JSON.stringify(guest))
+  storage.removeItem(guestKey)
+  return guest
 }
 
 export const writeBarServerTrial = (storage, ownerId, trial) => {

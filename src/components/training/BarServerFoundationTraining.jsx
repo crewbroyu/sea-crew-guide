@@ -1,5 +1,5 @@
 import { useTrainingInspection } from '../../hooks/useTrainingInspection'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight,
   Bookmark,
@@ -74,6 +74,7 @@ function VisualKnowledgeMap({ visual }) {
 export default function BarServerFoundationTraining({
   progress = {},
   onProgressChange,
+  getLatestProgress,
   task6Completed = false,
   onStartTask6,
   onStartTask7,
@@ -105,8 +106,16 @@ export default function BarServerFoundationTraining({
   ).length
   const completionPercent = Math.round((completedDays / barServerFoundationDays.length) * 100)
 
+  // Async results (Guest Challenge AI) arrive after re-renders or even after this lesson unmounts;
+  // always build on the newest course progress, never on the snapshot from when the request began.
+  const progressRef = useRef(progress)
+  useEffect(() => {
+    progressRef.current = progress
+  }, [progress])
+
   const updateDayProgress = (day, nextValue) => {
-    const currentDayProgress = progress[day.id] || {}
+    const latestProgress = getLatestProgress?.() || progressRef.current
+    const currentDayProgress = latestProgress[day.id] || {}
     const mergedProgress = {
       ...currentDayProgress,
       ...nextValue,
@@ -117,15 +126,17 @@ export default function BarServerFoundationTraining({
     const challengeCompleted = Boolean(mergedProgress.guestChallenge?.completedAt)
     const completed = quizCompleted && shadowingCompleted && challengeCompleted
 
-    onProgressChange?.({
-      ...progress,
+    const nextProgress = {
+      ...latestProgress,
       [day.id]: {
         ...mergedProgress,
         completedAt: completed
           ? (currentDayProgress.completedAt || new Date().toISOString())
           : null,
       },
-    })
+    }
+    progressRef.current = nextProgress
+    onProgressChange?.(nextProgress)
   }
 
   const selectAnswer = (day, optionId) => {

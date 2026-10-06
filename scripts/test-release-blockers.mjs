@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import {
   USER_SCOPED_PROGRESS_KEYS,
   bindProgressStorageToUser,
+  hasUnsavedPrivateDrafts,
+  releaseProgressStorageOnSignOut,
 } from '../src/data/userScopedStorage.js'
 import {
   addGuestChallengeAiAttempt,
@@ -32,6 +34,36 @@ assert.equal(values.has('task5_result'), false)
 assert.equal(values.has('task6_result'), false)
 assert.equal(values.get('unrelated_public_setting'), 'keep-me')
 assert.equal(values.get('current_user_id'), 'user-b')
+
+// Explicit sign-out on a shared device removes private drafts before the next visitor arrives.
+const signOutValues = new Map([
+  ['current_user_id', 'user-a'],
+  ['task6_data', JSON.stringify({ answerCardData: { service_case: { context: 'My private hotel story' } } })],
+  ['task6_result', 'private-answer-cards'],
+  ['task7_voice_practice', 'private-practice'],
+  ['task8_mock_draft_v1:user-a', 'private-mock-answers'],
+  ['foundation_account_v1:user-a:bar_server:progress', 'account-partitioned-progress'],
+  ['unrelated_public_setting', 'keep-me'],
+])
+const signOutStorage = {
+  getItem: (key) => signOutValues.get(key) ?? null,
+  setItem: (key, value) => signOutValues.set(key, value),
+  removeItem: (key) => signOutValues.delete(key),
+  key: (index) => [...signOutValues.keys()][index] ?? null,
+  get length() { return signOutValues.size },
+}
+assert.equal(hasUnsavedPrivateDrafts(signOutStorage), true, 'Task 6 drafts must trigger the sign-out warning')
+releaseProgressStorageOnSignOut(signOutStorage)
+for (const key of ['task6_data', 'task6_result', 'task7_voice_practice', 'task8_mock_draft_v1:user-a', 'current_user_id']) {
+  assert.equal(signOutValues.has(key), false, `${key} must be removed on sign-out`)
+}
+assert.equal(signOutValues.get('foundation_account_v1:user-a:bar_server:progress'), 'account-partitioned-progress', 'account-partitioned progress may still be waiting to sync')
+assert.equal(signOutValues.get('unrelated_public_setting'), 'keep-me')
+assert.equal(hasUnsavedPrivateDrafts(signOutStorage), false)
+signOutValues.set('task6_data', JSON.stringify({ answerCardData: { service_case: { context: '   ' } } }))
+assert.equal(hasUnsavedPrivateDrafts(signOutStorage), false, 'blank drafts must not warn')
+signOutValues.set('task6_data', '{corrupt')
+assert.equal(hasUnsavedPrivateDrafts(signOutStorage), false, 'a corrupt draft must not block sign-out')
 
 let challenge = recordGuestChallengeAttempt({}, {
   transcript: 'First answer',

@@ -28,6 +28,7 @@ import {
   syncLocalPathProfile,
 } from '../services/userPathService'
 import { getInterviewPracticeHistory } from '../services/interviewPracticeService'
+import { hasUnsavedPrivateDrafts, releaseProgressStorageOnSignOut } from '../data/userScopedStorage'
 
 const stageLabels = {
   exploring: '了解阶段',
@@ -371,9 +372,20 @@ export default function Profile() {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    reset()
-    navigate('/')
+    if (hasUnsavedPrivateDrafts(localStorage) && !window.confirm(
+      '退出后，本设备上未提交的 Task 6 答案草稿和未完成的模拟面试会被清除，以免下一位使用者看到。确定退出吗？'
+    )) return
+
+    // Push route progress to the account first; signOut and cleanup still run if the sync fails.
+    await syncLocalPathProfile()
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      releaseProgressStorageOnSignOut(localStorage)
+      reset()
+      // A full reload also drops in-memory stores (for example the persisted resume) of the previous user.
+      window.location.assign('/')
+    }
   }
 
   return (

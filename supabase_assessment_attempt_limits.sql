@@ -366,6 +366,56 @@ begin
 end;
 $$;
 
+create or replace function private.get_assessment_evaluation_result(
+  input_attempt_id uuid,
+  input_request_id text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  actor_user_id uuid := auth.uid();
+  normalized_request_id text := nullif(left(trim(coalesce(input_request_id, '')), 200), '');
+  target_attempt public.assessment_attempts%rowtype;
+begin
+  if actor_user_id is null then
+    raise exception 'LOGIN_REQUIRED';
+  end if;
+
+  if input_attempt_id is null or normalized_request_id is null then
+    raise exception 'ASSESSMENT_ATTEMPT_REQUIRED';
+  end if;
+
+  select *
+  into target_attempt
+  from public.assessment_attempts
+  where id = input_attempt_id
+    and user_id = actor_user_id;
+
+  if target_attempt.id is null then
+    raise exception 'ASSESSMENT_ATTEMPT_NOT_FOUND';
+  end if;
+
+  if target_attempt.status <> 'completed'
+    or target_attempt.result_summary ->> 'requestId' is distinct from normalized_request_id
+    or jsonb_typeof(target_attempt.result_summary -> 'evaluation') is distinct from 'object'
+    or not exists (
+      select 1
+      from public.assessment_attempt_actions
+      where attempt_id = input_attempt_id
+        and user_id = actor_user_id
+        and action = 'assessment_evaluate'
+        and request_id = normalized_request_id
+    ) then
+    return null;
+  end if;
+
+  return target_attempt.result_summary -> 'evaluation';
+end;
+$$;
+
 create or replace function public.get_assessment_attempt_status()
 returns jsonb
 language sql
@@ -409,30 +459,46 @@ as $$
   select private.complete_assessment_attempt(input_attempt_id, input_result_summary);
 $$;
 
+create or replace function public.get_assessment_evaluation_result(
+  input_attempt_id uuid,
+  input_request_id text
+)
+returns jsonb
+language sql
+security invoker
+set search_path = ''
+as $$
+  select private.get_assessment_evaluation_result(input_attempt_id, input_request_id);
+$$;
+
 revoke all on function private.get_assessment_attempt_status() from public, anon;
 revoke all on function private.start_assessment_attempt(integer) from public, anon;
 revoke all on function private.authorize_assessment_action(uuid, text, text) from public, anon;
 revoke all on function private.complete_assessment_attempt(uuid, jsonb) from public, anon;
+revoke all on function private.get_assessment_evaluation_result(uuid, text) from public, anon;
 
 grant usage on schema private to authenticated;
 grant execute on function private.get_assessment_attempt_status() to authenticated;
 grant execute on function private.start_assessment_attempt(integer) to authenticated;
 grant execute on function private.authorize_assessment_action(uuid, text, text) to authenticated;
 grant execute on function private.complete_assessment_attempt(uuid, jsonb) to authenticated;
+grant execute on function private.get_assessment_evaluation_result(uuid, text) to authenticated;
 
 revoke all on function public.get_assessment_attempt_status() from public, anon;
 revoke all on function public.start_assessment_attempt(integer) from public, anon;
 revoke all on function public.authorize_assessment_action(uuid, text, text) from public, anon;
 revoke all on function public.complete_assessment_attempt(uuid, jsonb) from public, anon;
+revoke all on function public.get_assessment_evaluation_result(uuid, text) from public, anon;
 
 grant execute on function public.get_assessment_attempt_status() to authenticated;
 grant execute on function public.start_assessment_attempt(integer) to authenticated;
 grant execute on function public.authorize_assessment_action(uuid, text, text) to authenticated;
 grant execute on function public.complete_assessment_attempt(uuid, jsonb) to authenticated;
+grant execute on function public.get_assessment_evaluation_result(uuid, text) to authenticated;
 
 commit;
 
--- Verification: both tables must have RLS enabled and all four routines must be listed.
+-- Verification: both tables must have RLS enabled and all five routines must be listed.
 select relname, relrowsecurity, relforcerowsecurity
 from pg_class
 where relnamespace = 'public'::regnamespace
@@ -446,6 +512,7 @@ where routine_schema = 'public'
     'get_assessment_attempt_status',
     'start_assessment_attempt',
     'authorize_assessment_action',
-    'complete_assessment_attempt'
+    'complete_assessment_attempt',
+    'get_assessment_evaluation_result'
   )
 order by routine_name;

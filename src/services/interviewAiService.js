@@ -37,7 +37,9 @@ export const createInterviewRequestId = () => (
 const requestInterviewAi = async (payload, requestId = createInterviewRequestId()) => {
   const accessToken = await getAccessToken()
   const controller = new AbortController()
-  const timeoutMs = payload.action === 'assessment_evaluate' ? 120_000 : 90_000
+  // Practical scoring has a 65 s provider budget on the server. Leave enough
+  // browser time for authorization, persistence and the response round trip.
+  const timeoutMs = payload.action === 'assessment_evaluate' ? 80_000 : 90_000
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
 
   try {
@@ -156,13 +158,13 @@ export const generateAssessmentFollowUp = ({
   assessmentAttemptId,
 })
 
-export const evaluatePracticalAssessment = ({ serviceBackground, answers, assessmentAttemptId }) => requestInterviewAi({
+export const evaluatePracticalAssessment = ({ serviceBackground, answers, assessmentAttemptId, requestId }) => requestInterviewAi({
   action: 'assessment_evaluate',
   mode: 'assessment',
   serviceBackground,
   answers,
   assessmentAttemptId,
-})
+}, requestId)
 
 export const coachInterviewAnswer = ({ position, card, answers, generated }) => requestInterviewAi({
   action: 'answer_coach',

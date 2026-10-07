@@ -195,7 +195,10 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
     const restoreReport = async () => {
       try {
         setState('restoring')
-        const saved = await getLatestCareerReport()
+        const saved = await getLatestCareerReport({
+          assessmentVersion: assessment.assessmentVersion,
+          completedAt: assessment.completedAt,
+        })
         if (cancelled) return
         if (!saved?.report) {
           setState('idle')
@@ -219,7 +222,7 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
 
     restoreReport()
     return () => { cancelled = true }
-  }, [fallbackRecommendations, isRegistered, onReportGenerated, report])
+  }, [assessment.assessmentVersion, assessment.completedAt, fallbackRecommendations, isRegistered, onReportGenerated, report])
 
   const handleGenerate = async () => {
     if (!isRegistered) {
@@ -240,6 +243,7 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
         regenerate: Boolean(report),
         assessment: {
           assessmentVersion: assessment.assessmentVersion,
+          completedAt: assessment.completedAt,
           overallScore: assessment.overallScore,
           level: assessment.level,
           serviceBackground: assessment.serviceBackground,
@@ -357,6 +361,11 @@ export default function CareerReportPanel({ assessment, fallbackRecommendations,
 
         {report && !isEditing && (
           <div className="space-y-4">
+            {report.generationMode === 'rules_fallback' && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">
+                AI 个性化扩展暂时不可用，本报告已根据你的测评分数、岗位匹配规则和求职限制生成，仍可用于查看岗位方向和下一步建议。
+              </div>
+            )}
             <div className="border-b border-slate-200 pb-4">
               <div className="flex items-start justify-between gap-4">
                 <div>

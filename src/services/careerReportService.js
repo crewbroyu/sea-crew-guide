@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { careerReportMatchesAssessment } from '../data/careerReportIdentity'
 
 export class CareerReportError extends Error {
   constructor(code, message, status = 0) {
@@ -9,20 +10,30 @@ export class CareerReportError extends Error {
   }
 }
 
-export const getLatestCareerReport = async () => {
+export const getLatestCareerReport = async (assessment = null) => {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
   if (userError || !user?.id) return null
 
-  const { data, error } = await supabase
+  const assessmentVersion = Number(assessment?.assessmentVersion) || null
+  const completedAt = typeof assessment?.completedAt === 'string' ? assessment.completedAt.trim() : ''
+  let query = supabase
     .from('career_reports')
     .select('profile, assessment_snapshot, report, created_at')
     .eq('user_id', user.id)
+
+  if (assessmentVersion && completedAt) {
+    query = query.contains('assessment_snapshot', { assessmentVersion, completedAt })
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
   if (error) throw new CareerReportError('REPORT_LOAD_FAILED', '暂时无法读取已生成的职业评估。')
-  return data?.report ? data : null
+  if (!data?.report) return null
+  if (assessment && !careerReportMatchesAssessment(data.assessment_snapshot, assessment)) return null
+  return data
 }
 
 export const generateCareerReport = async ({ profile, assessment, regenerate = false }) => {
@@ -33,7 +44,7 @@ export const generateCareerReport = async ({ profile, assessment, regenerate = f
   }
 
   const controller = new AbortController()
-  const timeoutId = window.setTimeout(() => controller.abort(), 90_000)
+  const timeoutId = window.setTimeout(() => controller.abort(), 80_000)
   const clientRequestId = globalThis.crypto?.randomUUID?.()
     || `career-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 

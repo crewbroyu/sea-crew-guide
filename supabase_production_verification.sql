@@ -38,7 +38,8 @@ where routine_schema = 'public'
     'get_assessment_attempt_status',
     'start_assessment_attempt',
     'authorize_assessment_action',
-    'complete_assessment_attempt'
+    'complete_assessment_attempt',
+    'get_assessment_evaluation_result'
   )
 order by routine_name;
 

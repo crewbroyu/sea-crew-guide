@@ -15,6 +15,12 @@ const MAX_PROVIDER_COMPLETION_TOKENS = 8_192
 const MOCK_ANSWER_CARD_CHAR_BUDGET = 6_000
 const EVALUATION_TIME_BUDGET_MS = 80_000
 const MIN_RETRY_WINDOW_MS = 25_000
+// The API has a 90 s ceiling. Keep practical scoring provider work within 65 s
+// so authorization, usage recording and attempt completion can finish safely.
+const PRACTICAL_EVALUATION_TIME_BUDGET_MS = 65_000
+const PRACTICAL_FIRST_ATTEMPT_MAX_MS = 45_000
+const PRACTICAL_RETRY_MAX_MS = 18_000
+const PRACTICAL_MIN_RETRY_WINDOW_MS = 5_000
 const PRACTICE_MODE = 'practice'
 const SCENARIO_TRIAL_MODE = 'scenario_trial'
 const PREMIUM_SCENARIO_MODE = 'premium_scenario'
@@ -402,14 +408,25 @@ const authorizeAssessmentAction = async ({ supabase, action, mode, body }) => {
   if (error) throw mapAssessmentAttemptError(error)
 }
 
+const getCompletedAssessmentEvaluation = async ({ supabase, body }) => {
+  const attemptId = trimText(body.assessmentAttemptId, 80)
+  const requestId = trimText(body.clientRequestId, 200)
+  if (!attemptId || !requestId) return null
+
+  const { data, error } = await supabase.rpc('get_assessment_evaluation_result', {
+    input_attempt_id: attemptId,
+    input_request_id: requestId,
+  })
+  if (error) throw mapAssessmentAttemptError(error)
+  return data && typeof data === 'object' && !Array.isArray(data) ? data : null
+}
+
 const completeAssessmentAttempt = async ({ supabase, body, data }) => {
   const { data: status, error } = await supabase.rpc('complete_assessment_attempt', {
     input_attempt_id: trimText(body.assessmentAttemptId, 80),
     input_result_summary: {
-      englishScore: Number(data?.englishScore) || 0,
-      serviceExperienceScore: Number(data?.serviceExperienceScore) || 0,
-      evidenceConfidence: trimText(data?.evidenceConfidence, 40) || null,
-      scoringMode: trimText(data?.scoringMode, 80) || null,
+      requestId: trimText(body.clientRequestId, 200),
+      evaluation: data,
     },
   })
   if (error) throw mapAssessmentAttemptError(error)
@@ -1530,29 +1547,53 @@ const evaluatePracticalAssessment = async ({ body, config }) => {
       max_completion_tokens: OUTPUT_TOKEN_LIMITS.assessmentEvaluation,
   }
 
+  const deadline = Date.now() + PRACTICAL_EVALUATION_TIME_BUDGET_MS
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...requestPayload,
-        response_format: attempt === 1
-          ? practicalEvaluationResponseFormat
-          : { type: 'json_object' },
-        max_completion_tokens: attempt === 1
-          ? OUTPUT_TOKEN_LIMITS.assessmentEvaluation
-          : 1200,
-      }),
-      signal: AbortSignal.timeout(attempt === 1 ? 60_000 : 30_000),
-    })
+    const remainingMs = deadline - Date.now()
+    if (remainingMs <= 0 || (attempt > 1 && remainingMs < PRACTICAL_MIN_RETRY_WINDOW_MS)) {
+      console.warn('Skipping practical assessment provider retry because the shared time budget is exhausted.', {
+        attempt,
+        remainingMs: Math.max(0, remainingMs),
+      })
+      break
+    }
+    const attemptTimeoutMs = Math.min(
+      attempt === 1 ? PRACTICAL_FIRST_ATTEMPT_MAX_MS : PRACTICAL_RETRY_MAX_MS,
+      remainingMs,
+    )
+    let providerBody
+    // Keep the fault boundary around provider I/O only. Authorization, input
+    // validation and persistence errors must still fail normally.
+    try {
+      const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...requestPayload,
+          response_format: attempt === 1
+            ? practicalEvaluationResponseFormat
+            : { type: 'json_object' },
+          max_completion_tokens: attempt === 1
+            ? OUTPUT_TOKEN_LIMITS.assessmentEvaluation
+            : 1200,
+        }),
+        signal: AbortSignal.timeout(attemptTimeoutMs),
+      })
 
-    const providerBody = await readProviderResponse(response)
+      providerBody = await readProviderResponse(response)
+    } catch (error) {
+      console.warn('Practical assessment provider unavailable; using rules:', {
+        code: error?.code || error?.name || 'PROVIDER_IO_ERROR',
+        attempt,
+      })
+      break
+    }
     let rawResult = null
     try {
-      rawResult = parseJsonContent(providerBody.choices?.[0]?.message?.content)
+      rawResult = parseJsonContent(providerBody?.choices?.[0]?.message?.content)
     } catch (error) {
       if (error?.code !== 'INVALID_AI_RESPONSE') throw error
     }
@@ -1568,12 +1609,12 @@ const evaluatePracticalAssessment = async ({ body, config }) => {
 
     console.warn('DashScope practical assessment response incomplete:', {
       model: config.evaluationModel,
-      requestId: providerBody.request_id || null,
+      requestId: providerBody?.request_id || null,
       attempt,
     })
   }
 
-  console.warn('Using deterministic practical assessment fallback after incomplete AI responses.')
+  console.warn('Using deterministic practical assessment fallback after unavailable or incomplete AI responses.')
   return {
     ...buildPracticalFallbackEvaluation(answers),
     provider: 'rules',
@@ -1921,6 +1962,33 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
         'VOICE_TRAINING_REQUIRES_ACCESS',
         '公开题库支持浏览和文字自练。语音转写与 AI 反馈请体验 Bar Server 免费场景，或解锁岗位训练包。',
       )
+    }
+
+    if (mode === ASSESSMENT_MODE && action === 'assessment_evaluate') {
+      const recoveredEvaluation = await getCompletedAssessmentEvaluation({
+        supabase: auth.supabase,
+        body: payload,
+      })
+      if (recoveredEvaluation) {
+        const attemptStatus = await completeAssessmentAttempt({
+          supabase: auth.supabase,
+          body: payload,
+          data: recoveredEvaluation,
+        })
+        const data = { ...recoveredEvaluation, attemptStatus }
+        await recordAiOperationLog({
+          supabase: auth.supabase,
+          action,
+          mode,
+          body: payload,
+          config,
+          success: true,
+          statusCode: 200,
+          errorCode: null,
+          latencyMs: Date.now() - startedAt,
+        })
+        return { status: 200, body: { success: true, data, meta: { recovered: true } } }
+      }
     }
 
     enforceRateLimit(auth.user.id, action, mode)

@@ -2,32 +2,67 @@ import assert from 'node:assert/strict'
 import { handleInterviewRequest } from '../server/interviewAi.js'
 import {
   ENGLISH_PRACTICAL_TASKS,
+  getPracticalEvaluationRequestId,
   getStarPracticalTask,
   STAR_FALLBACK_FOLLOW_UPS,
 } from '../src/data/practicalAssessmentData.js'
 
 const originalFetch = globalThis.fetch
+const originalDateNow = Date.now
+const originalAbortSignalTimeout = AbortSignal.timeout
 const modelRequests = []
+const providerTimeouts = []
 let evaluationAttempts = 0
+let mockNow = null
+let testUserId = '00000000-0000-4000-8000-000000000099'
+let providerOverride = null
+let authorizationError = null
+let completionCount = 0
+let authorizationCount = 0
+let usageRecordCount = 0
+let recoveredEvaluation = null
+const completedPayloads = []
+const recoveryLookups = []
+
+Date.now = () => mockNow ?? originalDateNow()
+AbortSignal.timeout = (timeoutMs) => {
+  providerTimeouts.push(timeoutMs)
+  return originalAbortSignalTimeout(timeoutMs)
+}
 
 globalThis.fetch = async (url, options = {}) => {
   const target = String(url)
   if (target.includes('/auth/v1/user')) {
     return Response.json({
-      id: '00000000-0000-4000-8000-000000000099',
+      id: testUserId,
       email: 'assessment@example.com',
       role: 'authenticated',
     })
   }
-  if (target.includes('/rest/v1/rpc/record_ai_usage_event')) return Response.json(1)
+  if (target.includes('/rest/v1/rpc/record_ai_usage_event')) {
+    usageRecordCount += 1
+    return Response.json(1)
+  }
   if (target.includes('/rest/v1/rpc/record_ai_operation_log')) return Response.json(1)
-  if (target.includes('/rest/v1/rpc/authorize_assessment_action')) return Response.json(true)
+  if (target.includes('/rest/v1/rpc/get_assessment_evaluation_result')) {
+    recoveryLookups.push(JSON.parse(options.body))
+    return Response.json(recoveredEvaluation)
+  }
+  if (target.includes('/rest/v1/rpc/authorize_assessment_action')) {
+    authorizationCount += 1
+    return authorizationError
+      ? Response.json({ message: authorizationError }, { status: 400 })
+      : Response.json(true)
+  }
   if (target.includes('/rest/v1/rpc/complete_assessment_attempt')) {
+    completionCount += 1
+    completedPayloads.push(JSON.parse(options.body))
     return Response.json({ completedAttempts: 1, remainingAttempts: 2, maxAttempts: 3 })
   }
   if (target.includes('/chat/completions')) {
     const request = JSON.parse(options.body)
     modelRequests.push(request)
+    if (providerOverride) return providerOverride()
     const isEvaluation = request.response_format?.json_schema?.name === 'practical_assessment_result'
       || request.messages?.[1]?.content?.includes('"scoringRubric"')
     const evaluationInput = isEvaluation ? JSON.parse(request.messages[1].content) : null
@@ -83,6 +118,11 @@ const env = {
 const headers = { authorization: 'Bearer assessment-test-token' }
 
 try {
+  assert.equal(
+    getPracticalEvaluationRequestId('00000000-0000-4000-8000-000000000101'),
+    'assessment-evaluate:00000000-0000-4000-8000-000000000101',
+  )
+  assert.equal(getPracticalEvaluationRequestId(''), '')
   const sceneTasks = [
     ...ENGLISH_PRACTICAL_TASKS,
     getStarPracticalTask('restaurant'),
@@ -161,6 +201,9 @@ try {
   assert.equal(evaluation.body.data.evidenceConfidence, 'medium')
   assert.equal(evaluation.body.data.evidenceHighlights.length, 2)
   assert.equal(evaluation.body.data.attemptStatus.remainingAttempts, 2)
+  assert.equal(completedPayloads[0].input_result_summary.requestId, 'assessment-evaluate-1')
+  assert.equal(completedPayloads[0].input_result_summary.evaluation.summary, evaluation.body.data.summary)
+  assert.equal(completedPayloads[0].input_result_summary.evaluation.attemptStatus, undefined)
   assert.ok(evaluation.body.data.evidenceHighlights[0].quote.includes('update'))
   assert.equal(modelRequests.length, 3)
   assert.equal(evaluationAttempts, 2)
@@ -189,7 +232,131 @@ try {
   assert.equal(fallbackEvaluation.body.data.evidenceHighlights.length, 2)
   assert.equal(modelRequests.length, 5)
 
-  console.log('Practical assessment API contract passed.')
+  const scenarios = [
+    ['timeout', () => { throw new DOMException('Timed out', 'TimeoutError') }, 1],
+    ['abort', () => { throw new DOMException('Aborted', 'AbortError') }, 1],
+    ['network', () => { throw new TypeError('fetch failed') }, 1],
+    ['429', () => Response.json({ error: { code: 'rate_limit' } }, { status: 429 }), 1],
+    ['500', () => new Response('upstream error', { status: 500 }), 1],
+    ['503', () => new Response('unavailable', { status: 503 }), 1],
+    ['body-read', () => ({ text: async () => { throw new TypeError('stream interrupted') } }), 1],
+    ['invalid-json', () => new Response('not json'), 2],
+    ['null-body', () => Response.json(null), 2],
+    ['invalid-content', () => Response.json({ choices: [{ message: { content: '{broken' } }] }), 2],
+    ['second-round-timeout', () => {
+      if (modelRequests.at(-1).response_format.type === 'json_object') {
+        throw new DOMException('Timed out', 'TimeoutError')
+      }
+      return Response.json({ choices: [] })
+    }, 2],
+  ]
+  let userSequence = 200
+  const evaluate = (overrides = {}, requestHeaders = headers) => {
+    testUserId = `00000000-0000-4000-8000-${String(userSequence++).padStart(12, '0')}`
+    return handleInterviewRequest({
+      method: 'POST', headers: requestHeaders, env,
+      body: {
+        action: 'assessment_evaluate', mode: 'assessment',
+        clientRequestId: `fault-test-${userSequence}`,
+        assessmentAttemptId: '00000000-0000-4000-8000-000000000102',
+        serviceBackground: 'restaurant', answers: practicalAnswers,
+        ...overrides,
+      },
+    })
+  }
+  for (const [name, respond, expectedCalls] of scenarios) {
+    providerOverride = respond
+    const beforeCalls = modelRequests.length
+    const beforeTimeouts = providerTimeouts.length
+    const beforeCompletions = completionCount
+    const result = await evaluate()
+    assert.equal(result.status, 200, name)
+    assert.equal(result.body.data.scoringMode, 'rules_fallback', name)
+    assert.equal(result.body.data.provider, 'rules', name)
+    assert.equal(result.body.data.model, null, name)
+    assert.equal(result.body.data.englishScore, fallbackEvaluation.body.data.englishScore, name)
+    assert.equal(result.body.data.serviceExperienceScore, fallbackEvaluation.body.data.serviceExperienceScore, name)
+    assert.equal(result.body.data.attemptStatus.remainingAttempts, 2, name)
+    assert.equal(modelRequests.length - beforeCalls, expectedCalls, name)
+    const scenarioTimeouts = providerTimeouts.slice(beforeTimeouts)
+    assert.equal(scenarioTimeouts.length, expectedCalls, name)
+    assert.ok(scenarioTimeouts[0] > 0 && scenarioTimeouts[0] <= 45_000, name)
+    if (expectedCalls === 2) assert.ok(scenarioTimeouts[1] > 0 && scenarioTimeouts[1] <= 18_000, name)
+    assert.equal(completionCount - beforeCompletions, 1, name)
+  }
+  mockNow = originalDateNow()
+  providerOverride = () => {
+    mockNow += 61_000
+    return Response.json({ choices: [] })
+  }
+  const beforeBudgetCalls = modelRequests.length
+  const beforeBudgetTimeouts = providerTimeouts.length
+  const budgetFallback = await evaluate()
+  assert.equal(budgetFallback.status, 200)
+  assert.equal(budgetFallback.body.data.scoringMode, 'rules_fallback')
+  assert.equal(modelRequests.length - beforeBudgetCalls, 1)
+  assert.deepEqual(providerTimeouts.slice(beforeBudgetTimeouts), [45_000])
+  mockNow = null
+
+  recoveredEvaluation = {
+    englishScore: 71,
+    serviceExperienceScore: 66,
+    evidenceConfidence: 'medium',
+    summary: '已保存的完整评分。',
+    strengths: ['能够完成服务闭环。'],
+    priorities: ['补充结果证据。'],
+    integrityFlags: [],
+    evidenceHighlights: [],
+    englishBreakdown: fallbackEvaluation.body.data.englishBreakdown,
+    starBreakdown: fallbackEvaluation.body.data.starBreakdown,
+    scoringMode: 'ai',
+    provider: 'dashscope',
+    model: 'qwen3.5-plus',
+  }
+  providerOverride = () => { throw new Error('Recovered results must not call the provider') }
+  const beforeRecoveryCalls = modelRequests.length
+  const beforeRecoveryLookups = recoveryLookups.length
+  const beforeRecoveryAuthorizations = authorizationCount
+  const beforeRecoveryUsage = usageRecordCount
+  const recovered = await handleInterviewRequest({
+    method: 'POST', headers, env,
+    body: {
+      action: 'assessment_evaluate', mode: 'assessment',
+      clientRequestId: 'assessment-evaluate-1',
+      assessmentAttemptId: '00000000-0000-4000-8000-000000000101',
+      serviceBackground: 'restaurant', answers: practicalAnswers,
+    },
+  })
+  assert.equal(recovered.status, 200)
+  assert.equal(recovered.body.meta.recovered, true)
+  assert.equal(recovered.body.data.summary, '已保存的完整评分。')
+  assert.equal(recovered.body.data.attemptStatus.remainingAttempts, 2)
+  assert.deepEqual(recoveryLookups[beforeRecoveryLookups], {
+    input_attempt_id: '00000000-0000-4000-8000-000000000101',
+    input_request_id: 'assessment-evaluate-1',
+  })
+  assert.equal(modelRequests.length, beforeRecoveryCalls)
+  assert.equal(authorizationCount, beforeRecoveryAuthorizations)
+  assert.equal(usageRecordCount, beforeRecoveryUsage)
+  recoveredEvaluation = null
+
+  const beforeRejectedCalls = modelRequests.length
+  const beforeRejectedCompletions = completionCount
+  const incomplete = await evaluate({ answers: [] })
+  assert.equal(incomplete.status, 400)
+  assert.equal(incomplete.body.error.code, 'PRACTICAL_ASSESSMENT_INCOMPLETE')
+  const unauthenticated = await evaluate({}, {})
+  assert.equal(unauthenticated.status, 401)
+  authorizationError = 'ASSESSMENT_ACTION_LIMIT_REACHED'
+  const limited = await evaluate()
+  assert.equal(limited.status, 429)
+  assert.equal(limited.body.error.code, 'ASSESSMENT_ACTION_LIMIT_REACHED')
+  assert.equal(modelRequests.length, beforeRejectedCalls)
+  assert.equal(completionCount, beforeRejectedCompletions)
+
+  console.log('Practical assessment API contract and provider fault scenarios passed.')
 } finally {
   globalThis.fetch = originalFetch
+  Date.now = originalDateNow
+  AbortSignal.timeout = originalAbortSignalTimeout
 }

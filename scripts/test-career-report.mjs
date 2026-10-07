@@ -5,6 +5,15 @@ const originalFetch = global.fetch
 const calls = []
 let existingCareerRecord = null
 let completedReportCount = 0
+let reportLimitReached = false
+let reportInProgress = false
+let reportLookupFailure = false
+let reportSaveFailure = false
+let providerOverride = null
+const completedReportPayloads = []
+const finalizedOutcomes = []
+const assessmentCompletedAt = '2026-10-07T01:00:00.000Z'
+const revisionCompletedAt = '2026-10-07T02:00:00.000Z'
 
 global.fetch = async (url, options = {}) => {
   calls.push({ url: String(url), options })
@@ -12,21 +21,36 @@ global.fetch = async (url, options = {}) => {
     return new Response(JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', email: 'test@example.com' }), { status: 200 })
   }
   if (String(url).includes('/rest/v1/career_reports')) {
+    if (reportLookupFailure) {
+      return new Response(JSON.stringify({ message: 'database unavailable' }), { status: 503, headers: { 'content-type': 'application/json' } })
+    }
     if (existingCareerRecord) {
-      return new Response(JSON.stringify(existingCareerRecord), { status: 200, headers: { 'content-type': 'application/json' } })
+      const assessmentFilter = new URL(String(url)).searchParams.get('assessment_snapshot') || ''
+      const requestedAssessment = assessmentFilter.startsWith('cs.')
+        ? JSON.parse(assessmentFilter.slice(3))
+        : null
+      const matches = requestedAssessment
+        && Number(requestedAssessment.assessmentVersion) === Number(existingCareerRecord.assessment_snapshot?.assessmentVersion)
+        && requestedAssessment.completedAt === existingCareerRecord.assessment_snapshot?.completedAt
+      return new Response(JSON.stringify(matches ? existingCareerRecord : []), { status: 200, headers: { 'content-type': 'application/json' } })
     }
     return new Response(JSON.stringify([]), { status: 200, headers: { 'content-range': '*/0', 'content-type': 'application/json' } })
   }
   if (String(url).includes('/rest/v1/rpc/reserve_career_report_generation')) {
-    if (completedReportCount >= 2) {
+    if (reportLimitReached) {
       return new Response(JSON.stringify({ message: 'CAREER_REPORT_LIMIT_REACHED' }), { status: 400, headers: { 'content-type': 'application/json' } })
+    }
+    if (reportInProgress) {
+      return new Response(JSON.stringify({ message: 'CAREER_REPORT_IN_PROGRESS' }), { status: 409, headers: { 'content-type': 'application/json' } })
     }
     return new Response(JSON.stringify({ reservation_id: '33333333-3333-4333-8333-333333333333' }), { status: 200 })
   }
   if (String(url).includes('/rest/v1/rpc/finalize_career_report_generation')) {
+    finalizedOutcomes.push(JSON.parse(options.body).input_outcome)
     return new Response(JSON.stringify(true), { status: 200 })
   }
   if (String(url).includes('/chat/completions')) {
+    if (providerOverride) return providerOverride()
     return new Response(JSON.stringify({
       choices: [{ message: { content: JSON.stringify({
         summary: '你最适合做 Bar Server。',
@@ -58,7 +82,11 @@ global.fetch = async (url, options = {}) => {
     }), { status: 200 })
   }
   if (String(url).includes('/rest/v1/rpc/save_ai_advisor_career_report')) {
+    if (reportSaveFailure) {
+      return new Response(JSON.stringify({ message: 'database unavailable' }), { status: 503, headers: { 'content-type': 'application/json' } })
+    }
     completedReportCount += 1
+    completedReportPayloads.push(JSON.parse(options.body))
     return new Response(JSON.stringify({ consultation_id: '22222222-2222-4222-8222-222222222222' }), { status: 200 })
   }
   throw new Error(`Unexpected fetch: ${url}`)
@@ -99,13 +127,14 @@ try {
         currentStage: 'position_selected', primaryConcern: 'english',
         hardLimits: ['high_upfront_cost'], additionalContext: '餐饮服务经验，不想填写手机号 13812345678。',
       },
-      assessment: { overallScore: 68, dimensionScores: { english: 62, service_experience: 71 }, practicalAssessment: { englishScore: 64, serviceExperienceScore: 72 }, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
+      assessment: { assessmentVersion: 3, completedAt: assessmentCompletedAt, overallScore: 68, dimensionScores: { english: 62, service_experience: 71 }, practicalAssessment: { englishScore: 64, serviceExperienceScore: 72 }, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
     },
     env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
   })
 
   assert.equal(result.status, 200)
   assert.equal(result.body.success, true)
+  assert.equal(result.body.data.generationMode, 'ai')
   assert.deepEqual(result.body.data.recommendedPositions.map((item) => item.id), ['bar', 'restaurant', 'retail'])
   assert.equal(result.body.data.applicationRoute.id, 'guide')
   assert.equal(result.body.data.advisorSignals.decisionStage, 'position_selection')
@@ -129,7 +158,7 @@ try {
       targetRole: 'bar', backupRole: 'restaurant', timeline: '3_6_months',
       currentStage: 'position_selected', primaryConcern: 'english', hardLimits: ['high_upfront_cost'],
     },
-    assessment_snapshot: { dimensionScores: { english: 62, service_experience: 71 } },
+    assessment_snapshot: { assessmentVersion: 3, completedAt: assessmentCompletedAt, dimensionScores: { english: 62, service_experience: 71 } },
     report: result.body.data,
     created_at: new Date().toISOString(),
   }
@@ -142,13 +171,20 @@ try {
         targetRole: 'bar', timeline: '3_6_months', currentStage: 'position_selected',
         primaryConcern: 'english', hardLimits: ['high_upfront_cost'], additionalContext: '餐饮服务经验。',
       },
-      assessment: { overallScore: 68, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
+      assessment: { assessmentVersion: 3, completedAt: assessmentCompletedAt, overallScore: 68, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
     },
     env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
   })
   assert.equal(restored.status, 200)
   assert.equal(restored.body.meta.reusedExistingReport, true)
   assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length, modelCallCount)
+  const exactLookup = [...calls].reverse().find((call) => call.url.includes('/rest/v1/career_reports'))
+  const exactLookupFilter = new URL(exactLookup.url).searchParams.get('assessment_snapshot')
+  assert.ok(exactLookupFilter?.startsWith('cs.'))
+  assert.deepEqual(JSON.parse(exactLookupFilter.slice(3)), {
+    assessmentVersion: 3,
+    completedAt: assessmentCompletedAt,
+  })
 
   const revised = await handleCareerReportRequest({
     method: 'POST',
@@ -161,7 +197,7 @@ try {
         currentStage: 'interview_preparation', primaryConcern: 'interview',
         hardLimits: ['night_shifts'], additionalContext: '希望优先比较销售岗位。',
       },
-      assessment: { overallScore: 68, dimensionScores: { english: 62 }, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
+      assessment: { assessmentVersion: 3, completedAt: revisionCompletedAt, overallScore: 68, dimensionScores: { english: 62 }, ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }] },
     },
     env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
   })
@@ -174,7 +210,7 @@ try {
       currentStage: 'interview_preparation', primaryConcern: 'interview',
       hardLimits: ['night_shifts'], additionalContext: '希望优先比较销售岗位。',
     },
-    assessment_snapshot: { dimensionScores: { english: 62 } },
+    assessment_snapshot: { assessmentVersion: 3, completedAt: revisionCompletedAt, dimensionScores: { english: 62 } },
     report: revised.body.data,
     created_at: new Date().toISOString(),
   }
@@ -185,13 +221,146 @@ try {
       clientRequestId: 'career-report-test-retry',
       regenerate: true,
       profile: existingCareerRecord.profile,
-      assessment: { overallScore: 68, ruleRecommendations: [{ id: 'retail', matchScore: 74 }] },
+      assessment: { assessmentVersion: 3, completedAt: revisionCompletedAt, overallScore: 68, ruleRecommendations: [{ id: 'retail', matchScore: 74 }] },
     },
     env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
   })
   assert.equal(revisionRetry.status, 200)
   assert.equal(revisionRetry.body.meta.reusedExistingReport, true)
   assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length, modelCallCount + 1)
+
+  const beforeMismatchedAssessment = calls.filter((call) => call.url.includes('/chat/completions')).length
+  const mismatchedAssessment = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-new-assessment',
+      profile: existingCareerRecord.profile,
+      assessment: {
+        assessmentVersion: 3,
+        completedAt: '2026-10-07T03:00:00.000Z',
+        overallScore: 70,
+        ruleRecommendations: [{ id: 'retail', matchScore: 76 }],
+      },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(mismatchedAssessment.status, 200)
+  assert.equal(mismatchedAssessment.body.meta?.reusedExistingReport, undefined)
+  assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length, beforeMismatchedAssessment + 1)
+
+  existingCareerRecord = null
+  const fallbackScenarios = [
+    ['timeout', () => { throw new DOMException('Timed out', 'TimeoutError') }, 'test-key', 1],
+    ['network', () => { throw new TypeError('fetch failed') }, 'test-key', 1],
+    ['429', () => Response.json({ error: { code: 'rate_limit' } }, { status: 429 }), 'test-key', 1],
+    ['500', () => new Response('provider failed', { status: 500 }), 'test-key', 1],
+    ['malformed', () => Response.json({ choices: [{ message: { content: '{broken' } }] }), 'test-key', 1],
+    ['incomplete', () => Response.json({ choices: [{ message: { content: JSON.stringify({ summary: '缺少岗位列表。' }) } }] }), 'test-key', 1],
+    ['null', () => Response.json({ choices: [{ message: { content: 'null' } }] }), 'test-key', 1],
+    ['body-read', () => ({ ok: true, text: async () => { throw new TypeError('stream interrupted') } }), 'test-key', 1],
+    ['unconfigured', null, '', 0],
+  ]
+  for (const [name, override, apiKey, expectedProviderCalls] of fallbackScenarios) {
+    providerOverride = override
+    const beforeProviderCalls = calls.filter((call) => call.url.includes('/chat/completions')).length
+    const beforeSaves = completedReportPayloads.length
+    const fallbackResult = await handleCareerReportRequest({
+      method: 'POST',
+      headers: { authorization: 'Bearer mock-token' },
+      body: {
+        clientRequestId: `career-report-fallback-${name}`,
+        profile: {
+          targetRole: 'bar', backupRole: 'restaurant', timeline: '3_6_months',
+          currentStage: 'position_selected', primaryConcern: 'english', hardLimits: ['none'],
+        },
+        assessment: {
+          assessmentVersion: 3,
+          completedAt: `2026-10-07T04:00:0${beforeSaves}.000Z`,
+          overallScore: 68,
+          dimensionScores: { english: 62, service_experience: 71 },
+          ruleRecommendations: [{ id: 'bar', matchScore: 74 }, { id: 'restaurant', matchScore: 70 }, { id: 'retail', matchScore: 64 }],
+        },
+      },
+      env: { DASHSCOPE_API_KEY: apiKey, SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+    })
+    assert.equal(fallbackResult.status, 200, name)
+    assert.equal(fallbackResult.body.data.generationMode, 'rules_fallback', name)
+    assert.equal(fallbackResult.body.data.decisionPrinciple, '测评规则帮你缩小选择范围，但不替你做最终决定。', name)
+    assert.deepEqual(fallbackResult.body.data.recommendedPositions.map((item) => item.id), ['bar', 'restaurant', 'retail'], name)
+    assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length - beforeProviderCalls, expectedProviderCalls, name)
+    assert.equal(completedReportPayloads.length - beforeSaves, 1, name)
+    assert.equal(completedReportPayloads.at(-1).input_model, 'rules-v1', name)
+  }
+  providerOverride = null
+
+  reportLookupFailure = true
+  const lookupFailureResult = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-lookup-failure',
+      profile: {
+        targetRole: 'bar', timeline: '3_6_months', currentStage: 'position_selected',
+        primaryConcern: 'english', hardLimits: ['none'],
+      },
+      assessment: {
+        assessmentVersion: 3,
+        completedAt: '2026-10-07T04:30:00.000Z',
+        overallScore: 68,
+        ruleRecommendations: [{ id: 'bar', matchScore: 74 }],
+      },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(lookupFailureResult.status, 200)
+  assert.equal(lookupFailureResult.body.data.generationMode, 'ai')
+  reportLookupFailure = false
+
+  const finalizedBeforeSaveFailure = finalizedOutcomes.length
+  reportSaveFailure = true
+  const saveFailureResult = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-save-failure',
+      profile: {
+        targetRole: 'bar', timeline: '3_6_months', currentStage: 'position_selected',
+        primaryConcern: 'english', hardLimits: ['none'],
+      },
+      assessment: {
+        assessmentVersion: 3,
+        completedAt: '2026-10-07T04:40:00.000Z',
+        overallScore: 68,
+        ruleRecommendations: [{ id: 'bar', matchScore: 74 }],
+      },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(saveFailureResult.status, 503)
+  assert.equal(saveFailureResult.body.error.code, 'REPORT_SAVE_FAILED')
+  assert.equal(finalizedOutcomes.length, finalizedBeforeSaveFailure + 1)
+  assert.equal(finalizedOutcomes.at(-1), 'failed')
+  reportSaveFailure = false
+
+  reportInProgress = true
+  const inProgress = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-in-progress',
+      profile: {
+        targetRole: 'bar', timeline: '3_6_months', currentStage: 'position_selected',
+        primaryConcern: 'english', hardLimits: ['none'],
+      },
+      assessment: { assessmentVersion: 3, completedAt: '2026-10-07T04:50:00.000Z', overallScore: 68 },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(inProgress.status, 409)
+  assert.equal(inProgress.body.error.code, 'REPORT_IN_PROGRESS')
+  reportInProgress = false
+  reportLimitReached = true
 
   const limitReached = await handleCareerReportRequest({
     method: 'POST',
@@ -203,7 +372,7 @@ try {
         targetRole: 'retail', timeline: 'within_3_months', currentStage: 'interview_preparation',
         primaryConcern: 'interview', hardLimits: ['night_shifts'], additionalContext: '',
       },
-      assessment: { overallScore: 68, ruleRecommendations: [{ id: 'retail', matchScore: 74 }] },
+      assessment: { assessmentVersion: 3, completedAt: '2026-10-07T05:00:00.000Z', overallScore: 68, ruleRecommendations: [{ id: 'retail', matchScore: 74 }] },
     },
     env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
   })

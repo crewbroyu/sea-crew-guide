@@ -52,7 +52,6 @@ const getConfig = (env = process.env) => ({
 })
 
 const requireConfig = (config) => {
-  if (!config.apiKey) throw new CareerReportApiError(503, 'AI_NOT_CONFIGURED', '职业评估服务尚未配置。')
   if (!config.supabaseUrl || !config.supabaseAnonKey) throw new CareerReportApiError(503, 'AUTH_NOT_CONFIGURED', '登录验证服务尚未配置。')
 }
 
@@ -98,10 +97,15 @@ const finalizeCareerReport = async ({ supabase, reservationId, completed }) => {
   if (error) console.error('Career report reservation finalization failed:', error.message)
 }
 
-const getExistingCareerReport = async (supabase) => {
+const getExistingCareerReport = async (supabase, assessment = {}) => {
+  const assessmentVersion = Number(assessment.assessmentVersion) || null
+  const completedAt = trimText(assessment.completedAt, 80)
+  if (!assessmentVersion || !completedAt) return null
+
   const { data, error } = await supabase
     .from('career_reports')
     .select('profile, assessment_snapshot, report, created_at')
+    .contains('assessment_snapshot', { assessmentVersion, completedAt })
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -138,6 +142,20 @@ const sanitizeProfile = (profile = {}) => {
 }
 
 const profilesMatch = (left, right) => JSON.stringify(sanitizeProfile(left)) === JSON.stringify(sanitizeProfile(right))
+
+const assessmentsMatch = (left = {}, right = {}) => {
+  const leftVersion = Number(left.assessmentVersion) || null
+  const rightVersion = Number(right.assessmentVersion) || null
+  const leftCompletedAt = trimText(left.completedAt, 80)
+  const rightCompletedAt = trimText(right.completedAt, 80)
+  return Boolean(
+    leftVersion
+    && rightVersion
+    && leftVersion === rightVersion
+    && leftCompletedAt
+    && leftCompletedAt === rightCompletedAt,
+  )
+}
 
 const normalizeList = (value, fallback, max = 4) => Array.isArray(value)
   ? value.map((item) => trimText(item, 220)).filter(Boolean).slice(0, max).concat([])
@@ -270,10 +288,21 @@ const parseProviderResponse = async (response) => {
     throw new CareerReportApiError(502, 'AI_PROVIDER_ERROR', '职业评估服务暂时不可用，请稍后重试。')
   }
   const content = body.choices?.[0]?.message?.content
-  try { return JSON.parse(content) } catch { throw new CareerReportApiError(502, 'INVALID_AI_RESPONSE', '职业评估生成不完整，请重新提交。') }
+  let result
+  try { result = JSON.parse(content) } catch { throw new CareerReportApiError(502, 'INVALID_AI_RESPONSE', '职业评估生成不完整，请重新提交。') }
+  if (!result || typeof result !== 'object'
+    || !trimText(result.summary, 500)
+    || !Array.isArray(result.recommendedPositions)
+    || result.recommendedPositions.length === 0) {
+    throw new CareerReportApiError(502, 'INVALID_AI_RESPONSE', '职业评估生成不完整，请重新提交。')
+  }
+  return result
 }
 
 const buildReport = (raw, fallbackRecommendations, profile, assessment = {}) => {
+  const generationMode = raw?.generationMode === 'rules_fallback'
+    ? 'rules_fallback'
+    : raw && typeof raw === 'object' ? 'ai' : 'rules_fallback'
   const fallback = fallbackRecommendations
     .map((item) => ({ ...allowedRoles.find((role) => role.id === item.id), matchScore: item.matchScore }))
     .filter((item) => item.id)
@@ -297,7 +326,10 @@ const buildReport = (raw, fallbackRecommendations, profile, assessment = {}) => 
   ])].slice(0, 5)
 
   return {
-    decisionPrinciple: 'AI 帮你缩小选择范围，但不替你做最终决定。',
+    generationMode,
+    decisionPrinciple: generationMode === 'ai'
+      ? 'AI 帮你缩小选择范围，但不替你做最终决定。'
+      : '测评规则帮你缩小选择范围，但不替你做最终决定。',
     summary: softenDecisionLanguage(raw?.summary) || '你的岗位方向需要结合英语、经历、工作偏好和准备周期逐步确认。',
     decisionBasis: normalizeDecisionBasis(raw?.decisionBasis, profile, assessment),
     decisionRisks: decisionRisks.length ? decisionRisks : ['方向匹配度只反映当前信息；收入、工作强度和长期发展仍需在岗位确认前逐项比较。'],
@@ -345,9 +377,11 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
     if (!requestId) throw new CareerReportApiError(400, 'REQUEST_ID_REQUIRED', '本次职业评估请求无效，请重新提交。')
     const assessment = payload.assessment || {}
     const fallbackRecommendations = Array.isArray(assessment.ruleRecommendations) ? assessment.ruleRecommendations.slice(0, 3) : []
-    const existingRecord = await getExistingCareerReport(supabase)
+    const existingRecord = await getExistingCareerReport(supabase, assessment)
     const regenerate = payload.regenerate === true
-    if (existingRecord && (!regenerate || profilesMatch(existingRecord.profile, profile))) {
+    if (existingRecord
+      && assessmentsMatch(existingRecord.assessment_snapshot, assessment)
+      && (!regenerate || profilesMatch(existingRecord.profile, profile))) {
       return {
         status: 200,
         body: {
@@ -367,35 +401,48 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
     let completed = false
 
     try {
-    const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: config.model,
-        enable_thinking: false,
-        temperature: 0.2,
-        max_completion_tokens: CAREER_REPORT_MAX_COMPLETION_TOKENS,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: buildCareerAdvisorSystemPrompt({ roleChoices: allowedRoles.map((role) => `${role.id} (${role.title})`).join('、') }) },
-          { role: 'user', content: JSON.stringify({ profile, assessment: { assessmentVersion: Number(assessment.assessmentVersion) || null, overallScore: Number(assessment.overallScore) || 0, level: trimText(assessment.level, 80), serviceBackground: trimText(assessment.serviceBackground, 80), dimensionScores: assessment.dimensionScores || {}, practicalAssessment: assessment.practicalAssessment ? { englishScore: Number(assessment.practicalAssessment.englishScore) || 0, serviceExperienceScore: Number(assessment.practicalAssessment.serviceExperienceScore) || 0, evidenceConfidence: trimText(assessment.practicalAssessment.evidenceConfidence, 40), summary: trimText(assessment.practicalAssessment.summary, 800), priorities: Array.isArray(assessment.practicalAssessment.priorities) ? assessment.practicalAssessment.priorities.slice(0, 4).map((item) => trimText(item, 220)) : [], integrityFlags: Array.isArray(assessment.practicalAssessment.integrityFlags) ? assessment.practicalAssessment.integrityFlags.slice(0, 4).map((item) => trimText(item, 220)) : [], evidenceHighlights: Array.isArray(assessment.practicalAssessment.evidenceHighlights) ? assessment.practicalAssessment.evidenceHighlights.slice(0, 4).map((item) => ({ source: trimText(item?.source, 20), quote: trimText(item?.quote, 240), finding: trimText(item?.finding, 300) })) : [] } : null, ruleRecommendations: fallbackRecommendations } }) },
-        ],
-      }),
-      signal: AbortSignal.timeout(75_000),
-    })
-      const rawReport = await parseProviderResponse(response)
+      let rawReport = null
+      if (config.apiKey) {
+        try {
+          const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: config.model,
+              enable_thinking: false,
+              temperature: 0.2,
+              max_completion_tokens: CAREER_REPORT_MAX_COMPLETION_TOKENS,
+              response_format: { type: 'json_object' },
+              messages: [
+                { role: 'system', content: buildCareerAdvisorSystemPrompt({ roleChoices: allowedRoles.map((role) => `${role.id} (${role.title})`).join('、') }) },
+                { role: 'user', content: JSON.stringify({ profile, assessment: { assessmentVersion: Number(assessment.assessmentVersion) || null, completedAt: trimText(assessment.completedAt, 80) || null, overallScore: Number(assessment.overallScore) || 0, level: trimText(assessment.level, 80), serviceBackground: trimText(assessment.serviceBackground, 80), dimensionScores: assessment.dimensionScores || {}, practicalAssessment: assessment.practicalAssessment ? { englishScore: Number(assessment.practicalAssessment.englishScore) || 0, serviceExperienceScore: Number(assessment.practicalAssessment.serviceExperienceScore) || 0, evidenceConfidence: trimText(assessment.practicalAssessment.evidenceConfidence, 40), summary: trimText(assessment.practicalAssessment.summary, 800), priorities: Array.isArray(assessment.practicalAssessment.priorities) ? assessment.practicalAssessment.priorities.slice(0, 4).map((item) => trimText(item, 220)) : [], integrityFlags: Array.isArray(assessment.practicalAssessment.integrityFlags) ? assessment.practicalAssessment.integrityFlags.slice(0, 4).map((item) => trimText(item, 220)) : [], evidenceHighlights: Array.isArray(assessment.practicalAssessment.evidenceHighlights) ? assessment.practicalAssessment.evidenceHighlights.slice(0, 4).map((item) => ({ source: trimText(item?.source, 20), quote: trimText(item?.quote, 240), finding: trimText(item?.finding, 300) })) : [] } : null, ruleRecommendations: fallbackRecommendations } }) },
+              ],
+            }),
+            signal: AbortSignal.timeout(60_000),
+          })
+          rawReport = await parseProviderResponse(response)
+        } catch (error) {
+          const recoverable = error instanceof TypeError
+            || ['AbortError', 'TimeoutError'].includes(error?.name)
+            || (error instanceof CareerReportApiError && ['AI_PROVIDER_ERROR', 'INVALID_AI_RESPONSE'].includes(error.code))
+          if (!recoverable) throw error
+          console.warn('Career report provider unavailable; using rule-based report:', error?.code || error?.name)
+        }
+      } else {
+        console.warn('Career report AI is not configured; using rule-based report.')
+      }
       const report = buildReport(rawReport, fallbackRecommendations, profile, assessment)
       const { error } = await supabase.rpc('save_ai_advisor_career_report', {
-      input_profile: profile,
-      input_assessment: assessment,
-      input_report: report,
-      input_model: config.model,
-      input_intent_tags: report.advisorSignals.intentTags,
-      input_decision_stage: report.advisorSignals.decisionStage,
-      input_confidence: report.advisorSignals.confidence,
-      input_missing_information: report.advisorSignals.missingInformation,
-      input_risk_flags: report.advisorSignals.riskFlags,
-      input_framework_version: AI_CREW_YUGE_FRAMEWORK_VERSION,
+        input_profile: profile,
+        input_assessment: assessment,
+        input_report: report,
+        input_model: report.generationMode === 'ai' ? config.model : 'rules-v1',
+        input_intent_tags: report.advisorSignals.intentTags,
+        input_decision_stage: report.advisorSignals.decisionStage,
+        input_confidence: report.advisorSignals.confidence,
+        input_missing_information: report.advisorSignals.missingInformation,
+        input_risk_flags: report.advisorSignals.riskFlags,
+        input_framework_version: AI_CREW_YUGE_FRAMEWORK_VERSION,
       })
       if (error) {
         console.error('Career report persistence failed:', error.message)

@@ -8,9 +8,10 @@ For the current production database, apply only new forward migrations in this o
 2. `supabase_retail_ai_quota_support.sql` to allow atomic Retail AI reservations while keeping the free trial Bar-only.
 3. `supabase_ai_observability_and_career_guard.sql` to add AI health telemetry and atomic one-report-per-account reservations.
 4. `supabase_assessment_attempt_limits.sql` to enforce three completed career assessments per account and bind every assessment AI call to a two-hour database session.
-5. Run `supabase_production_verification.sql`. It is SELECT-only and may be rerun after every deployment.
+5. `supabase_assessment_result_recovery.sql` to restore a completed practical score after a lost response without calling AI or charging again.
+6. Run `supabase_production_verification.sql`. It is SELECT-only and may be rerun after every deployment.
 
-Application code may be deployed after steps 2, 3, and 4. Before those migrations are applied, Retail AI, new career-report generation, and practical assessment AI intentionally fail closed rather than bypassing quota controls.
+Application code may be deployed after steps 2, 3, 4, and 5. Before those migrations are applied, Retail AI, new career-report generation, and practical assessment AI intentionally fail closed rather than bypassing quota controls.
 
 ## Partner workspace (additive pilot)
 

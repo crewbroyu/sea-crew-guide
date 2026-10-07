@@ -11,6 +11,12 @@ import {
   calculateDimensionScore,
   calculateWorkPreferenceProfile,
 } from '../src/data/assessmentScoring.js'
+import {
+  cacheAssessmentResult,
+  clearCachedAssessmentResult,
+  markAssessmentProgressComplete,
+} from '../src/data/assessmentStorage.js'
+import { careerReportMatchesAssessment } from '../src/data/careerReportIdentity.js'
 
 const questionSets = DIMENSIONS.flatMap((dimension) => (
   dimension.id === 'service_experience'
@@ -85,5 +91,52 @@ assert.deepEqual(
   ),
   { english: 71, service_experience: 62, eligibility: 60 },
 )
+
+const throwingStorage = {
+  getItem: () => { throw new Error('storage unavailable') },
+  setItem: () => { throw new Error('storage unavailable') },
+  removeItem: () => { throw new Error('storage unavailable') },
+}
+assert.equal(cacheAssessmentResult(throwingStorage, { completed: true }), false)
+assert.equal(markAssessmentProgressComplete(throwingStorage, '2026-10-07T01:00:00.000Z'), false)
+assert.equal(clearCachedAssessmentResult(throwingStorage), false)
+
+const storageValues = new Map([['boarding_progress', JSON.stringify({ task2: { completed: true } })]])
+const workingStorage = {
+  getItem: (key) => storageValues.get(key) || null,
+  setItem: (key, value) => storageValues.set(key, value),
+  removeItem: (key) => storageValues.delete(key),
+}
+const completedAt = '2026-10-07T01:00:00.000Z'
+assert.equal(cacheAssessmentResult(workingStorage, { completed: true, assessmentVersion: 3, completedAt }), true)
+assert.deepEqual(JSON.parse(storageValues.get('assessment_result')), { completed: true, assessmentVersion: 3, completedAt })
+assert.equal(markAssessmentProgressComplete(workingStorage, completedAt), true)
+assert.deepEqual(JSON.parse(storageValues.get('boarding_progress')), {
+  task1: { completed: true, completedAt },
+  task2: { completed: true },
+})
+assert.equal(clearCachedAssessmentResult(workingStorage), true)
+assert.equal(storageValues.has('assessment_result'), false)
+
+assert.equal(careerReportMatchesAssessment(
+  { assessmentVersion: 3, completedAt: '2026-10-07T01:00:00.000Z' },
+  { assessmentVersion: 3, completedAt: '2026-10-07T01:00:00.000Z' },
+), true)
+assert.equal(careerReportMatchesAssessment(
+  { assessmentVersion: 3, completedAt: '2026-10-06T01:00:00.000Z' },
+  { assessmentVersion: 3, completedAt: '2026-10-07T01:00:00.000Z' },
+), false)
+assert.equal(careerReportMatchesAssessment(
+  { assessmentVersion: '3', completedAt: ' 2026-10-07T01:00:00.000Z ' },
+  { assessmentVersion: 3, completedAt: '2026-10-07T01:00:00.000Z' },
+), true)
+assert.equal(careerReportMatchesAssessment(
+  { assessmentVersion: 2, completedAt: '2026-10-07T01:00:00.000Z' },
+  { assessmentVersion: 3, completedAt: '2026-10-07T01:00:00.000Z' },
+), false)
+assert.equal(careerReportMatchesAssessment(
+  { assessmentVersion: 3 },
+  { assessmentVersion: 3, completedAt: '2026-10-07T01:00:00.000Z' },
+), false)
 
 console.log('Assessment quality checks passed.')

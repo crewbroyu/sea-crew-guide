@@ -1,5 +1,56 @@
 export const BAR_SERVER_TRIAL_VERSION = 3
+// Legacy unpartitioned key. Trial results now live under `${key}:${ownerId}` because AI attempts are tied to an
+// account and use that account's server-side free quota; they are local only, so they must survive sign-out.
 export const BAR_SERVER_TRIAL_STORAGE_KEY = 'bar_server_trial_v3'
+
+const NON_ACCOUNT_OWNERS = new Set(['guest', 'preview'])
+
+export const getBarServerTrialStorageKey = (ownerId) => `${BAR_SERVER_TRIAL_STORAGE_KEY}:${ownerId || 'guest'}`
+
+const parseTrial = (raw) => {
+  try {
+    const parsed = raw ? JSON.parse(raw) : null
+    return parsed?.version === BAR_SERVER_TRIAL_VERSION ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+const hasAiAttempts = (trial) => Object.values(trial?.attemptsByScenario || {})
+  .some((attempts) => Array.isArray(attempts) && attempts.length > 0)
+
+// Reads the owner's trial. When a real account has no record yet, it takes over, in order:
+// 1. the legacy unpartitioned record, only if this device was last bound to this account (or never bound),
+//    so another person's attempts are never adopted;
+// 2. the guest record from signing in mid-trial (lesson progress, chosen scenario and stage). Guests cannot
+//    create AI attempts, and a guest record that somehow has attempts is ignored.
+export const readBarServerTrial = (storage, ownerId) => {
+  const scopedKey = getBarServerTrialStorageKey(ownerId)
+  const scoped = parseTrial(storage.getItem(scopedKey))
+  if (scoped) return scoped
+  if (!ownerId || NON_ACCOUNT_OWNERS.has(ownerId)) return null
+
+  const boundUserId = storage.getItem('current_user_id')
+  const legacy = !boundUserId || boundUserId === ownerId
+    ? parseTrial(storage.getItem(BAR_SERVER_TRIAL_STORAGE_KEY))
+    : null
+  if (legacy) {
+    storage.setItem(scopedKey, JSON.stringify(legacy))
+    storage.removeItem(BAR_SERVER_TRIAL_STORAGE_KEY)
+    return legacy
+  }
+
+  const guestKey = getBarServerTrialStorageKey('guest')
+  const guest = parseTrial(storage.getItem(guestKey))
+  if (!guest || hasAiAttempts(guest)) return null
+  storage.setItem(scopedKey, JSON.stringify(guest))
+  storage.removeItem(guestKey)
+  return guest
+}
+
+export const writeBarServerTrial = (storage, ownerId, trial) => {
+  storage.setItem(getBarServerTrialStorageKey(ownerId), JSON.stringify(trial))
+}
 
 export const barServerTrialScenarios = [
   {

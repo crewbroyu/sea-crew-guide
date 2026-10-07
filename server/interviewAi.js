@@ -11,6 +11,10 @@ const MAX_AUDIO_DATA_LENGTH = 3_500_000
 const MAX_AUDIO_DURATION_SECONDS = 120
 const MAX_QUESTIONS = 10
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+const MAX_PROVIDER_COMPLETION_TOKENS = 8_192
+const MOCK_ANSWER_CARD_CHAR_BUDGET = 6_000
+const EVALUATION_TIME_BUDGET_MS = 80_000
+const MIN_RETRY_WINDOW_MS = 25_000
 const PRACTICE_MODE = 'practice'
 const SCENARIO_TRIAL_MODE = 'scenario_trial'
 const PREMIUM_SCENARIO_MODE = 'premium_scenario'
@@ -412,12 +416,13 @@ const completeAssessmentAttempt = async ({ supabase, body, data }) => {
   return status
 }
 
-const finalizePersistentQuota = async ({ supabase, reservationId, completed }) => {
+// outcome: 'completed' (charged), 'released' (no charge, not a failure), 'failed' (counts toward the failure limit).
+const finalizePersistentQuota = async ({ supabase, reservationId, outcome }) => {
   if (!reservationId) return
 
   const { error } = await supabase.rpc('finalize_ai_usage_reservation', {
     input_reservation_id: reservationId,
-    input_outcome: completed ? 'completed' : 'failed',
+    input_outcome: outcome,
   })
 
   if (error) {
@@ -727,6 +732,29 @@ const hasValidScenarioContract = (evaluation, itemCount) => {
   )
 }
 
+// Mock reports are scored from per-question scores, so every asked question must be present.
+const hasValidMockInterviewContract = (evaluation, itemCount) => {
+  const scores = evaluation?.questionScores
+  if (!Array.isArray(scores) || scores.length !== itemCount) return false
+  return scores.every((score) => {
+    // json_object output sometimes quotes numbers; normalizeEvaluation already coerces them.
+    const value = Number(score?.score)
+    return Number.isFinite(value)
+      && value >= 0
+      && value <= 20
+      && trimText(score?.comment)
+      && trimText(score?.improvedAnswer)
+      && Array.isArray(score?.improvements)
+  })
+}
+
+// The base budget fitted 7 questions; follow-ups can add up to 2 more.
+// Capped at 8,192, the common provider ceiling, so a 9-question report is never rejected outright.
+const getMockInterviewTokenLimit = (itemCount) => Math.min(
+  MAX_PROVIDER_COMPLETION_TOKENS,
+  Math.max(OUTPUT_TOKEN_LIMITS.mockInterview, 1_500 + itemCount * 800),
+)
+
 const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, model) => {
   const hasRichFeedback = isPremium || isScenarioTrial
   const scoreCandidates = rawEvaluation?.questionScores
@@ -895,14 +923,21 @@ const evaluateInterview = async ({ body, config }) => {
       enable_thinking: false,
       temperature: 0.2,
       max_completion_tokens: body.mode === PREMIUM_MOCK_MODE
-        ? OUTPUT_TOKEN_LIMITS.mockInterview
+        ? getMockInterviewTokenLimit(items.length)
         : OUTPUT_TOKEN_LIMITS.singleFeedback,
     }
 
-  const maxAttempts = isScenarioTrial ? 2 : 1
+  const isMockInterview = body.mode === PREMIUM_MOCK_MODE
+  const maxAttempts = isScenarioTrial || isMockInterview ? 2 : 1
+  // Stay inside the 90 s serverless limit so a retry never leaves a reservation stuck mid-call.
+  const deadline = Date.now() + EVALUATION_TIME_BUDGET_MS
   let rawEvaluation
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const remainingMs = deadline - Date.now()
+    if (attempt > 1 && remainingMs < MIN_RETRY_WINDOW_MS) {
+      throw new InterviewApiError(502, 'INVALID_AI_RESPONSE', 'AI 专业反馈生成不完整，请重新提交本次回答。')
+    }
     const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -910,14 +945,24 @@ const evaluateInterview = async ({ body, config }) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestPayload),
-      signal: AbortSignal.timeout(75_000),
+      signal: AbortSignal.timeout(Math.min(75_000, remainingMs)),
     })
 
     const providerBody = await readProviderResponse(response)
-    rawEvaluation = parseJsonContent(providerBody.choices?.[0]?.message?.content)
-    if (!isScenarioTrial || hasValidScenarioContract(rawEvaluation, items.length)) break
+    try {
+      rawEvaluation = parseJsonContent(providerBody.choices?.[0]?.message?.content)
+    } catch (error) {
+      // A truncated mock report is retried like any other contract mismatch.
+      if (!isMockInterview) throw error
+      rawEvaluation = null
+    }
+    const contractValid = isScenarioTrial
+      ? hasValidScenarioContract(rawEvaluation, items.length)
+      : !isMockInterview || hasValidMockInterviewContract(rawEvaluation, items.length)
+    if (contractValid) break
 
-    console.warn('DashScope scenario response contract mismatch:', {
+    console.warn('DashScope evaluation response contract mismatch:', {
+      mode: body.mode,
       model: evaluationModel,
       requestId: providerBody.request_id || null,
       attempt,
@@ -1012,18 +1057,51 @@ const generateAssessmentFollowUp = async ({ body, config }) => {
   }
 }
 
-const normalizeMockAnswerCards = (value) => (
-  Array.isArray(value)
-    ? value.slice(0, 8).map((card) => ({
-        id: trimText(card?.id, 100),
-        title: trimText(card?.title, 180),
-        completed: Boolean(card?.completed),
-        generated: trimText(card?.generated, 1800),
-      })).filter((card) => card.completed && (card.generated || card.title))
-    : []
-)
+// Answer cards are context for one short follow-up decision, so they share a fixed character budget:
+// every card's prepared summary first (concise version preferred), then raw answer evidence while room remains.
+const normalizeMockAnswerCards = (value) => {
+  if (!Array.isArray(value)) return []
 
-const getMockAnswerCards = async ({ supabase, userId, fallback }) => {
+  const candidates = value.slice(0, 8).map((card) => {
+    const generated = card?.generated
+    const summary = typeof generated === 'object' && generated
+      ? trimText(generated.concise, 900) || trimText(generated.basic, 1800)
+      : trimText(generated, 1800)
+    const answers = card?.answers && typeof card.answers === 'object'
+      ? Object.entries(card.answers)
+        .filter(([key, answer]) => key !== 'aiCoach' && key !== 'followUpAnswers' && typeof answer === 'string')
+        .map(([key, answer]) => ({ key: trimText(key, 80), answer: trimText(answer, 500) }))
+        .filter((item) => item.key && item.answer)
+        .slice(0, 8)
+      : []
+    return {
+      id: trimText(card?.id, 100),
+      title: trimText(card?.title, 180),
+      completed: Boolean(card?.completed),
+      summary,
+      answers,
+    }
+  }).filter((card) => card.completed && (card.summary || card.answers.length))
+
+  let remaining = MOCK_ANSWER_CARD_CHAR_BUDGET
+  const cards = candidates.map((card) => {
+    const generated = card.summary.slice(0, remaining)
+    remaining -= generated.length
+    return { id: card.id, title: card.title, completed: true, generated, answerEvidence: [] }
+  })
+  candidates.forEach((card, index) => {
+    card.answers.forEach((item) => {
+      const cost = item.key.length + item.answer.length
+      if (cost > remaining) return
+      remaining -= cost
+      cards[index].answerEvidence.push(item)
+    })
+  })
+
+  return cards.filter((card) => card.generated || card.answerEvidence.length)
+}
+
+const getMockAnswerCards = async ({ supabase, userId }) => {
   try {
     const { data, error } = await supabase
       .from('interview_answer_profiles')
@@ -1032,14 +1110,12 @@ const getMockAnswerCards = async ({ supabase, userId, fallback }) => {
       .maybeSingle()
     if (error) {
       console.error('Mock interview answer-card lookup failed:', error.message)
-      return normalizeMockAnswerCards(fallback)
+      return []
     }
-    return normalizeMockAnswerCards(data?.answer_cards).length
-      ? normalizeMockAnswerCards(data.answer_cards)
-      : normalizeMockAnswerCards(fallback)
+    return normalizeMockAnswerCards(data?.answer_cards)
   } catch (error) {
     console.error('Mock interview answer-card lookup failed:', error?.message || error)
-    return normalizeMockAnswerCards(fallback)
+    return []
   }
 }
 
@@ -1053,7 +1129,6 @@ const generateMockInterviewFollowUp = async ({ body, config, supabase, userId })
   const answerCards = await getMockAnswerCards({
     supabase,
     userId,
-    fallback: body.task6AnswerCards,
   })
   const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
     method: 'POST',
@@ -1866,6 +1941,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
       body: payload,
     })
     let usageRecorded = false
+    let releaseWithoutCharge = false
 
     try {
       let data = action === 'transcribe'
@@ -1884,16 +1960,22 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
             ? await evaluateScenarioSimulation({ body: payload, config, supabase: auth.supabase, userId: auth.user.id })
             : await evaluateInterview({ body: payload, config })
 
-      await recordAiUsage({
-        supabase: auth.supabase,
-        userId: auth.user.id,
-        action,
-        mode,
-        body: payload,
-        data,
-        config,
-      })
-      usageRecorded = true
+      // A follow-up check that decides not to ask anything is free for the learner.
+      const isBillable = !(action === 'mock_followup' && !data?.shouldFollowUp)
+      if (isBillable) {
+        await recordAiUsage({
+          supabase: auth.supabase,
+          userId: auth.user.id,
+          action,
+          mode,
+          body: payload,
+          data,
+          config,
+        })
+        usageRecorded = true
+      } else {
+        releaseWithoutCharge = true
+      }
 
       if (mode === ASSESSMENT_MODE && action === 'assessment_evaluate') {
         const attemptStatus = await completeAssessmentAttempt({
@@ -1921,7 +2003,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
       await finalizePersistentQuota({
         supabase: auth.supabase,
         reservationId: quotaReservationId,
-        completed: usageRecorded,
+        outcome: usageRecorded ? 'completed' : releaseWithoutCharge ? 'released' : 'failed',
       })
     }
   } catch (error) {

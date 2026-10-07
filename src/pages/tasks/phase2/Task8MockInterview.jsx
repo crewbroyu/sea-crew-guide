@@ -1,5 +1,5 @@
 // src/pages/tasks/phase2/Task8MockInterview.jsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Mic, MicOff, Clock, AlertTriangle, RefreshCw, Home,
@@ -11,10 +11,21 @@ import interviewQuestions from '../../../data/interviewQuestions';
 import RequireActivation from '../../../components/RequireActivation';
 import { useAccessStore } from '../../../store/accessStore';
 import {
+  createInterviewRequestId,
   evaluateInterviewWithAi,
   generateMockInterviewFollowUp,
   transcribeInterviewAudio,
 } from '../../../services/interviewAiService';
+import { getMyProductUsage } from '../../../services/productUsageService';
+import {
+  MAX_MOCK_FOLLOW_UP_CHECKS,
+  MAX_MOCK_FOLLOW_UPS,
+  buildMockDraft,
+  clearMockDraft,
+  getMockDraftResumeIndex,
+  readMockDraft,
+  writeMockDraft,
+} from '../../../data/mockInterviewDraft';
 import { syncLocalPathProfile } from '../../../services/userPathService';
 import { saveInterviewPracticeRecord } from '../../../services/interviewPracticeService';
 import { normalizeInterviewPosition } from '../../../utils/interviewPosition';
@@ -80,15 +91,6 @@ const readSavedInterviewPosition = () => {
   }
 };
 
-const readTask6AnswerCards = () => {
-  try {
-    const result = JSON.parse(localStorage.getItem('task6_result') || '{}');
-    return Array.isArray(result.answerCards) ? result.answerCards : [];
-  } catch {
-    return [];
-  }
-};
-
 const pickInterviewer = () =>
   INTERVIEWERS[Math.floor(Math.random() * INTERVIEWERS.length)];
 
@@ -126,7 +128,7 @@ const buildInterviewQuestions = (position) => {
 function Task8MockInterview() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { openRegisterModal, openUnlockModal } = useAccessStore();
+  const { openRegisterModal, openUnlockModal, userId } = useAccessStore();
   const requestedPosition = normalizeInterviewPosition(
     new URLSearchParams(location.search).get('position'),
     ''
@@ -187,9 +189,40 @@ function Task8MockInterview() {
   const stopRecordingResolverRef = useRef(null);
   const answerReadyRef = useRef(false);
   const textOnlyModeRef = useRef(false);
-  const task6AnswerCardsRef = useRef(readTask6AnswerCards());
   const followUpRequestCountRef = useRef(0);
   const generatedFollowUpCountRef = useRef(0);
+  const finalEvaluationRequestIdRef = useRef(null);
+  const scoringInFlightRef = useRef(false);
+  const [draftRevision, setDraftRevision] = useState(0);
+
+  // draftRevision bumps force a re-read of storage after the draft is cleared.
+  const savedDraft = useMemo(
+    () => (draftRevision >= 0 && stage === 'ready' && userId && selectedPosition
+      ? readMockDraft(localStorage, userId, selectedPosition)
+      : null),
+    [stage, userId, selectedPosition, draftRevision]
+  );
+
+  const persistDraft = () => {
+    if (!userId) return;
+    writeMockDraft(localStorage, userId, buildMockDraft({
+      position: selectedPosition,
+      interviewer: selectedInterviewer,
+      questions: extractedQuestionsRef.current,
+      answers: answersRef.current,
+      answerDetails: answerDetailsRef.current,
+      followUpChecks: followUpRequestCountRef.current,
+      followUps: generatedFollowUpCountRef.current,
+      finalEvaluationRequestId: finalEvaluationRequestIdRef.current,
+      savedAt: new Date().toISOString(),
+    }));
+  };
+
+  const discardDraft = () => {
+    if (userId) clearMockDraft(localStorage, userId);
+    finalEvaluationRequestIdRef.current = null;
+    setDraftRevision((value) => value + 1);
+  };
 
   // 同步 ref
   useEffect(() => { currentQuestionIndexRef.current = currentQuestionIndex; }, [currentQuestionIndex]);
@@ -234,13 +267,44 @@ function Task8MockInterview() {
   };
 
   // ==================== 核心流程 ====================
-  const startInterview = async () => {
+  // Check remaining credits before any paid call, so follow-ups are never spent on an interview that cannot be scored.
+  const checkInterviewQuota = async () => {
+    let usage = null;
+    try {
+      usage = await getMyProductUsage(getProductCode(selectedPosition));
+    } catch (error) {
+      console.warn('Unable to pre-check mock interview quota:', error);
+      return true;
+    }
+    if (!usage?.active) return true;
+    if (usage.mockInterview.remaining === 0) {
+      setAiError('完整模拟面试次数已用完，本次不会开始面试，也不会消耗其他额度。');
+      setAiErrorCode('AI_QUOTA_EXHAUSTED');
+      return false;
+    }
+    if (usage.feedback.remaining === 0) {
+      // No feedback credits left: run the interview without dynamic follow-ups.
+      followUpRequestCountRef.current = MAX_MOCK_FOLLOW_UP_CHECKS;
+    }
+    return true;
+  };
+
+  const startInterview = async (startIndex = 0) => {
     setAiError('');
+    setAiErrorCode('');
     textOnlyModeRef.current = false;
 
     if (!isAiInterviewAvailable(selectedPosition)) {
       setAiError('该岗位的完整 AI 模拟面试仍在制作中。请先到海乘学院浏览公开题库并进行文字练习。');
       setAiErrorCode('POSITION_AI_NOT_AVAILABLE');
+      return;
+    }
+
+    if (!(await checkInterviewQuota())) return;
+
+    if (startIndex >= extractedQuestionsRef.current.length) {
+      setStage('scoring');
+      await finishInterview();
       return;
     }
 
@@ -256,7 +320,7 @@ function Task8MockInterview() {
       stream.getTracks().forEach(track => track.stop());
 
       setStage('interviewing');
-      await startInterviewProcess(0);
+      await startInterviewProcess(startIndex);
     } catch (error) {
       console.error('Microphone error:', error);
       setStage('interviewing');
@@ -401,7 +465,7 @@ function Task8MockInterview() {
     answersRef.current = updatedAnswers;
     answerDetailsRef.current = updatedDetails;
 
-    if (!question?.isFollowUp && followUpRequestCountRef.current < 3 && generatedFollowUpCountRef.current < 2) {
+    if (!question?.isFollowUp && followUpRequestCountRef.current < MAX_MOCK_FOLLOW_UP_CHECKS && generatedFollowUpCountRef.current < MAX_MOCK_FOLLOW_UPS) {
       followUpRequestCountRef.current += 1;
       setCurrentStatus('analyzing');
       try {
@@ -409,7 +473,6 @@ function Task8MockInterview() {
           position: POSITION_NAMES[selectedPosition] || selectedPosition,
           mainQuestion: question?.question || '',
           answer: finalAnswer,
-          task6AnswerCards: task6AnswerCardsRef.current,
         });
         if (followUp.shouldFollowUp && followUp.question) {
           generatedFollowUpCountRef.current += 1;
@@ -430,6 +493,8 @@ function Task8MockInterview() {
         console.warn('Mock interview follow-up skipped:', error?.code || error?.message || error);
       }
     }
+
+    persistDraft();
 
     const nextIdx = currentIdx + 1;
     if (nextIdx < extractedQuestionsRef.current.length) {
@@ -505,12 +570,17 @@ function Task8MockInterview() {
   };
 
   const finishInterview = async () => {
+    if (scoringInFlightRef.current) return;
+    scoringInFlightRef.current = true;
     await stopListening();
     setStage('scoring');
     setAiError('');
     setAiErrorCode('');
 
     const allQuestions = extractedQuestionsRef.current;
+    // One id per interview: a timeout retry reuses it, so the server never charges the same interview twice.
+    finalEvaluationRequestIdRef.current ||= createInterviewRequestId();
+    persistDraft();
 
     try {
       const evaluationData = await evaluateInterviewWithAi({
@@ -518,8 +588,10 @@ function Task8MockInterview() {
         position: POSITION_NAMES[selectedPosition] || selectedPosition,
         questions: allQuestions,
         answers: answerDetailsRef.current,
+        requestId: finalEvaluationRequestIdRef.current,
       });
       setEvaluation(evaluationData);
+      discardDraft();
 
       const progressKey = 'boarding_progress';
       const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
@@ -550,12 +622,39 @@ function Task8MockInterview() {
       isTransitioningRef.current = false;
     } catch (error) {
       console.error('AI 面试评分失败:', error);
-      setAiError(error.message || 'AI 评分生成失败，请稍后重试。');
+      if (error.code === 'AI_REQUEST_ALREADY_COMPLETED') {
+        // The server scored and charged this interview, but the response never arrived.
+        // Retrying with a new id would charge again, so stop here and route to support.
+        setAiError('这场面试已经完成评分并计入次数，但结果没有成功返回。为避免重复扣次，请不要重新开始，点下方“提交问题”，我们会核对并恢复。');
+        discardDraft();
+      } else if (error.code === 'AI_REQUEST_IN_PROGRESS') {
+        setAiError('评分仍在处理中，请约 1 分钟后点“重新生成”，不会重复扣次。');
+      } else {
+        setAiError(error.message || 'AI 评分生成失败，请稍后重试。');
+      }
       setAiErrorCode(error.code || '');
       if (error.code === 'LOGIN_REQUIRED') openRegisterModal();
       if (error.code === 'ACTIVATION_REQUIRED') openUnlockModal();
       isTransitioningRef.current = false;
+    } finally {
+      scoringInFlightRef.current = false;
     }
+  };
+
+  const resumeDraft = async () => {
+    if (!savedDraft) return;
+    const resumeIndex = getMockDraftResumeIndex(savedDraft);
+    extractedQuestionsRef.current = savedDraft.questions;
+    setExtractedQuestions(savedDraft.questions);
+    answersRef.current = savedDraft.answers;
+    answerDetailsRef.current = savedDraft.answerDetails;
+    followUpRequestCountRef.current = Number(savedDraft.followUpChecks || 0);
+    generatedFollowUpCountRef.current = Number(savedDraft.followUps || 0);
+    finalEvaluationRequestIdRef.current = savedDraft.finalEvaluationRequestId || null;
+    if (savedDraft.interviewer) setSelectedInterviewer(savedDraft.interviewer);
+    setCurrentQuestionIndex(resumeIndex);
+    currentQuestionIndexRef.current = resumeIndex;
+    await startInterview(resumeIndex);
   };
 
   const restartInterview = () => {
@@ -584,7 +683,7 @@ function Task8MockInterview() {
     textOnlyModeRef.current = false;
     followUpRequestCountRef.current = 0;
     generatedFollowUpCountRef.current = 0;
-    task6AnswerCardsRef.current = readTask6AnswerCards();
+    discardDraft();
 
     if (selectedPosition) {
       const questions = buildInterviewQuestions(selectedPosition);
@@ -784,7 +883,7 @@ function Task8MockInterview() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">面试题数：</span>
-                  <span className="font-medium text-gray-800">7 题（题目从任务7题库中随机抽取）</span>
+                  <span className="font-medium text-gray-800">7 道主问题，另有最多 {MAX_MOCK_FOLLOW_UPS} 道动态追问</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">预计时长：</span>
@@ -800,9 +899,38 @@ function Task8MockInterview() {
                   <li>结束录音后，AI 会转写；确认文字后进入下一题</li>
                   <li>面试题目从任务7的题库中随机抽取，每次面试题目不同</li>
                   <li>每题回答时间不超过2分钟</li>
+                  <li>面试官可能根据你的回答追问细节，整场最多 {MAX_MOCK_FOLLOW_UPS} 次</li>
                   <li>面试结束后会给出评分和点评</li>
                 </ol>
               </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6 text-sm leading-6 text-slate-700">
+                <p className="font-medium text-slate-900">额度说明</p>
+                <p className="mt-1">最终评分使用 1 次模拟面试次数；每道实际出现的追问使用 1 次 AI 反馈额度，不追问不扣。中途刷新会保留已答内容，重新生成评分不会重复扣次。</p>
+              </div>
+
+              {savedDraft && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6">
+                  <p className="font-medium text-emerald-900">你有一场未完成的面试</p>
+                  <p className="mt-1 text-sm text-emerald-800">
+                    已回答 {savedDraft.answers.length}/{savedDraft.questions.length} 题
+                    {getMockDraftResumeIndex(savedDraft) >= savedDraft.questions.length ? '，只差生成评分。' : '，可以从下一题继续。'}
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button type="button" onClick={() => void resumeDraft()} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">继续上次面试</button>
+                    <button type="button" onClick={discardDraft} className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-800">放弃这场面试</button>
+                  </div>
+                </div>
+              )}
+
+              {aiError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700">
+                  <p>{aiError}</p>
+                  {aiErrorCode === 'AI_QUOTA_EXHAUSTED' && (
+                    <button type="button" onClick={() => navigate('/premium?source=task8-ai-quota')} className="mt-2 font-semibold underline underline-offset-2">查看权益方案</button>
+                  )}
+                </div>
+              )}
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
                 <div className="flex items-start gap-2">
@@ -835,7 +963,10 @@ function Task8MockInterview() {
                 productCode={getProductCode(selectedPosition)}
               >
               <button
-                onClick={startInterview}
+                onClick={() => {
+                  if (savedDraft) discardDraft();
+                  void startInterview(0);
+                }}
                 disabled={!selectedPosition}
                 className={`w-full py-4 rounded-lg font-medium transition-colors text-lg ${
                   selectedPosition 
@@ -843,7 +974,7 @@ function Task8MockInterview() {
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                开始面试
+                {savedDraft ? '放弃上次进度，重新开始' : '开始面试'}
               </button>
               </RequireActivation> : (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
@@ -1077,14 +1208,14 @@ function Task8MockInterview() {
                 <AlertTriangle size={42} className="mx-auto text-red-500" />
                 <h2 className="text-xl font-bold text-gray-800">AI 报告生成失败</h2>
                 <p className="text-sm leading-6 text-red-700">{aiError}</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className={`grid gap-3 ${aiErrorCode === 'AI_REQUEST_ALREADY_COMPLETED' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                   <button onClick={backToTasks} className="rounded-lg bg-gray-100 px-4 py-3 font-medium text-gray-700">返回</button>
-                  <button
+                  {aiErrorCode !== 'AI_REQUEST_ALREADY_COMPLETED' && <button
                     onClick={() => aiErrorCode === 'AI_QUOTA_EXHAUSTED' ? navigate('/premium?source=task8-ai-quota') : finishInterview()}
                     className="rounded-lg bg-blue-600 px-4 py-3 font-medium text-white"
                   >
                     {aiErrorCode === 'AI_QUOTA_EXHAUSTED' ? '查看权益方案' : '重新生成'}
-                  </button>
+                  </button>}
                 </div>
                 <button
                   type="button"

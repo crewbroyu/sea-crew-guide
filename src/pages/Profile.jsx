@@ -28,6 +28,8 @@ import {
   syncLocalPathProfile,
 } from '../services/userPathService'
 import { getInterviewPracticeHistory } from '../services/interviewPracticeService'
+import { buildSignOutWarning, hasUnsavedPrivateDrafts, releaseProgressStorageOnSignOut } from '../data/userScopedStorage'
+import { getLegacyFoundationImport } from '../services/foundationLegacyImportService'
 
 const stageLabels = {
   exploring: '了解阶段',
@@ -109,7 +111,7 @@ const planLabels = {
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { userEmail, userName, isAdmin, reset } = useAccessStore()
+  const { userEmail, userName, isAdmin, reset, userId } = useAccessStore()
   const effectiveAccess = useEffectiveAccess()
   const {
     isUnlocked,
@@ -371,9 +373,25 @@ export default function Profile() {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    reset()
-    navigate('/')
+    // 'available' means the legacy course progress has not been copied into this account yet;
+    // a 'pending' import already lives in account storage and survives sign-out.
+    const legacyImport = userId ? getLegacyFoundationImport(userId) : null
+    const warning = buildSignOutWarning({
+      hasPrivateDrafts: hasUnsavedPrivateDrafts(localStorage),
+      hasUnimportedLegacyProgress: legacyImport?.status === 'available',
+    })
+    if (warning && !window.confirm(warning)) return
+
+    // Push route progress to the account first; signOut and cleanup still run if the sync fails.
+    await syncLocalPathProfile()
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      releaseProgressStorageOnSignOut(localStorage)
+      reset()
+      // A full reload also drops in-memory stores (for example the persisted resume) of the previous user.
+      window.location.assign('/')
+    }
   }
 
   return (

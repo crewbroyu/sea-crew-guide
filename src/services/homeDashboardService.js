@@ -1,4 +1,4 @@
-import { BAR_SERVER_TRIAL_STORAGE_KEY } from '../data/barServerTrial.js'
+import { readBarServerTrial } from '../data/barServerTrial.js'
 import { readBarLearningStage, readBarLearningStageUpdatedAt, readBarListeningProgress, readBarShiftHistory } from '../data/barServerListening.js'
 import { mergeBarServerPractice } from '../data/barServerProgressSync.js'
 import { mergeFoundationProgress } from '../data/foundationSync.js'
@@ -78,7 +78,7 @@ export const getHomeDashboard = async (access) => {
       shiftHistory: practice.shiftHistory,
       scenarioProfile,
       scenarioHistory,
-      trial: readJson(BAR_SERVER_TRIAL_STORAGE_KEY, {}),
+      trial: readBarServerTrial(localStorage, ownerId) || {},
       interviewCompleted: Boolean(practice.interviewCompletedAt || readJson('task6_result', {}).completedAt),
       hasBarServerPack: hasProductEntitlement(access, 'bar_server_pack'),
       hasRetailPack: hasProductEntitlement(access, 'retail_sales_pack'),

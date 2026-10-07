@@ -35,7 +35,9 @@
     "test:foundation-sync": "node scripts/test-foundation-sync.mjs",
     "test:foundation-import": "node scripts/test-foundation-legacy-import.mjs",
     "test:foundation-task": "node scripts/test-foundation-task-completion.mjs",
-    "test:adaptive-training": "node scripts/test-adaptive-training.mjs"
+    "test:adaptive-training": "node scripts/test-adaptive-training.mjs",
+    "test:release-blockers": "node scripts/test-release-blockers.mjs",
+    "test:mock-reliability": "node scripts/test-mock-interview-reliability.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

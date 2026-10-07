@@ -5,40 +5,7 @@ import { supabase } from '../supabase';
 import { activationService } from '../services/activationService';
 import RegisterModal from './RegisterModal';
 import UnlockModal from './UnlockModal';
-
-const PROGRESS_KEYS = [
-  'boarding_progress',
-  'assessment_result',
-  'score_data',
-  'checkin_data',
-  'checkin_records',
-  'messages',
-  'job_applications',
-  'port_daily_posts',
-  'task1_data',
-  'task2_data',
-  'task2_result',
-  'task4_data',
-  'task5_data',
-  'task7_data',
-  'task8_data',
-  'task9_data',
-  'task10_data',
-  'task10_docs',
-  'task10_guide_viewed',
-  'task11_data',
-  'task12_data',
-  'interviewSelectedPosition',
-  'seafarer-resume',
-  'bar_server_listening_progress_v1',
-  'bar_server_learning_stage',
-  'bar_server_shift_challenge_history_v1',
-  'foundation_saved_lines_v1:bar_server',
-  'foundation_saved_lines_v1:retail',
-  'foundation_placement_v1:bar_server',
-  'foundation_placement_v1:retail',
-  'retail_foundation_v1',
-];
+import { bindProgressStorageToUser } from '../data/userScopedStorage';
 
 const getDisplayName = (user) => user?.user_metadata?.name || user?.email?.split('@')[0];
 
@@ -102,14 +69,7 @@ export default function AccessGate() {
   const hasCheckedAuth = useRef(false);
 
   const clearUserScopedProgressIfNeeded = useCallback((user) => {
-    const previousUserId = localStorage.getItem('current_user_id');
-
-    if (previousUserId && previousUserId !== user.id) {
-      PROGRESS_KEYS.forEach((key) => localStorage.removeItem(key));
-      activationService.clearAccessCache();
-    }
-
-    localStorage.setItem('current_user_id', user.id);
+    if (bindProgressStorageToUser(localStorage, user.id)) activationService.clearAccessCache();
   }, []);
 
   const refreshAccessForUser = useCallback(async (user) => {

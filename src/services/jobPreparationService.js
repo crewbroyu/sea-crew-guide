@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { mergeFoundationProgress, mergeFoundationSavedLines, nextPreparationTimestamp } from '../data/foundationSync'
+import { mergeFoundationProgress, mergeFoundationSavedLines, nextPreparationTimestamp, stripLocalOnlyFoundationFields } from '../data/foundationSync'
 import { mergeRetailPractice } from '../data/retailPracticeProgress'
 import { mergeBarServerPractice } from '../data/barServerProgressSync'
 
@@ -36,7 +36,7 @@ const updateProfile=async(expectedUserId,build)=>{
 const mergeRecords=(cloud={},local={})=>{
  const records={...cloud,...local}
  if(local.retailPractice)records.retailPractice=mergeRetailPractice(cloud.retailPractice,local.retailPractice)
- if(cloud.foundationCourses || local.foundationCourses)records.foundationCourses=mergeFoundationProgress(cloud.foundationCourses,local.foundationCourses)
+ if(cloud.foundationCourses || local.foundationCourses)records.foundationCourses=mergeFoundationProgress(cloud.foundationCourses,stripLocalOnlyFoundationFields(local.foundationCourses))
  // Task5 snapshots do not own the dedicated listening or foundation namespaces.
  if(cloud.barServerPractice)records.barServerPractice=cloud.barServerPractice
  return records
@@ -72,6 +72,6 @@ export const upsertMyFoundationCourseState=async({jobKey,roleKey,roleTitle,versi
  return updateProfile(expectedUserId,existing=>{
   const records=existing.learning_records || {},courses=records.foundationCourses || {},old=courses[jobKey]
   const mergedLines=mergeFoundationSavedLines(old,{savedLines,savedLineChanges})
-  return {selected_role:existing.selected_role || roleKey || null,role_title:existing.role_title || roleTitle || null,learning_records:{...records,foundationCourses:{...courses,[jobKey]:{version,progress:mergeFoundationProgress(old?.version===version?old.progress:null,progress || {}),...mergedLines,placement:placement || old?.placement || null,updatedAt:new Date().toISOString()}}}}
+  return {selected_role:existing.selected_role || roleKey || null,role_title:existing.role_title || roleTitle || null,learning_records:{...records,foundationCourses:{...courses,[jobKey]:{version,progress:mergeFoundationProgress(old?.version===version?old.progress:null,stripLocalOnlyFoundationFields(progress || {})),...mergedLines,placement:placement || old?.placement || null,updatedAt:new Date().toISOString()}}}}
  })
 }

@@ -74,6 +74,13 @@ function FoundationCourseContent({ownerId,readOnly}) {
   const [cloudReady, setCloudReady] = useState(false)
   const [completingTask, setCompletingTask] = useState(false)
   const [taskCompletionError, setTaskCompletionError] = useState('')
+  // Lessons read the newest progress through this ref so a delayed AI result cannot restore an older snapshot,
+  // even if the learner has moved to another day while waiting.
+  const progressRef = useRef(progress)
+  useEffect(() => {
+    progressRef.current = progress
+  }, [progress])
+  const getLatestProgress = () => progressRef.current
   const view = searchParams.get('view') || 'course'
   const viewOptions = course?.jobKey === 'retail'
     ? [baseViewOptions[0], { key: 'knowledge', label: '产品知识库', icon: BookOpen }, ...baseViewOptions.slice(1)]
@@ -104,6 +111,7 @@ function FoundationCourseContent({ownerId,readOnly}) {
         )
         const localPlacement = readFoundationPlacement(course.jobKey, storageOwner)
         const mergedPlacement = localPlacement || cloudState.placement || null
+        progressRef.current = mergedProgress
         setProgress(mergedProgress)
         setSavedLines(mergedLines.savedLines)
         setSavedLineChanges(mergedLines.savedLineChanges)
@@ -136,8 +144,10 @@ function FoundationCourseContent({ownerId,readOnly}) {
       }).then((profile) => {
         if(!active || revision.current!==editRevision)return
         const cloudState=profile?.learning_records?.foundationCourses?.[course.jobKey]
-        const merged=cloudState?.progress
-        if(merged){setProgress(merged);writeFoundationProgress(course.jobKey,merged,storageOwner)}
+        // The server copy never carries device-only Guest Challenge request fields, so re-apply this
+        // device's current progress on top (no edits happened since: the revision check above).
+        const merged=cloudState?.progress ? mergeFoundationProgress(cloudState.progress,progressRef.current) : null
+        if(merged){progressRef.current=merged;setProgress(merged);writeFoundationProgress(course.jobKey,merged,storageOwner)}
         if(cloudState){
           const mergedLines=mergeFoundationSavedLines({savedLines,savedLineChanges},cloudState)
           setSavedLines(mergedLines.savedLines)
@@ -190,6 +200,7 @@ function FoundationCourseContent({ownerId,readOnly}) {
   const updateProgress = (next) => {
     if(readOnly)return
     markDirty()
+    progressRef.current = next
     setProgress(next)
     writeFoundationProgress(course.jobKey, next, storageOwner)
   }
@@ -261,9 +272,9 @@ function FoundationCourseContent({ownerId,readOnly}) {
       </header>
       <main className="mx-auto max-w-3xl px-5 py-6">
         {course.jobKey === 'bar_server' ? (
-          <BarServerFoundationTraining key={selectedDay.id} progress={progress} onProgressChange={updateProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartTask6={finishFoundationCourse} onStartTask7={() => navigate('/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task5')} onStartScenarioTraining={() => navigate(course.simulatorRoute)} />
+          <BarServerFoundationTraining key={selectedDay.id} progress={progress} onProgressChange={updateProgress} getLatestProgress={getLatestProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartTask6={finishFoundationCourse} onStartTask7={() => navigate('/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task5')} onStartScenarioTraining={() => navigate(course.simulatorRoute)} />
         ) : (
-          <RetailFoundationTraining key={selectedDay.id} initialProgress={progress} onProgressChange={updateProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartQuestions={() => navigate('/academy/interview-questions?position=retail')} onStartSimulation={() => navigate(course.simulatorRoute)} />
+          <RetailFoundationTraining key={selectedDay.id} initialProgress={progress} onProgressChange={updateProgress} getLatestProgress={getLatestProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartQuestions={() => navigate('/academy/interview-questions?position=retail')} onStartSimulation={() => navigate(course.simulatorRoute)} />
         )}
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={() => navigate(`/programs/${course.slug}/foundation`)} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700">返回目录</button>

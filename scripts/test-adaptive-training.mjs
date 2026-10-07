@@ -5,6 +5,16 @@ import { barServerSimulationScenarios } from '../src/data/jobScenarioCatalog.js'
 const providerRequests = []
 const quotaRequests = []
 const userId = '00000000-0000-4000-8000-000000000101'
+let cloudAnswerCards = [{
+  id: 'service_case',
+  title: 'Service recovery example',
+  completed: true,
+  answers: { context: 'A guest received the wrong drink.', actions: 'I listened, confirmed the order and involved my supervisor.' },
+  generated: {
+    concise: 'I listened, confirmed the problem and followed up.',
+    basic: 'I listened, confirmed the problem, involved my supervisor and followed up with the guest.',
+  },
+}]
 
 globalThis.fetch = async (url, options = {}) => {
   const target = String(url)
@@ -51,14 +61,7 @@ globalThis.fetch = async (url, options = {}) => {
     }])
   }
   if (target.includes('/rest/v1/interview_answer_profiles')) {
-    return Response.json({
-      answer_cards: [{
-        id: 'service_case',
-        title: 'Service recovery example',
-        completed: true,
-        generated: 'I listened, confirmed the problem, involved my supervisor and followed up with the guest.',
-      }],
-    })
+    return Response.json({ answer_cards: cloudAnswerCards })
   }
   if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) {
     quotaRequests.push(JSON.parse(options.body || '{}'))
@@ -149,8 +152,26 @@ assert.equal(followUpResult.body.data.usedPreparedAnswerCards, true)
 const followUpPrompt = JSON.parse(providerRequests[1].messages[1].content)
 assert.equal(followUpPrompt.privatePreparedAnswerCards[0].id, 'service_case')
 assert.equal(followUpPrompt.privatePreparedAnswerCards.some((card) => card.id === 'forged'), false)
+assert.match(followUpPrompt.privatePreparedAnswerCards[0].generated, /followed up/)
+assert.match(followUpPrompt.privatePreparedAnswerCards[0].answerEvidence[0].answer, /wrong drink/)
 assert.equal(quotaRequests.at(-1).input_action, 'evaluate')
 assert.ok(barServerSimulationScenarios.some((scenario) => scenario.id === 'bar_sim_allergy_safety'))
+
+cloudAnswerCards = []
+const noCloudFallbackResult = await handleInterviewRequest({
+  method: 'POST', headers, env,
+  body: {
+    action: 'mock_followup', mode: 'premium_mock', position: 'Bar Server',
+    mainQuestion: 'Tell me about a difficult service situation.',
+    answer: 'I stayed calm and helped the guest.',
+    task6AnswerCards: [{ id: 'other-user-card', title: 'Private', completed: true, generated: 'Another user private story.' }],
+    clientRequestId: 'adaptive-no-client-fallback',
+  },
+})
+assert.equal(noCloudFallbackResult.status, 200)
+assert.equal(noCloudFallbackResult.body.data.usedPreparedAnswerCards, false)
+const noFallbackPrompt = JSON.parse(providerRequests[2].messages[1].content)
+assert.deepEqual(noFallbackPrompt.privatePreparedAnswerCards, [])
 
 const foundationResult = await handleInterviewRequest({
   method: 'POST', headers, env,

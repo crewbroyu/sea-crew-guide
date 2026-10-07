@@ -1,5 +1,5 @@
 import { useTrainingInspection } from '../../hooks/useTrainingInspection'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Bookmark, CheckCircle2, ChevronDown, Clock3, ExternalLink, MapPin, ShoppingBag, Volume2 } from 'lucide-react'
 import EdgeReadAloudHint from '../EdgeReadAloudHint'
 import GuestChallengePractice from './GuestChallengePractice'
@@ -14,7 +14,7 @@ import {
   retailFoundationSources,
 } from '../../data/retailFoundation'
 
-export default function RetailFoundationTraining({ onStartSimulation, onStartQuestions, initialProgress, onProgressChange, onlyDayId = '', initialLessonStep = 0, showCourseHeader = true, savedLines = [], onToggleSavedLine }) {
+export default function RetailFoundationTraining({ onStartSimulation, onStartQuestions, initialProgress, onProgressChange, getLatestProgress, onlyDayId = '', initialLessonStep = 0, showCourseHeader = true, savedLines = [], onToggleSavedLine }) {
   const inspection = useTrainingInspection()
   const speakEnglish = inspection ? async () => {} : liveSpeakEnglish
   const [localProgress, setProgress] = useState(() => initialProgress || (inspection ? { days: {} } : getRetailFoundationProgress()))
@@ -29,9 +29,15 @@ export default function RetailFoundationTraining({ onStartSimulation, onStartQue
   const visibleDays = useMemo(() => onlyDayId ? retailFoundationDays.filter((day) => day.id === onlyDayId) : retailFoundationDays, [onlyDayId])
   const [lessonStep, setLessonStep] = useState(initialLessonStep)
 
+  // Async results (Guest Challenge AI) must build on the newest progress, not the click-time snapshot.
+  const progressRef = useRef(progress)
+  useEffect(() => {
+    progressRef.current = progress
+  }, [progress])
+
   const updateDay = (day, patch) => {
     {
-      const current=progress
+      const current = getLatestProgress?.() || progressRef.current
       const previous = current.days?.[day.id] || {}
       const nextDay = { ...previous, ...patch }
       const shadowingDone = Boolean(nextDay.shadowing?.completedAt)
@@ -40,6 +46,7 @@ export default function RetailFoundationTraining({ onStartSimulation, onStartQue
       const requirementsDone = shadowingDone && challengeDone && quizDone
       nextDay.completedAt = previous.completedAt || (requirementsDone ? new Date().toISOString() : null)
       const next = { ...current, days: { ...(current.days || {}), [day.id]: nextDay } }
+      progressRef.current = next
       if (!inspection && !onProgressChange) localStorage.setItem(RETAIL_FOUNDATION_STORAGE_KEY, JSON.stringify(next))
       onProgressChange?.(next)
       setProgress(next)

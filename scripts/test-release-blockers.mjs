@@ -18,9 +18,11 @@ import {
   canCompleteGuestChallengeWithSelfReview,
   canRequestGuestChallengeAi,
   completeGuestChallengeWithSelfReview,
+  getActivePendingRequestId,
+  isGuestChallengeAiRecoveryRequired,
   recordGuestChallengeAttempt,
 } from '../src/data/guestChallengeState.js'
-import { mergeFoundationProgress } from '../src/data/foundationSync.js'
+import { mergeFoundationProgress, stripLocalOnlyFoundationFields } from '../src/data/foundationSync.js'
 
 for (const taskNumber of [1, 2, 3, 5, 6, 7]) {
   assert.ok(USER_SCOPED_PROGRESS_KEYS.includes(`task${taskNumber}_result`), `task${taskNumber}_result must be user scoped`)
@@ -243,4 +245,44 @@ assert.equal(canRequestGuestChallengeAi(uncertain), false)
 assert.equal(canCompleteGuestChallengeWithSelfReview(uncertain), true, 'learners can still finish without AI')
 assert.equal(completeGuestChallengeWithSelfReview(uncertain, '2026-10-06T06:03:00.000Z').pendingRequestId, null)
 
-console.log('Release blocker tests passed: account isolation, self-review completion, immutable synced completion, and two-attempt AI cap.')
+// Regression from the real-account test: the second Guest Challenge AI attempt reused the first request id.
+// 1. Device-only request fields are never uploaded and never restored from the cloud.
+assert.deepEqual(
+  stripLocalOnlyFoundationFields({ day: { guestChallenge: { pendingRequestId: 'x', pendingTranscript: 't', pendingAttemptIndex: 0, aiRecoveryRequired: true, attemptCount: 1 } } }),
+  { day: { guestChallenge: { attemptCount: 1 } } },
+)
+const firstRequestCloud = { 'service-role': { guestChallenge: { pendingRequestId: 'first-request', pendingTranscript: 'weak', pendingAttemptIndex: 0, attemptCount: 1 } } }
+const localAfterFirstResult = { 'service-role': { guestChallenge: { pendingRequestId: null, pendingTranscript: null, pendingAttemptIndex: null, attemptCount: 1, aiAttempts: [{ score: 20 }] } } }
+// What the server stores: old cloud merged with the stripped upload.
+const serverStored = mergeFoundationProgress(firstRequestCloud, stripLocalOnlyFoundationFields(localAfterFirstResult))
+assert.equal('pendingRequestId' in serverStored['service-role'].guestChallenge, false, 'the server copy must drop the stale request id')
+// What the device keeps after the sync response.
+const deviceAfterSync = mergeFoundationProgress(serverStored, localAfterFirstResult)['service-role'].guestChallenge
+assert.equal(deviceAfterSync.pendingRequestId, null, 'a cleared local id must not be restored from the cloud')
+assert.equal(deviceAfterSync.aiAttempts.length, 1)
+// Loading on another device never adopts a request id it did not send.
+const otherDevice = mergeFoundationProgress(firstRequestCloud, { 'service-role': { guestChallenge: { attemptCount: 1 } } })['service-role'].guestChallenge
+assert.equal(otherDevice.pendingRequestId, undefined)
+// The sending device keeps its own in-flight id through a sync response.
+const inFlightLocal = { 'service-role': { guestChallenge: { pendingRequestId: 'in-flight', pendingAttemptIndex: 1, attemptCount: 2, aiAttempts: [{ score: 20 }] } } }
+assert.equal(mergeFoundationProgress(stripLocalOnlyFoundationFields(inFlightLocal), inFlightLocal)['service-role'].guestChallenge.pendingRequestId, 'in-flight')
+
+// 2. A request id is tied to its attempt slot and expires once that slot has a result.
+assert.equal(getActivePendingRequestId({ pendingRequestId: 'a', pendingAttemptIndex: 0, aiAttempts: [] }), 'a')
+assert.equal(getActivePendingRequestId({ pendingRequestId: 'a', pendingAttemptIndex: 0, aiAttempts: [{ score: 20 }] }), null, 'a spent id is never reused')
+assert.equal(getActivePendingRequestId({ pendingRequestId: 'b', pendingAttemptIndex: 1, aiAttempts: [{ score: 20 }] }), 'b')
+assert.equal(getActivePendingRequestId({ pendingRequestId: 'legacy', aiAttempts: [] }), 'legacy', 'legacy ids belong to the first slot')
+assert.equal(getActivePendingRequestId({ pendingRequestId: 'legacy', aiAttempts: [{ score: 20 }] }), null)
+
+// 3. Accounts already stuck on a spent id (aiRecoveryRequired from the rejected reuse) can request AI again.
+const stuckChallenge = { hasRecording: true, transcript: 'improved answer', attemptCount: 2, aiAttempts: [{ score: 20, recordingAttemptCount: 1 }], pendingRequestId: 'first-request', aiRecoveryRequired: true }
+assert.equal(isGuestChallengeAiRecoveryRequired(stuckChallenge), false, 'recovery mode tied to a spent id no longer applies')
+assert.equal(canRequestGuestChallengeAi(stuckChallenge), true)
+assert.equal(recordGuestChallengeAttempt(stuckChallenge, { transcript: 'again', recordedAt: '2026-10-07T05:00:00.000Z' }).aiRecoveryRequired, false)
+// But a genuinely uncertain request for the open slot still pauses AI to avoid a second charge.
+const uncertainSecond = { ...stuckChallenge, pendingRequestId: 'second-request', pendingAttemptIndex: 1 }
+assert.equal(isGuestChallengeAiRecoveryRequired(uncertainSecond), true)
+assert.equal(canRequestGuestChallengeAi(uncertainSecond), false)
+assert.equal(addGuestChallengeAiAttempt(uncertainSecond, { score: 70, transcript: 'x' }, '2026-10-07T05:01:00.000Z').pendingAttemptIndex, null)
+
+console.log('Release blocker tests passed: account isolation, self-review completion, immutable synced completion, two-attempt AI cap, and spent request ids.')

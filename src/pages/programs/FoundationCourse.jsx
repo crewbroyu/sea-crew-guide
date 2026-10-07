@@ -144,7 +144,9 @@ function FoundationCourseContent({ownerId,readOnly}) {
       }).then((profile) => {
         if(!active || revision.current!==editRevision)return
         const cloudState=profile?.learning_records?.foundationCourses?.[course.jobKey]
-        const merged=cloudState?.progress
+        // The server copy never carries device-only Guest Challenge request fields, so re-apply this
+        // device's current progress on top (no edits happened since: the revision check above).
+        const merged=cloudState?.progress ? mergeFoundationProgress(cloudState.progress,progressRef.current) : null
         if(merged){progressRef.current=merged;setProgress(merged);writeFoundationProgress(course.jobKey,merged,storageOwner)}
         if(cloudState){
           const mergedLines=mergeFoundationSavedLines({savedLines,savedLineChanges},cloudState)

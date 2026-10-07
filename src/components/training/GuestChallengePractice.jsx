@@ -8,7 +8,9 @@ import {
   canCompleteGuestChallengeWithSelfReview,
   canRequestGuestChallengeAi,
   completeGuestChallengeWithSelfReview,
+  getActivePendingRequestId,
   getGuestChallengeAiAttempts,
+  isGuestChallengeAiRecoveryRequired,
   recordGuestChallengeAttempt,
 } from '../../data/guestChallengeState'
 
@@ -192,7 +194,7 @@ export default function GuestChallengePractice({
     const transcript = draft.trim()
     const previousAttempts = getGuestChallengeAiAttempts(challenge)
     if (!canRequestGuestChallengeAi({ ...challenge, transcript })) return
-    if (challenge.aiRecoveryRequired) {
+    if (isGuestChallengeAiRecoveryRequired(challenge)) {
       setErrorMessage('The earlier AI request could not be recovered safely. Record twice and use self-review to avoid another charge.')
       return
     }
@@ -203,9 +205,12 @@ export default function GuestChallengePractice({
     }
     setEvaluating(true)
     setErrorMessage('')
-    const requestId = challenge.pendingRequestId || createInterviewRequestId()
-    if (!challenge.pendingRequestId) {
-      emitChange({ pendingRequestId: requestId, pendingTranscript: transcript })
+    // Reuse an id only while its attempt slot is still open; a spent id would be rejected as already completed.
+    const attemptSlot = previousAttempts.length
+    const activePendingRequestId = getActivePendingRequestId(challenge)
+    const requestId = activePendingRequestId || createInterviewRequestId()
+    if (!activePendingRequestId) {
+      emitChange({ pendingRequestId: requestId, pendingTranscript: transcript, pendingAttemptIndex: attemptSlot, aiRecoveryRequired: false })
     }
     try {
       const evaluation = await evaluateFoundationChallenge({
@@ -239,6 +244,7 @@ export default function GuestChallengePractice({
       emitChange({
         pendingRequestId: ambiguous ? requestId : null,
         pendingTranscript: ambiguous ? transcript : null,
+        pendingAttemptIndex: ambiguous ? attemptSlot : null,
         aiRecoveryRequired: error.code === 'AI_REQUEST_ALREADY_COMPLETED',
       })
       setErrorMessage(ambiguous
@@ -323,11 +329,11 @@ export default function GuestChallengePractice({
           <button
             type="button"
             onClick={completeChallenge}
-            disabled={evaluating || !challenge.hasRecording || !draft.trim() || needsNewRecording || challenge.completedAt || challenge.aiRecoveryRequired}
+            disabled={evaluating || !challenge.hasRecording || !draft.trim() || needsNewRecording || challenge.completedAt || isGuestChallengeAiRecoveryRequired(challenge)}
             className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
           >
             {evaluating ? <LoaderCircle size={17} className="animate-spin" /> : <CheckCircle2 size={17} />}
-            {evaluating ? 'AI is reviewing...' : challenge.completedAt ? (challenge.completionMode === 'self_review' ? 'Completed · Self-review' : latestFeedback ? `Completed · ${latestFeedback.score}/100` : 'Completed') : challenge.aiRecoveryRequired ? 'AI retry paused · use self-review' : aiAttempts.length ? 'Compare my retry' : 'Get optional AI feedback'}
+            {evaluating ? 'AI is reviewing...' : challenge.completedAt ? (challenge.completionMode === 'self_review' ? 'Completed · Self-review' : latestFeedback ? `Completed · ${latestFeedback.score}/100` : 'Completed') : isGuestChallengeAiRecoveryRequired(challenge) ? 'AI retry paused · use self-review' : aiAttempts.length ? 'Compare my retry' : 'Get optional AI feedback'}
           </button>
         </>
       )}

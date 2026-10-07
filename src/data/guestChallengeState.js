@@ -2,6 +2,20 @@ export const getGuestChallengeAiAttempts = (challenge = {}) => (
   Array.isArray(challenge.aiAttempts) ? challenge.aiAttempts.slice(0, 2) : []
 )
 
+// A pending request id belongs to one AI attempt slot (pendingAttemptIndex). Once that slot has a result,
+// the id is spent and must never be reused: the server would answer AI_REQUEST_ALREADY_COMPLETED.
+// Records saved before the slot existed are treated as belonging to the first attempt.
+export const getActivePendingRequestId = (challenge = {}) => {
+  if (!challenge.pendingRequestId) return null
+  const slot = Number.isInteger(challenge.pendingAttemptIndex) ? challenge.pendingAttemptIndex : 0
+  return getGuestChallengeAiAttempts(challenge).length > slot ? null : challenge.pendingRequestId
+}
+
+// Recovery mode only applies while its uncertain request is still the active one.
+export const isGuestChallengeAiRecoveryRequired = (challenge = {}) => (
+  Boolean(challenge.aiRecoveryRequired) && Boolean(getActivePendingRequestId(challenge))
+)
+
 export const canCompleteGuestChallengeWithSelfReview = (challenge = {}) => {
   if (challenge.completedAt) return false
   const aiAttempts = getGuestChallengeAiAttempts(challenge)
@@ -27,17 +41,24 @@ export const recordGuestChallengeAttempt = (challenge = {}, { transcript = '', r
     lastRecordedAt: recordedAt,
     recordingAttempts: [...(Array.isArray(challenge.recordingAttempts) ? challenge.recordingAttempts : []), nextAttempt].slice(-2),
     completedAt: challenge.completedAt || null,
-    aiRecoveryRequired: Boolean(challenge.pendingRequestId),
+    aiRecoveryRequired: Boolean(getActivePendingRequestId(challenge)),
   }
 }
 
 export const canRequestGuestChallengeAi = (challenge = {}) => (
   !challenge.completedAt
-  && !challenge.aiRecoveryRequired
+  && !isGuestChallengeAiRecoveryRequired(challenge)
   && Boolean(challenge.hasRecording)
   && Boolean(String(challenge.transcript || '').trim())
   && getGuestChallengeAiAttempts(challenge).length < 2
 )
+
+const clearedPendingRequest = {
+  pendingRequestId: null,
+  pendingTranscript: null,
+  pendingAttemptIndex: null,
+  aiRecoveryRequired: false,
+}
 
 export const completeGuestChallengeWithSelfReview = (challenge = {}, completedAt) => {
   if (!canCompleteGuestChallengeWithSelfReview(challenge)) return challenge
@@ -46,9 +67,7 @@ export const completeGuestChallengeWithSelfReview = (challenge = {}, completedAt
     completedAt: challenge.completedAt || completedAt,
     completionMode: challenge.completionMode || 'self_review',
     selfReviewCompletedAt: challenge.selfReviewCompletedAt || completedAt,
-    pendingRequestId: null,
-    pendingTranscript: null,
-    aiRecoveryRequired: false,
+    ...clearedPendingRequest,
   }
 }
 
@@ -64,8 +83,6 @@ export const addGuestChallengeAiAttempt = (challenge = {}, attempt, completedAt)
     scoreDelta: completed ? aiAttempts[1].score - aiAttempts[0].score : null,
     completedAt: completed ? challenge.completedAt || completedAt : null,
     completionMode: completed ? challenge.completionMode || 'ai_review' : challenge.completionMode || null,
-    pendingRequestId: null,
-    pendingTranscript: null,
-    aiRecoveryRequired: false,
+    ...clearedPendingRequest,
   }
 }

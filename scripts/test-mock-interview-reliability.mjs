@@ -15,6 +15,8 @@ const usageEvents = []
 const providerRequests = []
 let providerReplies = []
 let cloudAnswerCards = []
+let unifiedProfileWrites = 0
+let usageWriteError = false
 
 const reply = (content) => Response.json({ choices: [{ message: { content } }] })
 const questionScore = (index) => ({
@@ -33,6 +35,14 @@ const mockReport = (count) => JSON.stringify({
   overallSuggestion: '优先重练低分题。',
   strengths: ['表达清楚。'],
   priorities: ['补充证据。'],
+  dimensionScores: {
+    speakingClarity: 72,
+    interviewStructure: 68,
+    jobKnowledge: 64,
+    guestHandling: 70,
+    problemSolving: 66,
+    safetyJudgment: 62,
+  },
   questionScores: Array.from({ length: count }, (_, index) => questionScore(index)),
 })
 
@@ -46,11 +56,9 @@ globalThis.fetch = async (url, options = {}) => {
     return Response.json({ user_id: userId, product_code: 'bar_server_pack', status: 'active', starts_at: '2026-01-01T00:00:00.000Z', expires_at: '2027-01-01T00:00:00.000Z', ai_feedback_limit: 100, mock_interview_limit: 10 })
   }
   if (target.includes('/rest/v1/interview_answer_profiles')) return Response.json({ answer_cards: cloudAnswerCards })
-  if (target.includes('/rest/v1/user_skill_evidence')) {
-    return (options.method || 'GET') === 'POST' ? new Response(null, { status: 201 }) : Response.json([])
-  }
-  if (target.includes('/rest/v1/user_skill_profiles')) {
-    return (options.method || 'GET') === 'POST' ? new Response(null, { status: 201 }) : Response.json([])
+  if (target.includes('/rest/v1/rpc/upsert_unified_skill_evidence')) {
+    unifiedProfileWrites += 1
+    return Response.json({ readinessScore: 67, evidenceCount: 1 })
   }
   if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) return Response.json({ reservation_id: '00000000-0000-4000-8000-000000000401', unlimited: false })
   if (target.includes('/rest/v1/rpc/finalize_ai_usage_reservation')) {
@@ -58,6 +66,7 @@ globalThis.fetch = async (url, options = {}) => {
     return Response.json(true)
   }
   if (target.includes('/rest/v1/rpc/record_ai_usage_event')) {
+    if (usageWriteError) return Response.json({ message: 'usage write failed' }, { status: 500 })
     usageEvents.push(JSON.parse(options.body || '{}').input_action)
     return Response.json(1)
   }
@@ -84,6 +93,7 @@ const resetLedger = () => {
   finalizeOutcomes.length = 0
   usageEvents.length = 0
   providerRequests.length = 0
+  usageWriteError = false
 }
 
 // 1. A follow-up check that declines to ask is released, not charged and not counted as a failure.
@@ -118,6 +128,7 @@ assert.equal(result.body.data.overallScore, 60, 'total must be derived from ques
 assert.equal(providerRequests[0].max_completion_tokens, 8_192, '9-question budget must stay within the provider ceiling')
 assert.deepEqual(usageEvents, ['mock_interview'])
 assert.deepEqual(finalizeOutcomes, ['completed'])
+assert.equal(unifiedProfileWrites, 1)
 
 // 4. A truncated report is retried instead of failing immediately.
 resetLedger()
@@ -172,6 +183,17 @@ result = await call(mockBody('reject-incomplete'))
 assert.equal(result.status, 502)
 assert.equal(result.body.error.code, 'INVALID_AI_RESPONSE')
 assert.deepEqual(usageEvents, [], 'an incomplete report must not be charged')
+assert.deepEqual(finalizeOutcomes, ['failed'])
+
+// 5b. A paid usage-write failure must not create capability evidence.
+resetLedger()
+const writesBeforeUsageFailure = unifiedProfileWrites
+usageWriteError = true
+providerReplies = [mockReport(9)]
+result = await call(mockBody('usage-write-failure'))
+assert.equal(result.status, 503)
+assert.equal(result.body.error.code, 'USAGE_RECORD_FAILED')
+assert.equal(unifiedProfileWrites, writesBeforeUsageFailure)
 assert.deepEqual(finalizeOutcomes, ['failed'])
 
 // 6. Drafts are per account, per position, bounded in age, and resume at the first unanswered question.

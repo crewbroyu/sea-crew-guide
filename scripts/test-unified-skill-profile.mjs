@@ -44,9 +44,26 @@ const retailEvidence = mapScenarioEvidence({
 assert.equal(retailEvidence.find((item) => item.skillKey === 'job_knowledge').score, 80)
 assert.equal(retailEvidence.find((item) => item.skillKey === 'problem_solving').score, 68)
 
-const mockEvidence = mapMockInterviewEvidence({ evaluation: { overallScore: 74, priorities: ['补充 STAR 结果。'] } })
-assert.deepEqual(mockEvidence.map((item) => item.skillKey), ['interview_structure', 'speaking_clarity'])
-assert.ok(mockEvidence.every((item) => item.score === 74))
+const mockEvidence = mapMockInterviewEvidence({ evaluation: {
+  priorities: ['补充 STAR 结果。'],
+  dimensionScores: {
+    interviewStructure: 74,
+    speakingClarity: 82,
+    jobKnowledge: 68,
+    guestHandling: 77,
+    problemSolving: 71,
+    safetyJudgment: 65,
+  },
+} })
+assert.deepEqual(mockEvidence.map((item) => item.skillKey), [
+  'interview_structure',
+  'speaking_clarity',
+  'job_knowledge',
+  'guest_handling',
+  'problem_solving',
+  'safety_judgment',
+])
+assert.equal(mockEvidence.find((item) => item.skillKey === 'speaking_clarity').score, 82)
 
 const assessmentEvidence = mapAssessmentEvidence({
   evaluation: {
@@ -61,14 +78,22 @@ assert.equal(assessmentEvidence.find((item) => item.skillKey === 'safety_judgmen
 assert.equal(assessmentEvidence.find((item) => item.skillKey === 'problem_solving').score, 70)
 
 const profile = aggregateSkillEvidence([
-  { skill_key: 'speaking_clarity', score: 80, weight: 1, source: 'assessment', occurred_at: '2026-10-01T00:00:00.000Z' },
-  { skill_key: 'speaking_clarity', score: 60, weight: 1, source: 'interview', occurred_at: '2026-09-01T00:00:00.000Z' },
-  { skill_key: 'guest_handling', score: 70, weight: 1.4, source: 'scenario', occurred_at: '2026-10-01T00:00:00.000Z' },
+  { skill_key: 'speaking_clarity', score: 80, weight: 1, source: 'assessment', source_id: 'assessment-1', occurred_at: '2026-10-01T00:00:00.000Z' },
+  { skill_key: 'speaking_clarity', score: 60, weight: 1, source: 'interview', source_id: 'interview-1', occurred_at: '2026-09-01T00:00:00.000Z' },
+  { skill_key: 'guest_handling', score: 70, weight: 1.4, source: 'scenario', source_id: 'scenario-1', occurred_at: '2026-10-01T00:00:00.000Z' },
+  { skill_key: 'safety_judgment', score: 75, weight: 1.2, source: 'scenario', source_id: 'scenario-1', occurred_at: '2026-10-01T00:00:00.000Z' },
 ], new Date('2026-10-08T00:00:00.000Z'))
 assert.equal(profile.skills.speaking_clarity, 71, 'recent evidence receives more weight')
 assert.equal(profile.confidence.speaking_clarity.level, 'medium')
 assert.equal(profile.evidenceCount, 3)
-assert.equal(profile.coveragePercent, 25)
+assert.equal(profile.sourceCounts.scenario, 1)
+assert.equal(profile.coveragePercent, 38)
+
+const atomicMigration = fs.readFileSync(new URL('../supabase/migrations/20261008170000_atomic_unified_skill_profiles.sql', import.meta.url), 'utf8')
+assert.match(atomicMigration, /pg_advisory_xact_lock/i)
+assert.match(atomicMigration, /count\(distinct \(source, source_id\)\)/i)
+assert.match(atomicMigration, /complete_scenario_with_unified_profile/i)
+assert.match(atomicMigration, /revoke all on function public\.upsert_unified_skill_evidence[\s\S]*from public, anon, authenticated/i)
 
 const migration = fs.readFileSync(new URL('../supabase/migrations/20261008150000_unified_skill_profiles.sql', import.meta.url), 'utf8')
 assert.match(migration, /force row level security/i)

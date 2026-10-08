@@ -43,7 +43,9 @@ where routine_schema = 'public'
     'start_assessment_attempt',
     'authorize_assessment_action',
     'complete_assessment_attempt',
-    'get_assessment_evaluation_result'
+    'get_assessment_evaluation_result',
+    'upsert_unified_skill_evidence',
+    'complete_scenario_with_unified_profile'
   )
 order by routine_name;
 

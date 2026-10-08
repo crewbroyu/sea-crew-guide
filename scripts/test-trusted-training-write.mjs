@@ -53,25 +53,36 @@ globalThis.fetch = async (url, options = {}) => {
   if (target.includes('/rest/v1/rpc/finalize_ai_usage_reservation')) return Response.json(true)
   if (target.includes('/rest/v1/rpc/record_ai_usage_event')) return Response.json(1)
   if (target.includes('/rest/v1/rpc/record_ai_operation_log')) return Response.json(1)
+  if (target.includes('/rest/v1/rpc/complete_scenario_with_unified_profile')) {
+    if (!isAdmin) return Response.json({ message: 'server key required' }, { status: 403 })
+    const body = JSON.parse(options.body || '{}')
+    adminWrites.push({ table: 'complete_scenario_with_unified_profile', body })
+    return Response.json({
+      session: {
+        id: sessionId,
+        scenario_id: body.input_scenario_id,
+        job_key: body.input_job_key,
+        difficulty: body.input_completed_fields.difficulty,
+        status: 'completed',
+        overall_readiness: body.input_completed_fields.overall_readiness,
+        skill_scores: body.input_skill_scores,
+        weaknesses: body.input_completed_fields.weaknesses,
+        next_recommendation: body.input_completed_fields.next_recommendation,
+        completed_at: body.input_occurred_at,
+      },
+      profile: {
+        readinessScore: 65,
+        skillScores: body.input_skill_scores,
+        weakestSkill: 'problemSolving',
+        recommendedScenario: { id: 'bar_sim_cocktail_recommendation' },
+        completedScenarioCount: 1,
+      },
+      unifiedProfile: { readinessScore: 63, evidenceCount: 1 },
+    })
+  }
 
   if (target.includes('/rest/v1/scenario_training_sessions')) {
     if (!isAdmin) return Response.json([])
-    if (method === 'PATCH') {
-      const body = JSON.parse(options.body || '{}')
-      adminWrites.push({ table: 'scenario_training_sessions', body })
-      return Response.json({
-        id: sessionId,
-        scenario_id: 'bar_sim_allergy_safety',
-        job_key: 'bar_server',
-        difficulty: 4,
-        status: 'completed',
-        overall_readiness: body.overall_readiness,
-        skill_scores: body.skill_scores,
-        weaknesses: body.weaknesses,
-        next_recommendation: body.next_recommendation,
-        completed_at: body.completed_at,
-      })
-    }
     if (target.includes(`id=eq.${sessionId}`)) {
       return Response.json({
         id: sessionId,
@@ -83,33 +94,6 @@ globalThis.fetch = async (url, options = {}) => {
       })
     }
     return Response.json([{ scenario_id: 'bar_sim_allergy_safety' }])
-  }
-
-  if (target.includes('/rest/v1/user_job_skill_profiles')) {
-    if (!isAdmin) return Response.json(null)
-    if (method === 'POST') {
-      adminWrites.push({ table: 'user_job_skill_profiles', body: JSON.parse(options.body || '{}') })
-      return new Response(null, { status: 201 })
-    }
-    return Response.json(null)
-  }
-
-  if (target.includes('/rest/v1/user_skill_evidence')) {
-    if (!isAdmin) return Response.json({ message: 'server key required' }, { status: 403 })
-    if (method === 'POST') {
-      adminWrites.push({ table: 'user_skill_evidence', body: JSON.parse(options.body || '[]') })
-      return new Response(null, { status: 201 })
-    }
-    return Response.json([])
-  }
-
-  if (target.includes('/rest/v1/user_skill_profiles')) {
-    if (!isAdmin) return Response.json({ message: 'server key required' }, { status: 403 })
-    if (method === 'POST') {
-      adminWrites.push({ table: 'user_skill_profiles', body: JSON.parse(options.body || '{}') })
-      return new Response(null, { status: 201 })
-    }
-    return Response.json([])
   }
 
   if (target.includes('/chat/completions')) {
@@ -171,23 +155,15 @@ assert.equal(result.body.data.profile.readinessScore, 65)
 assert.equal(result.body.data.profile.weakestSkill, 'problemSolving')
 assert.equal(result.body.data.profile.completedScenarioCount, 1)
 
-const sessionWrite = adminWrites.find((write) => write.table === 'scenario_training_sessions')?.body
-assert.equal(sessionWrite.status, 'completed')
-assert.equal(sessionWrite.difficulty, 4)
-assert.equal(sessionWrite.overall_readiness, 65)
-assert.equal(sessionWrite.skill_scores.problemSolving, 40)
-assert.equal(sessionWrite.scenario_context.forgedScore, undefined)
-assert.equal(sessionWrite.scenario_context.retrySessionId, '00000000-0000-4000-8000-000000000399')
-
-const profileWrite = adminWrites.find((write) => write.table === 'user_job_skill_profiles')?.body
-assert.equal(profileWrite.user_id, userId)
-assert.equal(profileWrite.readiness_score, 65)
-assert.equal(profileWrite.weakest_skill, 'problemSolving')
-assert.notEqual(profileWrite.readiness_score, 100, 'client-supplied scores must never control the capability profile')
-const unifiedEvidenceWrite = adminWrites.find((write) => write.table === 'user_skill_evidence')?.body
-assert.ok(Array.isArray(unifiedEvidenceWrite))
-assert.equal(unifiedEvidenceWrite.some((row) => row.skill_key === 'safety_judgment'), true)
-assert.equal(unifiedEvidenceWrite.every((row) => row.user_id === userId), true)
+const atomicWrite = adminWrites.find((write) => write.table === 'complete_scenario_with_unified_profile')?.body
+assert.equal(atomicWrite.input_user_id, userId)
+assert.equal(atomicWrite.input_completed_fields.difficulty, 4)
+assert.equal(atomicWrite.input_completed_fields.overall_readiness, 65)
+assert.equal(atomicWrite.input_skill_scores.problemSolving, 40)
+assert.equal(atomicWrite.input_completed_fields.scenario_context.forgedScore, undefined)
+assert.equal(atomicWrite.input_completed_fields.scenario_context.retrySessionId, '00000000-0000-4000-8000-000000000399')
+assert.equal(atomicWrite.input_evidence_entries.some((row) => row.skill_key === 'safety_judgment'), true)
+assert.notEqual(atomicWrite.input_completed_fields.overall_readiness, 100, 'client-supplied scores must never control the capability profile')
 
 const mismatchedScenario = await handleInterviewRequest({
   method: 'POST',

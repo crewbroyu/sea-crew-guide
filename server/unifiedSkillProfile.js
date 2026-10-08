@@ -61,12 +61,19 @@ export const mapScenarioEvidence = ({ jobKey, scenarioId = '', skillScores = {},
 }
 
 export const mapMockInterviewEvidence = ({ evaluation = {} }) => {
-  const score = clampScore(evaluation.overallScore)
+  const dimensions = evaluation.dimensionScores || {}
   const note = textList(evaluation.priorities).join('；') || String(evaluation.overallSuggestion || '').slice(0, 420)
-  return [
-    evidence('interview_structure', score, 1.4, note),
-    evidence('speaking_clarity', score, 0.8, note),
+  const mappings = [
+    ['interview_structure', dimensions.interviewStructure, 1.4],
+    ['speaking_clarity', dimensions.speakingClarity, 1.0],
+    ['job_knowledge', dimensions.jobKnowledge, 0.9],
+    ['guest_handling', dimensions.guestHandling, 0.9],
+    ['problem_solving', dimensions.problemSolving, 0.8],
+    ['safety_judgment', dimensions.safetyJudgment, 0.8],
   ]
+  return mappings
+    .filter(([, score]) => Number.isFinite(Number(score)))
+    .map(([skillKey, score, weight]) => evidence(skillKey, score, weight, note))
 }
 
 export const mapAssessmentEvidence = ({ evaluation = {} }) => {
@@ -90,7 +97,6 @@ export const mapAssessmentEvidence = ({ evaluation = {} }) => {
 
   return [
     evidence('speaking_clarity', speaking, 1.0, note),
-    evidence('guest_handling', service, 0.9, note),
     evidence('problem_solving', problemSolving, 0.9, note),
     evidence('safety_judgment', safety, 1.0, note),
   ]
@@ -105,11 +111,9 @@ const recencyFactor = (occurredAt, now) => {
 
 export const aggregateSkillEvidence = (records = [], now = new Date()) => {
   const grouped = Object.fromEntries(SKILL_KEYS.map((key) => [key, []]))
-  const sourceCounts = {}
   records.forEach((row) => {
     if (!grouped[row.skill_key]) return
     grouped[row.skill_key].push(row)
-    sourceCounts[row.source] = (sourceCounts[row.source] || 0) + 1
   })
 
   const skills = {}
@@ -134,13 +138,22 @@ export const aggregateSkillEvidence = (records = [], now = new Date()) => {
 
   const ranked = Object.entries(skills).sort((left, right) => left[1] - right[1])
   const values = Object.values(skills)
+  const distinctEvents = new Set(records.map((row) => `${row.source}:${row.source_id || row.sourceId || ''}`))
+  const distinctSourceCounts = records.reduce((counts, row) => {
+    const eventKey = `${row.source}:${row.source_id || row.sourceId || ''}`
+    if (!counts.seen.has(eventKey)) {
+      counts.seen.add(eventKey)
+      counts.values[row.source] = (counts.values[row.source] || 0) + 1
+    }
+    return counts
+  }, { seen: new Set(), values: {} }).values
   return {
     readinessScore: values.length ? clampScore(values.reduce((sum, value) => sum + value, 0) / values.length) : 0,
     skills,
     confidence,
     weakest: ranked.slice(0, 3).map(([skillKey, score]) => ({ skillKey, score })),
-    evidenceCount: records.length,
-    sourceCounts,
+    evidenceCount: distinctEvents.size,
+    sourceCounts: distinctSourceCounts,
     coveragePercent: Math.round((values.length / SKILL_KEYS.length) * 100),
   }
 }
@@ -159,62 +172,22 @@ export const persistUnifiedSkillEvidence = async ({
   if (!validEntries.length || !sourceId) return null
 
   const evidenceRows = validEntries.map((item) => ({
-    user_id: userId,
-    job_key: jobKey,
     skill_key: item.skillKey,
     score: clampScore(item.score),
     weight: Math.max(0.1, Number(item.weight) || 1),
-    source,
-    source_id: String(sourceId).slice(0, 160),
     evidence_text: String(item.note || '').slice(0, 420) || null,
-    metadata,
-    occurred_at: occurredAt,
   }))
-  const { error: evidenceError } = await admin
-    .from('user_skill_evidence')
-    .upsert(evidenceRows, { onConflict: 'user_id,source,source_id,skill_key' })
-  if (evidenceError) throw evidenceError
-
-  const targetKeys = new Set([jobKey])
-  if (jobKey === 'cruise_general') {
-    const { data: existingProfiles, error: profilesError } = await admin
-      .from('user_skill_profiles')
-      .select('job_key')
-      .eq('user_id', userId)
-    if (profilesError) throw profilesError
-    ;(existingProfiles || []).forEach((row) => targetKeys.add(row.job_key))
-  }
-
-  let requestedProfile = null
-  for (const targetKey of targetKeys) {
-    let query = admin
-      .from('user_skill_evidence')
-      .select('skill_key, score, weight, source, occurred_at, created_at')
-      .eq('user_id', userId)
-    query = targetKey === 'cruise_general'
-      ? query.eq('job_key', 'cruise_general')
-      : query.in('job_key', [targetKey, 'cruise_general'])
-    const { data: allEvidence, error: lookupError } = await query
-    if (lookupError) throw lookupError
-
-    const profile = aggregateSkillEvidence(allEvidence || [])
-    const { error: profileError } = await admin.from('user_skill_profiles').upsert({
-      user_id: userId,
-      job_key: targetKey,
-      readiness_score: profile.readinessScore,
-      skills: profile.skills,
-      confidence: profile.confidence,
-      weakest: profile.weakest,
-      evidence_count: profile.evidenceCount,
-      source_counts: profile.sourceCounts,
-      coverage_percent: profile.coveragePercent,
-      updated_at: occurredAt,
-    }, { onConflict: 'user_id,job_key' })
-    if (profileError) throw profileError
-    if (targetKey === jobKey) requestedProfile = profile
-  }
-
-  return requestedProfile
+  const { data, error } = await admin.rpc('upsert_unified_skill_evidence', {
+    input_user_id: userId,
+    input_job_key: jobKey,
+    input_source: source,
+    input_source_id: String(sourceId).slice(0, 160),
+    input_entries: evidenceRows,
+    input_metadata: metadata,
+    input_occurred_at: occurredAt,
+  })
+  if (error) throw error
+  return data
 }
 
 export { SKILL_KEYS }

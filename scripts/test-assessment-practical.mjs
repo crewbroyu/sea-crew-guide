@@ -21,6 +21,8 @@ let completionCount = 0
 let authorizationCount = 0
 let usageRecordCount = 0
 let recoveredEvaluation = null
+let completionError = null
+let unifiedProfileWrites = 0
 const completedPayloads = []
 const recoveryLookups = []
 
@@ -44,11 +46,9 @@ globalThis.fetch = async (url, options = {}) => {
     return Response.json(1)
   }
   if (target.includes('/rest/v1/rpc/record_ai_operation_log')) return Response.json(1)
-  if (target.includes('/rest/v1/user_skill_evidence')) {
-    return (options.method || 'GET') === 'POST' ? new Response(null, { status: 201 }) : Response.json([])
-  }
-  if (target.includes('/rest/v1/user_skill_profiles')) {
-    return (options.method || 'GET') === 'POST' ? new Response(null, { status: 201 }) : Response.json([])
+  if (target.includes('/rest/v1/rpc/upsert_unified_skill_evidence')) {
+    unifiedProfileWrites += 1
+    return Response.json({ readinessScore: 70, evidenceCount: 1 })
   }
   if (target.includes('/rest/v1/rpc/get_assessment_evaluation_result')) {
     recoveryLookups.push(JSON.parse(options.body))
@@ -63,6 +63,7 @@ globalThis.fetch = async (url, options = {}) => {
   if (target.includes('/rest/v1/rpc/complete_assessment_attempt')) {
     completionCount += 1
     completedPayloads.push(JSON.parse(options.body))
+    if (completionError) return Response.json({ message: completionError }, { status: 400 })
     return Response.json({ completedAttempts: 1, remainingAttempts: 2, maxAttempts: 3 })
   }
   if (target.includes('/chat/completions')) {
@@ -346,6 +347,18 @@ try {
   assert.equal(authorizationCount, beforeRecoveryAuthorizations)
   assert.equal(usageRecordCount, beforeRecoveryUsage)
   recoveredEvaluation = null
+
+  const writesBeforeCompletionFailure = unifiedProfileWrites
+  completionError = 'ASSESSMENT_ATTEMPT_NOT_ACTIVE'
+  const failedCompletion = await evaluate()
+  assert.equal(failedCompletion.status, 409)
+  assert.equal(failedCompletion.body.error.code, 'ASSESSMENT_ATTEMPT_NOT_ACTIVE')
+  assert.equal(
+    unifiedProfileWrites,
+    writesBeforeCompletionFailure,
+    'a failed assessment completion must not create capability evidence',
+  )
+  completionError = null
 
   const beforeRejectedCalls = modelRequests.length
   const beforeRejectedCompletions = completionCount

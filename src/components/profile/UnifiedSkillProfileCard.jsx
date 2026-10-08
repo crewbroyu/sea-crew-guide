@@ -77,7 +77,7 @@ export default function UnifiedSkillProfileCard({ profiles = [], targetPosition 
       )}
 
       <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
-        <div><span className="font-semibold text-gray-900">{profile.evidence_count}</span> 条能力证据</div>
+        <div><span className="font-semibold text-gray-900">{profile.evidence_count}</span> 次可信训练</div>
         <div><span className="font-semibold text-gray-900">{profile.coverage_percent}%</span> 能力覆盖</div>
       </div>
 

@@ -757,6 +757,20 @@ const hasValidScenarioContract = (evaluation, itemCount) => {
 const hasValidMockInterviewContract = (evaluation, itemCount) => {
   const scores = evaluation?.questionScores
   if (!Array.isArray(scores) || scores.length !== itemCount) return false
+  const dimensionScores = evaluation?.dimensionScores
+  const requiredDimensions = [
+    'speakingClarity',
+    'interviewStructure',
+    'jobKnowledge',
+    'guestHandling',
+    'problemSolving',
+    'safetyJudgment',
+  ]
+  if (!dimensionScores || !requiredDimensions.every((key) => {
+    const value = Number(dimensionScores[key])
+    return Number.isFinite(value) && value >= 0 && value <= 100
+  })) return false
+
   return scores.every((score) => {
     // json_object output sometimes quotes numbers; normalizeEvaluation already coerces them.
     const value = Number(score?.score)
@@ -832,6 +846,15 @@ const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, m
     )
     : 0
   const overallScore = Math.round(clamp(calculatedScore, 0, 100))
+  const rawDimensionScores = rawEvaluation?.dimensionScores || {}
+  const dimensionScores = rawEvaluation?.dimensionScores ? Object.fromEntries([
+    'speakingClarity',
+    'interviewStructure',
+    'jobKnowledge',
+    'guestHandling',
+    'problemSolving',
+    'safetyJudgment',
+  ].map((key) => [key, Math.round(clamp(rawDimensionScores[key], 0, 100))])) : undefined
 
   return {
     overallScore,
@@ -841,6 +864,7 @@ const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, m
       || '优先重练低分题，并补充与目标岗位直接相关的具体案例。',
     strengths: hasRichFeedback ? normalizeStringList(rawEvaluation?.strengths, 5, 220) : [],
     priorities: hasRichFeedback ? normalizeStringList(rawEvaluation?.priorities, 5, 220) : [],
+    ...(dimensionScores ? { dimensionScores } : {}),
     questionScores,
     provider: 'dashscope',
     model,
@@ -924,6 +948,16 @@ const evaluateInterview = async ({ body, config }) => {
               ...(hasRichFeedback ? {
                 strengths: ['Chinese'],
                 priorities: ['Chinese'],
+              } : {}),
+              ...(body.mode === PREMIUM_MOCK_MODE ? {
+                dimensionScores: {
+                  speakingClarity: '0-100 integer based on spoken/written clarity and usable English',
+                  interviewStructure: '0-100 integer based on direct, organized and evidence-led answers',
+                  jobKnowledge: '0-100 integer based on role-specific knowledge shown in the answers',
+                  guestHandling: '0-100 integer based on guest empathy, ownership and service recovery',
+                  problemSolving: '0-100 integer based on judgment, sequencing and practical action',
+                  safetyJudgment: '0-100 integer based on policy, escalation and safety boundaries',
+                },
               } : {}),
               questionScores: questionOutput,
             },
@@ -1880,23 +1914,6 @@ const normalizeTrustedScenarioScores = (evaluation, scenario) => Object.fromEntr
   getScenarioSkillKeys(scenario).map((key) => [key, Math.round(clamp(evaluation?.skillScores?.[key], 0, 100))]),
 )
 
-const getRecommendedTrustedScenario = ({ jobKey, weakestSkill, completedScenarioIds }) => {
-  const scenarios = getTrustedSimulationScenarios(jobKey)
-  const uncompleted = scenarios.filter((candidate) => !completedScenarioIds.includes(candidate.id))
-  const candidates = uncompleted.length ? uncompleted : scenarios
-  return candidates.find((candidate) => candidate.evaluationFocus?.includes(weakestSkill)) || candidates[0] || null
-}
-
-const rollbackTrustedScenarioCompletion = async ({ admin, sessionId, userId }) => {
-  const { error } = await admin
-    .from('scenario_training_sessions')
-    .update({ status: 'in_progress', completed_at: null })
-    .eq('id', sessionId)
-    .eq('user_id', userId)
-    .eq('status', 'completed')
-  if (error) console.error('Trusted scenario completion rollback failed:', error.message)
-}
-
 const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario, turns, evaluation }) => {
   const sessionId = trimText(body.sessionId, 80)
   if (!sessionId) {
@@ -1916,7 +1933,6 @@ const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario
   }
 
   const jobKey = scenario.jobKey || 'bar_server'
-  const skillKeys = getScenarioSkillKeys(scenario)
   const skillScores = normalizeTrustedScenarioScores(evaluation, scenario)
   const completedAt = new Date().toISOString()
   const retrySessionId = trimText(draft.scenario_context?.retry?.sessionId, 80) || null
@@ -1942,102 +1958,36 @@ const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario
     next_recommendation: trimText(evaluation.nextTrainingRecommendation, 420),
     completed_at: completedAt,
   }
-  const { data: session, error: sessionError } = await admin
-    .from('scenario_training_sessions')
-    .update(completedFields)
-    .eq('id', sessionId)
-    .eq('user_id', userId)
-    .eq('status', 'in_progress')
-    .select('id, scenario_id, job_key, difficulty, status, overall_readiness, skill_scores, weaknesses, next_recommendation, completed_at')
-    .single()
-  if (sessionError || !session) throwTrustedWriteError('completion', sessionError || new Error('No session returned'))
-
-  const [profileResult, historyResult] = await Promise.all([
-    admin
-      .from('user_job_skill_profiles')
-      .select('skill_scores, updated_at')
-      .eq('user_id', userId)
-      .eq('job_key', jobKey)
-      .maybeSingle(),
-    admin
-      .from('scenario_training_sessions')
-      .select('scenario_id')
-      .eq('user_id', userId)
-      .eq('job_key', jobKey)
-      .eq('status', 'completed'),
-  ])
-  if (profileResult.error || historyResult.error) {
-    await rollbackTrustedScenarioCompletion({ admin, sessionId, userId })
-    throwTrustedWriteError('profile lookup', profileResult.error || historyResult.error)
+  const evidenceEntries = mapScenarioEvidence({
+    jobKey,
+    scenarioId: scenario.id,
+    skillScores,
+    weaknesses: completedFields.weaknesses,
+  }).map((item) => ({
+    skill_key: item.skillKey,
+    score: item.score,
+    weight: item.weight,
+    evidence_text: item.note || null,
+  }))
+  const scenarioCatalog = getTrustedSimulationScenarios(jobKey).map((item) => ({
+    id: item.id,
+    focus: item.evaluationFocus || [],
+  }))
+  const { data, error } = await admin.rpc('complete_scenario_with_unified_profile', {
+    input_user_id: userId,
+    input_session_id: sessionId,
+    input_job_key: jobKey,
+    input_scenario_id: scenario.id,
+    input_completed_fields: completedFields,
+    input_skill_scores: skillScores,
+    input_evidence_entries: evidenceEntries,
+    input_scenario_catalog: scenarioCatalog,
+    input_occurred_at: completedAt,
+  })
+  if (error || !data?.session || !data?.profile) {
+    throwTrustedWriteError('atomic scenario completion', error || new Error('No scenario result returned'))
   }
-
-  const previousScores = Object.fromEntries(skillKeys.map((key) => [
-    key,
-    Math.round(clamp(profileResult.data?.skill_scores?.[key], 0, 100)),
-  ]))
-  const hasPreviousProfile = Boolean(profileResult.data?.updated_at)
-  const blendedScores = Object.fromEntries(skillKeys.map((key) => [
-    key,
-    hasPreviousProfile ? Math.round(previousScores[key] * 0.65 + skillScores[key] * 0.35) : skillScores[key],
-  ]))
-  const weakestSkill = skillKeys.slice().sort((left, right) => blendedScores[left] - blendedScores[right])[0]
-  const completedScenarioIds = [...new Set((historyResult.data || []).map((item) => item.scenario_id).filter(Boolean))]
-  const recommendedScenario = getRecommendedTrustedScenario({ jobKey, weakestSkill, completedScenarioIds })
-  const readinessScore = Math.round(skillKeys.reduce((total, key) => total + blendedScores[key], 0) / skillKeys.length)
-  const profileRow = {
-    user_id: userId,
-    job_key: jobKey,
-    readiness_score: readinessScore,
-    skill_scores: blendedScores,
-    weakest_skill: weakestSkill,
-    recommended_scenario_id: recommendedScenario?.id || null,
-    completed_scenario_count: completedScenarioIds.length,
-    updated_at: completedAt,
-  }
-  let unifiedProfile
-  try {
-    unifiedProfile = await persistUnifiedSkillEvidence({
-      admin,
-      userId,
-      jobKey,
-      source: 'scenario',
-      sourceId: sessionId,
-      entries: mapScenarioEvidence({
-        jobKey,
-        scenarioId: scenario.id,
-        skillScores,
-        weaknesses: completedFields.weaknesses,
-      }),
-      metadata: {
-        scenarioId: scenario.id,
-        difficulty: scenario.difficulty,
-        overallReadiness: completedFields.overall_readiness,
-      },
-      occurredAt: completedAt,
-    })
-  } catch (error) {
-    await rollbackTrustedScenarioCompletion({ admin, sessionId, userId })
-    throwTrustedWriteError('unified capability update', error)
-  }
-  const { error: profileError } = await admin
-    .from('user_job_skill_profiles')
-    .upsert(profileRow, { onConflict: 'user_id,job_key' })
-  if (profileError) {
-    await rollbackTrustedScenarioCompletion({ admin, sessionId, userId })
-    throwTrustedWriteError('profile update', profileError)
-  }
-
-  return {
-    session,
-    profile: {
-      readinessScore,
-      skillScores: blendedScores,
-      weakestSkill,
-      recommendedScenario: recommendedScenario ? { id: recommendedScenario.id } : null,
-      completedScenarioCount: completedScenarioIds.length,
-    },
-    unifiedProfile,
-  }
+  return data
 }
 
 const persistUnifiedEvaluation = async ({ action, mode, body, config, userId, data }) => {
@@ -2211,17 +2161,17 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
         body: payload,
       })
       if (recoveredEvaluation) {
+        const attemptStatus = await completeAssessmentAttempt({
+          supabase: auth.supabase,
+          body: payload,
+          data: recoveredEvaluation,
+        })
         const unifiedProfile = await persistUnifiedEvaluation({
           action,
           mode,
           body: payload,
           config,
           userId: auth.user.id,
-          data: recoveredEvaluation,
-        })
-        const attemptStatus = await completeAssessmentAttempt({
-          supabase: auth.supabase,
-          body: payload,
           data: recoveredEvaluation,
         })
         const data = { ...recoveredEvaluation, attemptStatus, unifiedProfile }
@@ -2277,16 +2227,6 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
             ? await evaluateScenarioSimulation({ body: payload, config, supabase: auth.supabase, userId: auth.user.id })
             : await evaluateInterview({ body: payload, config })
 
-      const unifiedProfile = await persistUnifiedEvaluation({
-        action,
-        mode,
-        body: payload,
-        config,
-        userId: auth.user.id,
-        data,
-      })
-      if (unifiedProfile) data = { ...data, unifiedProfile }
-
       // A follow-up check that decides not to ask anything is free for the learner.
       const isBillable = !(action === 'mock_followup' && !data?.shouldFollowUp)
       if (isBillable) {
@@ -2312,6 +2252,16 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
         })
         data = { ...data, attemptStatus }
       }
+
+      const unifiedProfile = await persistUnifiedEvaluation({
+        action,
+        mode,
+        body: payload,
+        config,
+        userId: auth.user.id,
+        data,
+      })
+      if (unifiedProfile) data = { ...data, unifiedProfile }
 
       await recordAiOperationLog({
         supabase: auth.supabase,

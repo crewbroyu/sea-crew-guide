@@ -16,6 +16,8 @@ const providerRequests = []
 let providerReplies = []
 let cloudAnswerCards = []
 let unifiedProfileWrites = 0
+let unifiedProfileFailures = 0
+const unifiedProfilePayloads = []
 let usageWriteError = false
 
 const reply = (content) => Response.json({ choices: [{ message: { content } }] })
@@ -58,6 +60,11 @@ globalThis.fetch = async (url, options = {}) => {
   if (target.includes('/rest/v1/interview_answer_profiles')) return Response.json({ answer_cards: cloudAnswerCards })
   if (target.includes('/rest/v1/rpc/upsert_unified_skill_evidence')) {
     unifiedProfileWrites += 1
+    unifiedProfilePayloads.push(JSON.parse(options.body || '{}'))
+    if (unifiedProfileFailures > 0) {
+      unifiedProfileFailures -= 1
+      return Response.json({ message: 'simulated database outage' }, { status: 500 })
+    }
     return Response.json({ readinessScore: 67, evidenceCount: 1 })
   }
   if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) return Response.json({ reservation_id: '00000000-0000-4000-8000-000000000401', unlimited: false })
@@ -195,6 +202,34 @@ assert.equal(result.status, 503)
 assert.equal(result.body.error.code, 'USAGE_RECORD_FAILED')
 assert.equal(unifiedProfileWrites, writesBeforeUsageFailure)
 assert.deepEqual(finalizeOutcomes, ['failed'])
+
+// 5c. A transient capability write failure is retried once and the score is still returned.
+resetLedger()
+let writesBefore = unifiedProfileWrites
+unifiedProfileFailures = 1
+providerReplies = [mockReport(9)]
+result = await call(mockBody('profile-write-transient'))
+assert.equal(result.status, 200)
+assert.equal(unifiedProfileWrites - writesBefore, 2, 'one immediate retry')
+assert.equal(result.body.data.unifiedProfile.evidenceCount, 1)
+assert.equal(result.body.data.unifiedProfileSyncPending, undefined)
+assert.deepEqual(usageEvents, ['mock_interview'])
+assert.deepEqual(finalizeOutcomes, ['completed'])
+
+// 5d. A persistent capability write failure must not discard a charged mock interview result.
+resetLedger()
+writesBefore = unifiedProfileWrites
+unifiedProfileFailures = 2
+providerReplies = [mockReport(9)]
+result = await call(mockBody('profile-write-outage'))
+assert.equal(result.status, 200, 'the paid score is returned even when the profile write fails')
+assert.equal(result.body.data.questionScores.length, 9)
+assert.equal(result.body.data.unifiedProfileSyncPending, true)
+assert.equal(result.body.data.unifiedProfile, undefined)
+assert.equal(unifiedProfileWrites - writesBefore, 2)
+assert.deepEqual(usageEvents, ['mock_interview'], 'charged exactly once')
+assert.deepEqual(finalizeOutcomes, ['completed'])
+unifiedProfileFailures = 0
 
 // 6. Drafts are per account, per position, bounded in age, and resume at the first unanswered question.
 const values = new Map()

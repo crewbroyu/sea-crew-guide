@@ -1995,27 +1995,45 @@ const persistUnifiedEvaluation = async ({ action, mode, body, config, userId, da
   const isMockInterview = mode === PREMIUM_MOCK_MODE && action === 'evaluate'
   if (!isAssessment && !isMockInterview) return null
 
-  const admin = createTrustedWriteClient(config)
+  const sourceId = isAssessment
+    ? trimText(body.assessmentAttemptId, 160)
+    : trimText(body.clientRequestId, 160)
+  const writeEvidence = () => persistUnifiedSkillEvidence({
+    admin: createTrustedWriteClient(config),
+    userId,
+    jobKey: isAssessment ? 'cruise_general' : getJobKeyForPosition(body.position),
+    source: isAssessment ? 'assessment' : 'interview',
+    sourceId,
+    entries: isAssessment
+      ? mapAssessmentEvidence({ evaluation: data })
+      : mapMockInterviewEvidence({ evaluation: data }),
+    metadata: isAssessment
+      ? { evidenceConfidence: data?.evidenceConfidence || 'low', scoringMode: data?.scoringMode || 'ai' }
+      : { position: trimText(body.position, 160), questionCount: data?.questionScores?.length || 0 },
+  })
+
   try {
-    return await persistUnifiedSkillEvidence({
-      admin,
-      userId,
-      jobKey: isAssessment ? 'cruise_general' : getJobKeyForPosition(body.position),
-      source: isAssessment ? 'assessment' : 'interview',
-      sourceId: isAssessment
-        ? trimText(body.assessmentAttemptId, 160)
-        : trimText(body.clientRequestId, 160),
-      entries: isAssessment
-        ? mapAssessmentEvidence({ evaluation: data })
-        : mapMockInterviewEvidence({ evaluation: data }),
-      metadata: isAssessment
-        ? { evidenceConfidence: data?.evidenceConfidence || 'low', scoringMode: data?.scoringMode || 'ai' }
-        : { position: trimText(body.position, 160), questionCount: data?.questionScores?.length || 0 },
-    })
+    // The write is idempotent per (source, sourceId), so one immediate retry covers transient database errors.
+    try {
+      return await writeEvidence()
+    } catch (firstError) {
+      console.warn('Unified capability update retrying:', { source: isAssessment ? 'assessment' : 'interview', sourceId, message: firstError?.message || String(firstError) })
+      return await writeEvidence()
+    }
   } catch (error) {
-    throwTrustedWriteError('unified capability update', error)
+    // Assessment scores are already stored on the attempt; failing lets the client retry and the
+    // recovery path re-applies the same evidence idempotently.
+    if (isAssessment) throwTrustedWriteError('unified capability update', error)
+    // A charged mock interview must still return its score. The profile update is reported as
+    // pending instead of discarding a result the learner has already paid for.
+    console.error('Unified capability update deferred:', {
+      source: 'interview',
+      userId,
+      sourceId,
+      message: error?.message || String(error),
+    })
+    return { syncPending: true }
   }
-  return null
 }
 
 const normalizeScenarioSimulationEvaluation = (raw, model, scenario) => {
@@ -2261,7 +2279,8 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
         userId: auth.user.id,
         data,
       })
-      if (unifiedProfile) data = { ...data, unifiedProfile }
+      if (unifiedProfile?.syncPending) data = { ...data, unifiedProfileSyncPending: true }
+      else if (unifiedProfile) data = { ...data, unifiedProfile }
 
       await recordAiOperationLog({
         supabase: auth.supabase,

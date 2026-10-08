@@ -753,23 +753,33 @@ const hasValidScenarioContract = (evaluation, itemCount) => {
   )
 }
 
+// Every answer shows clarity and structure; the other dimensions are only scored when an answer
+// actually tested them, otherwise the model returns null instead of inventing a number.
+const MOCK_ALWAYS_OBSERVED_DIMENSIONS = Object.freeze(['speakingClarity', 'interviewStructure'])
+const MOCK_OPTIONAL_DIMENSIONS = Object.freeze(['jobKnowledge', 'guestHandling', 'problemSolving', 'safetyJudgment'])
+const MOCK_DIMENSIONS = Object.freeze([...MOCK_ALWAYS_OBSERVED_DIMENSIONS, ...MOCK_OPTIONAL_DIMENSIONS])
+
+// Returns a 0-100 number, null for "not observed", or undefined when the value is unusable.
+// Number(null), Number('') and Number(true) are finite, so they are rejected explicitly.
+const parseMockDimensionScore = (value) => {
+  if (value === null) return null
+  const numeric = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN
+  return Number.isFinite(numeric) && numeric >= 0 && numeric <= 100 ? numeric : undefined
+}
+
 // Mock reports are scored from per-question scores, so every asked question must be present.
 const hasValidMockInterviewContract = (evaluation, itemCount) => {
   const scores = evaluation?.questionScores
   if (!Array.isArray(scores) || scores.length !== itemCount) return false
   const dimensionScores = evaluation?.dimensionScores
-  const requiredDimensions = [
-    'speakingClarity',
-    'interviewStructure',
-    'jobKnowledge',
-    'guestHandling',
-    'problemSolving',
-    'safetyJudgment',
-  ]
-  if (!dimensionScores || !requiredDimensions.every((key) => {
-    const value = Number(dimensionScores[key])
-    return Number.isFinite(value) && value >= 0 && value <= 100
-  })) return false
+  if (!dimensionScores || typeof dimensionScores !== 'object') return false
+  const alwaysObservedValid = MOCK_ALWAYS_OBSERVED_DIMENSIONS
+    .every((key) => typeof parseMockDimensionScore(dimensionScores[key]) === 'number')
+  const optionalValid = MOCK_OPTIONAL_DIMENSIONS
+    .every((key) => Object.hasOwn(dimensionScores, key) && parseMockDimensionScore(dimensionScores[key]) !== undefined)
+  if (!alwaysObservedValid || !optionalValid) return false
 
   return scores.every((score) => {
     // json_object output sometimes quotes numbers; normalizeEvaluation already coerces them.
@@ -847,14 +857,11 @@ const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, m
     : 0
   const overallScore = Math.round(clamp(calculatedScore, 0, 100))
   const rawDimensionScores = rawEvaluation?.dimensionScores || {}
-  const dimensionScores = rawEvaluation?.dimensionScores ? Object.fromEntries([
-    'speakingClarity',
-    'interviewStructure',
-    'jobKnowledge',
-    'guestHandling',
-    'problemSolving',
-    'safetyJudgment',
-  ].map((key) => [key, Math.round(clamp(rawDimensionScores[key], 0, 100))])) : undefined
+  // Unobserved (null) or unusable dimensions stay null so they never become a 0-score capability.
+  const dimensionScores = rawEvaluation?.dimensionScores ? Object.fromEntries(MOCK_DIMENSIONS.map((key) => {
+    const parsed = parseMockDimensionScore(rawDimensionScores[key])
+    return [key, typeof parsed === 'number' ? Math.round(parsed) : null]
+  })) : undefined
 
   return {
     overallScore,
@@ -918,6 +925,7 @@ const evaluateInterview = async ({ body, config }) => {
             '专业参考回答必须针对候选人的原回答和当前客人需求重新组织，不能机械复制 scenarioReference。',
             '即使候选人只说一句话，也必须解释这句话具体对在哪里、错在哪里，并提供可直接重练的完整回答。',
             '严格按提供的分数锚点评分；17 分以上必须有清楚、具体、可核验的高质量证据，19-20 分应极少使用。',
+            body.mode === PREMIUM_MOCK_MODE ? 'dimensionScores 中，speakingClarity 和 interviewStructure 必须评分；其余维度只有在题目或回答确实考察到时才评分，否则返回 null，不要猜测或补分。' : '',
             '点评和总体建议用简体中文，improvedAnswer 用自然、适合面试口语的英文。',
             '每题满分 20 分。严格返回 JSON，不要使用 Markdown。',
           ].join('\n'),
@@ -953,11 +961,10 @@ const evaluateInterview = async ({ body, config }) => {
                 dimensionScores: {
                   speakingClarity: '0-100 integer based on spoken/written clarity and usable English',
                   interviewStructure: '0-100 integer based on direct, organized and evidence-led answers',
-                  jobKnowledge: '0-100 integer based on role-specific knowledge shown in the answers',
-                  guestHandling: '0-100 integer based on guest empathy, ownership and service recovery',
-                  problemSolving: '0-100 integer based on judgment, sequencing and practical action',
-                  safetyJudgment: '0-100 integer based on policy, escalation and safety boundaries',
-                },
+                  jobKnowledge: '0-100 integer based on role-specific knowledge shown in the answers, or null if no answer tested it',
+                  guestHandling: '0-100 integer based on guest empathy, ownership and service recovery, or null if no answer tested it',
+                  problemSolving: '0-100 integer based on judgment, sequencing and practical action, or null if no answer tested it',
+                  safetyJudgment: '0-100 integer based on policy, escalation and safety boundaries, or null if no answer tested it',                },
               } : {}),
               questionScores: questionOutput,
             },

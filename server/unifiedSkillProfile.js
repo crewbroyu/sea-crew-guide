@@ -71,8 +71,10 @@ export const mapMockInterviewEvidence = ({ evaluation = {} }) => {
     ['problem_solving', dimensions.problemSolving, 0.8],
     ['safety_judgment', dimensions.safetyJudgment, 0.8],
   ]
+  // Only real numbers are evidence. Number(null) and Number('') are 0, which would record an
+  // unobserved dimension as a failing score.
   return mappings
-    .filter(([, score]) => Number.isFinite(Number(score)))
+    .filter(([, score]) => typeof score === 'number' && Number.isFinite(score))
     .map(([skillKey, score, weight]) => evidence(skillKey, score, weight, note))
 }
 

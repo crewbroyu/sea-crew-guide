@@ -65,6 +65,20 @@ assert.deepEqual(mockEvidence.map((item) => item.skillKey), [
 ])
 assert.equal(mockEvidence.find((item) => item.skillKey === 'speaking_clarity').score, 82)
 
+// Unobserved dimensions are not evidence: null, empty strings and booleans must never become a 0 score.
+const partialMockEvidence = mapMockInterviewEvidence({ evaluation: {
+  dimensionScores: {
+    interviewStructure: 70,
+    speakingClarity: 75,
+    jobKnowledge: null,
+    guestHandling: '',
+    problemSolving: true,
+    safetyJudgment: undefined,
+  },
+} })
+assert.deepEqual(partialMockEvidence.map((item) => item.skillKey), ['interview_structure', 'speaking_clarity'])
+assert.ok(partialMockEvidence.every((item) => item.score > 0))
+
 const assessmentEvidence = mapAssessmentEvidence({
   evaluation: {
     englishScore: 70,

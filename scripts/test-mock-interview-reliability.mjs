@@ -31,20 +31,21 @@ const questionScore = (index) => ({
   matchedKeywords: [],
   missedKeywords: [],
 })
-const mockReport = (count) => JSON.stringify({
+const defaultDimensions = {
+  speakingClarity: 72,
+  interviewStructure: 68,
+  jobKnowledge: 64,
+  guestHandling: 70,
+  problemSolving: 66,
+  safetyJudgment: 62,
+}
+const mockReport = (count, dimensionScores = defaultDimensions) => JSON.stringify({
   overallScore: 99,
   rating: 5,
   overallSuggestion: '优先重练低分题。',
   strengths: ['表达清楚。'],
   priorities: ['补充证据。'],
-  dimensionScores: {
-    speakingClarity: 72,
-    interviewStructure: 68,
-    jobKnowledge: 64,
-    guestHandling: 70,
-    problemSolving: 66,
-    safetyJudgment: 62,
-  },
+  dimensionScores,
   questionScores: Array.from({ length: count }, (_, index) => questionScore(index)),
 })
 
@@ -101,6 +102,8 @@ const resetLedger = () => {
   usageEvents.length = 0
   providerRequests.length = 0
   usageWriteError = false
+  // Each case is an independent request; the per-instance rate limiter must not leak between cases.
+  globalThis.__crewPathInterviewUsage?.clear()
 }
 
 // 1. A follow-up check that declines to ask is released, not charged and not counted as a failure.
@@ -230,6 +233,40 @@ assert.equal(unifiedProfileWrites - writesBefore, 2)
 assert.deepEqual(usageEvents, ['mock_interview'], 'charged exactly once')
 assert.deepEqual(finalizeOutcomes, ['completed'])
 unifiedProfileFailures = 0
+
+// 5e. Dimensions the interview never tested are returned as null and are not written as evidence.
+resetLedger()
+unifiedProfilePayloads.length = 0
+providerReplies = [mockReport(9, { ...defaultDimensions, safetyJudgment: null, guestHandling: null })]
+result = await call(mockBody('unobserved-dimensions'))
+assert.equal(result.status, 200)
+assert.equal(providerRequests.length, 1, 'null for an unobserved dimension is a valid report, not a retry')
+assert.equal(result.body.data.dimensionScores.safetyJudgment, null)
+assert.equal(result.body.data.dimensionScores.guestHandling, null)
+assert.equal(result.body.data.dimensionScores.speakingClarity, 72)
+const writtenSkills = unifiedProfilePayloads[0].input_entries.map((entry) => entry.skill_key)
+assert.deepEqual(writtenSkills.sort(), ['interview_structure', 'job_knowledge', 'problem_solving', 'speaking_clarity'])
+
+// 5f. The always-observed dimensions cannot be null; a report without them is retried, then rejected.
+resetLedger()
+providerReplies = [
+  mockReport(9, { ...defaultDimensions, speakingClarity: null }),
+  mockReport(9, { ...defaultDimensions, interviewStructure: '' }),
+]
+result = await call(mockBody('missing-core-dimension'))
+assert.equal(providerRequests.length, 2)
+assert.equal(result.status, 502)
+assert.equal(result.body.error.code, 'INVALID_AI_RESPONSE')
+assert.deepEqual(usageEvents, [], 'a rejected report is not charged')
+
+// 5g. An optional dimension must be present (number or null); a missing key is retried.
+resetLedger()
+const { safetyJudgment: _omitted, ...withoutSafety } = defaultDimensions
+providerReplies = [mockReport(9, withoutSafety), mockReport(9)]
+result = await call(mockBody('missing-optional-key'))
+assert.equal(providerRequests.length, 2)
+assert.equal(result.status, 200)
+assert.equal(result.body.data.dimensionScores.safetyJudgment, 62)
 
 // 6. Drafts are per account, per position, bounded in age, and resume at the first unanswered question.
 const values = new Map()

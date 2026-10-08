@@ -133,14 +133,12 @@ export const generateMockInterviewFollowUp = ({ position, mainQuestion, answer }
   answer,
 })
 
-export const evaluateFoundationChallenge = ({ position, dayId, prompt, answer, reference, requestId }) => requestInterviewAi({
+export const evaluateFoundationChallenge = ({ position, dayId, answer, requestId }) => requestInterviewAi({
   action: 'evaluate',
   mode: 'premium_practice',
   trainingContext: 'foundation_challenge',
   position,
   scenarioId: `foundation:${dayId}`,
-  foundationReference: reference,
-  questions: [{ id: `foundation:${dayId}`, question: prompt, focus: reference?.mission || '' }],
   answers: [{ textAnswer: answer }],
 }, requestId)
 
@@ -183,10 +181,11 @@ export const continueScenarioRoleplay = ({ scenarioId, firstAnswer, position = '
   firstAnswer,
 }, requestId)
 
-export const evaluateScenarioSimulation = ({ scenarioId, turns, position = 'Bar Server', requestId }) => requestInterviewAi({
+export const evaluateScenarioSimulation = ({ scenarioId, sessionId, turns, position = 'Bar Server', requestId }) => requestInterviewAi({
   action: 'scenario_evaluate',
   mode: 'premium_scenario',
   position,
   scenarioId,
+  sessionId,
   turns,
 }, requestId)

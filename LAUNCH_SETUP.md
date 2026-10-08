@@ -23,6 +23,7 @@
 | `VITE_SUPABASE_ANON_KEY` | 前端 Supabase publishable/anon key | 可以 |
 | `SUPABASE_URL` | `/api/interview` 验证登录状态 | 不可公开配置，但值本身可为项目 URL |
 | `SUPABASE_ANON_KEY` | `/api/interview` 验证用户 JWT | 不可用 service-role key |
+| `SUPABASE_SECRET_KEY` | 仅由 `/api/interview` 保存可信训练评分和能力档案 | **绝不能**以 `VITE_` 开头或发送到浏览器 |
 | `DASHSCOPE_API_KEY` | 千问文字与语音接口 | **绝不能**以 `VITE_` 开头 |
 | `DASHSCOPE_BASE_URL` | 可选，默认兼容模式文字接口地址 | 否 |
 | `DASHSCOPE_ASR_URL` | 可选，默认语音转写接口地址 | 否 |
@@ -54,6 +55,7 @@
 6. `supabase_ai_cost_controls.sql`：限制失败重试并为 AI 账单增加数据库级保护。
 7. `supabase_assessment_attempt_limits.sql`：每个普通账号最多成功完成 3 次职业评估，并限制单次评估的 AI 调用和 2 小时有效期。
 8. `supabase_assessment_result_recovery.sql`：允许评分响应丢失后按原请求取回完整结果，不再次调用 AI 或计次。
+9. `supabase/migrations/20261008090000_trusted_training_results.sql`：限制浏览器只能保存岗位模拟草稿，完成评分和能力档案改由服务端 secret 写入。
 
 第四份脚本设置的是 `365` 天、`120` 次 AI 反馈、`10` 次完整模拟面试；它不会覆盖已经有付款或激活来源的同岗位权益。第五份脚本把语音转写独立计量为 AI 反馈额度的 3 倍，因此 `120` 次反馈对应 `360` 次转写。第六份脚本允许失败后重新尝试但保留审计记录，并限制免费用户每天最多 `6` 次、付费用户每天最多 `20` 次失败重试。执行后查看脚本末尾的查询结果。
 

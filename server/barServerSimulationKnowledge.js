@@ -1,5 +1,6 @@
 const simulationKnowledge = {
   bar_sim_basic_order: {
+    jobKey: 'bar_server', difficulty: 1, evaluationFocus: ['communication', 'service', 'english'],
     role: 'Guest',
     openingLine: "Hi. Could I have one mojito, but not too sweet? And my wife would like something non-alcoholic.",
     followUpFocus: 'Ask for a non-alcoholic preference and verify whether the server restates the full order.',
@@ -8,6 +9,7 @@ const simulationKnowledge = {
     knowledge: ['Ask one concise preference question before choosing the non-alcoholic drink.', 'Repeat the drink, quantity, and relevant modification.', 'Do not invent wait times, prices, or package coverage.'],
   },
   bar_sim_premium_recommendation: {
+    jobKey: 'bar_server', difficulty: 2, evaluationFocus: ['barKnowledge', 'service', 'upselling', 'english'],
     role: 'Guest',
     openingLine: "I'd like something light, citrusy, and not too sweet. What do you recommend?",
     followUpFocus: 'Test whether the server can clarify base spirit, adjust sweetness, and offer a suitable premium alternative.',
@@ -16,6 +18,7 @@ const simulationKnowledge = {
     knowledge: ['Vodka soda with fresh lime is light and low sweetness, but confirm the guest accepts vodka.', 'Tom Collins can fit when gin is acceptable; syrup level matters.', 'Package coverage and prices must be checked, never promised.'],
   },
   bar_sim_wrong_drink_recovery: {
+    jobKey: 'bar_server', difficulty: 3, evaluationFocus: ['communication', 'service', 'problemSolving', 'english'],
     role: 'Complaining Guest',
     openingLine: "This isn't what I ordered. I've already waited twenty minutes, and now it's far too sweet.",
     followUpFocus: 'Test order verification, authorization awareness, and a clear service-recovery follow-up.',
@@ -24,6 +27,7 @@ const simulationKnowledge = {
     knowledge: ['Never blame the bartender, system, or guest in front of the guest.', 'Free drinks, refunds, and compensation may require supervisor authorization.', 'Follow up after the replacement arrives.'],
   },
   bar_sim_responsible_service: {
+    jobKey: 'bar_server', difficulty: 4, evaluationFocus: ['communication', 'service', 'problemSolving', 'english'],
     role: 'Drunk Guest',
     openingLine: "I've got the package. Just give me another whisky. Don't make this difficult.",
     followUpFocus: 'Challenge package entitlement while testing calm refusal and escalation.',
@@ -32,6 +36,7 @@ const simulationKnowledge = {
     knowledge: ['A beverage package never overrides responsible-service policy.', 'Use neutral language rather than calling a guest drunk to their face.', 'Notify a supervisor early and request security or medical support if needed.'],
   },
   bar_sim_allergy_safety: {
+    jobKey: 'bar_server', difficulty: 4, evaluationFocus: ['communication', 'barKnowledge', 'service', 'problemSolving', 'english'],
     role: 'Concerned Guest',
     openingLine: "I have a severe nut allergy. Is your signature cocktail completely safe for me? I'm in a hurry.",
     followUpFocus: 'Pressure the server for a guarantee and test whether they pause, verify, hand over, and explain uncertainty clearly.',
@@ -40,7 +45,7 @@ const simulationKnowledge = {
     knowledge: ['Never guarantee a drink is allergen-free from memory.', 'Check approved recipe and ingredient information and alert the bartender or supervisor.', 'Follow ship procedure for possible cross-contact from tools, ice, garnishes, mixers, and work surfaces.'],
   },
   retail_sim_guest_approach: {
-    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Guest',
+    jobKey: 'retail', position: 'Retail Sales Associate', difficulty: 1, evaluationFocus: ['communication', 'guestExperience', 'selling', 'english'], role: 'Guest',
     openingLine: "Thanks, I'm just looking. I don't really need anything today.",
     followUpFocus: 'Test whether the associate can discover a purpose, recipient, category, or preference without becoming pushy.',
     serviceGoal: 'Welcome the guest, respect their space, and create a natural reason to continue.',
@@ -48,7 +53,7 @@ const simulationKnowledge = {
     knowledge: ['Offer specific help and remain available.', 'Use one relevant open question.', 'Respect a clear decision not to engage.'],
   },
   retail_sim_fragrance_discovery: {
-    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Gift Shopper',
+    jobKey: 'retail', position: 'Retail Sales Associate', difficulty: 2, evaluationFocus: ['productKnowledge', 'guestExperience', 'selling', 'english'], role: 'Gift Shopper',
     openingLine: "I need a fragrance for my partner, but I have no idea what to choose. They usually like something fresh.",
     followUpFocus: 'Ask about budget, scent family, current fragrance, or occasion before testing a comparison and close.',
     serviceGoal: 'Discover the need and present one suitable option with honest feature-to-benefit language.',
@@ -56,7 +61,7 @@ const simulationKnowledge = {
     knowledge: ['Ask about scent family, occasion, current favourites, and budget.', 'Describe notes rather than promising a reaction.', 'Never invent longevity, stock, or savings.'],
   },
   retail_sim_price_objection: {
-    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Price-conscious Guest',
+    jobKey: 'retail', position: 'Retail Sales Associate', difficulty: 3, evaluationFocus: ['communication', 'productKnowledge', 'selling', 'operations', 'english'], role: 'Price-conscious Guest',
     openingLine: 'I found what looks like the same watch online for less. Why should I buy it here?',
     followUpFocus: 'Challenge the associate on price matching, warranty, authenticity, or customs allowance.',
     serviceGoal: 'Acknowledge the comparison, verify facts, and protect trust.',
@@ -64,7 +69,7 @@ const simulationKnowledge = {
     knowledge: ['Do not guarantee the lowest price or a customs outcome.', 'Compare exact model, warranty, currency, tax, and seller status.', 'Use approved price information only.'],
   },
   retail_sim_return_policy: {
-    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Complaining Guest',
+    jobKey: 'retail', position: 'Retail Sales Associate', difficulty: 4, evaluationFocus: ['communication', 'guestExperience', 'operations', 'english'], role: 'Complaining Guest',
     openingLine: 'This skincare set irritated my skin. I opened it yesterday and I want a full refund now.',
     followUpFocus: 'Test empathy, policy boundaries, escalation, and whether the associate avoids medical claims.',
     serviceGoal: 'Listen, inspect facts, explain only verified policy, and involve the correct authority.',
@@ -72,7 +77,7 @@ const simulationKnowledge = {
     knowledge: ['Check receipt, condition, purchase details, and current policy.', 'Do not promise a refund before authorisation.', 'Avoid medical advice and document the concern.'],
   },
   retail_sim_sea_day: {
-    jobKey: 'retail', position: 'Retail Sales Associate', role: 'Event Guest',
+    jobKey: 'retail', position: 'Retail Sales Associate', difficulty: 5, evaluationFocus: ['communication', 'productKnowledge', 'guestExperience', 'selling', 'operations', 'english'], role: 'Event Guest',
     openingLine: 'The sign says buy two and save twenty percent. Does that include this brand, and can I mix the products?',
     followUpFocus: 'Add a waiting guest, an uncertain exclusion, or a stock issue and test prioritisation plus an accurate close.',
     serviceGoal: 'Prioritise guests, explain the promotion accurately, and keep the floor controlled.',
@@ -81,4 +86,11 @@ const simulationKnowledge = {
   },
 }
 
-export const getBarServerSimulationKnowledge = (scenarioId) => simulationKnowledge[scenarioId] || null
+export const getBarServerSimulationKnowledge = (scenarioId) => {
+  const scenario = simulationKnowledge[scenarioId]
+  return scenario ? { id: scenarioId, ...scenario } : null
+}
+
+export const getTrustedSimulationScenarios = (jobKey) => Object.entries(simulationKnowledge)
+  .map(([id, scenario]) => ({ id, ...scenario }))
+  .filter((scenario) => (scenario.jobKey || 'bar_server') === jobKey)

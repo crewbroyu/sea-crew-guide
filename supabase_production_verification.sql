@@ -18,6 +18,8 @@ where table_schema = 'public'
     'assessment_attempts',
     'assessment_attempt_actions',
     'job_preparation_profiles',
+    'scenario_training_sessions',
+    'user_job_skill_profiles',
     'user_entitlements'
   )
 order by table_name;
@@ -55,6 +57,8 @@ where schemaname = 'public'
     'assessment_attempts',
     'assessment_attempt_actions',
     'job_preparation_profiles',
+    'scenario_training_sessions',
+    'user_job_skill_profiles',
     'user_entitlements'
   )
 order by tablename;
@@ -71,9 +75,25 @@ where schemaname = 'public'
     'assessment_attempts',
     'assessment_attempt_actions',
     'job_preparation_profiles',
+    'scenario_training_sessions',
+    'user_job_skill_profiles',
     'user_entitlements'
   )
 order by tablename, policyname;
+
+select grantee, table_name, privilege_type
+from information_schema.role_table_grants
+where table_schema = 'public'
+  and table_name in ('scenario_training_sessions', 'user_job_skill_profiles')
+  and grantee = 'authenticated'
+order by table_name, privilege_type;
+
+select grantee, table_name, column_name, privilege_type
+from information_schema.role_column_grants
+where table_schema = 'public'
+  and table_name = 'scenario_training_sessions'
+  and grantee = 'authenticated'
+order by privilege_type, column_name;
 
 select
   count(*) filter (where status = 'active' and (expires_at is null or expires_at > now())) as active_entitlements,

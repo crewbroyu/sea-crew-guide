@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import process from 'node:process'
 import { getBarServerScenarioKnowledge } from './barServerScenarioKnowledge.js'
-import { getBarServerSimulationKnowledge } from './barServerSimulationKnowledge.js'
+import { getBarServerSimulationKnowledge, getTrustedSimulationScenarios } from './barServerSimulationKnowledge.js'
+import { getFoundationTrainingReference } from './foundationTrainingKnowledge.js'
 
 const DEFAULT_TEXT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 const DEFAULT_ASR_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
@@ -131,6 +132,7 @@ const getServerConfig = (env = process.env) => ({
     trimText(env.DASHSCOPE_SCENARIO_MODEL, 100) || DEFAULT_SCENARIO_EVALUATION_MODEL,
   supabaseUrl: trimText(env.SUPABASE_URL || env.VITE_SUPABASE_URL, 500),
   supabaseAnonKey: trimText(env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY, 1000),
+  supabaseSecretKey: trimText(env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY, 1000),
 })
 
 const requireConfig = (config) => {
@@ -560,27 +562,22 @@ const parseJsonContent = (content) => {
   }
 }
 
-const normalizeFoundationReference = (value) => {
-  if (!value || typeof value !== 'object') return null
-  const serviceLines = normalizeStringList(value.serviceLines, 6, 320)
-  const knowledge = normalizeStringList(value.knowledge, 10, 320)
-  const requiredActions = normalizeStringList(value.requiredActions, 5, 220)
-  return {
-    mission: trimText(value.mission, 500),
-    retryChecklistZh: requiredActions.length ? requiredActions : knowledge.slice(0, 4),
-    knowledgeNotesZh: knowledge,
-    usefulPhrases: serviceLines,
-    referenceAnswer: serviceLines.join(' '),
-    fallbackStrengthsZh: ['已经尝试用英语直接回应当前客人或主管。'],
-  }
-}
-
 const normalizeQuestionsAndAnswers = (body) => {
-  const questions = Array.isArray(body.questions) ? body.questions.slice(0, MAX_QUESTIONS) : []
-  const answers = Array.isArray(body.answers) ? body.answers.slice(0, MAX_QUESTIONS) : []
   const foundationReference = body.trainingContext === 'foundation_challenge'
-    ? normalizeFoundationReference(body.foundationReference)
+    ? getFoundationTrainingReference({ scenarioId: body.scenarioId, position: body.position })
     : null
+  if (body.trainingContext === 'foundation_challenge' && !foundationReference) {
+    throw new InterviewApiError(400, 'UNKNOWN_FOUNDATION_DAY', 'This foundation training day could not be found.')
+  }
+  const questions = foundationReference
+    ? [{
+        id: foundationReference.id,
+        question: foundationReference.question,
+        focus: foundationReference.roleGoal,
+        keywords: [],
+      }]
+    : Array.isArray(body.questions) ? body.questions.slice(0, MAX_QUESTIONS) : []
+  const answers = Array.isArray(body.answers) ? body.answers.slice(0, MAX_QUESTIONS) : []
 
   if (!questions.length) {
     throw new InterviewApiError(400, 'QUESTIONS_REQUIRED', '没有可评分的面试题。')
@@ -1729,6 +1726,15 @@ const getSimulationScenario = (scenarioId) => {
   return scenario
 }
 
+const validateSimulationPosition = (body) => {
+  const scenario = getSimulationScenario(body.scenarioId)
+  const expectedProductCode = scenario.jobKey === 'retail' ? RETAIL_PRODUCT_CODE : BAR_SERVER_PRODUCT_CODE
+  if (getProductCodeForPosition(body.position) !== expectedProductCode) {
+    throw new InterviewApiError(400, 'SCENARIO_POSITION_MISMATCH', '岗位模拟与当前岗位包不匹配。')
+  }
+  return scenario
+}
+
 const getScenarioTrainingMemory = async ({ supabase, userId, scenario, mode }) => {
   if (mode !== PREMIUM_SCENARIO_MODE || !supabase || !userId) return null
 
@@ -1843,6 +1849,164 @@ const continueScenarioRoleplay = async ({ body, config, supabase, userId }) => {
 
 const getScenarioSkillKeys = (scenario) => scenario?.jobKey === 'retail' ? RETAIL_SKILL_KEYS : BAR_SERVER_SKILL_KEYS
 
+const createTrustedWriteClient = (config) => {
+  if (!config.supabaseSecretKey) {
+    throw new InterviewApiError(503, 'TRUSTED_WRITE_NOT_CONFIGURED', '训练结果暂时无法安全保存，请稍后重试。')
+  }
+  return createClient(config.supabaseUrl, config.supabaseSecretKey, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+  })
+}
+
+const requireTrustedWriteConfig = (config) => {
+  if (!config.supabaseSecretKey) {
+    throw new InterviewApiError(503, 'TRUSTED_WRITE_NOT_CONFIGURED', '训练结果暂时无法安全保存，请稍后重试。')
+  }
+}
+
+const throwTrustedWriteError = (operation, error) => {
+  console.error(`Trusted scenario ${operation} failed:`, error?.message || error)
+  throw new InterviewApiError(503, 'TRAINING_RESULT_SAVE_FAILED', '训练评分已生成，但可信结果暂时无法保存，请稍后重试。')
+}
+
+const normalizeTrustedScenarioScores = (evaluation, scenario) => Object.fromEntries(
+  getScenarioSkillKeys(scenario).map((key) => [key, Math.round(clamp(evaluation?.skillScores?.[key], 0, 100))]),
+)
+
+const getRecommendedTrustedScenario = ({ jobKey, weakestSkill, completedScenarioIds }) => {
+  const scenarios = getTrustedSimulationScenarios(jobKey)
+  const uncompleted = scenarios.filter((candidate) => !completedScenarioIds.includes(candidate.id))
+  const candidates = uncompleted.length ? uncompleted : scenarios
+  return candidates.find((candidate) => candidate.evaluationFocus?.includes(weakestSkill)) || candidates[0] || null
+}
+
+const rollbackTrustedScenarioCompletion = async ({ admin, sessionId, userId }) => {
+  const { error } = await admin
+    .from('scenario_training_sessions')
+    .update({ status: 'in_progress', completed_at: null })
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+  if (error) console.error('Trusted scenario completion rollback failed:', error.message)
+}
+
+const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario, turns, evaluation }) => {
+  const sessionId = trimText(body.sessionId, 80)
+  if (!sessionId) {
+    throw new InterviewApiError(400, 'SCENARIO_SESSION_REQUIRED', '请重新进入岗位模拟后再提交评分。')
+  }
+
+  const admin = createTrustedWriteClient(config)
+  const { data: draft, error: draftError } = await admin
+    .from('scenario_training_sessions')
+    .select('id, user_id, job_key, scenario_id, status, scenario_context')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (draftError) throwTrustedWriteError('draft lookup', draftError)
+  if (!draft || draft.status !== 'in_progress' || draft.scenario_id !== scenario.id || draft.job_key !== (scenario.jobKey || 'bar_server')) {
+    throw new InterviewApiError(409, 'SCENARIO_SESSION_INVALID', '这次岗位模拟草稿无效或已经完成，请重新开始。')
+  }
+
+  const jobKey = scenario.jobKey || 'bar_server'
+  const skillKeys = getScenarioSkillKeys(scenario)
+  const skillScores = normalizeTrustedScenarioScores(evaluation, scenario)
+  const completedAt = new Date().toISOString()
+  const retrySessionId = trimText(draft.scenario_context?.retry?.sessionId, 80) || null
+  const scenarioContext = {
+    scenarioId: scenario.id,
+    jobKey,
+    role: scenario.role,
+    serviceGoal: scenario.serviceGoal,
+    salesGoal: scenario.salesGoal,
+    ...(retrySessionId ? { retrySessionId } : {}),
+  }
+  const completedFields = {
+    difficulty: scenario.difficulty,
+    scenario_context: scenarioContext,
+    turns,
+    status: 'completed',
+    overall_readiness: Math.round(clamp(evaluation.overallReadiness, 0, 100)),
+    skill_scores: skillScores,
+    strengths: normalizeStringList(evaluation.strengths, 4, 220),
+    weaknesses: normalizeStringList(evaluation.weaknesses, 4, 220),
+    critical_mistakes: normalizeStringList(evaluation.criticalMistakes, 3, 220),
+    better_response: trimText(evaluation.betterResponse, 2500),
+    next_recommendation: trimText(evaluation.nextTrainingRecommendation, 420),
+    completed_at: completedAt,
+  }
+  const { data: session, error: sessionError } = await admin
+    .from('scenario_training_sessions')
+    .update(completedFields)
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .eq('status', 'in_progress')
+    .select('id, scenario_id, job_key, difficulty, status, overall_readiness, skill_scores, weaknesses, next_recommendation, completed_at')
+    .single()
+  if (sessionError || !session) throwTrustedWriteError('completion', sessionError || new Error('No session returned'))
+
+  const [profileResult, historyResult] = await Promise.all([
+    admin
+      .from('user_job_skill_profiles')
+      .select('skill_scores, updated_at')
+      .eq('user_id', userId)
+      .eq('job_key', jobKey)
+      .maybeSingle(),
+    admin
+      .from('scenario_training_sessions')
+      .select('scenario_id')
+      .eq('user_id', userId)
+      .eq('job_key', jobKey)
+      .eq('status', 'completed'),
+  ])
+  if (profileResult.error || historyResult.error) {
+    await rollbackTrustedScenarioCompletion({ admin, sessionId, userId })
+    throwTrustedWriteError('profile lookup', profileResult.error || historyResult.error)
+  }
+
+  const previousScores = Object.fromEntries(skillKeys.map((key) => [
+    key,
+    Math.round(clamp(profileResult.data?.skill_scores?.[key], 0, 100)),
+  ]))
+  const hasPreviousProfile = Boolean(profileResult.data?.updated_at)
+  const blendedScores = Object.fromEntries(skillKeys.map((key) => [
+    key,
+    hasPreviousProfile ? Math.round(previousScores[key] * 0.65 + skillScores[key] * 0.35) : skillScores[key],
+  ]))
+  const weakestSkill = skillKeys.slice().sort((left, right) => blendedScores[left] - blendedScores[right])[0]
+  const completedScenarioIds = [...new Set((historyResult.data || []).map((item) => item.scenario_id).filter(Boolean))]
+  const recommendedScenario = getRecommendedTrustedScenario({ jobKey, weakestSkill, completedScenarioIds })
+  const readinessScore = Math.round(skillKeys.reduce((total, key) => total + blendedScores[key], 0) / skillKeys.length)
+  const profileRow = {
+    user_id: userId,
+    job_key: jobKey,
+    readiness_score: readinessScore,
+    skill_scores: blendedScores,
+    weakest_skill: weakestSkill,
+    recommended_scenario_id: recommendedScenario?.id || null,
+    completed_scenario_count: completedScenarioIds.length,
+    updated_at: completedAt,
+  }
+  const { error: profileError } = await admin
+    .from('user_job_skill_profiles')
+    .upsert(profileRow, { onConflict: 'user_id,job_key' })
+  if (profileError) {
+    await rollbackTrustedScenarioCompletion({ admin, sessionId, userId })
+    throwTrustedWriteError('profile update', profileError)
+  }
+
+  return {
+    session,
+    profile: {
+      readinessScore,
+      skillScores: blendedScores,
+      weakestSkill,
+      recommendedScenario: recommendedScenario ? { id: recommendedScenario.id } : null,
+      completedScenarioCount: completedScenarioIds.length,
+    },
+  }
+}
+
 const normalizeScenarioSimulationEvaluation = (raw, model, scenario) => {
   const scenarioSkillKeys = getScenarioSkillKeys(scenario)
   const skillScores = Object.fromEntries(scenarioSkillKeys.map((key) => [key, Math.round(clamp(raw?.skillScores?.[key], 0, 100))]))
@@ -1865,7 +2029,7 @@ const normalizeScenarioSimulationEvaluation = (raw, model, scenario) => {
 }
 
 const evaluateScenarioSimulation = async ({ body, config, supabase, userId }) => {
-  const scenario = getSimulationScenario(body.scenarioId)
+  const scenario = validateSimulationPosition(body)
   const scenarioSkillKeys = getScenarioSkillKeys(scenario)
   const trainingMemory = await getScenarioTrainingMemory({ supabase, userId, scenario, mode: body.mode })
   const turns = Array.isArray(body.turns) ? body.turns.slice(0, 4).map((turn) => ({
@@ -1920,7 +2084,16 @@ const evaluateScenarioSimulation = async ({ body, config, supabase, userId }) =>
       },
     ],
   })
-  return { ...normalizeScenarioSimulationEvaluation(result, config.scenarioEvaluationModel, scenario), requestId }
+  const evaluation = { ...normalizeScenarioSimulationEvaluation(result, config.scenarioEvaluationModel, scenario), requestId }
+  const trustedRecord = await persistTrustedScenarioEvaluation({
+    body,
+    config,
+    userId,
+    scenario,
+    turns,
+    evaluation,
+  })
+  return { ...evaluation, ...trustedRecord }
 }
 
 export const handleInterviewRequest = async ({ method, headers, body, env = process.env }) => {
@@ -1954,6 +2127,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
 
     config = getServerConfig(env)
     requireConfig(config)
+    if (action === 'scenario_evaluate' && mode === PREMIUM_SCENARIO_MODE) requireTrustedWriteConfig(config)
     auth = await authenticateRequest({ headers, mode, position: payload.position, config })
 
     if (mode === PRACTICE_MODE) {
@@ -1963,6 +2137,8 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
         '公开题库支持浏览和文字自练。语音转写与 AI 反馈请体验 Bar Server 免费场景，或解锁岗位训练包。',
       )
     }
+
+    if (['scenario_turn', 'scenario_evaluate'].includes(action)) validateSimulationPosition(payload)
 
     if (mode === ASSESSMENT_MODE && action === 'assessment_evaluate') {
       const recoveredEvaluation = await getCompletedAssessmentEvaluation({

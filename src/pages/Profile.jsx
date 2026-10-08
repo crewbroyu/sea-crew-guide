@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import PartnerInviteNotice from '../components/PartnerInviteNotice'
 import FoundationLegacyImportNotice from '../components/FoundationLegacyImportNotice'
+import UnifiedSkillProfileCard from '../components/profile/UnifiedSkillProfileCard'
 import { supabase } from '../supabase'
 import { useAccessStore } from '../store/accessStore'
 import useEffectiveAccess from '../hooks/useEffectiveAccess'
@@ -30,6 +31,7 @@ import {
 import { getInterviewPracticeHistory } from '../services/interviewPracticeService'
 import { buildSignOutWarning, hasUnsavedPrivateDrafts, releaseProgressStorageOnSignOut } from '../data/userScopedStorage'
 import { getLegacyFoundationImport } from '../services/foundationLegacyImportService'
+import { getMyUnifiedSkillProfiles } from '../services/unifiedSkillProfileService'
 
 const stageLabels = {
   exploring: '了解阶段',
@@ -130,6 +132,7 @@ export default function Profile() {
   const [pathProfile, setPathProfile] = useState(() => buildLocalPathProfile())
   const [latestInterviewRecord, setLatestInterviewRecord] = useState(null)
   const [interviewHistory, setInterviewHistory] = useState([])
+  const [skillProfiles, setSkillProfiles] = useState([])
   const [form, setForm] = useState(fieldDefaults)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -160,14 +163,23 @@ export default function Profile() {
           await syncLocalPathProfile()
         }
 
-        try {
-          const records = await getInterviewPracticeHistory(8)
-          setInterviewHistory(records)
-          setLatestInterviewRecord(records[0] || null)
-        } catch (error) {
-          console.error('加载最近面试记录失败:', error)
+        const [historyResult, skillProfileResult] = await Promise.allSettled([
+          getInterviewPracticeHistory(8),
+          getMyUnifiedSkillProfiles(),
+        ])
+        if (historyResult.status === 'fulfilled') {
+          setInterviewHistory(historyResult.value)
+          setLatestInterviewRecord(historyResult.value[0] || null)
+        } else {
+          console.error('加载最近面试记录失败:', historyResult.reason)
           setLatestInterviewRecord(null)
           setInterviewHistory([])
+        }
+        if (skillProfileResult.status === 'fulfilled') {
+          setSkillProfiles(skillProfileResult.value)
+        } else {
+          console.error('加载统一能力档案失败:', skillProfileResult.reason)
+          setSkillProfiles([])
         }
       } catch (error) {
         console.error('加载路径档案失败:', error)
@@ -475,6 +487,8 @@ export default function Profile() {
             ))}
           </div>
         </section>
+
+        <UnifiedSkillProfileCard profiles={skillProfiles} targetPosition={pathProfile?.target_position || ''} />
 
         {interviewHistory.length > 0 && (
           <section className="bg-white rounded-xl shadow-sm p-4">

@@ -94,6 +94,24 @@ globalThis.fetch = async (url, options = {}) => {
     return Response.json(null)
   }
 
+  if (target.includes('/rest/v1/user_skill_evidence')) {
+    if (!isAdmin) return Response.json({ message: 'server key required' }, { status: 403 })
+    if (method === 'POST') {
+      adminWrites.push({ table: 'user_skill_evidence', body: JSON.parse(options.body || '[]') })
+      return new Response(null, { status: 201 })
+    }
+    return Response.json([])
+  }
+
+  if (target.includes('/rest/v1/user_skill_profiles')) {
+    if (!isAdmin) return Response.json({ message: 'server key required' }, { status: 403 })
+    if (method === 'POST') {
+      adminWrites.push({ table: 'user_skill_profiles', body: JSON.parse(options.body || '{}') })
+      return new Response(null, { status: 201 })
+    }
+    return Response.json([])
+  }
+
   if (target.includes('/chat/completions')) {
     providerCalls += 1
     return Response.json({
@@ -166,6 +184,10 @@ assert.equal(profileWrite.user_id, userId)
 assert.equal(profileWrite.readiness_score, 65)
 assert.equal(profileWrite.weakest_skill, 'problemSolving')
 assert.notEqual(profileWrite.readiness_score, 100, 'client-supplied scores must never control the capability profile')
+const unifiedEvidenceWrite = adminWrites.find((write) => write.table === 'user_skill_evidence')?.body
+assert.ok(Array.isArray(unifiedEvidenceWrite))
+assert.equal(unifiedEvidenceWrite.some((row) => row.skill_key === 'safety_judgment'), true)
+assert.equal(unifiedEvidenceWrite.every((row) => row.user_id === userId), true)
 
 const mismatchedScenario = await handleInterviewRequest({
   method: 'POST',

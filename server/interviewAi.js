@@ -3,6 +3,13 @@ import process from 'node:process'
 import { getBarServerScenarioKnowledge } from './barServerScenarioKnowledge.js'
 import { getBarServerSimulationKnowledge, getTrustedSimulationScenarios } from './barServerSimulationKnowledge.js'
 import { getFoundationTrainingReference } from './foundationTrainingKnowledge.js'
+import {
+  getJobKeyForPosition,
+  mapAssessmentEvidence,
+  mapMockInterviewEvidence,
+  mapScenarioEvidence,
+  persistUnifiedSkillEvidence,
+} from './unifiedSkillProfile.js'
 
 const DEFAULT_TEXT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 const DEFAULT_ASR_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
@@ -1865,7 +1872,7 @@ const requireTrustedWriteConfig = (config) => {
 }
 
 const throwTrustedWriteError = (operation, error) => {
-  console.error(`Trusted scenario ${operation} failed:`, error?.message || error)
+  console.error(`Trusted training ${operation} failed:`, error?.message || error)
   throw new InterviewApiError(503, 'TRAINING_RESULT_SAVE_FAILED', '训练评分已生成，但可信结果暂时无法保存，请稍后重试。')
 }
 
@@ -1987,6 +1994,31 @@ const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario
     completed_scenario_count: completedScenarioIds.length,
     updated_at: completedAt,
   }
+  let unifiedProfile
+  try {
+    unifiedProfile = await persistUnifiedSkillEvidence({
+      admin,
+      userId,
+      jobKey,
+      source: 'scenario',
+      sourceId: sessionId,
+      entries: mapScenarioEvidence({
+        jobKey,
+        scenarioId: scenario.id,
+        skillScores,
+        weaknesses: completedFields.weaknesses,
+      }),
+      metadata: {
+        scenarioId: scenario.id,
+        difficulty: scenario.difficulty,
+        overallReadiness: completedFields.overall_readiness,
+      },
+      occurredAt: completedAt,
+    })
+  } catch (error) {
+    await rollbackTrustedScenarioCompletion({ admin, sessionId, userId })
+    throwTrustedWriteError('unified capability update', error)
+  }
   const { error: profileError } = await admin
     .from('user_job_skill_profiles')
     .upsert(profileRow, { onConflict: 'user_id,job_key' })
@@ -2004,7 +2036,36 @@ const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario
       recommendedScenario: recommendedScenario ? { id: recommendedScenario.id } : null,
       completedScenarioCount: completedScenarioIds.length,
     },
+    unifiedProfile,
   }
+}
+
+const persistUnifiedEvaluation = async ({ action, mode, body, config, userId, data }) => {
+  const isAssessment = mode === ASSESSMENT_MODE && action === 'assessment_evaluate'
+  const isMockInterview = mode === PREMIUM_MOCK_MODE && action === 'evaluate'
+  if (!isAssessment && !isMockInterview) return null
+
+  const admin = createTrustedWriteClient(config)
+  try {
+    return await persistUnifiedSkillEvidence({
+      admin,
+      userId,
+      jobKey: isAssessment ? 'cruise_general' : getJobKeyForPosition(body.position),
+      source: isAssessment ? 'assessment' : 'interview',
+      sourceId: isAssessment
+        ? trimText(body.assessmentAttemptId, 160)
+        : trimText(body.clientRequestId, 160),
+      entries: isAssessment
+        ? mapAssessmentEvidence({ evaluation: data })
+        : mapMockInterviewEvidence({ evaluation: data }),
+      metadata: isAssessment
+        ? { evidenceConfidence: data?.evidenceConfidence || 'low', scoringMode: data?.scoringMode || 'ai' }
+        : { position: trimText(body.position, 160), questionCount: data?.questionScores?.length || 0 },
+    })
+  } catch (error) {
+    throwTrustedWriteError('unified capability update', error)
+  }
+  return null
 }
 
 const normalizeScenarioSimulationEvaluation = (raw, model, scenario) => {
@@ -2127,7 +2188,11 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
 
     config = getServerConfig(env)
     requireConfig(config)
-    if (action === 'scenario_evaluate' && mode === PREMIUM_SCENARIO_MODE) requireTrustedWriteConfig(config)
+    if (
+      (action === 'scenario_evaluate' && mode === PREMIUM_SCENARIO_MODE)
+      || (action === 'evaluate' && mode === PREMIUM_MOCK_MODE)
+      || (action === 'assessment_evaluate' && mode === ASSESSMENT_MODE)
+    ) requireTrustedWriteConfig(config)
     auth = await authenticateRequest({ headers, mode, position: payload.position, config })
 
     if (mode === PRACTICE_MODE) {
@@ -2146,12 +2211,20 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
         body: payload,
       })
       if (recoveredEvaluation) {
+        const unifiedProfile = await persistUnifiedEvaluation({
+          action,
+          mode,
+          body: payload,
+          config,
+          userId: auth.user.id,
+          data: recoveredEvaluation,
+        })
         const attemptStatus = await completeAssessmentAttempt({
           supabase: auth.supabase,
           body: payload,
           data: recoveredEvaluation,
         })
-        const data = { ...recoveredEvaluation, attemptStatus }
+        const data = { ...recoveredEvaluation, attemptStatus, unifiedProfile }
         await recordAiOperationLog({
           supabase: auth.supabase,
           action,
@@ -2203,6 +2276,16 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
           : action === 'scenario_evaluate'
             ? await evaluateScenarioSimulation({ body: payload, config, supabase: auth.supabase, userId: auth.user.id })
             : await evaluateInterview({ body: payload, config })
+
+      const unifiedProfile = await persistUnifiedEvaluation({
+        action,
+        mode,
+        body: payload,
+        config,
+        userId: auth.user.id,
+        data,
+      })
+      if (unifiedProfile) data = { ...data, unifiedProfile }
 
       // A follow-up check that decides not to ask anything is free for the learner.
       const isBillable = !(action === 'mock_followup' && !data?.shouldFollowUp)

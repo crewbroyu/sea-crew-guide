@@ -20,6 +20,8 @@ where table_schema = 'public'
     'job_preparation_profiles',
     'scenario_training_sessions',
     'user_job_skill_profiles',
+    'user_skill_evidence',
+    'user_skill_profiles',
     'user_entitlements'
   )
 order by table_name;
@@ -59,6 +61,8 @@ where schemaname = 'public'
     'job_preparation_profiles',
     'scenario_training_sessions',
     'user_job_skill_profiles',
+    'user_skill_evidence',
+    'user_skill_profiles',
     'user_entitlements'
   )
 order by tablename;
@@ -77,6 +81,8 @@ where schemaname = 'public'
     'job_preparation_profiles',
     'scenario_training_sessions',
     'user_job_skill_profiles',
+    'user_skill_evidence',
+    'user_skill_profiles',
     'user_entitlements'
   )
 order by tablename, policyname;
@@ -84,7 +90,7 @@ order by tablename, policyname;
 select grantee, table_name, privilege_type
 from information_schema.role_table_grants
 where table_schema = 'public'
-  and table_name in ('scenario_training_sessions', 'user_job_skill_profiles')
+  and table_name in ('scenario_training_sessions', 'user_job_skill_profiles', 'user_skill_evidence', 'user_skill_profiles')
   and grantee = 'authenticated'
 order by table_name, privilege_type;
 

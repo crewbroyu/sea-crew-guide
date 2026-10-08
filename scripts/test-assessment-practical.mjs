@@ -44,6 +44,12 @@ globalThis.fetch = async (url, options = {}) => {
     return Response.json(1)
   }
   if (target.includes('/rest/v1/rpc/record_ai_operation_log')) return Response.json(1)
+  if (target.includes('/rest/v1/user_skill_evidence')) {
+    return (options.method || 'GET') === 'POST' ? new Response(null, { status: 201 }) : Response.json([])
+  }
+  if (target.includes('/rest/v1/user_skill_profiles')) {
+    return (options.method || 'GET') === 'POST' ? new Response(null, { status: 201 }) : Response.json([])
+  }
   if (target.includes('/rest/v1/rpc/get_assessment_evaluation_result')) {
     recoveryLookups.push(JSON.parse(options.body))
     return Response.json(recoveredEvaluation)
@@ -114,6 +120,7 @@ const env = {
   DASHSCOPE_BASE_URL: 'https://dashscope.test/v1',
   SUPABASE_URL: 'https://supabase.test',
   SUPABASE_ANON_KEY: 'assessment-test-anon',
+  SUPABASE_SECRET_KEY: 'assessment-test-secret',
 }
 const headers = { authorization: 'Bearer assessment-test-token' }
 

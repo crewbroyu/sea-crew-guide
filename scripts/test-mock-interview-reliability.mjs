@@ -46,6 +46,12 @@ globalThis.fetch = async (url, options = {}) => {
     return Response.json({ user_id: userId, product_code: 'bar_server_pack', status: 'active', starts_at: '2026-01-01T00:00:00.000Z', expires_at: '2027-01-01T00:00:00.000Z', ai_feedback_limit: 100, mock_interview_limit: 10 })
   }
   if (target.includes('/rest/v1/interview_answer_profiles')) return Response.json({ answer_cards: cloudAnswerCards })
+  if (target.includes('/rest/v1/user_skill_evidence')) {
+    return (options.method || 'GET') === 'POST' ? new Response(null, { status: 201 }) : Response.json([])
+  }
+  if (target.includes('/rest/v1/user_skill_profiles')) {
+    return (options.method || 'GET') === 'POST' ? new Response(null, { status: 201 }) : Response.json([])
+  }
   if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) return Response.json({ reservation_id: '00000000-0000-4000-8000-000000000401', unlimited: false })
   if (target.includes('/rest/v1/rpc/finalize_ai_usage_reservation')) {
     finalizeOutcomes.push(JSON.parse(options.body || '{}').input_outcome)
@@ -70,6 +76,7 @@ const env = {
   DASHSCOPE_BASE_URL: 'https://dashscope.test/v1',
   SUPABASE_URL: 'https://supabase.test',
   SUPABASE_ANON_KEY: 'mock-test-anon-key',
+  SUPABASE_SECRET_KEY: 'mock-test-secret-key',
 }
 const headers = { authorization: 'Bearer mock-test-token' }
 const call = (body) => handleInterviewRequest({ method: 'POST', headers, env, body })

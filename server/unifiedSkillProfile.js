@@ -128,7 +128,7 @@ export const aggregateSkillEvidence = (records = [], now = new Date()) => {
     confidence[key] = {
       evidenceCount: items.length,
       totalWeight: Number(totalWeight.toFixed(2)),
-      level: items.length >= 3 || totalWeight >= 2.5 ? 'high' : items.length >= 2 || totalWeight >= 1.2 ? 'medium' : 'low',
+      level: items.length >= 3 ? 'high' : items.length >= 2 ? 'medium' : 'low',
     }
   })
 

@@ -39,6 +39,7 @@ export default function UnifiedSkillProfileCard({ profiles = [], targetPosition 
     () => Object.entries(profile?.skills || {}).sort((left, right) => right[1] - left[1]),
     [profile],
   )
+  const missingSkills = Object.keys(skillLabels).filter((key) => profile && profile.skills?.[key] === undefined)
 
   if (!profile) return null
 
@@ -54,7 +55,7 @@ export default function UnifiedSkillProfileCard({ profiles = [], targetPosition 
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-blue-800">{profile.readiness_score}</p>
-          <p className="text-xs text-gray-500">综合准备度</p>
+          <p className="text-xs text-gray-500">已测能力均分</p>
         </div>
       </div>
 
@@ -101,12 +102,18 @@ export default function UnifiedSkillProfileCard({ profiles = [], targetPosition 
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
             <ShieldCheck size={17} />
-            下一步优先补强
+            当前低分能力
           </div>
           <p className="mt-1 text-xs leading-5 text-amber-800">
             {profile.weakest.map((item) => skillLabels[item.skillKey] || item.skillKey).join('、')}
           </p>
         </div>
+      )}
+
+      {missingSkills.length > 0 && (
+        <p className="mt-3 text-xs leading-5 text-gray-500">
+          尚待采集证据：{missingSkills.map((key) => skillLabels[key]).join('、')}
+        </p>
       )}
     </section>
   )

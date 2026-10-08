@@ -8,6 +8,11 @@ import PracticalAssessment from './PracticalAssessment'
 import ResultPage from './ResultPage'
 import { ASSESSMENT_VERSION, DIMENSIONS, ALL_QUESTIONS } from '../../data/assessmentData'
 import {
+  cacheAssessmentResult,
+  clearCachedAssessmentResult,
+  markAssessmentProgressComplete,
+} from '../../data/assessmentStorage'
+import {
   applyPracticalAssessmentScores,
   calculateDimensionScore,
   calculateOverallScore,
@@ -59,6 +64,7 @@ export default function AssessmentContainer() {
   const [dimensionScores, setDimensionScores] = useState(savedAssessmentResult?.dimensionScores || {})
   const [overallScore, setOverallScore] = useState(savedAssessmentResult?.overallScore || 0)
   const [practicalAssessment, setPracticalAssessment] = useState(savedAssessmentResult?.practicalAssessment || null)
+  const [assessmentCompletedAt, setAssessmentCompletedAt] = useState(savedAssessmentResult?.completedAt || null)
   const [completedDimensions, setCompletedDimensions] = useState(0)
   const [restoringReport, setRestoringReport] = useState(!savedAssessmentResult)
   const [attemptStatus, setAttemptStatus] = useState(null)
@@ -106,7 +112,7 @@ export default function AssessmentContainer() {
         const restoredResult = {
           completed: true,
           assessmentVersion: ASSESSMENT_VERSION,
-          completedAt: saved.created_at || new Date().toISOString(),
+          completedAt: snapshot.completedAt || saved.created_at || new Date().toISOString(),
           serviceBackground: snapshot.serviceBackground || null,
           answers: snapshot.answers || {},
           dimensionScores: snapshot.dimensionScores || {},
@@ -118,13 +124,16 @@ export default function AssessmentContainer() {
           recommendations: saved.report.recommendedPositions || snapshot.ruleRecommendations || [],
         }
 
-        localStorage.setItem('assessment_result', JSON.stringify(restoredResult))
         setServiceBackground(restoredResult.serviceBackground)
         setAnswers(restoredResult.answers)
         setDimensionScores(restoredResult.dimensionScores)
         setOverallScore(restoredResult.overallScore)
         setPracticalAssessment(restoredResult.practicalAssessment)
+        setAssessmentCompletedAt(restoredResult.completedAt)
         setStep(resultStep)
+        if (!cacheAssessmentResult(localStorage, restoredResult)) {
+          console.warn('Unable to cache restored assessment result.')
+        }
       } catch (error) {
         console.warn('Unable to restore cloud assessment report:', error)
       } finally {
@@ -191,10 +200,11 @@ export default function AssessmentContainer() {
   const handlePracticalComplete = (practicalResult) => {
     const verifiedDimensionScores = applyPracticalAssessmentScores(dimensionScores, practicalResult)
     const finalOverallScore = calculateOverallScore(verifiedDimensionScores)
+    const completedAt = practicalResult?.completedAt || new Date().toISOString()
     const assessmentResult = {
       completed: true,
       assessmentVersion: ASSESSMENT_VERSION,
-      completedAt: new Date().toISOString(),
+      completedAt,
       serviceBackground,
       answers,
       dimensionScores: verifiedDimensionScores,
@@ -206,11 +216,15 @@ export default function AssessmentContainer() {
     setPracticalAssessment(practicalResult)
     setDimensionScores(verifiedDimensionScores)
     setOverallScore(finalOverallScore)
-    localStorage.setItem('assessment_result', JSON.stringify(assessmentResult))
+    setAssessmentCompletedAt(completedAt)
+    setStep(resultStep)
 
-    const progress = JSON.parse(localStorage.getItem('boarding_progress') || '{}')
-    progress.task1 = { completed: true, completedAt: new Date().toISOString() }
-    localStorage.setItem('boarding_progress', JSON.stringify(progress))
+    if (!cacheAssessmentResult(localStorage, assessmentResult)) {
+      console.warn('Unable to cache completed assessment result.')
+    }
+    if (!markAssessmentProgressComplete(localStorage, completedAt)) {
+      console.warn('Unable to cache completed assessment progress.')
+    }
 
     syncLocalPathProfile({
       career_stage: 'assessment_done',
@@ -228,8 +242,6 @@ export default function AssessmentContainer() {
         level: assessmentResult.level?.label || null,
       },
     })
-
-    setStep(resultStep)
   }
 
   const handlePrevQuestion = () => {
@@ -246,7 +258,9 @@ export default function AssessmentContainer() {
   }
 
   const handleRestartAssessment = () => {
-    localStorage.removeItem('assessment_result')
+    if (!clearCachedAssessmentResult(localStorage)) {
+      console.warn('Unable to clear cached assessment result.')
+    }
     setStep(0)
     setCurrentDimension(0)
     setCurrentQuestion(0)
@@ -255,6 +269,7 @@ export default function AssessmentContainer() {
     setDimensionScores({})
     setOverallScore(0)
     setPracticalAssessment(null)
+    setAssessmentCompletedAt(null)
     setCompletedDimensions(0)
   }
 
@@ -331,6 +346,7 @@ export default function AssessmentContainer() {
           serviceBackground={serviceBackground}
           answers={answers}
           practicalAssessment={practicalAssessment}
+          assessmentCompletedAt={assessmentCompletedAt}
           onRestart={handleRestartAssessment}
         />
       )

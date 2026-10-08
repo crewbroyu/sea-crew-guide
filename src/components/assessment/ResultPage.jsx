@@ -223,6 +223,7 @@ export default function ResultPage({
   serviceBackground,
   answers,
   practicalAssessment,
+  assessmentCompletedAt,
   onRestart,
 }) {
   const navigate = useNavigate()
@@ -544,7 +545,7 @@ export default function ResultPage({
         )}
 
         <CareerReportPanel
-          assessment={{ assessmentVersion: ASSESSMENT_VERSION, overallScore, level: overallLevel.label, serviceBackground, dimensionScores, practicalAssessment, careerReport, careerProfile }}
+          assessment={{ assessmentVersion: ASSESSMENT_VERSION, completedAt: assessmentCompletedAt, overallScore, level: overallLevel.label, serviceBackground, dimensionScores, practicalAssessment, careerReport, careerProfile }}
           fallbackRecommendations={recommendations}
           onReportGenerated={handleCareerReportGenerated}
         />

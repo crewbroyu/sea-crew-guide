@@ -216,14 +216,7 @@ export default function GuestChallengePractice({
       const evaluation = await evaluateFoundationChallenge({
         position: position === 'retail' ? 'Retail Sales Associate' : 'Bar Server',
         dayId: reference.dayId || role,
-        prompt,
         answer: transcript,
-        reference: {
-          mission: reference.mission,
-          knowledge: reference.knowledge,
-          serviceLines: reference.serviceLines?.map((item) => typeof item === 'string' ? item : item.line),
-          requiredActions: reference.requiredActions,
-        },
         requestId,
       })
       const feedback = evaluation.questionScores?.[0] || {}

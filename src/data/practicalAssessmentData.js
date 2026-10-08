@@ -1,3 +1,8 @@
+export const getPracticalEvaluationRequestId = (attemptId) => {
+  const normalizedAttemptId = typeof attemptId === 'string' ? attemptId.trim() : ''
+  return normalizedAttemptId ? `assessment-evaluate:${normalizedAttemptId}` : ''
+}
+
 export const ENGLISH_PRACTICAL_TASKS = [
   {
     id: 'practical-english-complaint',

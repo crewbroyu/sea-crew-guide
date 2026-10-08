@@ -24,6 +24,7 @@ import {
 } from '../../services/interviewAiService'
 import {
   ENGLISH_PRACTICAL_TASKS,
+  getPracticalEvaluationRequestId,
   getStarPracticalTask,
   STAR_FALLBACK_FOLLOW_UPS,
 } from '../../data/practicalAssessmentData'
@@ -71,6 +72,7 @@ export default function PracticalAssessment({ assessmentVersion, serviceBackgrou
   const testAudioUrlRef = useRef('')
   const technicalRetriesRef = useRef({})
   const attemptIdRef = useRef(null)
+  const evaluationRequestIdRef = useRef(null)
 
   const currentTask = tasks[taskIndex]
   const isEvaluationPhase = ['evaluating', 'evaluation_error'].includes(phase)
@@ -105,6 +107,7 @@ export default function PracticalAssessment({ assessmentVersion, serviceBackgrou
         if (cancelled) return
         setAttemptStatus(status)
         attemptIdRef.current = status.activeAttemptId
+        evaluationRequestIdRef.current = getPracticalEvaluationRequestId(status.activeAttemptId) || null
       } catch (error) {
         if (!cancelled) setMessage(error.message)
       } finally {
@@ -330,6 +333,8 @@ export default function PracticalAssessment({ assessmentVersion, serviceBackgrou
         serviceBackground,
         answers: answersRef.current,
         assessmentAttemptId: attemptIdRef.current,
+        requestId: evaluationRequestIdRef.current
+          || getPracticalEvaluationRequestId(attemptIdRef.current),
       })
       onComplete({
         ...evaluation,
@@ -368,6 +373,7 @@ export default function PracticalAssessment({ assessmentVersion, serviceBackgrou
       const status = await startAssessmentAttempt(assessmentVersion)
       setAttemptStatus(status)
       attemptIdRef.current = status.activeAttemptId
+      evaluationRequestIdRef.current = getPracticalEvaluationRequestId(status.activeAttemptId) || null
       await beginPreparation(0)
     } catch (error) {
       if (error.code === 'LOGIN_REQUIRED') openLoginModal()

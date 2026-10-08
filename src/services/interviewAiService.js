@@ -37,7 +37,9 @@ export const createInterviewRequestId = () => (
 const requestInterviewAi = async (payload, requestId = createInterviewRequestId()) => {
   const accessToken = await getAccessToken()
   const controller = new AbortController()
-  const timeoutMs = payload.action === 'assessment_evaluate' ? 120_000 : 90_000
+  // Practical scoring has a 65 s provider budget on the server. Leave enough
+  // browser time for authorization, persistence and the response round trip.
+  const timeoutMs = payload.action === 'assessment_evaluate' ? 80_000 : 90_000
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
 
   try {
@@ -131,14 +133,12 @@ export const generateMockInterviewFollowUp = ({ position, mainQuestion, answer }
   answer,
 })
 
-export const evaluateFoundationChallenge = ({ position, dayId, prompt, answer, reference, requestId }) => requestInterviewAi({
+export const evaluateFoundationChallenge = ({ position, dayId, answer, requestId }) => requestInterviewAi({
   action: 'evaluate',
   mode: 'premium_practice',
   trainingContext: 'foundation_challenge',
   position,
   scenarioId: `foundation:${dayId}`,
-  foundationReference: reference,
-  questions: [{ id: `foundation:${dayId}`, question: prompt, focus: reference?.mission || '' }],
   answers: [{ textAnswer: answer }],
 }, requestId)
 
@@ -156,13 +156,13 @@ export const generateAssessmentFollowUp = ({
   assessmentAttemptId,
 })
 
-export const evaluatePracticalAssessment = ({ serviceBackground, answers, assessmentAttemptId }) => requestInterviewAi({
+export const evaluatePracticalAssessment = ({ serviceBackground, answers, assessmentAttemptId, requestId }) => requestInterviewAi({
   action: 'assessment_evaluate',
   mode: 'assessment',
   serviceBackground,
   answers,
   assessmentAttemptId,
-})
+}, requestId)
 
 export const coachInterviewAnswer = ({ position, card, answers, generated }) => requestInterviewAi({
   action: 'answer_coach',
@@ -181,10 +181,11 @@ export const continueScenarioRoleplay = ({ scenarioId, firstAnswer, position = '
   firstAnswer,
 }, requestId)
 
-export const evaluateScenarioSimulation = ({ scenarioId, turns, position = 'Bar Server', requestId }) => requestInterviewAi({
+export const evaluateScenarioSimulation = ({ scenarioId, sessionId, turns, position = 'Bar Server', requestId }) => requestInterviewAi({
   action: 'scenario_evaluate',
   mode: 'premium_scenario',
   position,
   scenarioId,
+  sessionId,
   turns,
 }, requestId)

@@ -5,7 +5,7 @@ import JobReadinessDashboard from '../../components/training/JobReadinessDashboa
 import EdgeReadAloudHint from '../../components/EdgeReadAloudHint'
 import { getJobScenarios, getJobSimulator, getJobSkills, getScenarioById } from '../../data/jobScenarioCatalog'
 import { continueScenarioRoleplay, evaluateScenarioSimulation, transcribeInterviewAudio } from '../../services/interviewAiService'
-import { createScenarioTrainingDraft, getMyInProgressScenarioSession, getMyScenarioHistory, getMyScenarioProfile, saveScenarioTrainingResult, updateScenarioTrainingDraft } from '../../services/scenarioTrainingService'
+import { createScenarioTrainingDraft, getMyInProgressScenarioSession, getMyScenarioHistory, getMyScenarioProfile, updateScenarioTrainingDraft } from '../../services/scenarioTrainingService'
 
 const formatTime = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 const createRequestId = () => globalThis.crypto?.randomUUID?.() || `scenario-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -195,9 +195,8 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
         const finalTurns = [...turns, { role: 'trainee', content: response }]
         await updateScenarioTrainingDraft({ sessionId: activeSessionId, turns: finalTurns })
         finalEvaluationRequestIdRef.current ||= createRequestId()
-        const evaluation = await evaluateScenarioSimulation({ scenarioId: scenario.id, turns: finalTurns, position: simulator.position, requestId: finalEvaluationRequestIdRef.current })
-        const retryContext = baselineResult ? { sessionId: baselineSessionId, baselineResult } : null
-        const saved = await saveScenarioTrainingResult({ sessionId: activeSessionId, scenario, turns: finalTurns, evaluation, retryContext })
+        const evaluation = await evaluateScenarioSimulation({ scenarioId: scenario.id, sessionId: activeSessionId, turns: finalTurns, position: simulator.position, requestId: finalEvaluationRequestIdRef.current })
+        const saved = { session: evaluation.session, profile: evaluation.profile }
         finalEvaluationRequestIdRef.current = null
         setActiveSessionId(null)
         setCompletedSessionId(saved?.session?.id || null)
@@ -209,7 +208,7 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
           skill_scores: saved.profile.skillScores,
           weakest_skill: saved.profile.weakestSkill,
           recommended_scenario_id: saved.profile.recommendedScenario?.id || null,
-          completed_scenario_count: new Set([...history.map((item) => item.scenario_id), scenario.id]).size,
+          completed_scenario_count: saved.profile.completedScenarioCount,
         })
         setHistory((previous) => [{ scenario_id: scenario.id, overall_readiness: evaluation.overallReadiness, skill_scores: evaluation.skillScores, completed_at: new Date().toISOString() }, ...previous])
         setStage('result')

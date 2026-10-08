@@ -36,6 +36,7 @@
     "test:foundation-import": "node scripts/test-foundation-legacy-import.mjs",
     "test:foundation-task": "node scripts/test-foundation-task-completion.mjs",
     "test:adaptive-training": "node scripts/test-adaptive-training.mjs",
+    "test:trusted-training": "node scripts/test-trusted-training-write.mjs",
     "test:release-blockers": "node scripts/test-release-blockers.mjs",
     "test:mock-reliability": "node scripts/test-mock-interview-reliability.mjs"
   },

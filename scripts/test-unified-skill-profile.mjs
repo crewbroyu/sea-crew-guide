@@ -90,6 +90,21 @@ const assessmentEvidence = mapAssessmentEvidence({
 })
 assert.equal(assessmentEvidence.find((item) => item.skillKey === 'safety_judgment').score, 75)
 assert.equal(assessmentEvidence.find((item) => item.skillKey === 'problem_solving').score, 70)
+assert.deepEqual(assessmentEvidence.map((item) => item.weight), [1, 0.9, 1])
+
+const fallbackAssessmentEvidence = mapAssessmentEvidence({
+  evaluation: {
+    englishScore: 70,
+    serviceExperienceScore: 80,
+    scoringMode: 'rules_fallback',
+  },
+})
+assert.deepEqual(
+  fallbackAssessmentEvidence.map((item) => item.score),
+  [70, 80, 75],
+  'Rules fallback keeps its scores; only the weight is reduced.',
+)
+assert.deepEqual(fallbackAssessmentEvidence.map((item) => item.weight), [0.5, 0.45, 0.5])
 
 const profile = aggregateSkillEvidence([
   { skill_key: 'speaking_clarity', score: 80, weight: 1, source: 'assessment', source_id: 'assessment-1', occurred_at: '2026-10-01T00:00:00.000Z' },

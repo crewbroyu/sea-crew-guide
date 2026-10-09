@@ -215,7 +215,8 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
       }
     } catch (error) {
       if (stage === 'first') firstTurnRequestIdRef.current = null
-      else finalEvaluationRequestIdRef.current = null
+      // Keep the final evaluation id: a retry after a lost response or timeout reuses it, so the
+      // server returns the already-saved result instead of scoring and charging again.
       setErrorMessage(error.message || 'AI training is temporarily unavailable. Please try again shortly.')
     } finally { setBusy(false) }
   }

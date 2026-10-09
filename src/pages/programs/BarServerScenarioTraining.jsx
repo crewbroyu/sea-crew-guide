@@ -6,6 +6,7 @@ import EdgeReadAloudHint from '../../components/EdgeReadAloudHint'
 import { getJobScenarios, getJobSimulator, getJobSkills, getScenarioById } from '../../data/jobScenarioCatalog'
 import { continueScenarioRoleplay, evaluateScenarioSimulation, transcribeInterviewAudio } from '../../services/interviewAiService'
 import { createScenarioTrainingDraft, getMyInProgressScenarioSession, getMyScenarioHistory, getMyScenarioProfile, updateScenarioTrainingDraft } from '../../services/scenarioTrainingService'
+import { createFirstTurnState, runFirstScenarioTurn } from '../../utils/scenarioFirstTurn'
 
 const formatTime = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 const createRequestId = () => globalThis.crypto?.randomUUID?.() || `scenario-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -37,7 +38,7 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
   const chunksRef = useRef([])
   const timerRef = useRef(null)
   const secondsRef = useRef(0)
-  const firstTurnRequestIdRef = useRef(null)
+  const firstTurnRef = useRef(createFirstTurnState())
   const finalEvaluationRequestIdRef = useRef(null)
 
   const scenario = useMemo(() => getScenarioById(scenarioId) || scenarios[0], [scenarioId, scenarios])
@@ -83,7 +84,7 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
     setTranscribing(false)
     setSeconds(0)
     setActiveSessionId(null)
-    firstTurnRequestIdRef.current = null
+    firstTurnRef.current = createFirstTurnState()
     finalEvaluationRequestIdRef.current = null
   }
 
@@ -104,7 +105,7 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
     setTranscribing(false)
     setSeconds(0)
     setActiveSessionId(null)
-    firstTurnRequestIdRef.current = null
+    firstTurnRef.current = createFirstTurnState()
     finalEvaluationRequestIdRef.current = null
   }
 
@@ -181,14 +182,20 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
           { role: scenario.aiRole, content: scenario.openingLine },
           { role: 'trainee', content: response },
         ]
-        firstTurnRequestIdRef.current ||= createRequestId()
-        const followUp = await continueScenarioRoleplay({ scenarioId: scenario.id, firstAnswer: response, position: simulator.position, requestId: firstTurnRequestIdRef.current })
-        const followUpTurns = [...firstTurns, { role: followUp.role, content: followUp.message, isFollowUp: true }]
         const retryContext = baselineResult ? { sessionId: baselineSessionId, baselineResult } : null
-        const savedDraft = await createScenarioTrainingDraft({ scenario, turns: followUpTurns, retryContext })
+        const toFollowUpTurns = (followUp) => [...firstTurns, { role: followUp.role, content: followUp.message, isFollowUp: true }]
+        const { followUp, savedDraft } = await runFirstScenarioTurn({
+          state: firstTurnRef.current,
+          scenarioId: scenario.id,
+          answer: response,
+          createRequestId,
+          requestFollowUp: (requestId) => continueScenarioRoleplay({ scenarioId: scenario.id, firstAnswer: response, position: simulator.position, requestId }),
+          saveDraft: (nextFollowUp) => createScenarioTrainingDraft({ scenario, turns: toFollowUpTurns(nextFollowUp), retryContext }),
+        })
+        const followUpTurns = toFollowUpTurns(followUp)
         setTurns(followUpTurns)
         setActiveSessionId(savedDraft?.id || null)
-        firstTurnRequestIdRef.current = null
+        firstTurnRef.current = createFirstTurnState()
         setAnswer('')
         setStage('followup')
       } else {
@@ -214,7 +221,8 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
         setStage('result')
       }
     } catch (error) {
-      if (stage === 'first') firstTurnRequestIdRef.current = null
+      // Keep the first-turn state: a retry of the same answer reuses its request id, or only repeats
+      // the draft save when the follow-up was already generated and charged.
       // Keep the final evaluation id: a retry after a lost response or timeout reuses it, so the
       // server returns the already-saved result instead of scoring and charging again.
       setErrorMessage(error.message || 'AI training is temporarily unavailable. Please try again shortly.')

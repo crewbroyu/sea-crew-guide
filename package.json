@@ -40,7 +40,8 @@
     "test:release-blockers": "node scripts/test-release-blockers.mjs",
     "test:mock-reliability": "node scripts/test-mock-interview-reliability.mjs",
     "test:skill-profile": "node scripts/test-unified-skill-profile.mjs",
-    "test:skill-profile-sql": "node scripts/test-sql-unified-profile.mjs"
+    "test:skill-profile-sql": "node scripts/test-sql-unified-profile.mjs",
+    "test:scenario-first-turn": "node scripts/test-scenario-first-turn.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

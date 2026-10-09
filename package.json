@@ -39,7 +39,8 @@
     "test:trusted-training": "node scripts/test-trusted-training-write.mjs",
     "test:release-blockers": "node scripts/test-release-blockers.mjs",
     "test:mock-reliability": "node scripts/test-mock-interview-reliability.mjs",
-    "test:skill-profile": "node scripts/test-unified-skill-profile.mjs"
+    "test:skill-profile": "node scripts/test-unified-skill-profile.mjs",
+    "test:skill-profile-sql": "node scripts/test-sql-unified-profile.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",
@@ -55,6 +56,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@eslint/js": "^9.39.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

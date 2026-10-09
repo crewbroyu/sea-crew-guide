@@ -115,3 +115,39 @@ from public.ai_operation_logs
 where created_at >= now() - interval '24 hours'
 group by action, success
 order by action, success desc;
+
+-- Execute privileges for every RPC the server calls. Every row must show ok = true.
+-- A missing function shows as a row with a null signature and ok = false.
+-- authenticated_expected = false marks the server-write-only RPCs (service_role only).
+with expected(routine_name, authenticated_expected) as (
+  values
+    ('reserve_ai_usage_quota', true),
+    ('finalize_ai_usage_reservation', true),
+    ('record_ai_usage_event', true),
+    ('record_ai_operation_log', true),
+    ('reserve_career_report_generation', true),
+    ('finalize_career_report_generation', true),
+    ('save_ai_advisor_career_report', true),
+    ('authorize_assessment_action', true),
+    ('complete_assessment_attempt', true),
+    ('get_assessment_evaluation_result', true),
+    ('upsert_unified_skill_evidence', false),
+    ('complete_scenario_with_unified_profile', false)
+)
+select
+  expected.routine_name,
+  pg_get_function_identity_arguments(proc.oid) as signature,
+  has_function_privilege('anon', proc.oid, 'execute') as anon_execute,
+  has_function_privilege('authenticated', proc.oid, 'execute') as authenticated_execute,
+  has_function_privilege('service_role', proc.oid, 'execute') as service_role_execute,
+  coalesce(
+    not has_function_privilege('anon', proc.oid, 'execute')
+      and has_function_privilege('authenticated', proc.oid, 'execute') = expected.authenticated_expected
+      and (expected.authenticated_expected or has_function_privilege('service_role', proc.oid, 'execute')),
+    false
+  ) as ok
+from expected
+left join pg_proc proc
+  on proc.proname = expected.routine_name
+  and proc.pronamespace = 'public'::regnamespace
+order by ok, expected.routine_name;

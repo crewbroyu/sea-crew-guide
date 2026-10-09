@@ -15,7 +15,9 @@ For the current production database, apply only new forward migrations in this o
 9. `supabase/migrations/20261008170000_atomic_unified_skill_profiles.sql` to serialize concurrent evidence writes, atomically complete scenario scoring, and count distinct training events.
 10. Run `supabase_production_verification.sql`. It is SELECT-only and may be rerun after every deployment.
 
-Application code may be deployed after steps 2, 3, 4, 5, 6, and 7. Before those migrations are applied, Retail AI, new career-report generation, practical assessment AI, trusted scenario persistence, and unified capability persistence intentionally fail closed rather than bypassing quota or score-integrity controls.
+Application code may be deployed only after steps 2 through 9 have been applied (step 1 only when Retail is not yet installed). Step 9 is required, not optional: it creates `upsert_unified_skill_evidence` and `complete_scenario_with_unified_profile`, which the server calls on every scored assessment, scenario, and mock interview. Before those migrations are applied, Retail AI, new career-report generation, practical assessment AI, trusted scenario persistence, and unified capability persistence intentionally fail closed rather than bypassing quota or score-integrity controls; without step 9 specifically, practical assessment scoring and scenario completion return errors and mock-interview results are still returned but flagged `unifiedProfileSyncPending`.
+
+After step 10, every row of the final `has_function_privilege` query must show `ok = true`. A `false` row means a migration is missing or a grant has drifted: the two unified-profile RPCs must be callable only by `service_role`, and no RPC may be callable by `anon`.
 
 ## Partner workspace (additive pilot)
 

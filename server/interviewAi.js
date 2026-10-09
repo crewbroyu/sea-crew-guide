@@ -759,15 +759,17 @@ const MOCK_ALWAYS_OBSERVED_DIMENSIONS = Object.freeze(['speakingClarity', 'inter
 const MOCK_OPTIONAL_DIMENSIONS = Object.freeze(['jobKnowledge', 'guestHandling', 'problemSolving', 'safetyJudgment'])
 const MOCK_DIMENSIONS = Object.freeze([...MOCK_ALWAYS_OBSERVED_DIMENSIONS, ...MOCK_OPTIONAL_DIMENSIONS])
 
-// Returns a 0-100 number, null for "not observed", or undefined when the value is unusable.
-// Number(null), Number('') and Number(true) are finite, so they are rejected explicitly.
-const parseMockDimensionScore = (value) => {
-  if (value === null) return null
+// Returns a 0-100 number, or undefined when the value is unusable. Number(null), Number('') and
+// Number(true) are finite, so only real numbers and non-empty numeric strings are accepted.
+const parseStrictScore = (value) => {
   const numeric = typeof value === 'number'
     ? value
     : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN
   return Number.isFinite(numeric) && numeric >= 0 && numeric <= 100 ? numeric : undefined
 }
+
+// Mock dimensions additionally allow an explicit null for "not observed".
+const parseMockDimensionScore = (value) => (value === null ? null : parseStrictScore(value))
 
 // Mock reports are scored from per-question scores, so every asked question must be present.
 const hasValidMockInterviewContract = (evaluation, itemCount) => {
@@ -1835,7 +1837,7 @@ const getScenarioTrainingMemory = async ({ supabase, userId, scenario, mode }) =
   }
 }
 
-const requestScenarioJson = async ({ config, messages, maxCompletionTokens }) => {
+const requestScenarioJson = async ({ config, messages, maxCompletionTokens, timeoutMs = 75_000 }) => {
   const response = await fetch(`${config.textBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
@@ -1847,7 +1849,7 @@ const requestScenarioJson = async ({ config, messages, maxCompletionTokens }) =>
       temperature: 0.25,
       max_completion_tokens: maxCompletionTokens,
     }),
-    signal: AbortSignal.timeout(75_000),
+    signal: AbortSignal.timeout(timeoutMs),
   })
   const providerBody = await readProviderResponse(response)
   return {
@@ -2109,9 +2111,51 @@ const persistUnifiedEvaluation = async ({ action, mode, body, config, userId, da
   }
 }
 
+// A scenario result becomes trusted capability evidence, so every job dimension must be a real score.
+// A missing or null dimension used to be clamped to 0 and stored as a failing skill.
+const hasValidScenarioSimulationContract = (raw, scenario) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false
+  const skillScores = raw.skillScores
+  if (!skillScores || typeof skillScores !== 'object' || Array.isArray(skillScores)) return false
+  const scoresValid = getScenarioSkillKeys(scenario)
+    .every((key) => parseStrictScore(skillScores[key]) !== undefined)
+  return scoresValid
+    && Array.isArray(raw.strengths)
+    && Array.isArray(raw.weaknesses)
+    && Boolean(trimText(raw.betterResponse))
+}
+
+// One retry for an incomplete or unparseable report, inside the serverless time budget. Nothing is
+// saved or charged until a report passes the contract, so the learner's draft stays retryable.
+const requestValidScenarioEvaluation = async ({ config, messages, scenario }) => {
+  const deadline = Date.now() + EVALUATION_TIME_BUDGET_MS
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const remainingMs = deadline - Date.now()
+    if (attempt > 1 && remainingMs < MIN_RETRY_WINDOW_MS) break
+    let response = null
+    try {
+      response = await requestScenarioJson({
+        config,
+        messages,
+        maxCompletionTokens: OUTPUT_TOKEN_LIMITS.scenarioEvaluation,
+        timeoutMs: Math.min(75_000, remainingMs),
+      })
+    } catch (error) {
+      if (error?.code !== 'INVALID_AI_RESPONSE') throw error
+    }
+    if (response && hasValidScenarioSimulationContract(response.result, scenario)) return response
+    console.warn('Scenario evaluation response contract mismatch:', {
+      scenarioId: scenario.id,
+      requestId: response?.requestId || null,
+      attempt,
+    })
+  }
+  throw new InterviewApiError(502, 'INVALID_AI_RESPONSE', 'AI scoring was incomplete. Your answers are saved; please generate the result again.')
+}
+
 const normalizeScenarioSimulationEvaluation = (raw, model, scenario) => {
   const scenarioSkillKeys = getScenarioSkillKeys(scenario)
-  const skillScores = Object.fromEntries(scenarioSkillKeys.map((key) => [key, Math.round(clamp(raw?.skillScores?.[key], 0, 100))]))
+  const skillScores = Object.fromEntries(scenarioSkillKeys.map((key) => [key, Math.round(parseStrictScore(raw?.skillScores?.[key]) ?? 0)]))
   const overallReadiness = Math.round(clamp(
     scenarioSkillKeys.reduce((sum, key) => sum + skillScores[key], 0) / scenarioSkillKeys.length,
     0,
@@ -2142,10 +2186,7 @@ const evaluateScenarioSimulation = async ({ body, config, supabase, userId }) =>
     throw new InterviewApiError(400, 'TWO_ANSWERS_REQUIRED', 'Complete both job responses before generating your result.')
   }
 
-  const { result, requestId } = await requestScenarioJson({
-    config,
-    maxCompletionTokens: OUTPUT_TOKEN_LIMITS.scenarioEvaluation,
-    messages: [
+  const scenarioMessages = [
       {
         role: 'system',
         content: [
@@ -2184,8 +2225,8 @@ const evaluateScenarioSimulation = async ({ body, config, supabase, userId }) =>
           conversation: turns,
         }),
       },
-    ],
-  })
+  ]
+  const { result, requestId } = await requestValidScenarioEvaluation({ config, messages: scenarioMessages, scenario })
   const evaluation = { ...normalizeScenarioSimulationEvaluation(result, config.scenarioEvaluationModel, scenario), requestId }
   const trustedRecord = await persistTrustedScenarioEvaluation({
     body,

@@ -16,6 +16,8 @@ let sessionReads = 0
 let rejectSecondCompletion = false
 const usageActions = []
 const finalizeOutcomes = []
+// Raw provider message contents returned in order before the default valid scenario report.
+const providerQueue = []
 const completedSessionRow = {
   id: sessionId,
   user_id: userId,
@@ -139,6 +141,9 @@ globalThis.fetch = async (url, options = {}) => {
 
   if (target.includes('/chat/completions')) {
     providerCalls += 1
+    if (providerQueue.length) {
+      return Response.json({ request_id: `queued-${providerCalls}`, choices: [{ message: { content: providerQueue.shift() } }] })
+    }
     return Response.json({
       request_id: 'provider-trusted-result',
       choices: [{ message: { content: JSON.stringify({
@@ -333,6 +338,61 @@ assert.equal(conflict.status, 409)
 assert.equal(conflict.body.error.code, 'SCENARIO_SESSION_INVALID')
 assert.deepEqual(usageActions, [])
 assert.deepEqual(finalizeOutcomes, ['failed'])
+
+// Scenario score contract: every job dimension must be a real score before anything is saved.
+const scenarioReport = (skillScores, extra = {}) => JSON.stringify({
+  skillScores,
+  strengths: ['Paused before promising.'],
+  weaknesses: ['Handover was incomplete.'],
+  criticalMistakes: [],
+  betterResponse: 'I will pause the order and verify the approved information first.',
+  nextTrainingRecommendation: 'Practise the closed-loop handover.',
+  ...extra,
+})
+const fullScores = { communication: 80, barKnowledge: 60, service: 70, upselling: 50, problemSolving: 40, english: 90 }
+
+// 5. A report missing a dimension is retried; the saved scores come from the complete report, never 0.
+resetRetryState()
+providerQueue.push(scenarioReport({ ...fullScores, upselling: undefined }), scenarioReport({ ...fullScores, upselling: 55 }))
+const retried = await evaluateScenario('missing-dimension-retry')
+assert.equal(retried.status, 200)
+assert.equal(providerCalls, 2, 'an incomplete report is retried once')
+const savedScores = adminWrites.find((write) => write.table === 'complete_scenario_with_unified_profile').body.input_skill_scores
+assert.equal(savedScores.upselling, 55)
+assert.ok(Object.values(savedScores).every((score) => score > 0), 'no dimension is stored as a default 0')
+assert.deepEqual(usageActions, ['evaluate'])
+
+// 6. Two unusable reports (null, empty string): rejected with nothing saved or charged; the draft stays retryable.
+resetRetryState()
+providerQueue.push(scenarioReport({ ...fullScores, english: null }), scenarioReport({ ...fullScores, barKnowledge: '' }))
+const incomplete = await evaluateScenario('unusable-dimensions')
+assert.equal(incomplete.status, 502)
+assert.equal(incomplete.body.error.code, 'INVALID_AI_RESPONSE')
+assert.equal(providerCalls, 2)
+assert.equal(adminWrites.length, 0, 'no session completion or capability evidence is written')
+assert.deepEqual(usageActions, [], 'a rejected report is not charged')
+assert.deepEqual(finalizeOutcomes, ['failed'])
+
+// 7. A truncated report is retried instead of failing immediately.
+resetRetryState()
+providerQueue.push('{"skillScores": {"communication": 80,', scenarioReport(fullScores))
+const truncated = await evaluateScenario('truncated-report')
+assert.equal(truncated.status, 200)
+assert.equal(providerCalls, 2)
+
+// 8. Quoted numeric scores pass on the first attempt; a missing model answer does not.
+resetRetryState()
+providerQueue.push(scenarioReport(Object.fromEntries(Object.entries(fullScores).map(([key, value]) => [key, String(value)]))))
+const quoted = await evaluateScenario('quoted-scores')
+assert.equal(quoted.status, 200)
+assert.equal(providerCalls, 1)
+assert.equal(adminWrites.find((write) => write.table === 'complete_scenario_with_unified_profile').body.input_skill_scores.english, 90)
+
+resetRetryState()
+providerQueue.push(scenarioReport(fullScores, { betterResponse: '' }), scenarioReport(fullScores, { betterResponse: '   ' }))
+const noAnswer = await evaluateScenario('missing-better-response')
+assert.equal(noAnswer.status, 502)
+assert.equal(adminWrites.length, 0)
 
 const clientScreen = fs.readFileSync(new URL('../src/pages/programs/BarServerScenarioTraining.jsx', import.meta.url), 'utf8')
 assert.equal(clientScreen.includes('else finalEvaluationRequestIdRef.current = null'), false, 'a failed final evaluation keeps its request id for the retry')

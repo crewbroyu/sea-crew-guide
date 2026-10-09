@@ -1921,6 +1921,61 @@ const normalizeTrustedScenarioScores = (evaluation, scenario) => Object.fromEntr
   getScenarioSkillKeys(scenario).map((key) => [key, Math.round(clamp(evaluation?.skillScores?.[key], 0, 100))]),
 )
 
+// A scenario session can only be completed once. When a retry (lost response, timeout, double
+// submit) reaches an already-completed session, return the stored result instead of calling AI again.
+const getCompletedScenarioResult = async ({ admin, userId, sessionId, scenarioId }) => {
+  if (!sessionId) return null
+  const { data: session, error } = await admin
+    .from('scenario_training_sessions')
+    .select('id, user_id, scenario_id, job_key, difficulty, status, overall_readiness, skill_scores, strengths, weaknesses, critical_mistakes, better_response, next_recommendation, completed_at')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) {
+    console.error('Completed scenario lookup failed:', error.message)
+    return null
+  }
+  if (!session || session.status !== 'completed' || (scenarioId && session.scenario_id !== scenarioId)) return null
+
+  const { data: profile, error: profileError } = await admin
+    .from('user_job_skill_profiles')
+    .select('readiness_score, skill_scores, weakest_skill, recommended_scenario_id, completed_scenario_count')
+    .eq('user_id', userId)
+    .eq('job_key', session.job_key)
+    .maybeSingle()
+  if (profileError) console.error('Scenario profile lookup failed:', profileError.message)
+
+  return {
+    overallReadiness: session.overall_readiness,
+    skillScores: session.skill_scores || {},
+    strengths: Array.isArray(session.strengths) ? session.strengths : [],
+    weaknesses: Array.isArray(session.weaknesses) ? session.weaknesses : [],
+    criticalMistakes: Array.isArray(session.critical_mistakes) ? session.critical_mistakes : [],
+    betterResponse: session.better_response || '',
+    nextTrainingRecommendation: session.next_recommendation || '',
+    session: {
+      id: session.id,
+      scenario_id: session.scenario_id,
+      job_key: session.job_key,
+      difficulty: session.difficulty,
+      status: session.status,
+      overall_readiness: session.overall_readiness,
+      skill_scores: session.skill_scores,
+      weaknesses: session.weaknesses,
+      next_recommendation: session.next_recommendation,
+      completed_at: session.completed_at,
+    },
+    profile: profile ? {
+      readinessScore: profile.readiness_score,
+      skillScores: profile.skill_scores,
+      weakestSkill: profile.weakest_skill,
+      recommendedScenario: profile.recommended_scenario_id ? { id: profile.recommended_scenario_id } : null,
+      completedScenarioCount: profile.completed_scenario_count,
+    } : null,
+    recoveredExistingResult: true,
+  }
+}
+
 const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario, turns, evaluation }) => {
   const sessionId = trimText(body.sessionId, 80)
   if (!sessionId) {
@@ -1935,6 +1990,11 @@ const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario
     .eq('user_id', userId)
     .maybeSingle()
   if (draftError) throwTrustedWriteError('draft lookup', draftError)
+  if (draft?.status === 'completed' && draft.scenario_id === scenario.id) {
+    // A concurrent request completed this session while this one was being scored.
+    const completed = await getCompletedScenarioResult({ admin, userId, sessionId, scenarioId: scenario.id })
+    if (completed) return completed
+  }
   if (!draft || draft.status !== 'in_progress' || draft.scenario_id !== scenario.id || draft.job_key !== (scenario.jobKey || 'bar_server')) {
     throw new InterviewApiError(409, 'SCENARIO_SESSION_INVALID', '这次岗位模拟草稿无效或已经完成，请重新开始。')
   }
@@ -1991,6 +2051,12 @@ const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario
     input_scenario_catalog: scenarioCatalog,
     input_occurred_at: completedAt,
   })
+  if (String(error?.message || '').includes('SCENARIO_SESSION_INVALID')) {
+    // The database refused a second completion; another request finished first under the profile lock.
+    const completed = await getCompletedScenarioResult({ admin, userId, sessionId, scenarioId: scenario.id })
+    if (completed) return completed
+    throw new InterviewApiError(409, 'SCENARIO_SESSION_INVALID', '这次岗位模拟草稿无效或已经完成，请重新开始。')
+  }
   if (error || !data?.session || !data?.profile) {
     throwTrustedWriteError('atomic scenario completion', error || new Error('No scenario result returned'))
   }
@@ -2180,6 +2246,30 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
 
     if (['scenario_turn', 'scenario_evaluate'].includes(action)) validateSimulationPosition(payload)
 
+    if (mode === PREMIUM_SCENARIO_MODE && action === 'scenario_evaluate') {
+      // Retries of an already-scored session return the saved result before any quota or AI call.
+      const recoveredScenario = await getCompletedScenarioResult({
+        admin: createTrustedWriteClient(config),
+        userId: auth.user.id,
+        sessionId: trimText(payload.sessionId, 80),
+        scenarioId: trimText(payload.scenarioId, 160),
+      })
+      if (recoveredScenario) {
+        await recordAiOperationLog({
+          supabase: auth.supabase,
+          action,
+          mode,
+          body: payload,
+          config,
+          success: true,
+          statusCode: 200,
+          errorCode: null,
+          latencyMs: Date.now() - startedAt,
+        })
+        return { status: 200, body: { success: true, data: recoveredScenario, meta: { recovered: true } } }
+      }
+    }
+
     if (mode === ASSESSMENT_MODE && action === 'assessment_evaluate') {
       const recoveredEvaluation = await getCompletedAssessmentEvaluation({
         supabase: auth.supabase,
@@ -2252,8 +2342,9 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
             ? await evaluateScenarioSimulation({ body: payload, config, supabase: auth.supabase, userId: auth.user.id })
             : await evaluateInterview({ body: payload, config })
 
-      // A follow-up check that decides not to ask anything is free for the learner.
-      const isBillable = !(action === 'mock_followup' && !data?.shouldFollowUp)
+      // A follow-up check that decides not to ask anything, or a scenario that another request already
+      // completed (this request only returns the saved result), is free for the learner.
+      const isBillable = !(action === 'mock_followup' && !data?.shouldFollowUp) && !data?.recoveredExistingResult
       if (isBillable) {
         await recordAiUsage({
           supabase: auth.supabase,

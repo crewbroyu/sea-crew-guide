@@ -9,6 +9,8 @@ const SKILL_KEYS = Object.freeze([
   'safety_judgment',
 ])
 
+const RULES_FALLBACK_WEIGHT_FACTOR = 0.5
+
 const clampScore = (value) => Math.round(Math.min(100, Math.max(0, Number(value) || 0)))
 const average = (...values) => clampScore(values.reduce((sum, value) => sum + clampScore(value), 0) / values.length)
 const textList = (value, limit = 3) => Array.isArray(value)
@@ -97,10 +99,13 @@ export const mapAssessmentEvidence = ({ evaluation = {} }) => {
       )
     : service
 
+  // A keyword-rule fallback score is a rough estimate, not an AI judgment of the answers, so it
+  // still counts as a training event but moves the capability profile half as much.
+  const weightFactor = evaluation.scoringMode === 'rules_fallback' ? RULES_FALLBACK_WEIGHT_FACTOR : 1
   return [
-    evidence('speaking_clarity', speaking, 1.0, note),
-    evidence('problem_solving', problemSolving, 0.9, note),
-    evidence('safety_judgment', safety, 1.0, note),
+    evidence('speaking_clarity', speaking, 1.0 * weightFactor, note),
+    evidence('problem_solving', problemSolving, 0.9 * weightFactor, note),
+    evidence('safety_judgment', safety, 1.0 * weightFactor, note),
   ]
 }
 

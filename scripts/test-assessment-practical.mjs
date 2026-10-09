@@ -23,6 +23,7 @@ let usageRecordCount = 0
 let recoveredEvaluation = null
 let completionError = null
 let unifiedProfileWrites = 0
+const unifiedProfilePayloads = []
 const completedPayloads = []
 const recoveryLookups = []
 
@@ -48,6 +49,7 @@ globalThis.fetch = async (url, options = {}) => {
   if (target.includes('/rest/v1/rpc/record_ai_operation_log')) return Response.json(1)
   if (target.includes('/rest/v1/rpc/upsert_unified_skill_evidence')) {
     unifiedProfileWrites += 1
+    unifiedProfilePayloads.push(JSON.parse(options.body))
     return Response.json({ readinessScore: 70, evidenceCount: 1 })
   }
   if (target.includes('/rest/v1/rpc/get_assessment_evaluation_result')) {
@@ -238,6 +240,13 @@ try {
   assert.ok(Number.isFinite(fallbackEvaluation.body.data.englishScore))
   assert.ok(Number.isFinite(fallbackEvaluation.body.data.serviceExperienceScore))
   assert.equal(fallbackEvaluation.body.data.evidenceHighlights.length, 2)
+  const fallbackProfileWrite = unifiedProfilePayloads.at(-1)
+  assert.equal(fallbackProfileWrite.input_metadata.scoringMode, 'rules_fallback')
+  assert.deepEqual(
+    fallbackProfileWrite.input_entries.map((entry) => entry.weight),
+    [0.5, 0.45, 0.5],
+    'Rules fallback evidence must count at half weight in the capability profile.',
+  )
   assert.equal(modelRequests.length, 5)
 
   const scenarios = [

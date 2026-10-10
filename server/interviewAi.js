@@ -2123,6 +2123,8 @@ const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario
   const skillScores = normalizeTrustedScenarioScores(evaluation, scenario)
   const completedAt = new Date().toISOString()
   const retrySessionId = trimText(draft.scenario_context?.retry?.sessionId, 80) || null
+  // Keep the id of the charged first turn so a completed session can be traced to its usage record.
+  const turnRequestId = trimText(draft.scenario_context?.turnRequestId, 200) || null
   const scenarioContext = {
     scenarioId: scenario.id,
     jobKey,
@@ -2130,6 +2132,7 @@ const persistTrustedScenarioEvaluation = async ({ body, config, userId, scenario
     serviceGoal: scenario.serviceGoal,
     salesGoal: scenario.salesGoal,
     ...(retrySessionId ? { retrySessionId } : {}),
+    ...(turnRequestId ? { turnRequestId } : {}),
   }
   const completedFields = {
     difficulty: scenario.difficulty,

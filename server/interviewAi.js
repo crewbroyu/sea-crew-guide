@@ -1858,10 +1858,106 @@ const requestScenarioJson = async ({ config, messages, maxCompletionTokens, time
   }
 }
 
+// The first scenario turn is charged, so its follow-up is saved server-side as the resumable draft,
+// tagged with the request id. A retry with the same id returns that draft before any quota or AI call.
+const SCENARIO_DRAFT_FIELDS = 'id, scenario_id, scenario_context, turns, created_at'
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const shouldPersistScenarioDraft = (body) => body?.mode === PREMIUM_SCENARIO_MODE && body?.persistDraft === true
+
+const toScenarioTurnResult = (draft, config) => {
+  const followUp = Array.isArray(draft?.turns) ? draft.turns.find((turn) => turn?.isFollowUp) : null
+  if (!followUp?.content) return null
+  return {
+    role: followUp.role,
+    message: followUp.content,
+    session: draft,
+    provider: 'dashscope',
+    model: config.scenarioEvaluationModel,
+  }
+}
+
+const getSavedScenarioTurn = async ({ admin, userId, requestId, scenarioId }) => {
+  if (!requestId || !scenarioId) return null
+  const { data, error } = await admin
+    .from('scenario_training_sessions')
+    .select(SCENARIO_DRAFT_FIELDS)
+    .eq('user_id', userId)
+    .eq('scenario_id', scenarioId)
+    .eq('status', 'in_progress')
+    .eq('scenario_context->>turnRequestId', requestId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    console.error('Saved scenario turn lookup failed:', error.message)
+    return null
+  }
+  return data
+}
+
+// The comparison shown during a guided retry comes from the stored completed session, not the browser.
+const getScenarioRetryContext = async ({ admin, userId, retrySessionId, scenarioId }) => {
+  if (!UUID_PATTERN.test(retrySessionId || '')) return null
+  const { data, error } = await admin
+    .from('scenario_training_sessions')
+    .select('id, scenario_id, status, overall_readiness, weaknesses')
+    .eq('id', retrySessionId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throwTrustedWriteError('retry baseline lookup', error)
+  if (!data || data.status !== 'completed' || data.scenario_id !== scenarioId) return null
+  return {
+    sessionId: data.id,
+    baselineResult: {
+      overallReadiness: data.overall_readiness,
+      weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
+    },
+  }
+}
+
+const createScenarioTurnDraft = async ({ admin, userId, scenario, requestId, answer, followUp, retryContext }) => {
+  const jobKey = scenario.jobKey || 'bar_server'
+  const { data, error } = await admin
+    .from('scenario_training_sessions')
+    .insert({
+      user_id: userId,
+      job_key: jobKey,
+      scenario_id: scenario.id,
+      difficulty: scenario.difficulty,
+      scenario_context: {
+        scenarioId: scenario.id,
+        jobKey,
+        role: scenario.role,
+        serviceGoal: scenario.serviceGoal,
+        salesGoal: scenario.salesGoal,
+        turnRequestId: requestId,
+        ...(retryContext ? { retry: retryContext } : {}),
+      },
+      turns: [
+        { role: scenario.role, content: scenario.openingLine },
+        { role: 'trainee', content: answer },
+        { role: followUp.role, content: followUp.message, isFollowUp: true },
+      ],
+      status: 'in_progress',
+    })
+    .select(SCENARIO_DRAFT_FIELDS)
+    .single()
+  if (error || !data?.id) throwTrustedWriteError('scenario draft creation', error || new Error('No draft returned'))
+  return data
+}
+
 const continueScenarioRoleplay = async ({ body, config, supabase, userId }) => {
   const scenario = getSimulationScenario(body.scenarioId)
   const answer = trimText(body.firstAnswer, 3000)
   if (!answer) throw new InterviewApiError(400, 'ANSWER_REQUIRED', 'Complete your first response before continuing.')
+  const persistDraft = shouldPersistScenarioDraft(body)
+  // Resolve everything the draft needs before the paid AI call, so a configuration or lookup
+  // failure never charges for a follow-up that cannot be saved.
+  const admin = persistDraft ? createTrustedWriteClient(config) : null
+  const retryContext = persistDraft
+    ? await getScenarioRetryContext({ admin, userId, retrySessionId: trimText(body.retrySessionId, 80), scenarioId: scenario.id })
+    : null
   const trainingMemory = await getScenarioTrainingMemory({ supabase, userId, scenario, mode: body.mode })
 
   const { result, requestId } = await requestScenarioJson({
@@ -1894,7 +1990,21 @@ const continueScenarioRoleplay = async ({ body, config, supabase, userId }) => {
   })
   const message = trimText(result?.message, 500)
   if (!message) throw new InterviewApiError(502, 'INVALID_AI_RESPONSE', 'AI could not generate a valid follow-up. Please try again.')
-  return { role: trimText(result?.role, 80) || scenario.role, message, requestId, provider: 'dashscope', model: config.scenarioEvaluationModel }
+  const followUp = { role: trimText(result?.role, 80) || scenario.role, message, requestId, provider: 'dashscope', model: config.scenarioEvaluationModel }
+  if (!persistDraft) return followUp
+
+  // Saved before usage is recorded: if the save fails the reservation is released as failed and
+  // the learner is not charged; a retry with the same request id may call the AI again.
+  const session = await createScenarioTurnDraft({
+    admin,
+    userId,
+    scenario,
+    requestId: trimText(body.clientRequestId, 200),
+    answer,
+    followUp,
+    retryContext,
+  })
+  return { ...followUp, session }
 }
 
 const getScenarioSkillKeys = (scenario) => scenario?.jobKey === 'retail' ? RETAIL_SKILL_KEYS : BAR_SERVER_SKILL_KEYS
@@ -2308,6 +2418,32 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
           latencyMs: Date.now() - startedAt,
         })
         return { status: 200, body: { success: true, data: recoveredScenario, meta: { recovered: true } } }
+      }
+    }
+
+    if (action === 'scenario_turn' && shouldPersistScenarioDraft(payload)) {
+      // A retry of a turn whose follow-up was already generated and saved returns that draft:
+      // no quota, no AI call, no second charge.
+      const savedDraft = await getSavedScenarioTurn({
+        admin: createTrustedWriteClient(config),
+        userId: auth.user.id,
+        requestId: trimText(payload.clientRequestId, 200),
+        scenarioId: trimText(payload.scenarioId, 160),
+      })
+      const recoveredTurn = toScenarioTurnResult(savedDraft, config)
+      if (recoveredTurn) {
+        await recordAiOperationLog({
+          supabase: auth.supabase,
+          action,
+          mode,
+          body: payload,
+          config,
+          success: true,
+          statusCode: 200,
+          errorCode: null,
+          latencyMs: Date.now() - startedAt,
+        })
+        return { status: 200, body: { success: true, data: { ...recoveredTurn, recoveredExistingResult: true }, meta: { recovered: true } } }
       }
     }
 

@@ -29,6 +29,7 @@ const MIGRATIONS = {
   unifiedProfiles: 'supabase/migrations/20261008150000_unified_skill_profiles.sql',
   normalizeConfidence: 'supabase/migrations/20261008160000_normalize_skill_confidence.sql',
   atomicProfiles: 'supabase/migrations/20261008170000_atomic_unified_skill_profiles.sql',
+  revokeDraftInsert: 'supabase/migrations/20261010090000_revoke_learner_scenario_draft_insert.sql',
 }
 const ORDER = Object.keys(MIGRATIONS)
 const readMigration = (key) => fs.readFileSync(new URL(`../${MIGRATIONS[key]}`, import.meta.url), 'utf8')
@@ -253,11 +254,12 @@ assert.equal(barAfter.skills.speaking_clarity, Math.round((80 * 0.5 + 55 * 0.96 
 await db.exec('delete from public.user_skill_evidence; delete from public.user_skill_profiles;')
 
 // 6. Scenario completion: one transaction for session, legacy profile, and unified evidence.
-const createDraft = (scenarioId, userId = USER_A) => asRole(db, 'authenticated', () => db.query(
+// The server creates the first-turn draft with the service role; learners cannot insert sessions.
+const createDraft = (scenarioId, userId = USER_A) => asRole(db, 'service_role', () => db.query(
   `insert into public.scenario_training_sessions (user_id, job_key, scenario_id, difficulty, status)
    values ($1, 'bar_server', $2, 2, 'in_progress') returning id`,
   [userId, scenarioId],
-), userId).then((result) => result.rows[0].id)
+)).then((result) => result.rows[0].id)
 
 const scenarioCatalog = [
   { id: 'wine-pairing', focus: ['barKnowledge'] },
@@ -293,7 +295,46 @@ await expectError(
   'Learners must not insert completed scenario scores.',
 )
 
+// Learners cannot create even a plain draft any more (migration 20261010090000).
+await expectError(
+  asRole(db, 'authenticated', () => db.query(
+    `insert into public.scenario_training_sessions (user_id, job_key, scenario_id, difficulty, status)
+     values ($1, 'bar_server', 'wine-pairing', 2, 'in_progress')`,
+    [USER_A],
+  ), USER_A),
+  /permission denied for table scenario_training_sessions/,
+  'Learners must not insert scenario drafts.',
+)
+
 const firstSession = await createDraft('wine-pairing')
+
+// Learners still save their second answer into their own unfinished draft, and nothing else.
+const learnerTurnUpdate = await asRole(db, 'authenticated', () => db.query(
+  `update public.scenario_training_sessions set turns = '[{"role":"trainee","content":"Second answer"}]'::jsonb
+   where id = $1 returning id`,
+  [firstSession],
+), USER_A)
+assert.equal(learnerTurnUpdate.rows.length, 1, 'Learners can update their own draft turns.')
+const otherLearnerUpdate = await asRole(db, 'authenticated', () => db.query(
+  `update public.scenario_training_sessions set turns = '[]'::jsonb where id = $1 returning id`,
+  [firstSession],
+), USER_B)
+assert.equal(otherLearnerUpdate.rows.length, 0, "RLS hides another learner's draft from updates.")
+await expectError(
+  asRole(db, 'authenticated', () => db.query(
+    `update public.scenario_training_sessions set status = 'completed', overall_readiness = 100 where id = $1`,
+    [firstSession],
+  ), USER_A),
+  /permission denied for table scenario_training_sessions/,
+  'Learners must not complete or score their own draft.',
+)
+
+// The production verification check for learner draft privileges passes after the migration.
+const verificationSql = fs.readFileSync(new URL('../supabase_production_verification.sql', import.meta.url), 'utf8')
+const learnerPrivilegeCheck = verificationSql.slice(verificationSql.indexOf('-- Learner privileges on scenario sessions'))
+const privilegeRows = (await db.query(learnerPrivilegeCheck)).rows
+assert.equal(privilegeRows.length, 3)
+assert.ok(privilegeRows.every((row) => row.ok === true), `Learner draft privilege check failed: ${JSON.stringify(privilegeRows)}`)
 const scenarioScores = { communication: 70, english: 60, barKnowledge: 80, service: 50, upselling: 40, problemSolving: 90 }
 const scenarioEntries = [
   { skill_key: 'speaking_clarity', score: 65, weight: 1.2 },

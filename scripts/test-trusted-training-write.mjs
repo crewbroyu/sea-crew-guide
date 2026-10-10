@@ -405,4 +405,10 @@ const migration = fs.readFileSync(new URL('../supabase/migrations/20261008090000
 assert.match(migration, /grant update \(turns\)/i)
 assert.match(migration, /revoke insert, update on table public\.user_job_skill_profiles from authenticated/i)
 
+const draftInsertMigration = fs.readFileSync(new URL('../supabase/migrations/20261010090000_revoke_learner_scenario_draft_insert.sql', import.meta.url), 'utf8')
+assert.match(draftInsertMigration, /revoke insert on table public\.scenario_training_sessions from authenticated/i)
+assert.match(draftInsertMigration, /drop policy if exists "Users can create own scenario drafts"/i)
+assert.doesNotMatch(draftInsertMigration, /revoke[^;]*update/i, 'Learners keep updating their own draft turns.')
+assert.equal(clientService.includes('.insert('), false, 'The browser no longer inserts scenario sessions.')
+
 console.log('Trusted training writes passed: server-owned references, completed sessions, capability profiles, and draft-only client permissions.')

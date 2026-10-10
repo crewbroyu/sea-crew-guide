@@ -1863,7 +1863,15 @@ const requestScenarioJson = async ({ config, messages, maxCompletionTokens, time
 const SCENARIO_DRAFT_FIELDS = 'id, scenario_id, scenario_context, turns, created_at'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-const shouldPersistScenarioDraft = (body) => body?.mode === PREMIUM_SCENARIO_MODE && body?.persistDraft === true
+const shouldPersistScenarioDraft = (body) => body?.mode === PREMIUM_SCENARIO_MODE
+
+// Pages loaded before the server saved drafts insert their own draft after the turn, which learners
+// can no longer do. Refuse them before any quota or AI call so an outdated page is never charged.
+const assertCurrentScenarioClient = (body) => {
+  if (shouldPersistScenarioDraft(body) && body.persistDraft !== true) {
+    throw new InterviewApiError(409, 'CLIENT_OUTDATED', '训练页面已更新，请刷新页面后继续。')
+  }
+}
 
 const toScenarioTurnResult = (draft, config) => {
   const followUp = Array.isArray(draft?.turns) ? draft.turns.find((turn) => turn?.isFollowUp) : null
@@ -2422,6 +2430,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
     }
 
     if (action === 'scenario_turn' && shouldPersistScenarioDraft(payload)) {
+      assertCurrentScenarioClient(payload)
       // A retry of a turn whose follow-up was already generated and saved returns that draft:
       // no quota, no AI call, no second charge.
       const savedDraft = await getSavedScenarioTurn({

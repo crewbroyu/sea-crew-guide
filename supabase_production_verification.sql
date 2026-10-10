@@ -151,3 +151,16 @@ left join pg_proc proc
   on proc.proname = expected.routine_name
   and proc.pronamespace = 'public'::regnamespace
 order by ok, expected.routine_name;
+
+-- Learner privileges on scenario sessions after step 11: no INSERT on any column (the server creates
+-- drafts), UPDATE on turns only (resume an unfinished draft). Every row must show ok = true.
+select check_name, actual, expected, actual = expected as ok
+from (values
+  ('authenticated INSERT on scenario_training_sessions',
+    has_any_column_privilege('authenticated', 'public.scenario_training_sessions', 'INSERT'), false),
+  ('authenticated UPDATE on scenario_training_sessions.turns',
+    has_column_privilege('authenticated', 'public.scenario_training_sessions', 'turns', 'UPDATE'), true),
+  ('authenticated UPDATE on scenario_training_sessions.status',
+    has_column_privilege('authenticated', 'public.scenario_training_sessions', 'status', 'UPDATE'), false)
+) as checks(check_name, actual, expected)
+order by ok, check_name;

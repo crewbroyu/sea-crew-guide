@@ -133,7 +133,7 @@ globalThis.fetch = async (url, options = {}) => {
         job_key: 'bar_server',
         scenario_id: 'bar_sim_allergy_safety',
         status: 'in_progress',
-        scenario_context: { forgedScore: 100, retry: { sessionId: '00000000-0000-4000-8000-000000000399' } },
+        scenario_context: { forgedScore: 100, turnRequestId: 'first-turn-request', retry: { sessionId: '00000000-0000-4000-8000-000000000399' } },
       })
     }
     return Response.json([{ scenario_id: 'bar_sim_allergy_safety' }])
@@ -208,6 +208,7 @@ assert.equal(atomicWrite.input_completed_fields.overall_readiness, 65)
 assert.equal(atomicWrite.input_skill_scores.problemSolving, 40)
 assert.equal(atomicWrite.input_completed_fields.scenario_context.forgedScore, undefined)
 assert.equal(atomicWrite.input_completed_fields.scenario_context.retrySessionId, '00000000-0000-4000-8000-000000000399')
+assert.equal(atomicWrite.input_completed_fields.scenario_context.turnRequestId, 'first-turn-request', 'the completed session keeps the charged first-turn request id')
 assert.equal(atomicWrite.input_evidence_entries.some((row) => row.skill_key === 'safety_judgment'), true)
 assert.notEqual(atomicWrite.input_completed_fields.overall_readiness, 100, 'client-supplied scores must never control the capability profile')
 

@@ -183,3 +183,16 @@ from (values
      where schemaname = 'public' and tablename = 'user_job_skill_profiles' and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')), true)
 ) as checks(check_name, actual, expected)
 order by ok, check_name;
+
+-- Legacy tables outside the repository (step 13): anon and authenticated must not write them.
+-- Every row must show ok = true; tables that do not exist are not listed.
+select c.relname as table_name, r.role,
+  not (has_any_column_privilege(r.role, c.oid, 'INSERT')
+    or has_any_column_privilege(r.role, c.oid, 'UPDATE')
+    or has_table_privilege(r.role, c.oid, 'DELETE')
+    or has_table_privilege(r.role, c.oid, 'TRUNCATE')) as ok
+from pg_class c
+cross join (values ('anon'), ('authenticated')) as r(role)
+where c.relnamespace = 'public'::regnamespace
+  and c.relname in ('interview_records', 'profiles', 'task_progress', 'users')
+order by ok, c.relname, r.role;

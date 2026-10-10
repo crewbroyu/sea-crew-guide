@@ -31,6 +31,7 @@ const MIGRATIONS = {
   atomicProfiles: 'supabase/migrations/20261008170000_atomic_unified_skill_profiles.sql',
   revokeDraftInsert: 'supabase/migrations/20261010090000_revoke_learner_scenario_draft_insert.sql',
   reassertPermissions: 'supabase/migrations/20261010100000_reassert_trusted_training_permissions.sql',
+  revokeLegacyWrites: 'supabase/migrations/20261011090000_revoke_legacy_table_writes.sql',
 }
 const ORDER = Object.keys(MIGRATIONS)
 const readMigration = (key) => fs.readFileSync(new URL(`../${MIGRATIONS[key]}`, import.meta.url), 'utf8')
@@ -334,7 +335,10 @@ await expectError(
 
 // The production verification check for learner draft privileges passes after the migration.
 const verificationSql = fs.readFileSync(new URL('../supabase_production_verification.sql', import.meta.url), 'utf8')
-const learnerPrivilegeCheck = verificationSql.slice(verificationSql.indexOf('-- Learner privileges on scenario sessions'))
+const learnerPrivilegeCheck = verificationSql.slice(
+  verificationSql.indexOf('-- Learner privileges on scenario sessions'),
+  verificationSql.indexOf('-- Legacy tables outside the repository'),
+)
 const privilegeRows = (await db.query(learnerPrivilegeCheck)).rows
 assert.equal(privilegeRows.length, 10)
 assert.ok(privilegeRows.every((row) => row.ok === true), `Learner draft privilege check failed: ${JSON.stringify(privilegeRows)}`)
@@ -491,4 +495,50 @@ for (const sql of [
 }
 await driftDb.close()
 
-console.log('Unified profile SQL passed: server-only grants, learner RLS, validation, idempotent evidence, JS parity, atomic scenario completion, legacy backfill, and repair of drifted learner permissions.')
+// 9. Legacy tables created outside the repository: the main database above does not have them, so
+// step 13 must skip them. Here they exist with Supabase's default grants, as in production.
+const legacyTables = ['interview_records', 'profiles', 'task_progress', 'users']
+const legacyTableDb = await PGlite.create()
+await legacyTableDb.exec(SUPABASE_SHIM)
+for (const table of legacyTables) {
+  await legacyTableDb.exec(`
+    create table public.${table} (id uuid primary key default gen_random_uuid(), user_id uuid, note text);
+    alter table public.${table} enable row level security;
+    create policy "Owner can manage ${table}" on public.${table} for all using (auth.uid() = user_id);
+    insert into public.${table} (note) values ('kept');
+  `)
+}
+const legacyPrivilegeCheck = verificationSql.slice(verificationSql.indexOf('-- Legacy tables outside the repository'))
+const legacyRows = async () => (await legacyTableDb.query(legacyPrivilegeCheck)).rows
+assert.equal((await legacyRows()).length, 8)
+assert.ok((await legacyRows()).every((row) => row.ok === false), 'Before step 13 the default grants allow writes.')
+const canTruncateBefore = (await legacyTableDb.query("select has_table_privilege('anon', 'public.users', 'TRUNCATE') as v")).rows[0].v
+assert.equal(canTruncateBefore, true, 'Supabase default grants include TRUNCATE, which RLS does not cover.')
+
+await applyMigration(legacyTableDb, 'revokeLegacyWrites')
+await applyMigration(legacyTableDb, 'revokeLegacyWrites')
+const afterRows = await legacyRows()
+assert.ok(afterRows.every((row) => row.ok === true), `Legacy write check after step 13: ${JSON.stringify(afterRows)}`)
+for (const table of legacyTables) {
+  await expectError(
+    asRole(legacyTableDb, 'authenticated', () => legacyTableDb.query(
+      `insert into public.${table} (user_id, note) values ($1, 'new')`, [USER_A],
+    ), USER_A),
+    new RegExp(`permission denied for table ${table}`),
+    `Learners can no longer write ${table}.`,
+  )
+  await expectError(
+    asRole(legacyTableDb, 'anon', () => legacyTableDb.query(`truncate public.${table}`)),
+    new RegExp(`permission denied for table ${table}`),
+    `anon can no longer truncate ${table}.`,
+  )
+  const selectable = (await legacyTableDb.query(`select has_table_privilege('authenticated', 'public.${table}', 'SELECT') as v`)).rows[0].v
+  assert.equal(selectable, true, `SELECT on ${table} is left unchanged.`)
+  const kept = (await legacyTableDb.query(`select count(*)::int as n from public.${table}`)).rows[0].n
+  assert.equal(kept, 1, `Data in ${table} is untouched.`)
+}
+const serviceRoleWrite = (await legacyTableDb.query("select has_table_privilege('service_role', 'public.users', 'INSERT') as v")).rows[0].v
+assert.equal(serviceRoleWrite, true, 'The service role is not affected.')
+await legacyTableDb.close()
+
+console.log('Unified profile SQL passed: server-only grants, learner RLS, validation, idempotent evidence, JS parity, atomic scenario completion, legacy backfill, repair of drifted learner permissions, and legacy table write revocation.')

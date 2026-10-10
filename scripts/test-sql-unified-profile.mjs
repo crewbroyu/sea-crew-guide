@@ -30,14 +30,17 @@ const MIGRATIONS = {
   normalizeConfidence: 'supabase/migrations/20261008160000_normalize_skill_confidence.sql',
   atomicProfiles: 'supabase/migrations/20261008170000_atomic_unified_skill_profiles.sql',
   revokeDraftInsert: 'supabase/migrations/20261010090000_revoke_learner_scenario_draft_insert.sql',
+  reassertPermissions: 'supabase/migrations/20261010100000_reassert_trusted_training_permissions.sql',
 }
 const ORDER = Object.keys(MIGRATIONS)
 const readMigration = (key) => fs.readFileSync(new URL(`../${MIGRATIONS[key]}`, import.meta.url), 'utf8')
 
-const createDb = async (upTo = ORDER.at(-1)) => {
+const createDb = async (upTo = ORDER.at(-1), { skip = [] } = {}) => {
   const db = await PGlite.create()
   await db.exec(SUPABASE_SHIM)
-  for (const key of ORDER.slice(0, ORDER.indexOf(upTo) + 1)) await db.exec(readMigration(key))
+  for (const key of ORDER.slice(0, ORDER.indexOf(upTo) + 1)) {
+    if (!skip.includes(key)) await db.exec(readMigration(key))
+  }
   return db
 }
 
@@ -333,7 +336,7 @@ await expectError(
 const verificationSql = fs.readFileSync(new URL('../supabase_production_verification.sql', import.meta.url), 'utf8')
 const learnerPrivilegeCheck = verificationSql.slice(verificationSql.indexOf('-- Learner privileges on scenario sessions'))
 const privilegeRows = (await db.query(learnerPrivilegeCheck)).rows
-assert.equal(privilegeRows.length, 3)
+assert.equal(privilegeRows.length, 10)
 assert.ok(privilegeRows.every((row) => row.ok === true), `Learner draft privilege check failed: ${JSON.stringify(privilegeRows)}`)
 const scenarioScores = { communication: 70, english: 60, barKnowledge: 80, service: 50, upselling: 40, problemSolving: 90 }
 const scenarioEntries = [
@@ -428,4 +431,64 @@ await applyMigration(legacyDb, 'atomicProfiles')
 assert.deepEqual(await storedProfile(legacyDb, 'bar_server'), backfilled)
 await legacyDb.close()
 
-console.log('Unified profile SQL passed: server-only grants, learner RLS, validation, idempotent evidence, JS parity, atomic scenario completion, and legacy backfill.')
+// 8. Production drift: step 6 (trusted training results) never took effect, then step 11 ran.
+// Learners kept whole-table UPDATE on sessions under an owner-only policy and could write their job
+// skill profile. Migration 20261010100000 must restore the trusted permissions without undoing step 11.
+const driftDb = await createDb('revokeDraftInsert', { skip: ['trustedTraining', 'reassertPermissions'] })
+await addUsers(driftDb)
+const learnerChecks = async () => Object.fromEntries((await driftDb.query(learnerPrivilegeCheck)).rows.map((row) => [row.check_name, row.ok]))
+const driftChecks = await learnerChecks()
+assert.equal(driftChecks['authenticated UPDATE on scenario_training_sessions.status'], false, 'The drifted state reproduces production.')
+assert.equal(driftChecks['authenticated INSERT on user_job_skill_profiles'], false)
+assert.equal(driftChecks['authenticated INSERT on scenario_training_sessions'], true, 'Step 11 already removed session INSERT.')
+
+const driftSession = (await asRole(driftDb, 'service_role', () => driftDb.query(
+  `insert into public.scenario_training_sessions (user_id, job_key, scenario_id, difficulty, status, overall_readiness)
+   values ($1, 'bar_server', 'wine-pairing', 2, 'completed', 55) returning id`,
+  [USER_A],
+))).rows[0].id
+const forged = await asRole(driftDb, 'authenticated', () => driftDb.query(
+  'update public.scenario_training_sessions set overall_readiness = 100 where id = $1 returning id', [driftSession],
+), USER_A)
+assert.equal(forged.rows.length, 1, 'Before the fix a learner can rewrite a completed score, as found in production.')
+await driftDb.exec(`update public.scenario_training_sessions set overall_readiness = 55 where id = '${driftSession}'`)
+
+await applyMigration(driftDb, 'reassertPermissions')
+await applyMigration(driftDb, 'reassertPermissions')
+const fixedChecks = await learnerChecks()
+assert.ok(Object.values(fixedChecks).every(Boolean), `Learner privilege checks after the fix: ${JSON.stringify(fixedChecks)}`)
+
+await expectError(
+  asRole(driftDb, 'authenticated', () => driftDb.query(
+    'update public.scenario_training_sessions set overall_readiness = 100 where id = $1', [driftSession],
+  ), USER_A),
+  /permission denied for table scenario_training_sessions/,
+  'After the fix learners cannot rewrite scores.',
+)
+const completedTurnsUpdate = await asRole(driftDb, 'authenticated', () => driftDb.query(
+  `update public.scenario_training_sessions set turns = '[]'::jsonb where id = $1 returning id`, [driftSession],
+), USER_A)
+assert.equal(completedTurnsUpdate.rows.length, 0, 'Completed sessions are no longer editable by learners.')
+const driftDraft = (await asRole(driftDb, 'service_role', () => driftDb.query(
+  `insert into public.scenario_training_sessions (user_id, job_key, scenario_id, difficulty, status)
+   values ($1, 'bar_server', 'wine-pairing', 2, 'in_progress') returning id`,
+  [USER_A],
+))).rows[0].id
+const draftTurnsUpdate = await asRole(driftDb, 'authenticated', () => driftDb.query(
+  `update public.scenario_training_sessions set turns = '[{"role":"trainee","content":"Second answer"}]'::jsonb
+   where id = $1 returning id`, [driftDraft],
+), USER_A)
+assert.equal(draftTurnsUpdate.rows.length, 1, 'Learners can still resume their own unfinished draft.')
+for (const sql of [
+  `insert into public.user_job_skill_profiles (user_id, job_key, readiness_score) values ($1, 'bar_server', 100)`,
+  `update public.user_job_skill_profiles set readiness_score = 100 where user_id = $1`,
+]) {
+  await expectError(
+    asRole(driftDb, 'authenticated', () => driftDb.query(sql, [USER_A]), USER_A),
+    /permission denied for table user_job_skill_profiles/,
+    'Learners cannot write their job skill profile.',
+  )
+}
+await driftDb.close()
+
+console.log('Unified profile SQL passed: server-only grants, learner RLS, validation, idempotent evidence, JS parity, atomic scenario completion, legacy backfill, and repair of drifted learner permissions.')

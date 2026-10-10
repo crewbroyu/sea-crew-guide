@@ -152,8 +152,9 @@ left join pg_proc proc
   and proc.pronamespace = 'public'::regnamespace
 order by ok, expected.routine_name;
 
--- Learner privileges on scenario sessions after step 11: no INSERT on any column (the server creates
--- drafts), UPDATE on turns only (resume an unfinished draft). Every row must show ok = true.
+-- Learner privileges on scenario sessions and job skill profiles after steps 11 and 12: no INSERT on
+-- sessions (the server creates drafts), UPDATE on draft turns only (resume an unfinished draft), no
+-- writes to job skill profiles, and no owner-only write policies left. Every row must show ok = true.
 select check_name, actual, expected, actual = expected as ok
 from (values
   ('authenticated INSERT on scenario_training_sessions',
@@ -161,6 +162,24 @@ from (values
   ('authenticated UPDATE on scenario_training_sessions.turns',
     has_column_privilege('authenticated', 'public.scenario_training_sessions', 'turns', 'UPDATE'), true),
   ('authenticated UPDATE on scenario_training_sessions.status',
-    has_column_privilege('authenticated', 'public.scenario_training_sessions', 'status', 'UPDATE'), false)
+    has_column_privilege('authenticated', 'public.scenario_training_sessions', 'status', 'UPDATE'), false),
+  ('authenticated UPDATE on scenario_training_sessions.overall_readiness',
+    has_column_privilege('authenticated', 'public.scenario_training_sessions', 'overall_readiness', 'UPDATE'), false),
+  ('authenticated UPDATE on scenario_training_sessions.skill_scores',
+    has_column_privilege('authenticated', 'public.scenario_training_sessions', 'skill_scores', 'UPDATE'), false),
+  ('authenticated INSERT on user_job_skill_profiles',
+    has_any_column_privilege('authenticated', 'public.user_job_skill_profiles', 'INSERT'), false),
+  ('authenticated UPDATE on user_job_skill_profiles',
+    has_any_column_privilege('authenticated', 'public.user_job_skill_profiles', 'UPDATE'), false),
+  ('scenario_training_sessions has one UPDATE policy, limited to in_progress drafts',
+    (select count(*) = 1 and bool_and(qual like '%in_progress%' and with_check like '%in_progress%')
+     from pg_policies
+     where schemaname = 'public' and tablename = 'scenario_training_sessions' and cmd in ('UPDATE', 'ALL')), true),
+  ('no INSERT policy on scenario_training_sessions',
+    (select count(*) = 0 from pg_policies
+     where schemaname = 'public' and tablename = 'scenario_training_sessions' and cmd = 'INSERT'), true),
+  ('no learner write policy on user_job_skill_profiles',
+    (select count(*) = 0 from pg_policies
+     where schemaname = 'public' and tablename = 'user_job_skill_profiles' and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')), true)
 ) as checks(check_name, actual, expected)
 order by ok, check_name;

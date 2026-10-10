@@ -5,7 +5,7 @@ import JobReadinessDashboard from '../../components/training/JobReadinessDashboa
 import EdgeReadAloudHint from '../../components/EdgeReadAloudHint'
 import { getJobScenarios, getJobSimulator, getJobSkills, getScenarioById } from '../../data/jobScenarioCatalog'
 import { continueScenarioRoleplay, evaluateScenarioSimulation, transcribeInterviewAudio } from '../../services/interviewAiService'
-import { createScenarioTrainingDraft, getMyInProgressScenarioSession, getMyScenarioHistory, getMyScenarioProfile, updateScenarioTrainingDraft } from '../../services/scenarioTrainingService'
+import { getMyInProgressScenarioSession, getMyScenarioHistory, getMyScenarioProfile, updateScenarioTrainingDraft } from '../../services/scenarioTrainingService'
 import { createFirstTurnState, runFirstScenarioTurn } from '../../utils/scenarioFirstTurn'
 
 const formatTime = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
@@ -182,19 +182,24 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
           { role: scenario.aiRole, content: scenario.openingLine },
           { role: 'trainee', content: response },
         ]
-        const retryContext = baselineResult ? { sessionId: baselineSessionId, baselineResult } : null
-        const toFollowUpTurns = (followUp) => [...firstTurns, { role: followUp.role, content: followUp.message, isFollowUp: true }]
-        const { followUp, savedDraft } = await runFirstScenarioTurn({
+        // The server saves the draft together with the charged follow-up and returns it as `session`.
+        const followUp = await runFirstScenarioTurn({
           state: firstTurnRef.current,
           scenarioId: scenario.id,
           answer: response,
           createRequestId,
-          requestFollowUp: (requestId) => continueScenarioRoleplay({ scenarioId: scenario.id, firstAnswer: response, position: simulator.position, requestId }),
-          saveDraft: (nextFollowUp) => createScenarioTrainingDraft({ scenario, turns: toFollowUpTurns(nextFollowUp), retryContext }),
+          requestFollowUp: (requestId) => continueScenarioRoleplay({
+            scenarioId: scenario.id,
+            firstAnswer: response,
+            position: simulator.position,
+            retrySessionId: baselineResult ? baselineSessionId : null,
+            requestId,
+          }),
         })
-        const followUpTurns = toFollowUpTurns(followUp)
+        const savedTurns = Array.isArray(followUp.session?.turns) && followUp.session.turns.length >= 3 ? followUp.session.turns : null
+        const followUpTurns = savedTurns || [...firstTurns, { role: followUp.role, content: followUp.message, isFollowUp: true }]
         setTurns(followUpTurns)
-        setActiveSessionId(savedDraft?.id || null)
+        setActiveSessionId(followUp.session?.id || null)
         firstTurnRef.current = createFirstTurnState()
         setAnswer('')
         setStage('followup')
@@ -221,8 +226,8 @@ export default function BarServerScenarioTraining({ jobKey = 'bar_server' }) {
         setStage('result')
       }
     } catch (error) {
-      // Keep the first-turn state: a retry of the same answer reuses its request id, or only repeats
-      // the draft save when the follow-up was already generated and charged.
+      // Keep the first-turn state: a retry of the same answer reuses its request id, so the server
+      // returns the already-saved draft instead of generating and charging the follow-up again.
       // Keep the final evaluation id: a retry after a lost response or timeout reuses it, so the
       // server returns the already-saved result instead of scoring and charging again.
       setErrorMessage(error.message || 'AI training is temporarily unavailable. Please try again shortly.')

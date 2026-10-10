@@ -173,12 +173,15 @@ export const coachInterviewAnswer = ({ position, card, answers, generated }) => 
   generated,
 })
 
-export const continueScenarioRoleplay = ({ scenarioId, firstAnswer, position = 'Bar Server', requestId }) => requestInterviewAi({
+// The server saves the follow-up as the resumable draft and returns it as `session`.
+export const continueScenarioRoleplay = ({ scenarioId, firstAnswer, position = 'Bar Server', retrySessionId = null, requestId }) => requestInterviewAi({
   action: 'scenario_turn',
   mode: 'premium_scenario',
   position,
   scenarioId,
   firstAnswer,
+  retrySessionId,
+  persistDraft: true,
 }, requestId)
 
 export const evaluateScenarioSimulation = ({ scenarioId, sessionId, turns, position = 'Bar Server', requestId }) => requestInterviewAi({

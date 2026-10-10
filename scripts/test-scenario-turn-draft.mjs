@@ -224,13 +224,16 @@ for (const [label, retrySessionId] of [
   assert.equal(state.drafts[0].scenario_context.retry, undefined, `An invalid retry session is ignored: ${label}.`)
 }
 
-// 6. Old clients that do not ask for persistence keep creating their own draft.
+// 6. Pages loaded before server-saved drafts would insert their own draft, which learners can no
+//    longer do. They are told to refresh before any quota, AI call, or charge.
 reset()
 const legacy = await requestTurn('turn-legacy', { persistDraft: undefined })
-assert.equal(legacy.status, 200)
-assert.equal(legacy.body.data.session, undefined)
-assert.equal(state.inserts.length, 0, 'Without persistDraft the server must not create a draft.')
-assert.deepEqual(state.usageActions, ['evaluate'])
+assert.equal(legacy.status, 409)
+assert.equal(legacy.body.error.code, 'CLIENT_OUTDATED')
+assert.equal(state.quotaReservations, 0, 'An outdated page must not reserve quota.')
+assert.equal(state.providerCalls, 0, 'An outdated page must not call AI.')
+assert.deepEqual(state.usageActions, [], 'An outdated page must not be charged.')
+assert.equal(state.inserts.length, 0)
 
 // 7. Missing trusted-write configuration fails before reserving quota or calling AI.
 reset()
@@ -241,4 +244,4 @@ assert.equal(missingSecret.body.error.code, 'TRUSTED_WRITE_NOT_CONFIGURED')
 assert.equal(state.quotaReservations, 0)
 assert.equal(state.providerCalls, 0)
 
-console.log('Scenario turn draft passed: server-saved drafts, free same-id recovery, no charge on save failure, trusted retry baselines, and legacy-client compatibility.')
+console.log('Scenario turn draft passed: server-saved drafts, free same-id recovery, no charge on save failure, trusted retry baselines, and outdated pages refused before any charge.')

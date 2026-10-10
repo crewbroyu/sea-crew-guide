@@ -14,10 +14,11 @@ For the current production database, apply only new forward migrations in this o
 8. `supabase/migrations/20261008160000_normalize_skill_confidence.sql` to ensure confidence reflects repeated evidence rather than a single high-weight event.
 9. `supabase/migrations/20261008170000_atomic_unified_skill_profiles.sql` to serialize concurrent evidence writes, atomically complete scenario scoring, and count distinct training events.
 10. Run `supabase_production_verification.sql`. It is SELECT-only and may be rerun after every deployment.
+11. `supabase/migrations/20261010090000_revoke_learner_scenario_draft_insert.sql` to stop learners inserting scenario sessions; the server creates the first-turn draft. **Apply this step only after the application release that returns `CLIENT_OUTDATED` to outdated scenario pages is live.** It is the one step that follows the code deploy instead of preceding it: an older release still inserts drafts from the browser and would fail after the first turn was already charged. The current release works both before and after this step. Rerun step 10 afterwards.
 
 Application code may be deployed only after steps 2 through 9 have been applied (step 1 only when Retail is not yet installed). Step 9 is required, not optional: it creates `upsert_unified_skill_evidence` and `complete_scenario_with_unified_profile`, which the server calls on every scored assessment, scenario, and mock interview. Before those migrations are applied, Retail AI, new career-report generation, practical assessment AI, trusted scenario persistence, and unified capability persistence intentionally fail closed rather than bypassing quota or score-integrity controls; without step 9 specifically, practical assessment scoring and scenario completion return errors and mock-interview results are still returned but flagged `unifiedProfileSyncPending`.
 
-After step 10, every row of the final `has_function_privilege` query must show `ok = true`. A `false` row means a migration is missing or a grant has drifted: the two unified-profile RPCs must be callable only by `service_role`, and no RPC may be callable by `anon`.
+After step 10, every row of the `has_function_privilege` query must show `ok = true`. The final learner draft privilege query shows `ok = true` only after step 11. A `false` row means a migration is missing or a grant has drifted: the two unified-profile RPCs must be callable only by `service_role`, and no RPC may be callable by `anon`.
 
 ## Partner workspace (additive pilot)
 

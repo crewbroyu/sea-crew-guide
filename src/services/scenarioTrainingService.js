@@ -56,28 +56,8 @@ export const getMyInProgressScenarioSession = async (jobKey = 'bar_server') => {
   return data
 }
 
-export const createScenarioTrainingDraft = async ({ scenario, turns, retryContext = null }) => {
-  const user = await getCurrentUser()
-  if (!user) return null
-
-  const { data, error } = await supabase
-    .from('scenario_training_sessions')
-    .insert({
-      user_id: user.id,
-      job_key: scenario.jobKey,
-      scenario_id: scenario.id,
-      difficulty: scenario.difficulty,
-      scenario_context: retryContext ? { ...scenario, retry: retryContext } : scenario,
-      turns,
-      status: 'in_progress',
-    })
-    .select('id, scenario_id, scenario_context, turns, created_at')
-    .single()
-
-  if (error) throw error
-  return data
-}
-
+// The first-turn draft is created by the server together with the charged follow-up
+// (scenario_turn). Learners only update their own draft turns to resume later.
 export const updateScenarioTrainingDraft = async ({ sessionId, turns }) => {
   if (!sessionId) return null
 

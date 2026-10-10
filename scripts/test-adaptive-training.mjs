@@ -52,6 +52,8 @@ globalThis.fetch = async (url, options = {}) => {
     })
   }
   if (target.includes('/rest/v1/scenario_training_sessions')) {
+    // The first scenario turn saves its draft server-side; echo the inserted row back.
+    if (options.method === 'POST') return Response.json({ id: '00000000-0000-4000-8000-000000000202', ...JSON.parse(options.body || '{}') }, { status: 201 })
     return Response.json([{
       scenario_id: 'bar_sim_wrong_drink_recovery',
       weaknesses: ['Did not explain when to involve a supervisor.'],
@@ -118,6 +120,7 @@ const env = {
   DASHSCOPE_BASE_URL: 'https://dashscope.test/v1',
   SUPABASE_URL: 'https://supabase.test',
   SUPABASE_ANON_KEY: 'adaptive-test-anon-key',
+  SUPABASE_SECRET_KEY: 'adaptive-test-secret-key',
 }
 const headers = { authorization: 'Bearer adaptive-test-token' }
 
@@ -128,10 +131,12 @@ const scenarioResult = await handleInterviewRequest({
     scenarioId: 'bar_sim_allergy_safety',
     firstAnswer: 'I will stop and check with the bartender before I promise anything.',
     clientRequestId: 'adaptive-scenario-turn',
+    persistDraft: true,
   },
 })
 assert.equal(scenarioResult.status, 200)
 assert.equal(scenarioResult.body.data.role, 'Concerned Guest')
+assert.equal(scenarioResult.body.data.session.id, '00000000-0000-4000-8000-000000000202')
 const scenarioPrompt = JSON.parse(providerRequests[0].messages[1].content)
 assert.equal(scenarioPrompt.privateTrainingMemory.weakestSkill, 'problemSolving')
 assert.match(scenarioPrompt.privateTrainingMemory.recentSessions[0].criticalMistakes[0], /compensation/)

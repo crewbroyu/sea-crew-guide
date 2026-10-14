@@ -305,6 +305,25 @@ checks(section, check_name, detail, ok) as (
     case when jsonb_typeof(j.completed_course_details) = 'object' then j.completed_course_details else '{}'::jsonb end
   ) e
   where jsonb_typeof(e.value) = 'object' and e.value ? 'image'
+
+  union all
+  select '8 activation code rate limit (step 15)', a.check_name, null, coalesce(a.ok, false)
+  from (values
+    ('attempt log exists', to_regclass('public.activation_code_attempts') is not null),
+    ('clients cannot read or write the attempt log',
+      not (has_table_privilege('anon', to_regclass('public.activation_code_attempts'), 'SELECT')
+        or has_table_privilege('anon', to_regclass('public.activation_code_attempts'), 'INSERT')
+        or has_table_privilege('authenticated', to_regclass('public.activation_code_attempts'), 'SELECT')
+        or has_table_privilege('authenticated', to_regclass('public.activation_code_attempts'), 'INSERT')
+        or has_table_privilege('authenticated', to_regclass('public.activation_code_attempts'), 'UPDATE')
+        or has_table_privilege('authenticated', to_regclass('public.activation_code_attempts'), 'DELETE'))),
+    ('consume_activation_code checks the attempt log',
+      exists (select 1 from pg_proc p where p.proname = 'consume_activation_code'
+        and p.pronamespace = 'public'::regnamespace and p.prosrc like '%activation_code_attempts%')),
+    ('consume_activation_code: authenticated only',
+      (select bool_and(not has_function_privilege('anon', p.oid, 'execute') and has_function_privilege('authenticated', p.oid, 'execute'))
+       from pg_proc p where p.proname = 'consume_activation_code' and p.pronamespace = 'public'::regnamespace))
+  ) as a(check_name, ok)
 )
 select section, check_name, detail, ok
 from checks

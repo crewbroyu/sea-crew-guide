@@ -102,7 +102,10 @@ const rows = async () => Object.fromEntries((await db.query(
 
 // The production verification check (step 14) fails before the migration and passes after it.
 const productionVerification = fs.readFileSync(new URL('../supabase_production_verification.sql', import.meta.url), 'utf8')
-const photoCheck = productionVerification.slice(productionVerification.indexOf('-- Task 5 completion photos (step 14)'))
+const photoCheck = productionVerification.slice(
+  productionVerification.indexOf('-- Task 5 completion photos (step 14)'),
+  productionVerification.indexOf('-- Summary of every ok check above'),
+)
 const photoCheckOk = async () => (await db.query(photoCheck)).rows[0].ok
 assert.equal(await photoCheckOk(), false, 'Production verification flags stored photos.')
 

@@ -20,9 +20,16 @@ const saveToLocalStorage = (data) => {
     return true;
   } catch (error) {
     console.error('Error saving to localStorage:', error);
-    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-      alert('存储空间不足，请清理浏览器缓存后重试');
-    }
+    return false;
+  }
+};
+
+const writeJson = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.error(`Unable to save ${key}:`, error);
     return false;
   }
 };
@@ -358,11 +365,20 @@ function Task6InterviewSkills() {
   });
   const [coachingCardId, setCoachingCardId] = useState(null);
   const [coachError, setCoachError] = useState('');
-  
+  const [storageFull, setStorageFull] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState(null);
+
   // 当数据变化时，保存到 localStorage
   useEffect(() => {
     saveToLocalStorage({ answerCardData });
   }, [answerCardData]);
+
+  // 用户输入时检查本机能否保存，存储空间满时在页面上提示
+  const updateAnswerCardData = (nextAnswerCardData) => {
+    setAnswerCardData(nextAnswerCardData);
+    setStorageFull(!saveToLocalStorage({ answerCardData: nextAnswerCardData }));
+  };
 
   useEffect(() => {
     const localData = loadFromLocalStorage({});
@@ -381,27 +397,27 @@ function Task6InterviewSkills() {
   }, []);
 
   const handleAnswerCardChange = (cardId, field, value) => {
-    setAnswerCardData(prev => ({
-      ...prev,
+    updateAnswerCardData({
+      ...answerCardData,
       [cardId]: {
-        ...(prev[cardId] || {}),
+        ...(answerCardData[cardId] || {}),
         [field]: value,
         aiCoach: null,
       }
-    }));
+    });
   };
 
   const handleCoachFollowUpChange = (cardId, question, value) => {
-    setAnswerCardData((prev) => ({
-      ...prev,
+    updateAnswerCardData({
+      ...answerCardData,
       [cardId]: {
-        ...(prev[cardId] || {}),
+        ...(answerCardData[cardId] || {}),
         followUpAnswers: {
-          ...(prev[cardId]?.followUpAnswers || {}),
+          ...(answerCardData[cardId]?.followUpAnswers || {}),
           [question]: value,
         },
       },
-    }));
+    });
   };
 
   const isAnswerCardCompleted = (card) => {
@@ -566,7 +582,23 @@ function Task6InterviewSkills() {
     }
   };
 
+  const finishTask6 = async () => {
+    await syncLocalPathProfile({
+      career_stage: 'interview_preparation',
+      application_stage: 'interview',
+      interview_status: 'learning',
+      last_completed_task_id: 6,
+    });
+
+    navigate(
+      jobAiConfig?.nextRoute || '/tasks?justCompleted=6'
+    );
+  };
+
   const completeTask6FromWorkbench = async () => {
+    if (completing) return;
+    setCompleting(true);
+    setCompleteError(null);
     const completedAt = new Date().toISOString();
     const preparedCards = visibleAnswerCards.map(card => ({
       id: card.id,
@@ -582,34 +614,52 @@ function Task6InterviewSkills() {
       answerCards: preparedCards,
       task5KnowledgeContext: jobAiConfig ? task5Context : null,
     };
-    localStorage.setItem('task6_result', JSON.stringify(taskResult));
+    // 任务列表和任务7只从本机读取完成状态，所以本机写入失败时不能跳转
+    const savedLocally = writeJson('task6_result', taskResult)
+      && writeJson('boarding_progress', {
+        ...readJson('boarding_progress', {}),
+        task6: { completed: true, completedAt },
+      });
 
-    const progressKey = 'boarding_progress';
-    const boardingProgress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-    boardingProgress.task6 = {
-      completed: true,
-      completedAt
-    };
-    localStorage.setItem(progressKey, JSON.stringify(boardingProgress));
-
+    // 本机写入失败时也同步云端，避免答案只留在当前页面
+    let savedToCloud = false;
+    let cloudFailed = false;
     try {
-      await upsertMyInterviewAnswerProfile(taskResult);
+      savedToCloud = Boolean(await upsertMyInterviewAnswerProfile(taskResult));
     } catch (error) {
       console.error('同步面试答案卡失败:', error);
+      cloudFailed = true;
     }
 
-    await syncLocalPathProfile({
-      career_stage: 'interview_preparation',
-      application_stage: 'interview',
-      interview_status: 'learning',
-      last_completed_task_id: 6,
-    });
+    if (!savedLocally) {
+      setCompleteError({
+        canContinue: false,
+        message: savedToCloud
+          ? '答案已保存到云端，但这台设备的浏览器存储空间已满，无法记录任务进度。请清理浏览器存储空间后，再点一次完成。'
+          : `这台设备的浏览器存储空间已满，答案没能保存。请不要关闭或刷新页面，${cloudFailed ? '检查网络后' : '登录后'}再点一次完成，答案会保存到云端。`,
+      });
+      setCompleting(false);
+      return;
+    }
 
-    navigate(
-      jobAiConfig?.nextRoute || '/tasks?justCompleted=6'
-    );
+    if (cloudFailed) {
+      setCompleteError({
+        canContinue: true,
+        message: '答案已保存在这台设备，但同步到云端失败，换设备后会看不到这些答案。请检查网络后再点一次完成，或先继续下一步。',
+      });
+      setCompleting(false);
+      return;
+    }
+
+    await finishTask6();
   };
   
+  const storageFullNotice = storageFull && (
+    <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
+      这台设备的浏览器存储空间已满，答案暂时只保留在当前页面，刷新或关闭页面会丢失。完成 3 张答案卡后请直接点“完成面试答案准备”，登录状态下答案会保存到云端。
+    </p>
+  );
+
   const renderAnswerCardDetail = () => {
     const card = visibleAnswerCards.find(item => item.id === activeAnswerCardId);
     if (!card) return null;
@@ -674,6 +724,7 @@ function Task6InterviewSkills() {
         </div>
 
         <main className="mx-auto max-w-lg px-5 py-5">
+          {storageFullNotice}
           <section className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
             <h2 className="font-semibold text-blue-950">训练目标</h2>
             <p className="mt-1 text-sm leading-6 text-blue-900">
@@ -849,6 +900,7 @@ function Task6InterviewSkills() {
         </div>
         
         <div className="px-6 py-5">
+          {storageFullNotice}
           {(task5Context.selectedRole === 'barServer' || task5Context.selectedRole === 'retail') && (
             <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
               <p className="text-xs font-semibold text-blue-700">来自任务5 · {jobAiConfig?.position} 基础课</p>
@@ -932,11 +984,25 @@ function Task6InterviewSkills() {
             <button
               type="button"
               onClick={completeTask6FromWorkbench}
-              disabled={preparedAnswerCount < 3}
+              disabled={preparedAnswerCount < 3 || completing}
               className="mt-4 w-full rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              {preparedAnswerCount >= 3 ? '完成面试答案准备' : '继续准备答案卡'}
+              {completing ? '正在保存...' : preparedAnswerCount >= 3 ? '完成面试答案准备' : '继续准备答案卡'}
             </button>
+            {completeError && (
+              <div role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-800">
+                <p>{completeError.message}</p>
+                {completeError.canContinue && (
+                  <button
+                    type="button"
+                    onClick={finishTask6}
+                    className="mt-2 font-medium text-red-900 underline"
+                  >
+                    先继续下一步
+                  </button>
+                )}
+              </div>
+            )}
           </section>
         </div>
         

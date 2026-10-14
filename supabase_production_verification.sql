@@ -204,3 +204,108 @@ cross join lateral jsonb_each(
   case when jsonb_typeof(j.completed_course_details) = 'object' then j.completed_course_details else '{}'::jsonb end
 ) e
 where jsonb_typeof(e.value) = 'object' and e.value ? 'image';
+
+-- Summary of every ok check above, in one result set. Keep this query last: the Supabase SQL Editor
+-- shows only the last result. Rows with ok = false sort first; every row must show ok = true.
+with expected_tables(name) as (
+  values ('ai_usage_events'), ('ai_usage_reservations'), ('ai_operation_logs'), ('career_reports'),
+    ('career_report_reservations'), ('assessment_attempts'), ('assessment_attempt_actions'),
+    ('job_preparation_profiles'), ('scenario_training_sessions'), ('user_job_skill_profiles'),
+    ('user_skill_evidence'), ('user_skill_profiles'), ('user_entitlements')
+),
+expected_functions(name) as (
+  values ('reserve_ai_usage_quota'), ('finalize_ai_usage_reservation'), ('record_ai_usage_event'),
+    ('record_ai_operation_log'), ('reserve_career_report_generation'), ('finalize_career_report_generation'),
+    ('save_ai_advisor_career_report'), ('get_admin_beta_overview'), ('get_admin_ai_operations_overview'),
+    ('get_assessment_attempt_status'), ('start_assessment_attempt'), ('authorize_assessment_action'),
+    ('complete_assessment_attempt'), ('get_assessment_evaluation_result'), ('upsert_unified_skill_evidence'),
+    ('complete_scenario_with_unified_profile')
+),
+expected_rpcs(routine_name, authenticated_expected) as (
+  values ('reserve_ai_usage_quota', true), ('finalize_ai_usage_reservation', true), ('record_ai_usage_event', true),
+    ('record_ai_operation_log', true), ('reserve_career_report_generation', true),
+    ('finalize_career_report_generation', true), ('save_ai_advisor_career_report', true),
+    ('authorize_assessment_action', true), ('complete_assessment_attempt', true),
+    ('get_assessment_evaluation_result', true), ('upsert_unified_skill_evidence', false),
+    ('complete_scenario_with_unified_profile', false)
+),
+checks(section, check_name, detail, ok) as (
+  select '1 table exists', t.name, null::text, to_regclass('public.' || t.name) is not null
+  from expected_tables t
+
+  union all
+  select '2 RLS enabled', t.name, null,
+    coalesce((select c.relrowsecurity from pg_class c where c.oid = to_regclass('public.' || t.name)), false)
+  from expected_tables t
+
+  union all
+  select '3 function exists', f.name, null,
+    exists (select 1 from pg_proc p where p.proname = f.name and p.pronamespace = 'public'::regnamespace)
+  from expected_functions f
+
+  union all
+  select '4 RPC execute privileges', e.routine_name,
+    case when proc.oid is null then 'missing'
+      else 'anon=' || has_function_privilege('anon', proc.oid, 'execute')
+        || ' authenticated=' || has_function_privilege('authenticated', proc.oid, 'execute')
+        || ' service_role=' || has_function_privilege('service_role', proc.oid, 'execute') end,
+    coalesce(
+      not has_function_privilege('anon', proc.oid, 'execute')
+        and has_function_privilege('authenticated', proc.oid, 'execute') = e.authenticated_expected
+        and (e.authenticated_expected or has_function_privilege('service_role', proc.oid, 'execute')),
+      false)
+  from expected_rpcs e
+  left join pg_proc proc on proc.proname = e.routine_name and proc.pronamespace = 'public'::regnamespace
+
+  union all
+  select '5 learner privileges (steps 11-12)', l.check_name,
+    'actual=' || l.actual || ' expected=' || l.expected, coalesce(l.actual = l.expected, false)
+  from (values
+    ('authenticated INSERT on scenario_training_sessions',
+      has_any_column_privilege('authenticated', 'public.scenario_training_sessions', 'INSERT'), false),
+    ('authenticated UPDATE on scenario_training_sessions.turns',
+      has_column_privilege('authenticated', 'public.scenario_training_sessions', 'turns', 'UPDATE'), true),
+    ('authenticated UPDATE on scenario_training_sessions.status',
+      has_column_privilege('authenticated', 'public.scenario_training_sessions', 'status', 'UPDATE'), false),
+    ('authenticated UPDATE on scenario_training_sessions.overall_readiness',
+      has_column_privilege('authenticated', 'public.scenario_training_sessions', 'overall_readiness', 'UPDATE'), false),
+    ('authenticated UPDATE on scenario_training_sessions.skill_scores',
+      has_column_privilege('authenticated', 'public.scenario_training_sessions', 'skill_scores', 'UPDATE'), false),
+    ('authenticated INSERT on user_job_skill_profiles',
+      has_any_column_privilege('authenticated', 'public.user_job_skill_profiles', 'INSERT'), false),
+    ('authenticated UPDATE on user_job_skill_profiles',
+      has_any_column_privilege('authenticated', 'public.user_job_skill_profiles', 'UPDATE'), false),
+    ('scenario_training_sessions has one UPDATE policy, limited to in_progress drafts',
+      (select count(*) = 1 and bool_and(qual like '%in_progress%' and with_check like '%in_progress%')
+       from pg_policies
+       where schemaname = 'public' and tablename = 'scenario_training_sessions' and cmd in ('UPDATE', 'ALL')), true),
+    ('no INSERT policy on scenario_training_sessions',
+      (select count(*) = 0 from pg_policies
+       where schemaname = 'public' and tablename = 'scenario_training_sessions' and cmd = 'INSERT'), true),
+    ('no learner write policy on user_job_skill_profiles',
+      (select count(*) = 0 from pg_policies
+       where schemaname = 'public' and tablename = 'user_job_skill_profiles' and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')), true)
+  ) as l(check_name, actual, expected)
+
+  union all
+  select '6 legacy tables (step 13)', c.relname || ' / ' || r.role, null,
+    not (has_any_column_privilege(r.role, c.oid, 'INSERT')
+      or has_any_column_privilege(r.role, c.oid, 'UPDATE')
+      or has_table_privilege(r.role, c.oid, 'DELETE')
+      or has_table_privilege(r.role, c.oid, 'TRUNCATE'))
+  from pg_class c
+  cross join (values ('anon'), ('authenticated')) as r(role)
+  where c.relnamespace = 'public'::regnamespace
+    and c.relname in ('interview_records', 'profiles', 'task_progress', 'users')
+
+  union all
+  select '7 Task 5 photos (step 14)', 'no inline photos remain', count(*) || ' remaining', count(*) = 0
+  from public.job_preparation_profiles j
+  cross join lateral jsonb_each(
+    case when jsonb_typeof(j.completed_course_details) = 'object' then j.completed_course_details else '{}'::jsonb end
+  ) e
+  where jsonb_typeof(e.value) = 'object' and e.value ? 'image'
+)
+select section, check_name, detail, ok
+from checks
+order by ok, section, check_name;

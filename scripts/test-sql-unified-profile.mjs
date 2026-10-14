@@ -544,4 +544,54 @@ const serviceRoleWrite = (await legacyTableDb.query("select has_table_privilege(
 assert.equal(serviceRoleWrite, true, 'The service role is not affected.')
 await legacyTableDb.close()
 
-console.log('Unified profile SQL passed: server-only grants, learner RLS, validation, idempotent evidence, JS parity, atomic scenario completion, legacy backfill, repair of drifted learner permissions, and legacy table write revocation.')
+// 10. The summary query at the end of the production verification script folds every ok check into
+// one result set (the Supabase SQL Editor shows only the last result). It must agree with the
+// individual checks and flag what is missing, drifted, or not yet migrated.
+const summaryCheck = verificationSql.slice(verificationSql.indexOf('-- Summary of every ok check above'))
+assert.ok(summaryCheck.length > 0 && verificationSql.trimEnd().endsWith(summaryCheck.trimEnd()), 'The summary is the last query.')
+const summaryDb = await createDb()
+await addUsers(summaryDb)
+for (const table of legacyTables) await summaryDb.exec(`create table public.${table} (id uuid primary key default gen_random_uuid())`)
+await summaryDb.exec(fs.readFileSync(new URL('../supabase_job_preparation_profiles.sql', import.meta.url), 'utf8'))
+await summaryDb.query(
+  `insert into public.job_preparation_profiles (user_id, completed_course_details) values ($1, '{"a": {"notes": "n", "image": "data:image/jpeg;base64,AA"}}')`,
+  [USER_A],
+)
+const summaryRows = async () => (await summaryDb.query(summaryCheck)).rows
+const summaryOk = (rows, section, name) => rows.find((row) => row.section === section && row.check_name === name)?.ok
+const sectionRows = (rows, prefix) => rows.filter((row) => row.section.startsWith(prefix))
+
+let summary = await summaryRows()
+assert.equal(summary.length, 13 + 13 + 16 + 12 + 10 + 8 + 1, 'One row per expected table, RLS, function, RPC, learner, legacy-table, and photo check.')
+assert.equal(summary[0].ok, false, 'Failing checks sort first.')
+assert.equal(summaryOk(summary, '1 table exists', 'scenario_training_sessions'), true)
+assert.equal(summaryOk(summary, '1 table exists', 'ai_usage_events'), false, 'A table that is not installed is flagged.')
+assert.equal(summaryOk(summary, '2 RLS enabled', 'user_skill_profiles'), true)
+assert.equal(summaryOk(summary, '3 function exists', 'complete_scenario_with_unified_profile'), true)
+assert.equal(summaryOk(summary, '3 function exists', 'reserve_ai_usage_quota'), false)
+assert.equal(summaryOk(summary, '4 RPC execute privileges', 'upsert_unified_skill_evidence'), true)
+const missingRpc = summary.find((row) => row.check_name === 'reserve_ai_usage_quota' && row.section === '4 RPC execute privileges')
+assert.deepEqual([missingRpc.detail, missingRpc.ok], ['missing', false], 'A missing RPC is reported as missing.')
+const learnerSummary = sectionRows(summary, '5 ').map((row) => [row.check_name, row.ok]).sort()
+const learnerIndividual = (await summaryDb.query(learnerPrivilegeCheck)).rows.map((row) => [row.check_name, row.ok]).sort()
+assert.deepEqual(learnerSummary, learnerIndividual, 'Learner rows match the individual learner privilege check.')
+assert.ok(learnerSummary.every(([, ok]) => ok === true))
+assert.ok(sectionRows(summary, '6 ').every((row) => row.ok === false), 'Legacy tables with default grants are flagged before step 13.')
+assert.deepEqual(sectionRows(summary, '7 ').map((row) => [row.detail, row.ok]), [['1 remaining', false]], 'Stored photos are flagged before step 14.')
+
+await applyMigration(summaryDb, 'revokeLegacyWrites')
+await summaryDb.exec(fs.readFileSync(new URL('../supabase/migrations/20261014090000_remove_task5_completion_photos.sql', import.meta.url), 'utf8'))
+summary = await summaryRows()
+const legacySummary = sectionRows(summary, '6 ').map((row) => [row.check_name, row.ok]).sort()
+const legacyIndividual = (await summaryDb.query(legacyPrivilegeCheck)).rows.map((row) => [`${row.table_name} / ${row.role}`, row.ok]).sort()
+assert.deepEqual(legacySummary, legacyIndividual, 'Legacy rows match the individual legacy table check.')
+assert.ok(legacySummary.every(([, ok]) => ok === true), 'Legacy tables pass after step 13.')
+assert.deepEqual(sectionRows(summary, '7 ').map((row) => [row.detail, row.ok]), [['0 remaining', true]], 'Photos pass after step 14.')
+
+// A drifted grant shows up in the summary.
+await summaryDb.exec('grant insert on table public.user_job_skill_profiles to authenticated')
+summary = await summaryRows()
+assert.equal(summaryOk(summary, '5 learner privileges (steps 11-12)', 'authenticated INSERT on user_job_skill_profiles'), false)
+await summaryDb.close()
+
+console.log('Unified profile SQL passed: server-only grants, learner RLS, validation, idempotent evidence, JS parity, atomic scenario completion, legacy backfill, repair of drifted learner permissions, legacy table write revocation, and the production verification summary.')

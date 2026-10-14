@@ -508,7 +508,10 @@ for (const table of legacyTables) {
     insert into public.${table} (note) values ('kept');
   `)
 }
-const legacyPrivilegeCheck = verificationSql.slice(verificationSql.indexOf('-- Legacy tables outside the repository'))
+const legacyPrivilegeCheck = verificationSql.slice(
+  verificationSql.indexOf('-- Legacy tables outside the repository'),
+  verificationSql.indexOf('-- Task 5 completion photos (step 14)'),
+)
 const legacyRows = async () => (await legacyTableDb.query(legacyPrivilegeCheck)).rows
 assert.equal((await legacyRows()).length, 8)
 assert.ok((await legacyRows()).every((row) => row.ok === false), 'Before step 13 the default grants allow writes.')

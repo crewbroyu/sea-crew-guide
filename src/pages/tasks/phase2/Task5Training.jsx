@@ -2,13 +2,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, Upload, X, ChevronRight, ChevronUp } from 'lucide-react';
+import { Play, Pause, Square, Clock, BookOpen, CheckCircle2, X, ChevronRight, ChevronUp } from 'lucide-react';
 import trainingCourses from '../../../data/trainingCourses';
 import RequireActivation from '../../../components/RequireActivation';
 import { barServerFoundationDays, getCompletedFoundationDays } from '../../../data/barServerFoundation';
 import { getCompletedRetailDays, getRetailFoundationProgress, retailFoundationDays } from '../../../data/retailFoundation';
 import { syncLocalPathProfile } from '../../../services/userPathService';
-import { getMyJobPreparation, upsertMyJobPreparation } from '../../../services/jobPreparationService';
+import { getMyJobPreparation, hasSignedInUser, upsertMyJobPreparation } from '../../../services/jobPreparationService';
+import { stripCompletionImages } from '../../../data/task5CompletionDetails';
 
 // 封装 localStorage 工具函数
 const STORAGE_KEY = 'task5_data';
@@ -39,30 +40,21 @@ const mapTargetPositionToRole = (position = '') => {
 
 const saveToLocalStorage = (data) => {
   try {
-    // 保存前先排除 image 数据计算大小，避免超限
     const serializedData = JSON.stringify(data);
     localStorage.setItem(STORAGE_KEY, serializedData);
     return true;
   } catch (error) {
     console.error('Error saving to localStorage:', error);
-    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-      console.warn('存储空间不足，尝试清理图片数据...');
-      // 尝试移除图片后重新保存
-      try {
-        const cleanData = { ...data };
-        if (cleanData.completedCourseDetails) {
-          const cleanDetails = {};
-          Object.entries(cleanData.completedCourseDetails).forEach(([key, val]) => {
-            cleanDetails[key] = { ...val, image: null };
-          });
-          cleanData.completedCourseDetails = cleanDetails;
-        }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanData));
-        return true;
-      } catch (e2) {
-        console.error('即使清理图片后仍然无法保存:', e2);
-      }
-    }
+    return false;
+  }
+};
+
+const writeJson = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.error(`Unable to save ${key}:`, error);
     return false;
   }
 };
@@ -260,11 +252,12 @@ export default function Task5Training() {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [currentCourseForCompletion, setCurrentCourseForCompletion] = useState(null);
   const [completionNotes, setCompletionNotes] = useState('');
-  const [completionImage, setCompletionImage] = useState(null);
   const [completedCourseDetails, setCompletedCourseDetails] = useState(() => {
     const data = loadFromLocalStorage({});
-    return data.completedCourseDetails || {};
-  }); // { courseId: { completedAt, notes, image } }
+    return stripCompletionImages(data.completedCourseDetails);
+  }); // { courseId: { completedAt, notes } }
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState(null);
 
   // 当数据变化时，保存到 localStorage
   useEffect(() => {
@@ -303,7 +296,7 @@ export default function Task5Training() {
         setLearningRecords(records);
         setFoundationProgress(records.barServerFoundation || {});
         setRetailFoundationProgress(records.retailFoundation || getRetailFoundationProgress());
-        setCompletedCourseDetails(profile.completed_course_details || {});
+        setCompletedCourseDetails(stripCompletionImages(profile.completed_course_details));
       })
       .catch((error) => console.error('恢复云端岗位准备资料失败:', error));
   }, []);
@@ -397,7 +390,6 @@ export default function Task5Training() {
       [currentCourseForCompletion.id]: {
         completedAt: new Date().toISOString(),
         notes: completionNotes,
-        image: completionImage
       }
     }));
 
@@ -411,38 +403,6 @@ export default function Task5Training() {
     setShowCompletionModal(false);
     setCurrentCourseForCompletion(null);
     setCompletionNotes('');
-    setCompletionImage(null);
-  };
-
-  // 处理图片上传 - 限制大小
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // 限制文件大小为 500KB
-    if (file.size > 500 * 1024) {
-      // 压缩图片
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      img.onload = () => {
-        // 缩放到最大 600px 宽
-        const maxWidth = 600;
-        const scale = Math.min(1, maxWidth / img.width);
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-        setCompletionImage(compressedDataUrl);
-      };
-      img.src = URL.createObjectURL(file);
-    } else {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCompletionImage(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   // 计算学习统计
@@ -480,6 +440,9 @@ export default function Task5Training() {
 
   // 处理任务完成
   const handleTaskComplete = async () => {
+    if (completing) return;
+    setCompleting(true);
+    setCompleteError(null);
     const selectedChecks = rolePreparation[selectedRole]?.checklist || [];
     const checks = preparationChecks[selectedRole] || {};
     const completedResources = trainingCourses[selectedRole]?.courses
@@ -511,23 +474,49 @@ export default function Task5Training() {
         : selectedRole === 'retail' ? getCompletedRetailDays(retailFoundationProgress) : 0,
       completedCourseDetails,
     };
-    localStorage.setItem('task5_result', JSON.stringify(taskResult));
+    // 任务列表和任务6只从本机读取任务5的结果，所以本机写入失败时不能跳转
+    const savedLocally = writeJson('task5_result', taskResult)
+      && writeJson('boarding_progress', {
+        ...readJson('boarding_progress', {}),
+        task5: { completed: true, completedAt: new Date().toISOString() },
+      });
 
-    // 标记任务5为已完成
-    const progressKey = 'boarding_progress';
-    const progress = JSON.parse(localStorage.getItem(progressKey) || '{}');
-    progress.task5 = {
-      completed: true,
-      completedAt: new Date().toISOString()
-    };
-    localStorage.setItem(progressKey, JSON.stringify(progress));
-
+    // 本机写入失败时也同步云端，避免进度只留在当前页面
+    let savedToCloud = false;
+    let cloudFailed = false;
     try {
-      await upsertMyJobPreparation(taskResult);
+      if (await hasSignedInUser()) {
+        savedToCloud = Boolean(await upsertMyJobPreparation(taskResult));
+      }
     } catch (error) {
       console.error('同步岗位准备资料失败:', error);
+      cloudFailed = true;
     }
 
+    if (!savedLocally) {
+      setCompleteError({
+        canContinue: false,
+        message: savedToCloud
+          ? '学习进度已保存到云端，但这台设备的浏览器存储空间已满，无法记录任务进度。请清理浏览器存储空间后，再点一次完成。'
+          : `这台设备的浏览器存储空间已满，学习进度没能保存。请不要关闭或刷新页面，${cloudFailed ? '检查网络后' : '登录后'}再点一次完成，进度会保存到云端。`,
+      });
+      setCompleting(false);
+      return;
+    }
+
+    if (cloudFailed) {
+      setCompleteError({
+        canContinue: true,
+        message: '学习进度已保存在这台设备，但同步到云端失败，换设备后会看不到这些记录。请检查网络后再点一次完成，或先继续下一步。',
+      });
+      setCompleting(false);
+      return;
+    }
+
+    await finishTask5();
+  };
+
+  const finishTask5 = async () => {
     await syncLocalPathProfile({
       career_stage: 'resume_preparation',
       application_stage: 'job_knowledge',
@@ -817,10 +806,10 @@ export default function Task5Training() {
 
           <button
             onClick={handleTaskComplete}
-            disabled={!isPreparationCompleted()}
+            disabled={!isPreparationCompleted() || completing}
             className="mt-4 w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {isPreparationCompleted()
+            {completing ? '正在保存...' : isPreparationCompleted()
               ? '完成岗位知识准备，进入 Task6'
               : selectedRole === 'barServer' && getCompletedFoundationDays(foundationProgress) < barServerFoundationDays.length
                 ? `完成 ${barServerFoundationDays.length} 天基础训练与清单后进入 Task6（${getCompletedFoundationDays(foundationProgress)}/${barServerFoundationDays.length}）`
@@ -828,6 +817,20 @@ export default function Task5Training() {
                   ? `完成 ${retailFoundationDays.length} 天基础训练与清单后进入 Task6（${getCompletedRetailDays(retailFoundationProgress)}/${retailFoundationDays.length}）`
                 : '完成清单后进入 Task6'}
           </button>
+          {completeError && (
+            <div role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-800">
+              <p>{completeError.message}</p>
+              {completeError.canContinue && (
+                <button
+                  type="button"
+                  onClick={finishTask5}
+                  className="mt-2 font-medium text-red-900 underline"
+                >
+                  先继续下一步
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {isPreparationCompleted() && (
@@ -938,15 +941,6 @@ export default function Task5Training() {
                               <p className="text-sm text-green-700 mt-2">
                                 学习心得：{completedCourseDetails[course.id].notes}
                               </p>
-                            )}
-                            {completedCourseDetails[course.id].image && (
-                              <div className="mt-2">
-                                <img 
-                                  src={completedCourseDetails[course.id].image} 
-                                  alt="完成凭证" 
-                                  className="max-h-40 object-contain rounded"
-                                />
-                              </div>
                             )}
                           </div>
                         </div>
@@ -1087,7 +1081,6 @@ export default function Task5Training() {
                     setShowCompletionModal(false);
                     setCurrentCourseForCompletion(null);
                     setCompletionNotes('');
-                    setCompletionImage(null);
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -1108,49 +1101,6 @@ export default function Task5Training() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                   rows={4}
                 />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  上传凭证（可选）
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                  {completionImage ? (
-                    <div className="relative">
-                      <img 
-                        src={completionImage} 
-                        alt="凭证" 
-                        className="max-h-40 object-contain mx-auto"
-                      />
-                      <button 
-                        onClick={() => setCompletionImage(null)}
-                        className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md"
-                      >
-                        <X size={16} className="text-gray-600" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <Upload size={32} className="text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500 mb-2">点击或拖拽文件到此处上传</p>
-                      <p className="text-amber-600 text-xs mb-3">
-                        上传文件只是为了解锁任务，请打码重要信息（姓名、证件编号）后上传
-                      </p>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        id="completion-image-upload"
-                      />
-                      <label 
-                        htmlFor="completion-image-upload"
-                        className="inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-200"
-                      >
-                        选择文件
-                      </label>
-                    </div>
-                  )}
-                </div>
               </div>
               <button
                 onClick={submitCompletion}

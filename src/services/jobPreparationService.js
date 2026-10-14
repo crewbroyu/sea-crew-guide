@@ -2,6 +2,7 @@ import { supabase } from '../supabase'
 import { mergeFoundationProgress, mergeFoundationSavedLines, nextPreparationTimestamp, stripLocalOnlyFoundationFields } from '../data/foundationSync'
 import { mergeRetailPractice } from '../data/retailPracticeProgress'
 import { mergeBarServerPractice } from '../data/barServerProgressSync'
+import { stripCompletionImages } from '../data/task5CompletionDetails'
 
 const currentUser=async(expectedUserId)=>{
  const {data:{user},error}=await supabase.auth.getUser()
@@ -43,8 +44,13 @@ const mergeRecords=(cloud={},local={})=>{
 }
 export const upsertMyJobPreparation=async({selectedRole=null,roleTitle='',preparationChecklist=[],completedResources=[],learningRecords={},completedCourseDetails={},sourceTaskId=5,expectedUserId}={})=>updateProfile(expectedUserId,existing=>{
  const count=preparationChecklist.filter(item=>item.completed).length,total=preparationChecklist.length
- return {selected_role:selectedRole,role_title:roleTitle || null,preparation_checklist:preparationChecklist,completed_resources:completedResources,learning_records:mergeRecords(existing.learning_records,learningRecords),completed_course_details:{...existing.completed_course_details,...completedCourseDetails},completed_checklist_count:count,checklist_total:total,source_task_id:sourceTaskId,preparation_status:total>0 && count>=total?'completed':'in_progress'}
+ return {selected_role:selectedRole,role_title:roleTitle || null,preparation_checklist:preparationChecklist,completed_resources:completedResources,learning_records:mergeRecords(existing.learning_records,learningRecords),completed_course_details:stripCompletionImages({...existing.completed_course_details,...completedCourseDetails}),completed_checklist_count:count,checklist_total:total,source_task_id:sourceTaskId,preparation_status:total>0 && count>=total?'completed':'in_progress'}
 })
+// Visitors keep progress on this device only; upsertMyJobPreparation throws for them.
+export const hasSignedInUser=async()=>{
+ const {data:{session}}=await supabase.auth.getSession()
+ return Boolean(session?.user?.id)
+}
 export const getMyJobPreparation=async(expectedUserId)=>{
  const user=await currentUser(expectedUserId)
  if(!user)return null

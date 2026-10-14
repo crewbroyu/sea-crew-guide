@@ -142,6 +142,7 @@ const serviceSource = (await readFile(new URL('../src/services/jobPreparationSer
   .replace("'../data/foundationSync'", JSON.stringify(pathToFileURL(path.resolve('src/data/foundationSync.js')).href))
   .replace("'../data/retailPracticeProgress'", JSON.stringify(pathToFileURL(path.resolve('src/data/retailPracticeProgress.js')).href))
   .replace("'../data/barServerProgressSync'", JSON.stringify(pathToFileURL(path.resolve('src/data/barServerProgressSync.js')).href))
+  .replace("'../data/task5CompletionDetails'", JSON.stringify(pathToFileURL(path.resolve('src/data/task5CompletionDetails.js')).href))
 const service = await import(`data:text/javascript;base64,${Buffer.from(serviceSource).toString('base64')}`)
 await service.upsertMyBarServerPracticeState({
   expectedUserId: 'account-a',

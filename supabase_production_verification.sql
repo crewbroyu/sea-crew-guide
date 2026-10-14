@@ -196,3 +196,11 @@ cross join (values ('anon'), ('authenticated')) as r(role)
 where c.relnamespace = 'public'::regnamespace
   and c.relname in ('interview_records', 'profiles', 'task_progress', 'users')
 order by ok, c.relname, r.role;
+
+-- Task 5 completion photos (step 14): no inline photo may remain. ok = true only after step 14.
+select count(*) as remaining_task5_photos, count(*) = 0 as ok
+from public.job_preparation_profiles j
+cross join lateral jsonb_each(
+  case when jsonb_typeof(j.completed_course_details) = 'object' then j.completed_course_details else '{}'::jsonb end
+) e
+where jsonb_typeof(e.value) = 'object' and e.value ? 'image';

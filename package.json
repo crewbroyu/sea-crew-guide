@@ -41,6 +41,7 @@
     "test:mock-reliability": "node scripts/test-mock-interview-reliability.mjs",
     "test:skill-profile": "node scripts/test-unified-skill-profile.mjs",
     "test:skill-profile-sql": "node scripts/test-sql-unified-profile.mjs",
+    "test:activation-rate-limit-sql": "node scripts/test-sql-activation-rate-limit.mjs",
     "test:scenario-first-turn": "node scripts/test-scenario-first-turn.mjs",
     "test:scenario-turn-draft": "node scripts/test-scenario-turn-draft.mjs",
     "test:task5-photos": "node scripts/test-task5-photo-removal.mjs"

@@ -562,7 +562,7 @@ const summaryOk = (rows, section, name) => rows.find((row) => row.section === se
 const sectionRows = (rows, prefix) => rows.filter((row) => row.section.startsWith(prefix))
 
 let summary = await summaryRows()
-assert.equal(summary.length, 13 + 13 + 16 + 12 + 10 + 8 + 1, 'One row per expected table, RLS, function, RPC, learner, legacy-table, and photo check.')
+assert.equal(summary.length, 13 + 13 + 16 + 12 + 10 + 8 + 1 + 4, 'One row per expected table, RLS, function, RPC, learner, legacy-table, photo, and activation rate-limit check.')
 assert.equal(summary[0].ok, false, 'Failing checks sort first.')
 assert.equal(summaryOk(summary, '1 table exists', 'scenario_training_sessions'), true)
 assert.equal(summaryOk(summary, '1 table exists', 'ai_usage_events'), false, 'A table that is not installed is flagged.')
@@ -578,6 +578,7 @@ assert.deepEqual(learnerSummary, learnerIndividual, 'Learner rows match the indi
 assert.ok(learnerSummary.every(([, ok]) => ok === true))
 assert.ok(sectionRows(summary, '6 ').every((row) => row.ok === false), 'Legacy tables with default grants are flagged before step 13.')
 assert.deepEqual(sectionRows(summary, '7 ').map((row) => [row.detail, row.ok]), [['1 remaining', false]], 'Stored photos are flagged before step 14.')
+assert.ok(sectionRows(summary, '8 ').every((row) => row.ok === false), 'A missing activation rate limit is flagged (step 15 is covered in test-sql-activation-rate-limit).')
 
 await applyMigration(summaryDb, 'revokeLegacyWrites')
 await summaryDb.exec(fs.readFileSync(new URL('../supabase/migrations/20261014090000_remove_task5_completion_photos.sql', import.meta.url), 'utf8'))

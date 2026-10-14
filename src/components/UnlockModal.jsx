@@ -71,6 +71,8 @@ export default function UnlockModal() {
         setError('激活码无效，请检查字母、数字和连接符。')
       } else if (errorMessage.includes('Code already used')) {
         setError('该激活码已经使用，不能绑定第二个账户。')
+      } else if (errorMessage.includes('Too many attempts')) {
+        setError('尝试次数过多，请 15 分钟后再试。若确认激活码无误，请联系支持。')
       } else if (errorMessage.includes('Login required')) {
         closeUnlockModal()
         resetModal()

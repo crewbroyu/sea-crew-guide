@@ -170,7 +170,38 @@ const enforceRateLimit = (userId, mode) => {
   current.count += 1
 }
 
-export const handleTtsRequest = async ({ method, headers, body, env = process.env }) => {
+// Streaming mode: each DashScope SSE event carries a base64 slice of a mono 16-bit WAV
+// (the first slice includes the RIFF header); the final event carries the stored file URL.
+export const readProviderStream = async (providerResponse, onAudioChunk) => {
+  const reader = providerResponse.body.getReader()
+  const decoder = new TextDecoder()
+  let buffered = ''
+  let audio = null
+  let usage = null
+  let providerError = null
+
+  const handleLine = (line) => {
+    if (!line.startsWith('data:')) return
+    const event = JSON.parse(line.slice(5))
+    if (event.code) providerError = event
+    if (event.output?.audio?.data) onAudioChunk(event.output.audio.data)
+    if (event.output?.audio?.url) audio = event.output.audio
+    if (event.usage) usage = event.usage
+  }
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffered += decoder.decode(value, { stream: true })
+    const lines = buffered.split('\n')
+    buffered = lines.pop()
+    lines.forEach(handleLine)
+  }
+  if (buffered) handleLine(buffered)
+  return { audio, usage, providerError }
+}
+
+export const handleTtsRequest = async ({ method, headers, body, env = process.env, onAudioChunk = null }) => {
   let quotaContext = null
   try {
     if (method !== 'POST') throw new TtsApiError(405, 'METHOD_NOT_ALLOWED', '仅支持 POST 请求。')
@@ -233,11 +264,13 @@ export const handleTtsRequest = async ({ method, headers, body, env = process.en
       : await reserveQuota({ supabase, productCode, requestId })
     quotaContext = { supabase, reservationId }
 
+    const shouldStream = body?.stream === true && typeof onAudioChunk === 'function'
     const providerResponse = await fetch(config.ttsUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         'Content-Type': 'application/json',
+        ...(shouldStream ? { 'X-DashScope-SSE': 'enable' } : {}),
       },
       body: JSON.stringify({
         model: config.model,
@@ -248,7 +281,13 @@ export const handleTtsRequest = async ({ method, headers, body, env = process.en
         },
       }),
     })
-    const providerBody = await providerResponse.json().catch(() => null)
+    let providerBody
+    if (shouldStream && providerResponse.ok) {
+      const streamed = await readProviderStream(providerResponse, onAudioChunk)
+      providerBody = streamed.providerError || { output: { audio: streamed.audio }, usage: streamed.usage }
+    } else {
+      providerBody = await providerResponse.json().catch(() => null)
+    }
     const rawAudioUrl = providerBody?.output?.audio?.url
     if (!providerResponse.ok || !rawAudioUrl) {
       console.error('DashScope TTS failed:', providerBody?.code || providerResponse.status, providerBody?.message || '')
@@ -299,4 +338,37 @@ export const handleTtsRequest = async ({ method, headers, body, env = process.en
       body: { success: false, error: { code, message: error.message || '自然语音暂时不可用。' } },
     }
   }
+}
+
+// Sends a TTS result over a Node response. Streamed audio goes out as NDJSON lines
+// ({type:'audio'} chunks, then one {type:'done'|'error'} line); everything else stays plain JSON.
+export const sendTtsResponse = async ({ method, headers, body, env = process.env, response }) => {
+  let streaming = false
+  const writeLine = (payload) => {
+    if (response.writableEnded || response.destroyed) return
+    response.write(`${JSON.stringify(payload)}\n`)
+  }
+  const onAudioChunk = body?.stream === true
+    ? (data) => {
+      if (!streaming) {
+        streaming = true
+        response.statusCode = 200
+        response.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+        response.setHeader('Cache-Control', 'no-cache, no-transform')
+        response.setHeader('X-Accel-Buffering', 'no')
+        response.flushHeaders?.()
+      }
+      writeLine({ type: 'audio', data })
+    }
+    : null
+
+  const result = await handleTtsRequest({ method, headers, body, env, onAudioChunk })
+  if (streaming) {
+    writeLine({ type: result.body.success ? 'done' : 'error', ...result.body })
+    response.end()
+    return
+  }
+  response.statusCode = result.status
+  response.setHeader('Content-Type', 'application/json; charset=utf-8')
+  response.end(JSON.stringify(result.body))
 }

@@ -5,7 +5,8 @@ import {
   Mic, MicOff, Clock, AlertTriangle, RefreshCw, Home,
   Volume2, Info, Edit3, CheckCircle, LoaderCircle, BrainCircuit
 } from 'lucide-react';
-import { speakEnglish as playEnglishSpeech, stopSpeech } from '../../../services/ttsService';
+import { speakEnglish as playEnglishSpeech, prefetchEnglish, stopSpeech, unlockAudio } from '../../../services/ttsService';
+import { END_OF_TURN_SILENCE_MS, createEndOfTurnDetector, getRms } from '../../../utils/voiceActivity';
 import { positionConfig } from '../../../data/interviewQuestions';
 import interviewQuestions from '../../../data/interviewQuestions';
 import RequireActivation from '../../../components/RequireActivation';
@@ -49,6 +50,11 @@ const POSITION_NAMES = {
   kitchen: '厨房帮厨',
   utility: '后勤清洁',
 };
+
+// Short spoken acknowledgements cover the follow-up check and keep the turn-taking natural.
+const ACKNOWLEDGEMENTS = ['Okay, thank you.', 'Thank you. Let\'s move on.'];
+const CLOSING_LINE = 'Thank you. That\'s the end of our interview.';
+const VOICE_CHECK_INTERVAL_MS = 100;
 
 const AI_ENABLED_POSITIONS = new Set(['bar_server', 'retail']);
 const isAiInterviewAvailable = (position) => AI_ENABLED_POSITIONS.has(position);
@@ -187,6 +193,8 @@ function Task8MockInterview() {
   const audioChunksRef = useRef([]);
   const currentAudioBlobRef = useRef(null);
   const stopRecordingResolverRef = useRef(null);
+  const voiceMonitorRef = useRef(null);
+  const [endedBySilence, setEndedBySilence] = useState(false);
   const answerReadyRef = useRef(false);
   const textOnlyModeRef = useRef(false);
   const followUpRequestCountRef = useRef(0);
@@ -266,6 +274,8 @@ function Task8MockInterview() {
     return playEnglishSpeech(text, { position: selectedPosition, rate: 0.9 });
   };
 
+  const prefetchSpeech = (text) => prefetchEnglish(text, { position: selectedPosition });
+
   // ==================== 核心流程 ====================
   // Check remaining credits before any paid call, so follow-ups are never spent on an interview that cannot be scored.
   const checkInterviewQuota = async () => {
@@ -290,6 +300,7 @@ function Task8MockInterview() {
   };
 
   const startInterview = async (startIndex = 0) => {
+    unlockAudio();
     setAiError('');
     setAiErrorCode('');
     textOnlyModeRef.current = false;
@@ -320,6 +331,7 @@ function Task8MockInterview() {
       stream.getTracks().forEach(track => track.stop());
 
       setStage('interviewing');
+      ACKNOWLEDGEMENTS.forEach(prefetchSpeech);
       await startInterviewProcess(startIndex);
     } catch (error) {
       console.error('Microphone error:', error);
@@ -343,7 +355,11 @@ function Task8MockInterview() {
 
       setCurrentStatus('interviewerSpeaking');
       await speakQuestion(extractedQuestionsRef.current[questionIndex]?.question);
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Fetch what the interviewer says next while the candidate answers.
+      const nextQuestion = extractedQuestionsRef.current[questionIndex + 1]?.question;
+      prefetchSpeech(nextQuestion || CLOSING_LINE);
 
       setCurrentStatus('waitingForAnswer');
       if (!textOnlyModeRef.current) {
@@ -354,9 +370,48 @@ function Task8MockInterview() {
     }
   };
 
+  const stopVoiceMonitor = () => {
+    const monitor = voiceMonitorRef.current;
+    voiceMonitorRef.current = null;
+    if (!monitor) return;
+    clearInterval(monitor.timer);
+    monitor.source.disconnect();
+  };
+
   const releaseMediaStream = () => {
+    stopVoiceMonitor();
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaStreamRef.current = null;
+  };
+
+  // Ends the recording on its own after a long pause, the way an interviewer would take the turn back.
+  const startVoiceMonitor = (stream) => {
+    const context = unlockAudio();
+    if (!context) return;
+    try {
+      const source = context.createMediaStreamSource(stream);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+      const frame = new Float32Array(analyser.fftSize);
+      const detector = createEndOfTurnDetector();
+      const timer = setInterval(() => {
+        analyser.getFloatTimeDomainData(frame);
+        const { ended } = detector.feed(getRms(frame), VOICE_CHECK_INTERVAL_MS);
+        const canAutoFinish = isRecordingRef.current
+          && !isTransitioningRef.current
+          && !answerReadyRef.current
+          && !manualAnswerRef.current.trim();
+        if (ended && canAutoFinish) {
+          stopVoiceMonitor();
+          setEndedBySilence(true);
+          void finishCurrentQuestion();
+        }
+      }, VOICE_CHECK_INTERVAL_MS);
+      voiceMonitorRef.current = { timer, source };
+    } catch (error) {
+      console.warn('Voice activity monitor unavailable:', error);
+    }
   };
 
   const startListening = async () => {
@@ -396,6 +451,8 @@ function Task8MockInterview() {
       };
 
       recorder.start();
+      setEndedBySilence(false);
+      startVoiceMonitor(stream);
       setIsRecording(true);
       isRecordingRef.current = true;
       setRecordingTime(0);
@@ -464,10 +521,20 @@ function Task8MockInterview() {
 
     answersRef.current = updatedAnswers;
     answerDetailsRef.current = updatedDetails;
+    setCurrentStatus('analyzing');
 
-    if (!question?.isFollowUp && followUpRequestCountRef.current < MAX_MOCK_FOLLOW_UP_CHECKS && generatedFollowUpCountRef.current < MAX_MOCK_FOLLOW_UPS) {
+    const isLastScriptedQuestion = currentIdx + 1 >= extractedQuestionsRef.current.length;
+    const willCheckFollowUp = !question?.isFollowUp
+      && followUpRequestCountRef.current < MAX_MOCK_FOLLOW_UP_CHECKS
+      && generatedFollowUpCountRef.current < MAX_MOCK_FOLLOW_UPS;
+    // A follow-up may still come after the last scripted question, so only close when none can.
+    const acknowledgement = isLastScriptedQuestion && !willCheckFollowUp
+      ? CLOSING_LINE
+      : ACKNOWLEDGEMENTS[currentIdx % ACKNOWLEDGEMENTS.length];
+    const acknowledgementPlayback = speakQuestion(acknowledgement);
+
+    if (willCheckFollowUp) {
       followUpRequestCountRef.current += 1;
-      setCurrentStatus('analyzing');
       try {
         const followUp = await generateMockInterviewFollowUp({
           position: POSITION_NAMES[selectedPosition] || selectedPosition,
@@ -498,20 +565,24 @@ function Task8MockInterview() {
 
     const nextIdx = currentIdx + 1;
     if (nextIdx < extractedQuestionsRef.current.length) {
+      await acknowledgementPlayback;
       setCurrentQuestionIndex(nextIdx);
       currentQuestionIndexRef.current = nextIdx;
-      setCurrentStatus('analyzing');
-      window.setTimeout(() => {
-        isTransitioningRef.current = false;
-        void startInterviewProcess(nextIdx);
-      }, 900);
+      isTransitioningRef.current = false;
+      void startInterviewProcess(nextIdx);
       return;
     }
 
+    // The interview ended on a follow-up check that added nothing; close it out loud.
+    if (acknowledgement !== CLOSING_LINE) {
+      await acknowledgementPlayback;
+      void speakQuestion(CLOSING_LINE);
+    }
     await finishInterview();
   };
 
   const finishCurrentQuestion = async () => {
+    unlockAudio();
     if (isTransitioningRef.current) return;
     isTransitioningRef.current = true;
 
@@ -703,6 +774,7 @@ function Task8MockInterview() {
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (voiceMonitorRef.current) clearInterval(voiceMonitorRef.current.timer);
       if (mediaRecorderRef.current?.state === 'recording') {
         try { mediaRecorderRef.current.stop(); } catch (error) { console.warn('Unable to stop recorder:', error); }
       }
@@ -896,7 +968,7 @@ function Task8MockInterview() {
                 <ol className="list-decimal list-inside space-y-2 text-blue-700">
                   <li>AI面试官会用语音向你提问</li>
                   <li>你需要用英语语音回答每个问题</li>
-                  <li>结束录音后，AI 会转写；确认文字后进入下一题</li>
+                  <li>说完后停顿约 {END_OF_TURN_SILENCE_MS / 1000} 秒会自动结束录音（也可手动结束），AI 转写后确认文字进入下一题</li>
                   <li>面试题目从任务7的题库中随机抽取，每次面试题目不同</li>
                   <li>每题回答时间不超过2分钟</li>
                   <li>面试官可能根据你的回答追问细节，整场最多 {MAX_MOCK_FOLLOW_UPS} 次</li>
@@ -1109,7 +1181,9 @@ function Task8MockInterview() {
                     {recognitionStatus === 'recording' ? (
                       <>
                         <Mic size={16} className="text-green-600 animate-pulse" />
-                        <span className="text-sm font-medium text-green-800">正在录音，请用英语完整回答</span>
+                        <span className="text-sm font-medium text-green-800">
+                          正在录音，请用英语完整回答（说完后停顿约 {END_OF_TURN_SILENCE_MS / 1000} 秒会自动结束）
+                        </span>
                       </>
                     ) : recognitionStatus === 'success' ? (
                       <>
@@ -1182,7 +1256,9 @@ function Task8MockInterview() {
             {currentStatus === 'transcribing' && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 text-center">
                 <LoaderCircle size={32} className="mx-auto mb-3 animate-spin text-blue-600" />
-                <p className="font-medium text-blue-900">AI 正在转写你的回答</p>
+                <p className="font-medium text-blue-900">
+                  {endedBySilence ? '检测到你已说完，AI 正在转写回答' : 'AI 正在转写你的回答'}
+                </p>
                 <p className="mt-1 text-sm text-blue-700">完成后请确认文字，再进入下一题。</p>
               </div>
             )}
@@ -1192,7 +1268,7 @@ function Task8MockInterview() {
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
                 <CheckCircle size={32} className="text-green-500 mx-auto mb-3" />
                 <p className="font-medium text-gray-800">回答已记录 ✓</p>
-                <p className="text-gray-600 text-sm mt-1">正在准备下一题...</p>
+                <p className="text-gray-600 text-sm mt-1">面试官正在回应，马上进入下一题...</p>
               </div>
             )}
           </div>

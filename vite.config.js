@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { handleInterviewRequest } from './server/interviewAi.js'
 import { handleCareerReportRequest } from './server/careerReport.js'
+import { handleJobPostingRequest } from './server/jobPostings.js'
 import { sendTtsResponse } from './server/tts.js'
 
 const readJsonBody = async (request) => {
@@ -87,6 +88,37 @@ const localCareerReportApi = (env) => ({
   },
 })
 
+const localJobPostingApi = (env) => ({
+  name: 'local-job-posting-api',
+  configureServer(server) {
+    server.middlewares.use('/api/job-postings', async (request, response) => {
+      try {
+        const body = await readJsonBody(request)
+        const result = await handleJobPostingRequest({
+          method: request.method,
+          headers: request.headers,
+          body,
+          env,
+        })
+
+        response.statusCode = result.status
+        response.setHeader('Content-Type', 'application/json; charset=utf-8')
+        response.end(JSON.stringify(result.body))
+      } catch (error) {
+        response.statusCode = error.status || 400
+        response.setHeader('Content-Type', 'application/json; charset=utf-8')
+        response.end(JSON.stringify({
+          success: false,
+          error: {
+            code: error.status === 413 ? 'REQUEST_TOO_LARGE' : 'INVALID_JSON',
+            message: error.status === 413 ? '请求内容过大。' : '请求格式无效。',
+          },
+        }))
+      }
+    })
+  },
+})
+
 const localTtsApi = (env) => ({
   name: 'local-tts-api',
   configureServer(server) {
@@ -122,6 +154,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       localInterviewApi(env),
       localCareerReportApi(env),
+      localJobPostingApi(env),
       localTtsApi(env),
       react(),
       tailwindcss(),

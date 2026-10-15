@@ -30,6 +30,7 @@ const ActivationCodeGenerator = lazy(() => import('./pages/ActivationCodeGenerat
 const AdminBetaDashboard = lazy(() => import('./pages/AdminBetaDashboard'))
 const PartnerWorkspace = lazy(() => import('./pages/PartnerWorkspace'))
 const AdminInspection = lazy(() => import('./pages/AdminInspection'))
+const AdminJobPostings = lazy(() => import('./pages/AdminJobPostings'))
 
 const Academy = lazy(() => import('./pages/Academy'))
 const Boarding = lazy(() => import('./pages/academy/Boarding'))
@@ -169,6 +170,7 @@ function App() {
               <Route path="/admin/partners" element={<RequireAdmin><PartnerWorkspace /></RequireAdmin>} />
               <Route path="/admin/inspection" element={<RequireAdmin><AdminInspection /></RequireAdmin>} />
               <Route path="/admin/beta" element={<RequireAdmin><AdminBetaDashboard /></RequireAdmin>} />
+              <Route path="/admin/jobs" element={<RequireAdmin><AdminJobPostings /></RequireAdmin>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

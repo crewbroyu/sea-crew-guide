@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { handleInterviewRequest } from './server/interviewAi.js'
 import { handleCareerReportRequest } from './server/careerReport.js'
-import { handleTtsRequest } from './server/tts.js'
+import { sendTtsResponse } from './server/tts.js'
 
 const readJsonBody = async (request) => {
   const chunks = []
@@ -93,16 +93,13 @@ const localTtsApi = (env) => ({
     server.middlewares.use('/api/tts', async (request, response) => {
       try {
         const body = await readJsonBody(request)
-        const result = await handleTtsRequest({
+        await sendTtsResponse({
           method: request.method,
           headers: request.headers,
           body,
           env,
+          response,
         })
-
-        response.statusCode = result.status
-        response.setHeader('Content-Type', 'application/json; charset=utf-8')
-        response.end(JSON.stringify(result.body))
       } catch (error) {
         response.statusCode = error.status || 400
         response.setHeader('Content-Type', 'application/json; charset=utf-8')

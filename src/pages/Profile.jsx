@@ -9,6 +9,7 @@ import {
   KeyRound,
   LogOut,
   MessageSquare,
+  Newspaper,
   Route,
   Save,
   Shield,
@@ -662,6 +663,7 @@ export default function Profile() {
             <div className="divide-y divide-gray-100">
               <MenuButton icon={BarChart3} label="内测数据" onClick={() => navigate('/admin/beta')} />
               <MenuButton icon={KeyRound} label="激活码与开通申请" onClick={() => navigate('/generate-codes')} />
+              <MenuButton icon={Newspaper} label="招聘信息整理" onClick={() => navigate('/admin/jobs')} />
             </div>
           </section>
         )}

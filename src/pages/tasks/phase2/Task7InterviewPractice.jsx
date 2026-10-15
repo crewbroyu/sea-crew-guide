@@ -18,7 +18,7 @@ import EdgeReadAloudHint from '../../../components/EdgeReadAloudHint';
 import interviewQuestions, { positionConfig } from '../../../data/interviewQuestions';
 import { barServerFoundationDays, barServerShiftLabs } from '../../../data/barServerFoundation';
 import useEffectiveAccess from '../../../hooks/useEffectiveAccess';
-import { hasProductEntitlement } from '../../../services/activationService';
+import { getPracticeUpgradeRoute, hasPracticeAccess } from '../../../data/interviewPracticePack';
 import {
   evaluateInterviewWithAi,
   transcribeInterviewAudio,
@@ -363,14 +363,7 @@ function Task7InterviewPractice() {
   const [targetPositionKey] = useState(() => requestedPosition || getTargetPositionKey());
   const [roundNumber, setRoundNumber] = useState(compatiblePractice.roundNumber || 0);
   const targetPosition = useMemo(() => getTargetPositionMeta(targetPositionKey), [targetPositionKey]);
-  const targetProductCode = targetPositionKey === 'bar_server'
-    ? 'bar_server_pack'
-    : targetPositionKey === 'retail'
-      ? 'retail_sales_pack'
-      : null;
-  const hasPaidAiAccess = Boolean(
-    targetProductCode && hasProductEntitlement(access, targetProductCode)
-  );
+  const hasPaidAiAccess = hasPracticeAccess(access, targetPositionKey);
   const [retryQuestions, setRetryQuestions] = useState(compatiblePractice.retryQuestions || null);
   const [baselineScores, setBaselineScores] = useState(compatiblePractice.baselineScores || {});
   const [attemptHistory, setAttemptHistory] = useState(compatiblePractice.attemptHistory || []);
@@ -508,7 +501,7 @@ function Task7InterviewPractice() {
     }
 
     if (!hasPaidAiAccess) {
-      setRecorderError('当前岗位的语音转写与 AI 反馈属于对应岗位训练包权益。可先用文字完成练习。');
+      setRecorderError('当前岗位的语音转写与 AI 反馈属于面试练习包或岗位训练包权益。可先用文字完成练习。');
       return;
     }
 
@@ -640,8 +633,8 @@ function Task7InterviewPractice() {
     }
 
     if (!hasPaidAiAccess) {
-      setEvaluationError('题库和录音可免费练习；AI逐题评分与训练报告属于岗位训练权益。');
-      navigate(`/premium?source=task7-ai-report&position=${targetPositionKey}`);
+      setEvaluationError('题库和录音可免费练习；AI逐题评分与训练报告属于面试练习包或岗位训练包权益。');
+      navigate(getPracticeUpgradeRoute(targetPositionKey, 'task7-ai-report'));
       return;
     }
 
@@ -681,7 +674,7 @@ function Task7InterviewPractice() {
         openUnlockModal();
       }
       if (error.code === 'AI_QUOTA_EXHAUSTED') {
-        navigate(`/premium?source=task7-ai-quota&position=${targetPositionKey}`);
+        navigate(getPracticeUpgradeRoute(targetPositionKey, 'task7-ai-quota'));
       }
       setEvaluationError(error.message || 'AI 训练报告生成失败，请稍后重试。');
     } finally {
@@ -807,22 +800,22 @@ function Task7InterviewPractice() {
           {practiceMode === 'knowledge'
           ? hasPaidAiAccess
             ? '本轮固定练习任务5对应的 8 类 Bar Server 基础知识。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入你的长期档案。'
-            : '本轮可先用文字整理任务5对应的 8 类 Bar Server 基础知识。完整语音转写与 AI 训练报告属于岗位训练包。'
+            : '本轮可先用文字整理任务5对应的 8 类 Bar Server 基础知识。完整语音转写与 AI 训练报告属于面试练习包或岗位训练包。'
           : source === 'real-interview'
               ? hasPaidAiAccess
                 ? `已带入 ${questions.length} 道真实面试问题。先还原原回答，再用更完整的岗位判断和经历重新作答。`
-                : '真实问题已经带入，可先文字复盘；语音转写和 AI 评分需要对应岗位训练包。'
+                : '真实问题已经带入，可先文字复盘；语音转写和 AI 评分需要面试练习包或岗位训练包。'
           : source === 'academy-listening'
               ? hasPaidAiAccess
                 ? '学院里的跟读和 Guest Challenge 已完成。现在把同一项服务能力转成一段可被招聘方评估的英文回答。'
-                : '学院训练结果已经带入，可先完成文字回答；语音转写和 AI 评分需要对应岗位训练包。'
+                : '学院训练结果已经带入，可先完成文字回答；语音转写和 AI 评分需要面试练习包或岗位训练包。'
           : requestedQuestionId
               ? hasPaidAiAccess
                 ? '你选择的问题会排在本轮第一题，其余题目由通用问题和岗位情境判断题组成。录音会临时用于英文转写，音频本身不会写入长期档案。'
-                : '你选择的问题会排在本轮第一题。可以先用文字自练；语音转写与 AI 报告需解锁对应岗位训练包。'
+                : '你选择的问题会排在本轮第一题。可以先用文字自练；语音转写与 AI 报告需解锁面试练习包或岗位训练包。'
               : hasPaidAiAccess
                 ? '本轮会根据你的目标岗位安排 8 道题。录音停止后会临时发送给 AI 做英文转写，音频本身不会写入长期档案；你可以在评分前修改转写文本。'
-                : '本轮会根据你的目标岗位安排 8 道题，可先完成文字自练。语音转写和 AI 反馈需要对应岗位训练包。'}
+                : '本轮会根据你的目标岗位安排 8 道题，可先完成文字自练。语音转写和 AI 反馈需要面试练习包或岗位训练包。'}
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -944,7 +937,7 @@ function Task7InterviewPractice() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium text-slate-950">录音回答</p>
-                <p className="mt-0.5 text-xs text-slate-500">{hasPaidAiAccess ? '建议每题 30-60 秒。停止后自动转写，音频不长期保存。' : '语音转写与 AI 反馈属于岗位训练包；可先使用下方文字回答。'}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{hasPaidAiAccess ? '建议每题 30-60 秒。停止后自动转写，音频不长期保存。' : '语音转写与 AI 反馈属于面试练习包或岗位训练包；可先使用下方文字回答。'}</p>
               </div>
               {recordingQuestionId === currentQuestion.id ? (
                 <button

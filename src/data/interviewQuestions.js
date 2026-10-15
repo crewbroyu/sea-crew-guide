@@ -1,3 +1,5 @@
+import { restaurantAdditions, restaurantRevisions } from './restaurantQuestionBank.js'
+
 export const positionConfig = [
   { key: 'bar_server', nameZh: '酒吧服务员', nameEn: 'Bar Server', icon: '🍸' },
   { key: 'restaurant', nameZh: '餐厅服务员', nameEn: 'Restaurant Server', icon: '🍽️' },
@@ -577,10 +579,13 @@ const sourceForQuestion = (positionKey, question) => {
   return sourceCatalog.shipRoles
 }
 
+interviewQuestions.restaurant.questions.push(...restaurantAdditions)
+
 Object.entries(interviewQuestions).forEach(([positionKey, bank]) => {
   bank.questions = bank.questions.map((question) => {
     const refined = questionRefinements[question.id] || {}
-    const updatedQuestion = { ...question, ...refined }
+    const revised = positionKey === 'restaurant' ? restaurantRevisions[question.id] || {} : {}
+    const updatedQuestion = { ...question, ...refined, ...revised }
 
     return {
       ...updatedQuestion,

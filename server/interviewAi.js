@@ -37,6 +37,8 @@ const PREMIUM_MOCK_MODE = 'premium_mock'
 const ASSESSMENT_MODE = 'assessment'
 const BAR_SERVER_PRODUCT_CODE = 'bar_server_pack'
 const RETAIL_PRODUCT_CODE = 'retail_sales_pack'
+const PRACTICE_PACK_PRODUCT_CODE = 'interview_practice_pack'
+const PRACTICE_PACK_POSITIONS = new Set(['bar_server', 'retail', 'restaurant', 'housekeeping', 'front_office'])
 const RETAIL_SKILL_KEYS = ['communication', 'productKnowledge', 'guestExperience', 'selling', 'operations', 'english']
 const BAR_SERVER_SKILL_KEYS = ['communication', 'barKnowledge', 'service', 'upselling', 'problemSolving', 'english']
 const OUTPUT_TOKEN_LIMITS = Object.freeze({
@@ -64,8 +66,53 @@ const getProductCodeForPosition = (position = '') => {
   return null
 }
 
+const getPracticePositionKey = (position = '') => {
+  const productCode = getProductCodeForPosition(position)
+  if (productCode === RETAIL_PRODUCT_CODE) return 'retail'
+  if (productCode === BAR_SERVER_PRODUCT_CODE) return 'bar_server'
+  const normalized = trimText(position, 160)
+  if (/restaurant|waiter|waitress|dining|餐厅|餐饮/i.test(normalized)) return 'restaurant'
+  if (/housekeeping|stateroom|cabin steward|客房/i.test(normalized)) return 'housekeeping'
+  if (/front[\s_-]*(office|desk)|guest service|reception|前台/i.test(normalized)) return 'front_office'
+  return null
+}
+
+// Products that unlock a mode for a position, position pack first. The interview practice pack
+// unlocks single-question voice practice only, never scenarios or mock interviews.
+const getEligibleProductCodes = (position = '', mode = '') => {
+  const codes = []
+  const positionPack = getProductCodeForPosition(position)
+  if (positionPack) codes.push(positionPack)
+  if (mode === PREMIUM_PRACTICE_MODE && PRACTICE_PACK_POSITIONS.has(getPracticePositionKey(position))) {
+    codes.push(PRACTICE_PACK_PRODUCT_CODE)
+  }
+  return codes
+}
+
+// The product charged for a request: the entitlement that authorized it, else the position pack.
+const getChargedProductCode = (entitlement, position) => entitlement?.product_code || getProductCodeForPosition(position)
+
 const getInterviewCoachContext = (position = '') => {
-  if (getProductCodeForPosition(position) === RETAIL_PRODUCT_CODE) {
+  const practicePosition = getPracticePositionKey(position)
+  if (practicePosition === 'restaurant') {
+    return [
+      '你是一名熟悉国际邮轮餐厅（Main Dining Room、Buffet）Restaurant Server / Assistant Waiter 招聘和一线服务的英文面试教练。',
+      '评估时关注点单与上菜顺序、过敏原与特殊饮食处理、团队配合（Waiter 与 Assistant Waiter 分工）、高峰期效率、卫生与食品安全（USPH）、客诉处理和跨文化服务。',
+    ]
+  }
+  if (practicePosition === 'housekeeping') {
+    return [
+      '你是一名熟悉国际邮轮 Stateroom Attendant / Housekeeping 招聘和一线工作的英文面试教练。',
+      '评估时关注客舱清洁标准与时间管理、宾客隐私与安全、失物与贵重物品处理、卫生规范（USPH）、与宾客的礼貌沟通、长时间体力工作适应和团队协作。',
+    ]
+  }
+  if (practicePosition === 'front_office') {
+    return [
+      '你是一名熟悉国际邮轮 Guest Services / Front Office 招聘和一线工作的英文面试教练。',
+      '评估时关注宾客咨询与投诉处理、账户与结算准确性、信息传达清晰度、情绪管理、紧急情况下的沟通、跨部门协调和多语言多文化服务意识。',
+    ]
+  }
+  if (practicePosition === 'retail') {
     return [
       '你是一名熟悉国际邮轮 Retail Sales Associate 招聘、宾客体验和免税零售一线工作的英文面试教练。',
       '评估时关注需求发现、产品讲解、合规销售、异议处理、KPI、防损、POS 准确性和跨文化服务。',
@@ -190,35 +237,41 @@ const authenticateRequest = async ({ headers, mode, position, config }) => {
 
     const isActiveAdmin = access?.access_status === 'active' && access?.role === 'admin'
 
-    const requiredProductCode = getProductCodeForPosition(position)
-    if (!requiredProductCode) {
+    const eligibleProductCodes = getEligibleProductCodes(position, mode)
+    if (!eligibleProductCodes.length) {
       throw new InterviewApiError(
         403,
         'POSITION_AI_NOT_AVAILABLE',
         '该岗位的完整 AI 训练仍在制作中。你可以先浏览公开题库并进行文字练习。',
       )
     }
-    const { data: entitlement, error: entitlementError } = await supabase
+    const { data: entitlements, error: entitlementError } = await supabase
       .from('user_entitlements')
       .select('user_id, product_code, status, starts_at, expires_at, ai_feedback_limit, mock_interview_limit')
       .eq('user_id', user.id)
-      .eq('product_code', requiredProductCode)
+      .in('product_code', eligibleProductCodes)
       .eq('status', 'active')
-      .maybeSingle()
 
     if (entitlementError) {
       console.error('Interview entitlement lookup failed:', entitlementError.message)
       throw new InterviewApiError(503, 'ACCESS_CHECK_FAILED', '暂时无法验证岗位训练权益，请稍后重试。')
     }
 
-    const entitlementIsCurrent = entitlement
-      && (!entitlement.expires_at || new Date(entitlement.expires_at).getTime() > Date.now())
-    if (!isActiveAdmin && !entitlementIsCurrent) {
-      const productLabel = requiredProductCode === RETAIL_PRODUCT_CODE ? 'Retail Sales Associate' : 'Bar Server'
-      throw new InterviewApiError(403, 'ACTIVATION_REQUIRED', `此训练需要 ${productLabel} 单职位全流程包。`)
+    const isCurrent = (item) => !item.expires_at || new Date(item.expires_at).getTime() > Date.now()
+    const entitlement = eligibleProductCodes
+      .map((code) => (entitlements || []).find((item) => item.product_code === code && isCurrent(item)))
+      .find(Boolean) || null
+    if (!isActiveAdmin && !entitlement) {
+      const positionPack = getProductCodeForPosition(position)
+      const packLabel = positionPack === RETAIL_PRODUCT_CODE ? 'Retail Sales Associate 单职位全流程包'
+        : positionPack === BAR_SERVER_PRODUCT_CODE ? 'Bar Server 单职位全流程包' : ''
+      const message = eligibleProductCodes.includes(PRACTICE_PACK_PRODUCT_CODE)
+        ? `此训练需要${packLabel ? `${packLabel}或` : ''}面试练习包。`
+        : `此训练需要 ${packLabel}。`
+      throw new InterviewApiError(403, 'ACTIVATION_REQUIRED', message)
     }
 
-    return { user, supabase, entitlement: entitlementIsCurrent ? entitlement : null }
+    return { user, supabase, entitlement }
   }
 
   return { user, supabase, entitlement: null }
@@ -244,12 +297,12 @@ const estimateCostCny = ({ action, durationSeconds }) => (
     : null
 )
 
-const recordAiOperationLog = async ({ supabase, action, mode, body, config, success, statusCode, errorCode, latencyMs }) => {
+const recordAiOperationLog = async ({ supabase, entitlement = null, action, mode, body, config, success, statusCode, errorCode, latencyMs }) => {
   if (!supabase) return
 
   const durationSeconds = action === 'transcribe' ? Math.ceil(Number(body?.durationSeconds) || 0) : null
   const { error } = await supabase.rpc('record_ai_operation_log', {
-    input_product_code: getProductCodeForPosition(body?.position),
+    input_product_code: getChargedProductCode(entitlement, body?.position),
     input_action: action === 'mock_followup' ? 'evaluate' : trimText(action, 80),
     input_mode: trimText(mode, 80),
     input_request_id: trimText(body?.clientRequestId, 200) || null,
@@ -273,10 +326,10 @@ const recordAiOperationLog = async ({ supabase, action, mode, body, config, succ
   }
 }
 
-const recordAiUsage = async ({ supabase, userId, action, mode, body, data, config }) => {
+const recordAiUsage = async ({ supabase, entitlement = null, userId, action, mode, body, data, config }) => {
   const { error } = await supabase.rpc('record_ai_usage_event', {
     input_product_code: [SCENARIO_TRIAL_MODE, PREMIUM_SCENARIO_MODE, PREMIUM_PRACTICE_MODE, PREMIUM_MOCK_MODE].includes(mode)
-      ? getProductCodeForPosition(body.position)
+      ? getChargedProductCode(entitlement, body.position)
       : null,
     input_action: getUsageAction(action, mode),
     input_mode: mode,
@@ -326,7 +379,7 @@ const reservePersistentQuota = async ({ supabase, entitlement, action, mode, bod
     throw new InterviewApiError(400, 'REQUEST_ID_REQUIRED', '本次训练请求无效，请重新提交。')
   }
 
-  const productCode = getProductCodeForPosition(body.position)
+  const productCode = getChargedProductCode(entitlement, body.position)
   if (!productCode) {
     throw new InterviewApiError(403, 'POSITION_AI_NOT_AVAILABLE', '该岗位的完整 AI 训练仍在制作中。')
   }
@@ -923,7 +976,7 @@ const evaluateInterview = async ({ body, config }) => {
             '岗位场景试练必须指出候选人具体说了什么、遗漏了什么，不能只给“更具体”“注意表达”之类空泛建议。',
             '岗位场景回答应按服务动作、知识准确性和安全判断评分，不要机械要求 STAR 结构。',
             isFoundationChallenge ? '这是基础课 Guest Challenge。只评估当前岗位任务，不要求 STAR 面试结构。' : '',
-            '当候选人推荐具体饮品时，要结合配方、甜度、风味和客人需求判断是否真正合适。',
+            getPracticePositionKey(position) === 'bar_server' ? '当候选人推荐具体饮品时，要结合配方、甜度、风味和客人需求判断是否真正合适。' : '',
             '专业参考回答必须针对候选人的原回答和当前客人需求重新组织，不能机械复制 scenarioReference。',
             '即使候选人只说一句话，也必须解释这句话具体对在哪里、错在哪里，并提供可直接重练的完整回答。',
             '严格按提供的分数锚点评分；17 分以上必须有清楚、具体、可核验的高质量证据，19-20 分应极少使用。',
@@ -2402,7 +2455,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
       throw new InterviewApiError(
         403,
         'VOICE_TRAINING_REQUIRES_ACCESS',
-        '公开题库支持浏览和文字自练。语音转写与 AI 反馈请体验 Bar Server 免费场景，或解锁岗位训练包。',
+        '公开题库支持浏览和文字自练。语音转写与 AI 反馈请体验 Bar Server 免费场景，或开通面试练习包、岗位训练包。',
       )
     }
 
@@ -2419,6 +2472,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
       if (recoveredScenario) {
         await recordAiOperationLog({
           supabase: auth.supabase,
+          entitlement: auth?.entitlement,
           action,
           mode,
           body: payload,
@@ -2446,6 +2500,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
       if (recoveredTurn) {
         await recordAiOperationLog({
           supabase: auth.supabase,
+          entitlement: auth?.entitlement,
           action,
           mode,
           body: payload,
@@ -2481,6 +2536,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
         const data = { ...recoveredEvaluation, attemptStatus, unifiedProfile }
         await recordAiOperationLog({
           supabase: auth.supabase,
+          entitlement: auth?.entitlement,
           action,
           mode,
           body: payload,
@@ -2537,6 +2593,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
       if (isBillable) {
         await recordAiUsage({
           supabase: auth.supabase,
+          entitlement: auth.entitlement,
           userId: auth.user.id,
           action,
           mode,
@@ -2571,6 +2628,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
 
       await recordAiOperationLog({
         supabase: auth.supabase,
+        entitlement: auth?.entitlement,
         action,
         mode,
         body: payload,
@@ -2593,6 +2651,7 @@ export const handleInterviewRequest = async ({ method, headers, body, env = proc
     if (auth?.supabase && config && action && mode) {
       await recordAiOperationLog({
         supabase: auth.supabase,
+        entitlement: auth?.entitlement,
         action,
         mode,
         body: payload,

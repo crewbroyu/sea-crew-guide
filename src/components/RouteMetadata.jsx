@@ -15,6 +15,7 @@ const metadata = [
   [/^\/programs\/bar-server/, 'Bar Server 单职位全流程包 · CrewPathGuide', '从岗位知识到场景训练和 AI 模拟面试的 Bar Server 准备包。'],
   [/^\/programs\/retail/, 'Retail Sales Associate 岗位包 · CrewPathGuide', '邮轮免税店销售岗位基础课、场景训练和面试准备。'],
   [/^\/jobs/, '求职 · CrewPathGuide', '管理简历、面试准备、申请渠道、申请记录与 Offer。'],
+  [/^\/premium\/interview/, '面试练习包 · CrewPathGuide', '常见面试题、参考回答、语音作答与 AI 逐题反馈，覆盖 5 个邮轮岗位。'],
   [/^\/premium/, 'Bar Server 岗位包权益 · CrewPathGuide', '查看 Bar Server 岗位包内容、有效期、AI 额度与人工开通方式。'],
   [/^\/legal\/terms/, '用户协议 · CrewPathGuide', 'CrewPathGuide 的账户、训练内容与服务使用规则。'],
   [/^\/legal\/privacy/, '隐私政策 · CrewPathGuide', '了解 CrewPathGuide 如何处理账户、学习与 AI 训练数据。'],

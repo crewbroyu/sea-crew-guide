@@ -19,8 +19,11 @@ let entitlementResponse = {
   mock_interview_limit: 10,
 }
 let retailEntitlementResponse = null
+let practiceEntitlementResponse = null
+const reservedProducts = []
+const chatSystemPrompts = []
 
-globalThis.fetch = async (url) => {
+globalThis.fetch = async (url, init = {}) => {
   const target = String(url)
 
   if (target.includes('/auth/v1/user')) {
@@ -39,7 +42,9 @@ globalThis.fetch = async (url) => {
   }
 
   if (target.includes('/rest/v1/user_entitlements')) {
-    return Response.json(target.includes('retail_sales_pack') ? retailEntitlementResponse : entitlementResponse)
+    // PostgREST returns every row matching product_code=in.(...); the server picks the position pack first.
+    return Response.json([entitlementResponse, retailEntitlementResponse, practiceEntitlementResponse]
+      .filter((item) => item && target.includes(item.product_code)))
   }
 
   if (target.includes('/rest/v1/ai_usage_events')) {
@@ -55,6 +60,7 @@ globalThis.fetch = async (url) => {
   }
 
   if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) {
+    reservedProducts.push(JSON.parse(init.body).input_product_code)
     return Response.json({ reservation_id: '00000000-0000-4000-8000-000000000003', unlimited: false })
   }
 
@@ -64,6 +70,7 @@ globalThis.fetch = async (url) => {
 
   if (target.includes('/chat/completions')) {
     providerCalls += 1
+    chatSystemPrompts.push(JSON.parse(init.body).messages[0].content)
     return Response.json({
       choices: [{ message: { content: JSON.stringify({
         overallScore: 70,
@@ -125,10 +132,45 @@ assert.equal(retailAllowed.status, 200)
 assert.equal(retailAllowed.body.success, true)
 assert.equal(providerCalls, 2)
 
-const unsupported = await request('Guest Services')
+assert.deepEqual(reservedProducts, ['bar_server_pack', 'retail_sales_pack'])
+
+// Front office, restaurant, and housekeeping are unlocked by the interview practice pack only.
+const frontOfficeDenied = await request('Guest Services')
+assert.equal(frontOfficeDenied.status, 403)
+assert.equal(frontOfficeDenied.body.error.code, 'ACTIVATION_REQUIRED')
+assert.match(frontOfficeDenied.body.error.message, /面试练习包/)
+assert.equal(providerCalls, 2)
+
+practiceEntitlementResponse = { ...entitlementResponse, product_code: 'interview_practice_pack', ai_feedback_limit: 60, mock_interview_limit: 0 }
+for (const position of ['Front Office', 'Restaurant Server', 'Housekeeping']) {
+  const practiceAllowed = await request(position)
+  assert.equal(practiceAllowed.status, 200, `${position}: ${JSON.stringify(practiceAllowed.body)}`)
+}
+assert.equal(providerCalls, 5)
+assert.deepEqual(reservedProducts.slice(2), ['interview_practice_pack', 'interview_practice_pack', 'interview_practice_pack'])
+assert.match(chatSystemPrompts.at(-1), /Stateroom Attendant/)
+assert.doesNotMatch(chatSystemPrompts.at(-1), /推荐具体饮品/, 'The drink rubric is for bar positions only.')
+
+// With both packs, Bar Server is charged to its own pack, not the practice pack.
+await request('Bar Server')
+assert.equal(reservedProducts.at(-1), 'bar_server_pack')
+assert.match(chatSystemPrompts.at(-1), /推荐具体饮品/)
+
+// The practice pack never unlocks mock interviews.
+const practiceMock = await handleInterviewRequest({
+  method: 'POST',
+  headers: { authorization: 'Bearer entitlement-test-token' },
+  body: { action: 'evaluate', mode: 'premium_mock', position: 'Front Office', clientRequestId: `entitlement-test-${++requestSequence}`, questions: [], answers: [] },
+  env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://supabase.test', SUPABASE_ANON_KEY: 'test-anon-key', SUPABASE_SERVICE_ROLE_KEY: 'test-service-key' },
+})
+assert.equal(practiceMock.status, 403)
+assert.equal(practiceMock.body.error.code, 'POSITION_AI_NOT_AVAILABLE')
+
+const unsupported = await request('Kitchen Steward')
 assert.equal(unsupported.status, 403)
 assert.equal(unsupported.body.error.code, 'POSITION_AI_NOT_AVAILABLE')
-assert.equal(providerCalls, 2)
+assert.equal(providerCalls, 6)
+practiceEntitlementResponse = null
 
 entitlementResponse = null
 accessResponse = {
@@ -141,7 +183,7 @@ accessResponse = {
 const legacyDenied = await request('Bar Server')
 assert.equal(legacyDenied.status, 403)
 assert.equal(legacyDenied.body.error.code, 'ACTIVATION_REQUIRED')
-assert.equal(providerCalls, 2)
+assert.equal(providerCalls, 6)
 
 accessResponse = { ...accessResponse, unlocked: false, plan: 'free' }
 entitlementResponse = {
@@ -173,6 +215,6 @@ const mismatchedAudio = await handleInterviewRequest({
 })
 assert.equal(mismatchedAudio.status, 413)
 assert.equal(mismatchedAudio.body.error.code, 'AUDIO_DURATION_MISMATCH')
-assert.equal(providerCalls, 2)
+assert.equal(providerCalls, 6)
 
 console.log('Product entitlement access contract passed.')

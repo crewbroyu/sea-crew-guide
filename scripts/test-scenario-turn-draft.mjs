@@ -47,7 +47,7 @@ globalThis.fetch = async (input, options = {}) => {
   }
   if (target.includes('/rest/v1/user_access')) return Response.json({ access_status: 'active', role: 'learner', unlocked: true, plan: 'single_job' })
   if (target.includes('/rest/v1/user_entitlements')) {
-    return Response.json({ user_id: userId, product_code: 'bar_server_pack', status: 'active', starts_at: '2026-01-01T00:00:00.000Z', expires_at: '2027-01-01T00:00:00.000Z', ai_feedback_limit: 100, mock_interview_limit: 10 })
+    return Response.json([{ user_id: userId, product_code: 'bar_server_pack', status: 'active', starts_at: '2026-01-01T00:00:00.000Z', expires_at: '2027-01-01T00:00:00.000Z', ai_feedback_limit: 100, mock_interview_limit: 10 }])
   }
   if (target.includes('/rest/v1/rpc/reserve_ai_usage_quota')) {
     state.quotaReservations += 1

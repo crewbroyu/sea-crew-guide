@@ -44,3 +44,6 @@ dist-ssr
 
 # Supabase CLI local state
 supabase/.temp/
+
+# Paid reference answers under review: never commit (public repository)
+content/reference-answers/

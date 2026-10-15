@@ -57,6 +57,7 @@ const Profile = lazy(() => import('./pages/Profile'))
 const Messages = lazy(() => import('./pages/Messages'))
 const Resume = lazy(() => import('./pages/Resume'))
 const Premium = lazy(() => import('./pages/Premium'))
+const InterviewPracticePack = lazy(() => import('./pages/InterviewPracticePack'))
 const Support = lazy(() => import('./pages/Support'))
 const ServiceInfo = lazy(() => import('./pages/ServiceInfo'))
 const FounderBeta = lazy(() => import('./pages/FounderBeta'))
@@ -143,6 +144,7 @@ function App() {
               <Route path="/resume" element={<RequireLogin><Resume /></RequireLogin>} />
               <Route path="/messages" element={<RequireLogin><Messages /></RequireLogin>} />
               <Route path="/premium" element={<Premium />} />
+              <Route path="/premium/interview" element={<InterviewPracticePack />} />
               <Route path="/support" element={<Support />} />
               <Route path="/service-info" element={<ServiceInfo />} />
               <Route path="/legal/:document" element={<LegalDocument />} />

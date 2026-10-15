@@ -113,6 +113,7 @@ export default function ActivationCodeGenerator() {
               <select value={productCode} onChange={(event) => setProductCode(event.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 <option value="bar_server_pack">Bar Server 完整包</option>
                 <option value="retail_sales_pack">Retail Sales Associate 完整包</option>
+                <option value="interview_practice_pack">面试练习包（¥99 / 90 天）</option>
               </select>
             </div>
 

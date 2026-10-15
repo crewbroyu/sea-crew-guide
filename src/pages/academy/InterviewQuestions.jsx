@@ -5,6 +5,8 @@ import interviewQuestions, { positionConfig } from '../../data/interviewQuestion
 import { normalizeInterviewPosition } from '../../utils/interviewPosition'
 import { getJobPreferenceLabel, getJobPreferences, sortByJobPreference } from '../../utils/jobPreferences'
 import { speakEnglish, stopSpeech } from '../../services/ttsService'
+import ReferenceAnswerPanel from '../../components/interview/ReferenceAnswerPanel'
+import { RESTAURANT_LEVEL_LABELS } from '../../data/restaurantQuestionBank'
 
 const categoryLabels = {
   all: '全部',
@@ -70,6 +72,7 @@ export default function InterviewQuestions() {
   const [searchParams] = useSearchParams()
   const [positionKey, setPositionKey] = useState(() => getInitialPosition(searchParams.get('position')))
   const [category, setCategory] = useState('all')
+  const [level, setLevel] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedQuestion, setSelectedQuestion] = useState(null)
   const [showPositionModal, setShowPositionModal] = useState(false)
@@ -87,23 +90,29 @@ export default function InterviewQuestions() {
     () => ['all', ...new Set(questions.map((question) => question.category || 'foundation'))],
     [questions]
   )
+  const availableLevels = useMemo(
+    () => Object.keys(RESTAURANT_LEVEL_LABELS).filter((key) => questions.some((question) => question.level === key)),
+    [questions]
+  )
   const filteredQuestions = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
     return questions.filter((question) => {
       const questionCategory = question.category || 'foundation'
-      const matchesCategory = category === 'all' || questionCategory === category
+      const matchesCategory = (category === 'all' || questionCategory === category)
+        && (level === 'all' || question.level === level)
       const matchesSearch = !normalizedSearch
         || question.question.toLowerCase().includes(normalizedSearch)
         || question.tip?.toLowerCase().includes(normalizedSearch)
       return matchesCategory && matchesSearch
     })
-  }, [category, questions, searchTerm])
+  }, [category, level, questions, searchTerm])
 
   useEffect(() => () => stopSpeech(), [])
 
   const selectPosition = (nextPosition) => {
     setPositionKey(nextPosition)
     setCategory('all')
+    setLevel('all')
     setSearchTerm('')
     setSelectedQuestion(null)
     setShowPositionModal(false)
@@ -214,6 +223,16 @@ export default function InterviewQuestions() {
           ))}
         </div>
 
+        {availableLevels.length > 1 && (
+          <div className="-mt-2 mb-5 flex gap-2 overflow-x-auto pb-1">
+            {['all', ...availableLevels].map((item) => (
+              <button key={item} type="button" onClick={() => setLevel(item)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${level === item ? 'bg-blue-600 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>
+                {item === 'all' ? '全部级别' : RESTAURANT_LEVEL_LABELS[item]}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="mb-4 flex items-center justify-between gap-3 text-sm text-slate-500">
           <span className="inline-flex items-center gap-2"><Filter size={15} />{filteredQuestions.length} 道问题</span>
           <button type="button" onClick={() => navigate(getFoundationRoute(positionKey))} className="font-semibold text-blue-700">查看岗位基础课</button>
@@ -229,6 +248,8 @@ export default function InterviewQuestions() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     <span className={`rounded-md px-2 py-1 text-xs font-medium ${getDifficultyClass(question.difficulty)}`}>{difficultyLabels[question.difficulty] || question.difficulty}</span>
                     <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{categoryLabels[question.category || 'foundation']}</span>
+                    {question.level && <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">{RESTAURANT_LEVEL_LABELS[question.level]}</span>}
+                    {question.followUps?.length > 0 && <span className="rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700">追问 {question.followUps.length}</span>}
                   </div>
                   {question.source && <a href={question.source.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-2 inline-flex items-center gap-1 text-xs leading-5 text-slate-500 hover:text-blue-700"><ExternalLink size={12} />来源参考：{question.source.label}</a>}
                 </div>
@@ -271,6 +292,18 @@ export default function InterviewQuestions() {
             </div>
 
             <div className="mt-5 rounded-lg border border-amber-100 bg-amber-50 p-4"><p className="text-xs font-semibold text-amber-700">回答重点</p><p className="mt-1 text-sm leading-6 text-amber-950">{selectedQuestion.tip}</p></div>
+
+            {selectedQuestion.followUps?.length > 0 && (
+              <div className="mt-4 rounded-lg border border-violet-100 bg-violet-50 p-4">
+                <p className="text-xs font-semibold text-violet-700">面试官可能追问{selectedQuestion.level ? ` · ${RESTAURANT_LEVEL_LABELS[selectedQuestion.level]}` : ''}</p>
+                <ul className="mt-2 space-y-1.5">
+                  {selectedQuestion.followUps.map((followUp) => <li key={followUp} className="text-sm leading-6 text-violet-950">· {followUp}</li>)}
+                </ul>
+                <p className="mt-2 text-xs leading-5 text-violet-700">先答主问题，再接着回答这些追问。只说你真实做过的事，追问时才对得上。</p>
+              </div>
+            )}
+
+            <ReferenceAnswerPanel positionKey={positionKey} questionId={selectedQuestion.id} onSpeak={speakQuestion} />
 
             {selectedQuestion.source && <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-700">来源参考</p><a href={selectedQuestion.source.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-sm font-medium leading-6 text-blue-700 hover:text-blue-800">{selectedQuestion.source.label}<ExternalLink size={14} /></a><p className="mt-1 text-xs leading-5 text-slate-500">{selectedQuestion.sourceNote}</p></div>}
 

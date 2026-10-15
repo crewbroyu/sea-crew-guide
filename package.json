@@ -39,6 +39,7 @@
     "test:trusted-training": "node scripts/test-trusted-training-write.mjs",
     "test:release-blockers": "node scripts/test-release-blockers.mjs",
     "test:job-postings": "node scripts/test-job-postings.mjs",
+    "test:job-position-groups": "node scripts/test-job-position-groups.mjs",
     "test:mock-reliability": "node scripts/test-mock-interview-reliability.mjs",
     "test:skill-profile": "node scripts/test-unified-skill-profile.mjs",
     "test:skill-profile-sql": "node scripts/test-sql-unified-profile.mjs",

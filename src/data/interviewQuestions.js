@@ -1,14 +1,26 @@
 import { restaurantAdditions, restaurantRevisions } from './restaurantQuestionBank.js'
+import { effyJewelryBank } from './effyJewelryQuestionBank.js'
+
+// Shipboard departments the question bank is grouped by. A department holds general positions
+// (Sales Associate) and specialist ones (Effy Jewelry Sales); add a position by giving it one of
+// these department keys in positionConfig and a bank under the same key below.
+export const positionDepartments = [
+  { key: 'food_beverage', nameZh: '餐饮部', nameEn: 'Food & Beverage' },
+  { key: 'hotel', nameZh: '酒店部', nameEn: 'Hotel Operations' },
+  { key: 'retail', nameZh: '免税店/零售', nameEn: 'Retail' },
+  { key: 'youth', nameZh: '青少年活动', nameEn: 'Youth Programs' },
+];
 
 export const positionConfig = [
-  { key: 'bar_server', nameZh: '酒吧服务员', nameEn: 'Bar Server', icon: '🍸' },
-  { key: 'restaurant', nameZh: '餐厅服务员', nameEn: 'Restaurant Server', icon: '🍽️' },
-  { key: 'housekeeping', nameZh: '客房服务员', nameEn: 'Housekeeping', icon: '🧹' },
-  { key: 'front_office', nameZh: '前台接待', nameEn: 'Front Office', icon: '🛎️' },
-  { key: 'retail', nameZh: '免税店销售', nameEn: 'Retail Sales', icon: '🛍️' },
-  { key: 'youth_staff', nameZh: '儿童看护', nameEn: 'Youth Staff', icon: '🧸' },
-  { key: 'kitchen', nameZh: '厨房帮厨', nameEn: 'Kitchen Steward', icon: '👨‍🍳' },
-  { key: 'utility', nameZh: '后勤清洁', nameEn: 'Utility', icon: '🧤' },
+  { key: 'bar_server', department: 'food_beverage', nameZh: '酒吧服务员', nameEn: 'Bar Server', icon: '🍸' },
+  { key: 'restaurant', department: 'food_beverage', nameZh: '餐厅服务员', nameEn: 'Restaurant Server', icon: '🍽️' },
+  { key: 'kitchen', department: 'food_beverage', nameZh: '厨房帮厨', nameEn: 'Kitchen Steward', icon: '👨‍🍳' },
+  { key: 'housekeeping', department: 'hotel', nameZh: '客房服务员', nameEn: 'Housekeeping', icon: '🧹' },
+  { key: 'front_office', department: 'hotel', nameZh: '前台接待', nameEn: 'Front Office', icon: '🛎️' },
+  { key: 'utility', department: 'hotel', nameZh: '后勤清洁', nameEn: 'Utility', icon: '🧤' },
+  { key: 'retail', department: 'retail', nameZh: '销售专员', nameEn: 'Sales Associate', icon: '🛍️' },
+  { key: 'effy_jewelry', department: 'retail', nameZh: 'Effy 珠宝销售', nameEn: 'Effy Jewelry Sales', icon: '💎' },
+  { key: 'youth_staff', department: 'youth', nameZh: '儿童看护', nameEn: 'Youth Staff', icon: '🧸' },
 ];
 
 const interviewQuestions = {
@@ -254,8 +266,8 @@ const interviewQuestions = {
     ]
   },
   retail: {
-    positionName: '免税店销售',
-    positionNameEn: 'Retail Sales',
+    positionName: '销售专员',
+    positionNameEn: 'Sales Associate',
     questions: [
       { id: 'rt_01', order: 1, question: "What does duty-free mean?", difficulty: "easy", tip: "Explain that applicable tax and customs treatment depends on the itinerary, destination, product, and guest allowance" },
       { id: 'rt_02', order: 2, question: "Have you worked in retail before?", difficulty: "easy", tip: "Share any sales or customer service experience" },
@@ -512,6 +524,10 @@ const sourceCatalog = {
     label: 'CDC Vessel Sanitation Program 岗位规范',
     url: 'https://www.cdc.gov/vessel-sanitation/communication-resources/operational-inspections.html',
   },
+  jewelry: {
+    label: 'GIA 钻石 4C 与宝石知识',
+    url: 'https://4cs.gia.edu/en-us/',
+  },
   shipRoles: {
     label: 'Royal Caribbean Group 船上岗位说明 + 从业者经验',
     url: 'https://careers.royalcaribbeangroup.com/ship/',
@@ -576,10 +592,12 @@ const sourceForQuestion = (positionKey, question) => {
   if (positionKey === 'restaurant') return sourceCatalog.restaurant
   if (positionKey === 'front_office') return sourceCatalog.frontOffice
   if (positionKey === 'retail') return sourceCatalog.retail
+  if (positionKey === 'effy_jewelry') return question.category === 'knowledge' ? sourceCatalog.jewelry : sourceCatalog.retail
   return sourceCatalog.shipRoles
 }
 
 interviewQuestions.restaurant.questions.push(...restaurantAdditions)
+interviewQuestions.effy_jewelry = effyJewelryBank
 
 Object.entries(interviewQuestions).forEach(([positionKey, bank]) => {
   bank.questions = bank.questions.map((question) => {

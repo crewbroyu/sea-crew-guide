@@ -39,7 +39,7 @@ const speakWithBrowser = (text, { rate = 0.88, lang = 'en-US' } = {}) => new Pro
 const normalizePosition = (value) => {
   const normalized = typeof value === 'string' ? value.trim().toLowerCase() : ''
   if (['bar_server', 'bar-server', 'bar server'].includes(normalized)) return 'bar_server'
-  if (['retail', 'retail_sales', 'retail sales', 'retail sales associate'].includes(normalized)) return 'retail'
+  if (['retail', 'retail_sales', 'retail sales', 'retail sales associate', 'sales associate', 'effy_jewelry', 'effy jewelry sales'].includes(normalized)) return 'retail'
   return ''
 }
 

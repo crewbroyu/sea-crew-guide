@@ -46,6 +46,7 @@
     "test:sql-interview-practice-pack": "node scripts/test-sql-interview-practice-pack.mjs",
     "test:reference-answer-csv": "node scripts/test-reference-answer-csv.mjs",
     "test:restaurant-question-bank": "node scripts/test-restaurant-question-bank.mjs",
+    "test:question-bank-structure": "node scripts/test-question-bank-structure.mjs",
     "draft:reference-answers": "node --env-file=.env.local scripts/draft-reference-answers.mjs",
     "import:reference-answers": "node scripts/import-reference-answers.mjs",
     "test:mock-reliability": "node scripts/test-mock-interview-reliability.mjs",

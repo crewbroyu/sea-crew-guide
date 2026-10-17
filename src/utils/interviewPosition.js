@@ -3,6 +3,12 @@ import { positionConfig } from '../data/interviewQuestions'
 const positionAliases = {
   'Retail Sales': 'retail',
   'Retail Sales Associate': 'retail',
+  'Sales Associate': 'retail',
+  '销售专员': 'retail',
+  'Effy Jewelry Sales': 'effy_jewelry',
+  effy_jewelry: 'effy_jewelry',
+  effy: 'effy_jewelry',
+  'Effy 珠宝销售': 'effy_jewelry',
   'Jewelry Specialist': 'retail',
   'Art Gallery Staff': 'retail',
   'Spa Therapist': 'retail',

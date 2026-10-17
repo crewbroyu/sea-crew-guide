@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, Filter, Search, Target, Volume2, X } from 'lucide-react'
-import interviewQuestions, { positionConfig } from '../../data/interviewQuestions'
+import interviewQuestions, { positionConfig, positionDepartments } from '../../data/interviewQuestions'
 import { normalizeInterviewPosition } from '../../utils/interviewPosition'
 import { getJobPreferenceLabel, getJobPreferences, sortByJobPreference } from '../../utils/jobPreferences'
 import { speakEnglish, stopSpeech } from '../../services/ttsService'
@@ -63,7 +63,8 @@ const getDifficultyClass = (difficulty) => {
 
 const getFoundationRoute = (positionKey) => {
   if (positionKey === 'bar_server') return '/programs/bar-server/foundation'
-  if (positionKey === 'retail') return '/programs/retail/foundation'
+  // Specialist retail positions share the Sales Associate foundation course until they get their own.
+  if (positionConfig.find((item) => item.key === positionKey)?.department === 'retail') return '/programs/retail/foundation'
   return `/tasks/phase2/Task5?position=${positionKey}&source=academy`
 }
 
@@ -82,9 +83,19 @@ export default function InterviewQuestions() {
     () => sortByJobPreference(positionConfig, preferences),
     [preferences],
   )
+  // Departments in order of the first position each one holds, so the preferred position's
+  // department comes first; without preferences this keeps the order of positionConfig.
+  const departmentGroups = useMemo(
+    () => [...new Set(orderedPositionConfig.map((position) => position.department))].map((key) => ({
+      ...positionDepartments.find((department) => department.key === key),
+      positions: orderedPositionConfig.filter((position) => position.department === key),
+    })),
+    [orderedPositionConfig],
+  )
 
   const currentData = positionKey ? interviewQuestions[positionKey] : null
   const currentPosition = positionConfig.find((item) => item.key === positionKey)
+  const currentDepartment = positionDepartments.find((department) => department.key === currentPosition?.department)
   const questions = currentData?.questions || emptyQuestions
   const availableCategories = useMemo(
     () => ['all', ...new Set(questions.map((question) => question.category || 'foundation'))],
@@ -152,17 +163,24 @@ export default function InterviewQuestions() {
           </div>
         </header>
 
-        <main className="mx-auto grid max-w-5xl gap-3 px-5 py-6 md:grid-cols-2">
-          {orderedPositionConfig.map((position) => {
-            const preferenceLabel = getJobPreferenceLabel(position.key, preferences)
-            return (
-            <button key={position.key} type="button" onClick={() => selectPosition(position.key)} className="rounded-lg border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-blue-300">
-              <div className="flex items-start justify-between gap-3"><h2 className="font-semibold text-slate-950">{position.nameZh}</h2>{preferenceLabel && <span className="rounded bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">{preferenceLabel}</span>}</div>
-              <p className="mt-1 text-sm text-slate-500">{position.nameEn}</p>
-              <p className="mt-3 text-sm text-slate-600">{interviewQuestions[position.key]?.questions.length || 0} 道岗位题</p>
-            </button>
-            )
-          })}
+        <main className="mx-auto max-w-5xl space-y-7 px-5 py-6">
+          {departmentGroups.map((department) => (
+            <section key={department.key}>
+              <h2 className="mb-3 text-sm font-semibold text-slate-700">{department.nameZh} <span className="font-normal text-slate-400">· {department.nameEn}</span></h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                {department.positions.map((position) => {
+                  const preferenceLabel = getJobPreferenceLabel(position.key, preferences)
+                  return (
+                  <button key={position.key} type="button" onClick={() => selectPosition(position.key)} className="rounded-lg border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-blue-300">
+                    <div className="flex items-start justify-between gap-3"><h3 className="font-semibold text-slate-950">{position.nameZh}</h3>{preferenceLabel && <span className="rounded bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">{preferenceLabel}</span>}</div>
+                    <p className="mt-1 text-sm text-slate-500">{position.nameEn}</p>
+                    <p className="mt-3 text-sm text-slate-600">{interviewQuestions[position.key]?.questions.length || 0} 道岗位题</p>
+                  </button>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
         </main>
       </div>
     )
@@ -178,9 +196,9 @@ export default function InterviewQuestions() {
 
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-blue-700">公开岗位题库</p>
+              <p className="text-sm font-medium text-blue-700">公开岗位题库{currentDepartment && ` · ${currentDepartment.nameZh}`}</p>
               <h1 className="mt-2 text-2xl font-semibold text-slate-950">{currentPosition?.nameZh} · {currentPosition?.nameEn}</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{questions.length} 道岗位训练题，可免费查看考察重点与英文问题。Bar Server 与 Retail 已接入完整岗位训练路径。</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{questions.length} 道岗位训练题，可免费查看考察重点与英文问题。Bar Server 与 Sales Associate 已接入完整岗位训练路径。</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">题目结合公开岗位指南与从业者经验编辑，不把个别公司的面试流程当作行业通用规则。</p>
             </div>
             <button type="button" onClick={() => setShowPositionModal(true)} className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">切换岗位</button>
@@ -269,15 +287,22 @@ export default function InterviewQuestions() {
               <div><h2 className="text-lg font-semibold text-slate-950">切换题库岗位</h2><p className="mt-1 text-sm text-slate-500">不会改动任务2已经确定的目标岗位。</p></div>
               <button type="button" onClick={() => setShowPositionModal(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X size={18} /></button>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {orderedPositionConfig.map((position) => {
-                const preferenceLabel = getJobPreferenceLabel(position.key, preferences)
-                return (
-                <button key={position.key} type="button" onClick={() => selectPosition(position.key)} className={`rounded-lg border p-4 text-left ${positionKey === position.key ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white'}`}>
-                  <div className="flex items-start justify-between gap-2"><p className="font-semibold text-slate-950">{position.nameZh}</p>{preferenceLabel && <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold text-blue-700">{preferenceLabel}</span>}</div><p className="mt-1 text-sm text-slate-500">{position.nameEn}</p>
-                </button>
-                )
-              })}
+            <div className="space-y-4">
+              {departmentGroups.map((department) => (
+                <div key={department.key}>
+                  <p className="mb-2 text-xs font-semibold text-slate-500">{department.nameZh}</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {department.positions.map((position) => {
+                      const preferenceLabel = getJobPreferenceLabel(position.key, preferences)
+                      return (
+                      <button key={position.key} type="button" onClick={() => selectPosition(position.key)} className={`rounded-lg border p-4 text-left ${positionKey === position.key ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white'}`}>
+                        <div className="flex items-start justify-between gap-2"><p className="font-semibold text-slate-950">{position.nameZh}</p>{preferenceLabel && <span className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold text-blue-700">{preferenceLabel}</span>}</div><p className="mt-1 text-sm text-slate-500">{position.nameEn}</p>
+                      </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

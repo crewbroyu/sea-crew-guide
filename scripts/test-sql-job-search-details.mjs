@@ -84,6 +84,15 @@ for (const [label, details, sessions] of invalid) {
   await assert.rejects(insert(details, sessions), /check constraint|violates/, label)
 }
 await assert.rejects(insert(sixty, [], [...sixty.map((item) => item.title), 'Extra']), /check constraint/, '61 positions in the text array')
+
+// 3b. Session dates must be real calendar dates, including month ends and leap years.
+const dateValid = async (value) => (await db.query('select public.job_posting_date_valid($1) as ok', [value])).rows[0].ok
+for (const value of ['2026-12-31', '2026-04-30', '2028-02-29', '2000-02-29', '2026-01-01']) assert.equal(await dateValid(value), true, value)
+for (const value of ['2026-02-31', '2026-02-29', '2100-02-29', '2026-04-31', '2026-13-01', '2026-00-10', '2026-01-00', '0000-01-01', '28 Oct', '2026-1-5', '']) {
+  assert.equal(await dateValid(value), false, value)
+}
+await assert.rejects(insert([], [{ city: '上海', mode: 'offline', date: '2026-02-31', note: null }]), /check constraint/, 'impossible session date')
+await insert([], [{ city: '上海', mode: 'offline', date: '2028-02-29', note: null }])
 await assert.rejects(db.query("update public.job_postings set interview_sessions = '{}'::jsonb"), /check constraint/, 'sessions must be an array')
 
 // 4. Anon still reads published rows, now with the structured columns.
@@ -96,6 +105,7 @@ assert.equal(published[0].position_details.length, 2)
 // 5. The validation function is not directly callable by clients.
 await db.exec('set role anon')
 await assert.rejects(db.query("select public.job_posting_details_valid('[]', '[]')"), /permission denied/)
+await assert.rejects(db.query("select public.job_posting_date_valid('2026-10-28')"), /permission denied/)
 await db.exec('reset role')
 
 console.log('job search details sql: ok')

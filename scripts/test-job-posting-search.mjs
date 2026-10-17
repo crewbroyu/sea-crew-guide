@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  isIsoDate,
   normalizeCruiseLine,
   normalizeInterviewSessions,
   normalizePositionDetails,
@@ -113,5 +114,33 @@ assert.deepEqual(parseFilters(query), shared)
 assert.equal(countActiveFilters(shared), 6)
 assert.deepEqual(parseFilters(''), EMPTY_FILTERS)
 assert.equal(serializeFilters(EMPTY_FILTERS).toString(), '')
+
+// 10. Cross-check fixes (GPT review of 78bacaf).
+// a. Typing a space keeps it: the raw query survives the URL round trip, matching trims it.
+assert.equal(parseFilters(serializeFilters(filters({ q: 'Sous ' }))).q, 'Sous ')
+assert.equal(parseFilters(serializeFilters(filters({ q: 'Sous Chef' }))).q, 'Sous Chef')
+assert.deepEqual(ids(filterJobPostings(postings, filters({ q: '  sous chef  ' }), TODAY)), ['group'])
+assert.equal(serializeFilters(filters({ q: '   ' })).toString(), '', 'A blank query is not shared.')
+
+// b. "Upcoming interview" with a city filter sorts by that city's sessions only.
+const a = { ...msc, id: 'a', deadline: null, published_at: '2026-10-01T00:00:00Z', interview_sessions: [
+  { city: '北京', mode: 'offline', date: '2026-10-19', note: null }, { city: '上海', mode: 'offline', date: '2026-11-20', note: null },
+] }
+const b = { ...msc, id: 'b', deadline: null, published_at: '2026-10-02T00:00:00Z', interview_sessions: [{ city: '上海', mode: 'offline', date: '2026-10-25', note: null }] }
+assert.deepEqual(ids(filterJobPostings([a, b], filters({ cities: ['上海'], sort: 'interview' }), TODAY)), ['b', 'a'])
+assert.deepEqual(ids(filterJobPostings([a, b], filters({ sort: 'interview' }), TODAY)), ['a', 'b'], 'Without a city filter, the soonest session overall counts.')
+
+// c. Impossible dates are rejected, month ends and leap days accepted.
+for (const value of ['2026-02-31', '2026-02-29', '2100-02-29', '2026-04-31', '2026-13-01', '2026-00-01']) assert.equal(isIsoDate(value), false, value)
+for (const value of ['2026-12-31', '2028-02-29', '2000-02-29', '2026-04-30']) assert.equal(isIsoDate(value), true, value)
+assert.deepEqual(normalizeInterviewSessions([{ city: '上海', mode: 'offline', date: '2026-02-31' }])[0].date, null)
+
+// d. Searching for a position and filtering by experience must hold for the same position.
+assert.deepEqual(ids(filterJobPostings(postings, filters({ q: 'Sous Chef', experience: ['none'] }), TODAY)), [])
+assert.deepEqual(filterJobPostings(postings, filters({ q: 'Sous Chef', experience: ['related'] }), TODAY)[0].matchedPositions.map((item) => item.title), ['Sous Chef'])
+// A search that matches other fields (not a position) leaves position filters unrestricted.
+assert.deepEqual(filterJobPostings(postings, filters({ q: '皇家加勒比', experience: ['none'] }), TODAY)[0].matchedPositions.map((item) => item.title), ['Assistant Waiter'])
+// A position search alone lists the matching positions on the card.
+assert.deepEqual(filterJobPostings(postings, filters({ q: 'waiter' }), TODAY)[0].matchedPositions.map((item) => item.title), ['Assistant Waiter'])
 
 console.log('job posting search: ok')

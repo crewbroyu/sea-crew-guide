@@ -11,6 +11,23 @@
 
 begin;
 
+-- A real calendar date in YYYY-MM-DD (rejects 2026-02-31, accepts 2028-02-29). The CASE runs its
+-- checks in order, so malformed text never reaches a cast that would raise an error.
+create or replace function public.job_posting_date_valid(value text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when value !~ '^\d{4}-\d{2}-\d{2}$' then false
+    when substr(value, 1, 4)::int < 1 or substr(value, 6, 2)::int not between 1 and 12 then false
+    else substr(value, 9, 2)::int between 1 and extract(day from (
+      make_date(substr(value, 1, 4)::int, substr(value, 6, 2)::int, 1) + interval '1 month - 1 day'
+    ))::int
+  end
+$$;
+
 create or replace function public.job_posting_details_valid(details jsonb, sessions jsonb)
 returns boolean
 language sql
@@ -34,7 +51,7 @@ as $$
         or coalesce(item ->> 'mode', '') not in ('online', 'offline', 'unspecified')
         or (item ->> 'city') is not null and char_length(item ->> 'city') > 30
         or (item ->> 'note') is not null and char_length(item ->> 'note') > 120
-        or (item ->> 'date') is not null and (item ->> 'date') !~ '^\d{4}-\d{2}-\d{2}$'
+        or (item ->> 'date') is not null and not public.job_posting_date_valid(item ->> 'date')
     )
 $$;
 
@@ -61,5 +78,7 @@ where position_details = '[]'::jsonb and cardinality(positions) > 0;
 -- The function only validates shapes and reads no data.
 revoke all on function public.job_posting_details_valid(jsonb, jsonb) from public, anon;
 grant execute on function public.job_posting_details_valid(jsonb, jsonb) to authenticated;
+revoke all on function public.job_posting_date_valid(text) from public, anon;
+grant execute on function public.job_posting_date_valid(text) to authenticated;
 
 commit;

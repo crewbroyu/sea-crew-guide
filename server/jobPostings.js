@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import process from 'node:process'
 import { JOB_DEPARTMENTS } from '../src/data/jobDepartments.js'
 import {
+  isIsoDate,
   MAX_POSITIONS,
   normalizeCruiseLines,
   normalizeInterviewSessions,
@@ -179,7 +180,7 @@ export const sanitizeExtraction = (raw = {}, article = {}) => {
     locations: textOrNull(raw.locations, 200),
     requirements: textOrNull(raw.requirements, 800),
     salary: textOrNull(raw.salary, 200),
-    deadline: /^\d{4}-\d{2}-\d{2}$/.test(deadline) && !Number.isNaN(Date.parse(deadline)) ? deadline : null,
+    deadline: isIsoDate(deadline) ? deadline : null,
     risk_flags: textList(raw.risk_flags, 10, 120),
     is_recruitment: raw.is_recruitment !== false,
   }

@@ -1,13 +1,17 @@
 import { supabase } from '../supabase'
+import { normalizeCruiseLines, normalizeInterviewSessions, normalizePositionDetails } from '../data/jobPostingDetails.js'
+import { sortJobPostings } from '../data/jobPostingSearch.js'
 
 export { JOB_DEPARTMENTS } from '../data/jobDepartments.js'
+export { isJobPostingExpired, sortJobPostings } from '../data/jobPostingSearch.js'
 
 const EDITABLE_FIELDS = [
   'source_type', 'source_name', 'source_url', 'source_published_on', 'title', 'summary',
-  'cruise_lines', 'departments', 'positions', 'agency', 'locations', 'requirements',
-  'salary', 'deadline', 'risk_flags', 'status',
+  'cruise_lines', 'departments', 'positions', 'position_details', 'interview_sessions', 'agency',
+  'locations', 'requirements', 'salary', 'deadline', 'risk_flags', 'status',
 ]
-const PUBLIC_FIELDS = 'id, source_name, source_url, source_published_on, title, summary, cruise_lines, departments, positions, agency, locations, requirements, salary, deadline, published_at'
+const PUBLIC_FIELDS = 'id, source_name, source_url, source_published_on, title, summary, cruise_lines, departments, positions, position_details, interview_sessions, agency, locations, requirements, salary, deadline, published_at'
+const PAGE_SIZE = 500
 
 export class JobPostingError extends Error {
   constructor(code, message) {
@@ -17,36 +21,41 @@ export class JobPostingError extends Error {
   }
 }
 
-const todayInShanghai = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date())
-
-export const isJobPostingExpired = (posting, today = todayInShanghai()) => Boolean(posting?.deadline && posting.deadline < today)
-
-// Open postings first (newest first), then expired ones.
-export const sortJobPostings = (postings, today = todayInShanghai()) => [...postings].sort((left, right) => {
-  const expiredDiff = Number(isJobPostingExpired(left, today)) - Number(isJobPostingExpired(right, today))
-  if (expiredDiff) return expiredDiff
-  return String(right.published_at || '').localeCompare(String(left.published_at || ''))
-})
+// Reads every matching row in pages, so filtering never silently misses older postings.
+const readAllPages = async (buildQuery) => {
+  const rows = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    rows.push(...(data || []))
+    if (!data || data.length < PAGE_SIZE) return rows
+  }
+}
 
 export const listPublishedJobPostings = async () => {
-  const { data, error } = await supabase
-    .from('job_postings')
-    .select(PUBLIC_FIELDS)
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .limit(100)
-  if (error) throw new JobPostingError('LOAD_FAILED', '暂时无法读取招聘信息，请稍后再试。')
-  return sortJobPostings(data || [])
+  try {
+    const rows = await readAllPages(() => supabase
+      .from('job_postings')
+      .select(PUBLIC_FIELDS)
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .order('id'))
+    return sortJobPostings(rows)
+  } catch {
+    throw new JobPostingError('LOAD_FAILED', '暂时无法读取招聘信息，请稍后再试。')
+  }
 }
 
 export const listAllJobPostings = async () => {
-  const { data, error } = await supabase
-    .from('job_postings')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(200)
-  if (error) throw new JobPostingError('LOAD_FAILED', '暂时无法读取招聘列表。')
-  return data || []
+  try {
+    return await readAllPages(() => supabase
+      .from('job_postings')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .order('id'))
+  } catch {
+    throw new JobPostingError('LOAD_FAILED', '暂时无法读取招聘列表。')
+  }
 }
 
 const toListValue = (value) => (Array.isArray(value) ? value : String(value || '').split(/[,，、\n]/))
@@ -55,9 +64,17 @@ const toListValue = (value) => (Array.isArray(value) ? value : String(value || '
 
 export const toJobPostingRow = (draft) => {
   const row = Object.fromEntries(EDITABLE_FIELDS.filter((field) => field in draft).map((field) => [field, draft[field]]))
-  for (const field of ['cruise_lines', 'departments', 'positions', 'risk_flags']) {
+  for (const field of ['departments', 'risk_flags']) {
     if (field in row) row[field] = toListValue(row[field])
   }
+  if ('cruise_lines' in row) row.cruise_lines = normalizeCruiseLines(toListValue(row.cruise_lines))
+  // position_details is the source of truth; positions stays in sync for grouping and older readers.
+  if ('position_details' in row || 'positions' in row) {
+    const source = 'position_details' in row ? row.position_details : toListValue(row.positions)
+    row.position_details = normalizePositionDetails(source).details
+    row.positions = row.position_details.map((item) => item.title)
+  }
+  if ('interview_sessions' in row) row.interview_sessions = normalizeInterviewSessions(row.interview_sessions)
   for (const field of ['agency', 'locations', 'requirements', 'salary', 'deadline', 'source_published_on']) {
     if (field in row) row[field] = String(row[field] || '').trim() || null
   }

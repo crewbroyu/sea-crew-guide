@@ -40,6 +40,34 @@ assert.equal(extraction.agency, null)
 assert.equal(extraction.is_recruitment, false)
 assert.equal(sanitizeExtraction({ deadline: '2026-11-30' }).deadline, '2026-11-30')
 
+// 3b. Structured search details: per-position experience, sessions, canonical cruise lines.
+const structured = sanitizeExtraction({
+  cruise_lines: ['Royal Caribbean', '皇家加勒比', 'Celebrity'],
+  position_details: [
+    { title: 'Assistant Waiter', experience: 'none' },
+    { title: 'Front Desk Manager', experience: 'cruise' },
+    { title: 'Sous Chef', experience: 'expert' },
+  ],
+  interview_sessions: [
+    { city: '上海', mode: 'offline', date: '2026-10-28', note: '静安区' },
+    { city: null, mode: 'online', date: 'next week', note: null },
+  ],
+  positions_incomplete: true,
+})
+assert.deepEqual(structured.cruise_lines, ['Royal Caribbean International', 'Celebrity Cruises'])
+assert.deepEqual(structured.position_details.map((item) => item.experience), ['none', 'cruise', 'unspecified'])
+assert.deepEqual(structured.positions, ['Assistant Waiter', 'Front Desk Manager', 'Sous Chef'])
+assert.deepEqual(structured.interview_sessions, [
+  { city: '上海', mode: 'offline', date: '2026-10-28', note: '静安区' },
+  { city: null, mode: 'online', date: null, note: null },
+])
+assert.equal(structured.extraction_warnings.length, 1, 'An incomplete position list is flagged for the admin.')
+const big = sanitizeExtraction({ position_details: Array.from({ length: 65 }, (_, index) => ({ title: `Role ${index}` })) }, { textTruncated: true })
+assert.equal(big.position_details.length, 60)
+assert.equal(big.extraction_warnings.length, 2, 'Truncated positions and a truncated article are both flagged.')
+// Older responses with a plain positions list still work, with experience unspecified.
+assert.deepEqual(sanitizeExtraction({ positions: ['Bar Server'] }).position_details, [{ title: 'Bar Server', experience: 'unspecified' }])
+
 // 4. The handler rejects anonymous callers before fetching anything.
 const anonymous = await handleJobPostingRequest({
   method: 'POST', headers: {}, body: { sourceUrl: 'https://mp.weixin.qq.com/s/abc' },

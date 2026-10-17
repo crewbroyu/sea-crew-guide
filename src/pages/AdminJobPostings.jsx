@@ -10,6 +10,8 @@ import {
   saveJobPosting,
   setJobPostingStatus,
 } from '../services/jobPostingService'
+import { InterviewSessionsEditor, PositionDetailsEditor } from '../components/jobs/PostingDetailsEditor'
+import { getPostingPositionDetails } from '../data/jobPostingSearch'
 
 const statusLabels = { draft: '草稿', published: '已发布', archived: '已下架' }
 const statusStyles = {
@@ -38,6 +40,8 @@ function DraftEditor({ draft, onChange, onSave, onCancel, saving }) {
     departments: departments.includes(department) ? departments.filter((item) => item !== department) : [...departments, department],
   })
   const riskFlags = Array.isArray(draft.risk_flags) ? draft.risk_flags : []
+  const extractionWarnings = Array.isArray(draft.extraction_warnings) ? draft.extraction_warnings : []
+  const positionDetails = getPostingPositionDetails(draft)
 
   return (
     <section className="space-y-4 rounded-xl border border-blue-200 bg-white p-5 shadow-sm">
@@ -53,6 +57,13 @@ function DraftEditor({ draft, onChange, onSave, onCancel, saving }) {
         </div>
       )}
 
+      {extractionWarnings.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="flex items-center gap-1 font-semibold"><AlertTriangle size={16} />提取可能不完整</p>
+          <ul className="mt-1 list-disc pl-5">{extractionWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="标题 *"><input className={inputClass} value={draft.title || ''} onChange={set('title')} maxLength={120} /></Field>
         <Field label="来源名称 *" hint="公众号名或网站名"><input className={inputClass} value={draft.source_name || ''} onChange={set('source_name')} maxLength={80} /></Field>
@@ -63,13 +74,17 @@ function DraftEditor({ draft, onChange, onSave, onCancel, saving }) {
         <textarea className={inputClass} rows={3} value={draft.summary || ''} onChange={set('summary')} maxLength={400} />
       </Field>
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="邮轮公司" hint="用顿号或逗号分隔"><input className={inputClass} value={joinList(draft.cruise_lines)} onChange={set('cruise_lines')} /></Field>
-        <Field label="具体岗位" hint="用顿号或逗号分隔"><input className={inputClass} value={joinList(draft.positions)} onChange={set('positions')} /></Field>
+        <Field label="邮轮公司" hint="用顿号或逗号分隔；保存时自动统一公司名称"><input className={inputClass} value={joinList(draft.cruise_lines)} onChange={set('cruise_lines')} /></Field>
         <Field label="招聘机构"><input className={inputClass} value={draft.agency || ''} onChange={set('agency')} maxLength={120} /></Field>
-        <Field label="面试/报名地点"><input className={inputClass} value={draft.locations || ''} onChange={set('locations')} maxLength={200} /></Field>
+        <Field label="面试地点概括（选填）" hint="前台优先显示下方面试场次"><input className={inputClass} value={draft.locations || ''} onChange={set('locations')} maxLength={200} /></Field>
         <Field label="薪资"><input className={inputClass} value={draft.salary || ''} onChange={set('salary')} maxLength={200} /></Field>
-        <Field label="截止日期" hint="过期后前台自动标记为已截止"><input type="date" className={inputClass} value={draft.deadline || ''} onChange={set('deadline')} /></Field>
+        <Field label="报名截止日期" hint="只填原文明确写出的报名截止；面试日期填在面试场次里。不填则前台显示“截止时间未说明”"><input type="date" className={inputClass} value={draft.deadline || ''} onChange={set('deadline')} /></Field>
       </div>
+      <PositionDetailsEditor
+        value={positionDetails}
+        onChange={(position_details) => onChange({ ...draft, position_details, positions: position_details.map((item) => item.title) })}
+      />
+      <InterviewSessionsEditor value={draft.interview_sessions || []} onChange={(interview_sessions) => onChange({ ...draft, interview_sessions })} />
       <Field label="岗位要求">
         <textarea className={inputClass} rows={3} value={draft.requirements || ''} onChange={set('requirements')} maxLength={800} />
       </Field>

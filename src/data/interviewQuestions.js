@@ -524,10 +524,6 @@ const sourceCatalog = {
     label: 'CDC Vessel Sanitation Program 岗位规范',
     url: 'https://www.cdc.gov/vessel-sanitation/communication-resources/operational-inspections.html',
   },
-  jewelry: {
-    label: 'GIA 钻石 4C 与宝石知识',
-    url: 'https://4cs.gia.edu/en-us/',
-  },
   shipRoles: {
     label: 'Royal Caribbean Group 船上岗位说明 + 从业者经验',
     url: 'https://careers.royalcaribbeangroup.com/ship/',
@@ -592,7 +588,6 @@ const sourceForQuestion = (positionKey, question) => {
   if (positionKey === 'restaurant') return sourceCatalog.restaurant
   if (positionKey === 'front_office') return sourceCatalog.frontOffice
   if (positionKey === 'retail') return sourceCatalog.retail
-  if (positionKey === 'effy_jewelry') return question.category === 'knowledge' ? sourceCatalog.jewelry : sourceCatalog.retail
   return sourceCatalog.shipRoles
 }
 
@@ -605,6 +600,9 @@ Object.entries(interviewQuestions).forEach(([positionKey, bank]) => {
     const revised = positionKey === 'restaurant' ? restaurantRevisions[question.id] || {} : {}
     const updatedQuestion = { ...question, ...refined, ...revised }
 
+    // A question that declares its own source type (the Effy bank) keeps its own source and note,
+    // and may have no link at all; older banks fall back to one reference per position.
+    if (updatedQuestion.sourceType) return updatedQuestion
     return {
       ...updatedQuestion,
       source: sourceForQuestion(positionKey, updatedQuestion),

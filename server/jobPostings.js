@@ -1,13 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
 import process from 'node:process'
 import { JOB_DEPARTMENTS } from '../src/data/jobDepartments.js'
+import {
+  isIsoDate,
+  MAX_POSITIONS,
+  normalizeCruiseLines,
+  normalizeInterviewSessions,
+  normalizePositionDetails,
+} from '../src/data/jobPostingDetails.js'
 
 // Admin-only: fetch a public recruitment article and extract draft fields for review.
 // Nothing is written here; the admin saves the reviewed draft through RLS.
 
 const DEFAULT_TEXT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 const DEFAULT_MODEL = 'qwen3.5-plus'
-const MAX_ARTICLE_CHARS = 12000
+const MAX_ARTICLE_CHARS = 20000
 const ALLOWED_SOURCE_HOSTS = ['mp.weixin.qq.com']
 
 
@@ -102,7 +109,8 @@ export const parseWechatArticle = (html) => {
   const contentHtml = html.match(/id="js_content"[^>]*>([\s\S]*?)<\/div>\s*(?:<script|<div[^>]+(?:js_pc_qr_code|rich_media_tool|js_tags))/i)?.[1]
     || html.match(/id="js_content"[^>]*>([\s\S]*)/i)?.[1]
     || ''
-  return { title, sourceName, publishedOn, text: htmlToText(contentHtml).slice(0, MAX_ARTICLE_CHARS) }
+  const text = htmlToText(contentHtml)
+  return { title, sourceName, publishedOn, text: text.slice(0, MAX_ARTICLE_CHARS), textTruncated: text.length > MAX_ARTICLE_CHARS }
 }
 
 const fetchArticle = async (sourceUrl) => {
@@ -130,12 +138,19 @@ const SYSTEM_PROMPT = `你是邮轮海乘招聘信息整理员。根据用户给
 - summary: 不超过 150 字的客观摘要，说明谁在招、招什么、面试安排
 - cruise_lines: 邮轮公司英文名数组（如 "Royal Caribbean"、"MSC Cruises"），原文没写则为空数组
 - departments: 从以下取值中选择的数组：${JOB_DEPARTMENTS.join('、')}
-- positions: 具体岗位名数组，保留原文写法
+- position_details: 原文列出的每个具体岗位，数组，最多 ${MAX_POSITIONS} 个，每项 {"title": 岗位名（保留原文写法）, "experience": 经验要求}。experience 只依据原文对该岗位的明确要求：
+  - "none"：原文明确写了该岗位无需经验、零经验或接受应届生
+  - "related"：原文要求相关工作经验（如酒店、餐饮经验），但没有要求邮轮经验
+  - "cruise"：原文要求邮轮或船上工作经验
+  - "unspecified"：原文没有写明。不要因为是基础岗位就推断为 "none"；"无需邮轮经验"不等于"无需相关工作经验"
+  如果某条要求明确适用于全部岗位，就给全部岗位标上；只适用于部分岗位的，只标那些岗位
+- positions_incomplete: 原文岗位是否没有完整列出（例如用"等岗位"省略、岗位表是图片、或超过 ${MAX_POSITIONS} 个），布尔值
+- interview_sessions: 每一场面试一项，数组，每项 {"city": 城市名（中文，如"上海"），线上面试没有城市则为 null, "mode": "offline" 线下 / "online" 线上 / "unspecified" 未说明, "date": 面试日期 YYYY-MM-DD，原文没写具体日期则为 null, "note": 原文中关于该场的补充（如具体地址、时间段），没有则为 null}。不同城市或方式要分成不同的场次。原文没写年份时，按文章发布日期推断最近的那一天
 - agency: 发布或代理招聘的机构名称，没有则为 null
-- locations: 面试或报名地点，没有则为 null
+- locations: 面试或报名地点的原文概括，不超过 60 字，没有则为 null
 - requirements: 年龄、学历、英语、经验等要求，不超过 200 字，没有则为 null
 - salary: 薪资描述，没有则为 null
-- deadline: 报名截止或面试日期，YYYY-MM-DD 格式，无法确定则为 null
+- deadline: 只填原文明确写出的报名截止日期，YYYY-MM-DD 格式。面试日期不要填在这里，写进 interview_sessions；原文没写报名截止就为 null
 - risk_flags: 风险提示数组，例如原文要求先交培训费、押金、服务费，承诺"包过""保录取"，或缺少机构名称；没有则为空数组
 - is_recruitment: 原文是否是邮轮或船上岗位招聘信息（布尔值）`
 
@@ -146,17 +161,26 @@ const textList = (value, max, itemMax = 60) => Array.isArray(value)
 
 export const sanitizeExtraction = (raw = {}, article = {}) => {
   const deadline = trimText(raw.deadline, 10)
+  // Older prompts returned a plain positions list; accept it as positions with unspecified experience.
+  const positions = normalizePositionDetails(Array.isArray(raw.position_details) ? raw.position_details : raw.positions)
   return {
     title: trimText(raw.title, 120) || article.title || '',
     summary: trimText(raw.summary, 400),
-    cruise_lines: textList(raw.cruise_lines, 10),
+    cruise_lines: normalizeCruiseLines(raw.cruise_lines),
     departments: textList(raw.departments, 10).filter((item) => JOB_DEPARTMENTS.includes(item)),
-    positions: textList(raw.positions, 20),
+    position_details: positions.details,
+    positions: positions.details.map((item) => item.title),
+    interview_sessions: normalizeInterviewSessions(raw.interview_sessions),
+    extraction_warnings: [
+      ...(positions.truncated ? [`原文岗位超过 ${MAX_POSITIONS} 个，只保留了前 ${MAX_POSITIONS} 个，请核对。`] : []),
+      ...(raw.positions_incomplete === true ? ['原文岗位可能没有完整列出（例如"等岗位"或岗位表是图片），请对照原文补充。'] : []),
+      ...(article.textTruncated ? ['原文过长，只读取了前面部分，后面的岗位或面试安排可能漏掉，请对照原文核对。'] : []),
+    ],
     agency: textOrNull(raw.agency, 120),
     locations: textOrNull(raw.locations, 200),
     requirements: textOrNull(raw.requirements, 800),
     salary: textOrNull(raw.salary, 200),
-    deadline: /^\d{4}-\d{2}-\d{2}$/.test(deadline) && !Number.isNaN(Date.parse(deadline)) ? deadline : null,
+    deadline: isIsoDate(deadline) ? deadline : null,
     risk_flags: textList(raw.risk_flags, 10, 120),
     is_recruitment: raw.is_recruitment !== false,
   }
@@ -171,14 +195,14 @@ const extractWithAi = async ({ config, article }) => {
       model: config.model,
       enable_thinking: false,
       temperature: 0.1,
-      max_completion_tokens: 1200,
+      max_completion_tokens: 4000,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `标题：${article.title || '（无）'}\n发布账号：${article.sourceName || '（无）'}\n正文：\n${article.text}` },
+        { role: 'user', content: `标题：${article.title || '（无）'}\n发布账号：${article.sourceName || '（无）'}\n文章发布日期：${article.publishedOn || '未知'}\n正文：\n${article.text}` },
       ],
     }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(55_000),
   })
   const raw = await response.text()
   if (!response.ok) {
@@ -203,7 +227,7 @@ export async function handleJobPostingRequest({ method, headers, body, env }) {
 
     const pastedText = trimText(body?.articleText, MAX_ARTICLE_CHARS)
     const article = pastedText.length >= 80
-      ? { title: '', sourceName: '', publishedOn: null, text: pastedText }
+      ? { title: '', sourceName: '', publishedOn: null, text: pastedText, textTruncated: String(body?.articleText || '').trim().length > MAX_ARTICLE_CHARS }
       : await fetchArticle(sourceUrl)
 
     const extraction = sanitizeExtraction(await extractWithAi({ config, article }), article)

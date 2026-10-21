@@ -56,7 +56,11 @@
     "test:scenario-first-turn": "node scripts/test-scenario-first-turn.mjs",
     "test:scenario-turn-draft": "node scripts/test-scenario-turn-draft.mjs",
     "test:task5-photos": "node scripts/test-task5-photo-removal.mjs",
-    "test:voice-latency": "node scripts/test-voice-latency.mjs"
+    "test:voice-latency": "node scripts/test-voice-latency.mjs",
+    "bench:tts": "node --env-file=.env.local scripts/benchmark-tts-latency.mjs",
+    "bench:tts-browser": "node --env-file=.env.local scripts/tts-bench/server.mjs",
+    "bench:tts-cost": "node scripts/tts-bench/cost.mjs",
+    "test:tts-riff": "node scripts/test-tts-riff-compat.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

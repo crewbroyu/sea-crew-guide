@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CrewPath TTS 评测</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 960px; padding: 16px; color: #0f172a; }
+  h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 28px; }
+  fieldset { border: 1px solid #cbd5e1; border-radius: 8px; margin: 8px 0; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  th, td { border-bottom: 1px solid #e2e8f0; padding: 4px 6px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  button { padding: 6px 12px; margin: 2px; cursor: pointer; }
+  .clip { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; margin: 6px 0; }
+  .muted { color: #64748b; } .warn { color: #b45309; }
+</style>
+</head>
+<body>
+<h1>CrewPath TTS 评测（本地，仅测试用）</h1>
+<p class="muted" id="usage">加载中…</p>
+
+<h2>1. 浏览器播放延迟</h2>
+<fieldset>
+  <label>声音 <select id="lat-voice"></select></label>
+  <label>句子 <select id="lat-sentence"></select></label>
+  <label>语速 <select id="lat-rate"></select></label>
+  <label>次数 <input id="lat-runs" type="number" min="1" max="3" value="1" style="width:3em"></label>
+  <button id="lat-run">开始（会产生付费请求）</button>
+</fieldset>
+<table id="lat-table">
+  <thead><tr><th>声音</th><th>服务商首字节</th><th>服务商首段音频</th><th>浏览器首字节</th><th>浏览器首段可解码</th><th>开始播放</th><th>估计可听见</th><th>生成完成</th><th>断流次数/时长</th><th>结束处理</th></tr></thead>
+  <tbody></tbody>
+</table>
+<p class="muted">单位 ms。“服务商”两列从本地服务器收到请求开始计时，其余列从点击按钮开始计时。“结束处理”：ended = 由最后一段 ended 事件结束；timeout = 走了生产代码里的 1.5 s 兜底超时。</p>
+<button id="lat-save">保存结果到电脑</button> <span class="muted" id="lat-saved"></span>
+
+<h2>2. 盲听测试</h2>
+<fieldset id="blind-voices"><legend>参与比较的声音</legend></fieldset>
+<label>评分人 <input id="blind-rater" placeholder="名字或编号" style="width:8em"></label>
+<label>收听方式 <select id="blind-device"><option>手机外放</option><option>耳机</option><option>电脑音箱</option></select></label>
+<button id="blind-start">开始盲听</button>
+<div id="blind"></div>
+
+<script type="module">
+import { createPcmStreamDecoder } from '/pcmStream.js'
+
+const $ = (id) => document.getElementById(id)
+const config = await (await fetch('/config')).json()
+let audioContext = null
+const latencyResults = []
+
+const refreshUsage = async () => {
+  const usage = await (await fetch('/usage')).json()
+  $('usage').textContent = `本进程已调用服务商 ${usage.requests}/${usage.maxRequests} 次，缓存命中 ${usage.cacheHits} 次，估算 ¥${usage.estimatedCny.toFixed(4)}（Qwen ${usage.characters.qwen} 字符，Azure ${usage.characters.azure} 字符）`
+}
+const option = (value, label, disabled = false) => Object.assign(document.createElement('option'), { value, textContent: label, disabled })
+for (const voice of config.voices) $('lat-voice').append(option(voice.key, `${voice.label}${voice.configured ? '' : '（未配置）'}`, !voice.configured))
+for (const sentence of config.sentences) $('lat-sentence').append(option(sentence.id, sentence.text))
+for (const rate of config.rates) $('lat-rate').append(option(rate, rate === 'slow' ? '慢速 (Azure -20%)' : '正常'))
+refreshUsage()
+
+// Same as ensureRunningContext/unlockAudio in src/services/ttsService.js: created inside the click.
+const unlock = () => {
+  audioContext ||= new (window.AudioContext || window.webkitAudioContext)()
+  if (audioContext.state === 'suspended') audioContext.resume()
+  return audioContext
+}
+
+// Mirrors createPlaybackQueue in src/services/ttsService.js, with timing added. Keep in sync.
+const createPlaybackQueue = (context, clickAt, stats) => {
+  let nextStartTime = 0
+  let lastSource = null
+  return {
+    push(samples, sampleRate) {
+      const buffer = context.createBuffer(1, samples.length, sampleRate)
+      buffer.copyToChannel(samples, 0)
+      const source = context.createBufferSource()
+      source.buffer = buffer
+      source.connect(context.destination)
+      const startTime = Math.max(nextStartTime, context.currentTime + 0.12)
+      if (nextStartTime && startTime > nextStartTime + 0.005) {
+        stats.underruns += 1
+        stats.underrunMs += (startTime - nextStartTime) * 1000
+      }
+      if (stats.playStartMs === null) {
+        const startAt = performance.now() + (startTime - context.currentTime) * 1000
+        stats.playStartMs = startAt - clickAt
+        stats.audibleMs = stats.playStartMs + ((context.outputLatency || context.baseLatency || 0) * 1000)
+      }
+      source.start(startTime)
+      nextStartTime = startTime + buffer.duration
+      lastSource = source
+    },
+    finished() {
+      if (!lastSource) return Promise.resolve('none')
+      const source = lastSource
+      const remainingMs = Math.max(0, nextStartTime - context.currentTime) * 1000
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => resolve('timeout'), remainingMs + 1500)
+        source.addEventListener('ended', () => { clearTimeout(timer); resolve('ended') })
+      })
+    },
+  }
+}
+
+const base64ToBytes = (value) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0))
+
+const measureOnce = async (voiceKey, sentenceId, rate) => {
+  const clickAt = performance.now()
+  const context = unlock()
+  const stats = { voiceKey, sentenceId, rate, browserFirstByteMs: null, browserFirstDecodableMs: null, playStartMs: null, audibleMs: null, underruns: 0, underrunMs: 0 }
+  const queue = createPlaybackQueue(context, clickAt, stats)
+  const decoder = createPcmStreamDecoder()
+  const response = await fetch('/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voiceKey, sentenceId, rate }) })
+  if (!response.ok) throw new Error((await response.json()).error)
+  const reader = response.body.getReader()
+  const textDecoder = new TextDecoder()
+  let buffered = ''
+  const handleLine = (line) => {
+    if (!line.trim()) return
+    const message = JSON.parse(line)
+    if (message.type === 'audio') {
+      const samples = decoder.push(base64ToBytes(message.data))
+      if (!samples.length) return
+      stats.browserFirstDecodableMs ??= performance.now() - clickAt
+      queue.push(samples, decoder.sampleRate)
+    } else if (message.type === 'done') {
+      Object.assign(stats, message.timing)
+      stats.generatedMs = performance.now() - clickAt
+    } else if (message.type === 'error') {
+      throw new Error(message.error)
+    }
+  }
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    stats.browserFirstByteMs ??= performance.now() - clickAt
+    buffered += textDecoder.decode(value, { stream: true })
+    const lines = buffered.split('\n')
+    buffered = lines.pop()
+    lines.forEach(handleLine)
+  }
+  handleLine(buffered)
+  stats.endedBy = await queue.finished()
+  return stats
+}
+
+const ms = (value) => (Number.isFinite(value) ? Math.round(value) : '-')
+$('lat-run').onclick = async () => {
+  $('lat-run').disabled = true
+  try {
+    for (let run = 0; run < Math.min(3, Number($('lat-runs').value) || 1); run += 1) {
+      const result = await measureOnce($('lat-voice').value, $('lat-sentence').value, $('lat-rate').value)
+      latencyResults.push(result)
+      const row = $('lat-table').tBodies[0].insertRow()
+      ;[result.voiceKey, ms(result.providerFirstByteMs), ms(result.providerFirstAudioMs), ms(result.browserFirstByteMs), ms(result.browserFirstDecodableMs), ms(result.playStartMs), ms(result.audibleMs), ms(result.generatedMs), `${result.underruns}/${ms(result.underrunMs)}`, result.endedBy]
+        .forEach((value) => { row.insertCell().textContent = value })
+    }
+  } catch (error) {
+    alert(`失败：${error.message}`)
+  } finally {
+    $('lat-run').disabled = false
+    refreshUsage()
+  }
+}
+// Saved by the local server into tmp/tts-bench/results, so it also works from a phone.
+const saveResults = async (kind, payload) => {
+  const response = await fetch('/results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, userAgent: navigator.userAgent, ...payload }) })
+  return (await response.json()).file
+}
+$('lat-save').onclick = async () => { $('lat-saved').textContent = `已保存：${await saveResults('latency', { results: latencyResults })}` }
+
+// Blind test: same texts for every voice, random labels per sentence, loudness-matched playback.
+const defaults = new Set(['qwen-cherry', 'qwen-jennifer', 'azure-us', 'azure-gb', 'azure-in'])
+for (const voice of config.voices) {
+  const label = document.createElement('label')
+  label.innerHTML = `<input type="checkbox" value="${voice.key}" ${voice.configured && defaults.has(voice.key) ? 'checked' : ''} ${voice.configured ? '' : 'disabled'}> ${voice.label} `
+  $('blind-voices').append(label)
+}
+
+const shuffle = (items) => {
+  const copy = [...items]
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swap = crypto.getRandomValues(new Uint32Array(1))[0] % (index + 1)
+    ;[copy[index], copy[swap]] = [copy[swap], copy[index]]
+  }
+  return copy
+}
+
+// Azure from mainland networks sometimes times out; a failed clip is retried before giving up.
+const fetchClip = async (voiceKey, sentenceId, attempts = 3) => {
+  for (let attempt = 1; ; attempt += 1) {
+    const response = await fetch(`/clip?voiceKey=${voiceKey}&sentenceId=${sentenceId}`).catch((error) => ({ ok: false, error }))
+    if (response.ok) return response
+    const message = response.error?.message || (await response.json().catch(() => ({}))).error || 'CLIP_FAILED'
+    if (attempt >= attempts) throw new Error(`${voiceKey}: ${message}`)
+  }
+}
+
+const loadClip = async (voiceKey, sentenceId) => {
+  const response = await fetchClip(voiceKey, sentenceId)
+  const buffer = await unlock().decodeAudioData(await response.arrayBuffer())
+  const data = buffer.getChannelData(0)
+  const rms = Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length) || 1
+  return { buffer, gain: Math.min(4, 0.08 / rms) }
+}
+
+let playing = null
+const play = ({ buffer, gain }) => {
+  playing?.stop()
+  const context = unlock()
+  const source = context.createBufferSource()
+  const gainNode = context.createGain()
+  gainNode.gain.value = gain
+  source.buffer = buffer
+  source.connect(gainNode).connect(context.destination)
+  source.start()
+  playing = source
+}
+
+const SCALES = [['natural', '自然度'], ['clarity', '清晰度'], ['fit', '适合岗位练习']]
+const answers = []
+
+$('blind-start').onclick = async () => {
+  const voiceKeys = [...$('blind-voices').querySelectorAll('input:checked')].map((input) => input.value)
+  if (voiceKeys.length < 2) return alert('至少选择两个声音')
+  answers.length = 0
+  $('blind-start').disabled = true
+  try {
+    for (const [index, sentence] of config.sentences.entries()) {
+      const order = shuffle(voiceKeys)
+      const clips = await Promise.all(order.map((key) => loadClip(key, sentence.id)))
+      refreshUsage()
+      await new Promise((resolve) => {
+        $('blind').innerHTML = `<p><b>${index + 1}/${config.sentences.length}</b> ${sentence.text}</p>`
+        order.forEach((voiceKey, position) => {
+          const box = document.createElement('div')
+          box.className = 'clip'
+          box.innerHTML = `<b>声音 ${String.fromCharCode(65 + position)}</b> <button>播放</button> ${SCALES.map(([key, label]) => `<label>${label} <select data-key="${key}"><option value="">-</option>${[1, 2, 3, 4, 5].map((score) => `<option>${score}</option>`).join('')}</select></label>`).join(' ')}`
+          box.querySelector('button').onclick = () => play(clips[position])
+          box.dataset.voiceKey = voiceKey
+          box.dataset.label = String.fromCharCode(65 + position)
+          $('blind').append(box)
+        })
+        const next = Object.assign(document.createElement('button'), { textContent: '下一句' })
+        next.onclick = () => {
+          const boxes = [...$('blind').querySelectorAll('.clip')]
+          const rows = boxes.map((box) => ({
+            sentenceId: sentence.id,
+            label: box.dataset.label,
+            voiceKey: box.dataset.voiceKey,
+            ...Object.fromEntries([...box.querySelectorAll('select')].map((select) => [select.dataset.key, Number(select.value) || null])),
+          }))
+          if (rows.some((row) => SCALES.some(([key]) => !row[key]))) return alert('请给每个声音的三项都打分')
+          next.disabled = true
+          answers.push(...rows)
+          resolve()
+        }
+        $('blind').append(next)
+      })
+    }
+    showBlindResults()
+  } catch (error) {
+    // Clips already generated stay cached on disk, so restarting costs only the missing ones.
+    $('blind').innerHTML = `<p class="warn">音频生成失败：${error.message}。已生成的音频已缓存，可以直接重新开始。</p>`
+    if (answers.length) saveResults('blind', { partial: true, rater: $('blind-rater').value.trim(), device: $('blind-device').value, answers })
+  } finally {
+    refreshUsage()
+  }
+  $('blind-start').disabled = false
+}
+
+const showBlindResults = () => {
+  const byVoice = answers.reduce((groups, row) => groups.set(row.voiceKey, [...(groups.get(row.voiceKey) || []), row]), new Map())
+  const mean = (rows, key) => (rows.reduce((sum, row) => sum + row[key], 0) / rows.length).toFixed(2)
+  $('blind').innerHTML = `<h3>结果（揭晓）</h3><table><thead><tr><th>声音</th>${SCALES.map(([, label]) => `<th>${label}</th>`).join('')}<th>样本</th></tr></thead><tbody>${
+    [...byVoice].map(([key, rows]) => `<tr><td>${config.voices.find((voice) => voice.key === key).label}</td>${SCALES.map(([scale]) => `<td>${mean(rows, scale)}</td>`).join('')}<td>${rows.length}</td></tr>`).join('')
+  }</tbody></table><p class="muted" id="blind-saved">保存中…</p>`
+  saveResults('blind', { rater: $('blind-rater').value.trim(), device: $('blind-device').value, answers }).then((file) => { $('blind-saved').textContent = `已保存：${file}` })
+}
+</script>
+</body>
+</html>

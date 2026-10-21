@@ -65,6 +65,17 @@ assert.equal(structured.extraction_warnings.length, 1, 'An incomplete position l
 const big = sanitizeExtraction({ position_details: Array.from({ length: 65 }, (_, index) => ({ title: `Role ${index}` })) }, { textTruncated: true })
 assert.equal(big.position_details.length, 60)
 assert.equal(big.extraction_warnings.length, 2, 'Truncated positions and a truncated article are both flagged.')
+// 3c. Application channel and fees come from the source wording; extraction never verifies.
+const channel = sanitizeExtraction({ channel_type: 'claimed_authorized', channel_claim: ' 皇家加勒比中国指定合作伙伴 ', fee_disclosure: 'fees_stated', channel_verified_at: '2026-10-21' })
+assert.equal(channel.channel_type, 'claimed_authorized')
+assert.equal(channel.channel_claim, '皇家加勒比中国指定合作伙伴')
+assert.equal(channel.fee_disclosure, 'fees_stated')
+assert.equal('channel_verified_at' in channel, false, 'AI output cannot mark a channel verified.')
+const unknownChannel = sanitizeExtraction({ channel_type: 'first_tier', fee_disclosure: 'cheap' })
+assert.equal(unknownChannel.channel_type, 'unspecified')
+assert.equal(unknownChannel.fee_disclosure, 'unspecified')
+assert.equal(unknownChannel.channel_claim, null)
+
 // Older responses with a plain positions list still work, with experience unspecified.
 assert.deepEqual(sanitizeExtraction({ positions: ['Bar Server'] }).position_details, [{ title: 'Bar Server', experience: 'unspecified' }])
 

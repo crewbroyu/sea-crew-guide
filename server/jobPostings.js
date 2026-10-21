@@ -7,6 +7,8 @@ import {
   normalizeCruiseLines,
   normalizeInterviewSessions,
   normalizePositionDetails,
+  CHANNEL_TYPES,
+  FEE_DISCLOSURES,
 } from '../src/data/jobPostingDetails.js'
 
 // Admin-only: fetch a public recruitment article and extract draft fields for review.
@@ -152,6 +154,9 @@ const SYSTEM_PROMPT = `你是邮轮海乘招聘信息整理员。根据用户给
 - salary: 薪资描述，没有则为 null
 - deadline: 只填原文明确写出的报名截止日期，YYYY-MM-DD 格式。面试日期不要填在这里，写进 interview_sessions；原文没写报名截止就为 null
 - risk_flags: 风险提示数组，例如原文要求先交培训费、押金、服务费，承诺"包过""保录取"，或缺少机构名称；没有则为空数组
+- channel_type: 申请渠道，只按原文判断："official_direct" 原文让求职者直接在邮轮公司官网或官方招聘系统申请；"claimed_authorized" 原文声称是邮轮公司授权、指定或官方合作的机构；"agency" 由招聘或外派机构组织报名，但没有声称授权；"unspecified" 看不出来
+- channel_claim: 原文中关于授权、合作或渠道的原话（如"皇家加勒比中国指定合作伙伴"），不超过 80 字，没有则为 null。这只是机构自己的说法，原样摘录，不要改写成确定的事实
+- fee_disclosure: 费用说明："fees_stated" 原文写明了需要求职者支付的费用（培训费、服务费、体检费等）；"no_fee_stated" 原文明确说不向求职者收费；"unspecified" 原文没有提费用
 - is_recruitment: 原文是否是邮轮或船上岗位招聘信息（布尔值）`
 
 const textOrNull = (value, max) => trimText(value, max) || null
@@ -182,6 +187,9 @@ export const sanitizeExtraction = (raw = {}, article = {}) => {
     salary: textOrNull(raw.salary, 200),
     deadline: isIsoDate(deadline) ? deadline : null,
     risk_flags: textList(raw.risk_flags, 10, 120),
+    channel_type: Object.hasOwn(CHANNEL_TYPES, raw.channel_type) ? raw.channel_type : 'unspecified',
+    channel_claim: textOrNull(raw.channel_claim, 200),
+    fee_disclosure: Object.hasOwn(FEE_DISCLOSURES, raw.fee_disclosure) ? raw.fee_disclosure : 'unspecified',
     is_recruitment: raw.is_recruitment !== false,
   }
 }

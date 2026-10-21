@@ -1,10 +1,10 @@
 // src/pages/LatestRecruitment.jsx
-import { createElement, useCallback, useEffect, useMemo, useState } from 'react'
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Building2, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, GraduationCap, Inbox, MapPin, Search, ShieldAlert, Ship, SlidersHorizontal, Wallet, X } from 'lucide-react'
+import { BadgeCheck, Bookmark, BookmarkCheck, Building2, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, GraduationCap, Inbox, MapPin, Search, ShieldAlert, Ship, SlidersHorizontal, Wallet, X } from 'lucide-react'
 import { JOB_DEPARTMENTS, isJobPostingExpired, listPublishedJobPostings } from '../services/jobPostingService'
 import { getDepartmentTraining, getPostingDepartments, groupPositionsByDepartment } from '../data/jobPositionGroups'
-import { EXPERIENCE_LEVELS, formatInterviewSession } from '../data/jobPostingDetails'
+import { CHANNEL_TYPES, EXPERIENCE_LEVELS, FEE_DISCLOSURES, formatInterviewSession } from '../data/jobPostingDetails'
 import {
   EMPTY_FILTERS,
   FILTER_CATEGORIES,
@@ -20,6 +20,7 @@ import {
 } from '../data/jobPostingSearch'
 import JobFilterSheet from '../components/jobs/JobFilterSheet'
 import { trackProductEvent } from '../services/productAnalyticsService'
+import { listSavedJobPostingIds, saveJobPostingApplication } from '../services/jobApplicationService'
 
 const EXPERIENCE_STYLES = {
   none: 'bg-emerald-50 text-emerald-700',
@@ -91,8 +92,58 @@ function PositionGroup({ posting, department, positions, experienceByTitle }) {
   )
 }
 
-function PostingCard({ posting, matchedPositions, matchedSession }) {
-  const [open, setOpen] = useState(false)
+const CHANNEL_STYLES = {
+  official_direct: 'bg-emerald-50 text-emerald-700',
+  claimed_authorized: 'bg-violet-50 text-violet-700',
+  agency: 'bg-gray-100 text-gray-600',
+}
+
+function ChannelBadge({ posting }) {
+  if (!CHANNEL_STYLES[posting.channel_type]) return null
+  return (
+    <span className={`inline-flex flex-shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 font-medium ${CHANNEL_STYLES[posting.channel_type]}`}>
+      {posting.channel_verified_at && <BadgeCheck size={12} />}
+      {CHANNEL_TYPES[posting.channel_type]}{posting.channel_verified_at ? ' · 已核验' : ''}
+    </span>
+  )
+}
+
+// Training for the posting's positions comes first; the source link stays available but secondary.
+function PrepareFirst({ posting, groups }) {
+  const trainings = [...new Map(groups
+    .map((group) => [group.department, getDepartmentTraining(group.department)])
+    .filter(([, training]) => training)
+    .map(([department, training]) => [training.to, { department, ...training }])).values()].slice(0, 3)
+  return (
+    <section className="rounded-xl border border-purple-100 bg-purple-50/60 p-3">
+      <h4 className="flex items-center gap-1.5 text-sm font-semibold text-purple-900"><GraduationCap size={16} />报名前先准备</h4>
+      <p className="mt-1 text-xs leading-5 text-purple-800">先把这类岗位的面试问题练熟，报名后更有把握。</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {(trainings.length ? trainings : [{ department: '通用', label: '浏览岗位面试题库', to: '/academy/interview-questions', positionKey: null }]).map((training) => (
+          <Link
+            key={training.to}
+            to={training.to}
+            onClick={() => trackProductEvent('job_posting_training_clicked', {
+              productCode: training.productCode || null,
+              properties: { postingId: posting.id, department: training.department, positionKey: training.positionKey, placement: 'prepare' },
+            })}
+            className="inline-flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700"
+          >
+            {training.department !== '通用' ? `${training.department}：` : ''}{training.label}<ChevronRight size={14} />
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function PostingCard({ posting, matchedPositions, matchedSession, saved, onSave, focused }) {
+  const [open, setOpen] = useState(focused)
+  const [saveState, setSaveState] = useState({ status: 'idle', message: '' })
+  const cardRef = useRef(null)
+  useEffect(() => {
+    if (focused) cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [focused])
   const expired = isJobPostingExpired(posting)
   const date = posting.source_published_on || posting.published_at?.slice(0, 10)
   const positions = [...new Set(posting.positions)]
@@ -112,12 +163,23 @@ function PostingCard({ posting, matchedPositions, matchedSession }) {
     setOpen(!open)
   }
 
+  const save = async () => {
+    setSaveState({ status: 'saving', message: '' })
+    try {
+      await onSave(posting, headlineSession?.date || null)
+      setSaveState({ status: 'idle', message: '' })
+    } catch {
+      setSaveState({ status: 'error', message: '记录失败，请稍后再试。' })
+    }
+  }
+
   return (
-    <article className={`overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm ${expired ? 'opacity-60' : ''}`}>
+    <article ref={cardRef} className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${focused ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-100'} ${expired ? 'opacity-60' : ''}`}>
       <button type="button" onClick={toggle} className="w-full p-4 text-left md:p-5" aria-expanded={open}>
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span className="truncate">{posting.source_name}</span>
           {date && <><span className="text-gray-300">·</span><span className="flex-shrink-0">{date}</span></>}
+          <ChannelBadge posting={posting} />
           {posting.deadline ? (
             <span className={`ml-auto flex-shrink-0 rounded-full px-2 py-0.5 font-medium ${expired ? 'bg-gray-100 text-gray-500' : 'bg-orange-50 text-orange-600'}`}>
               {expired ? '已截止' : `报名截止 ${posting.deadline.slice(5)}`}
@@ -212,15 +274,46 @@ function PostingCard({ posting, matchedPositions, matchedSession }) {
             </section>
           )}
 
-          <a
-            href={posting.source_url}
-            target="_blank"
-            rel="noreferrer noopener"
-            onClick={() => trackProductEvent('job_posting_source_clicked', { productCode: null, properties: { postingId: posting.id } })}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white hover:bg-purple-700 sm:inline-flex sm:w-auto"
-          >
-            <ExternalLink size={16} />查看原文与报名方式
-          </a>
+          <PrepareFirst posting={posting} groups={groups} />
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {saved ? (
+              <Link to="/jobs/applications" className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
+                <BookmarkCheck size={16} />已记录 · 查看投递记录
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={save}
+                disabled={saveState.status === 'saving'}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-purple-200 bg-white px-4 py-2.5 text-sm font-semibold text-purple-700 hover:bg-purple-50 disabled:opacity-60"
+              >
+                <Bookmark size={16} />{saveState.status === 'saving' ? '正在记录…' : '记录这条招聘'}
+              </button>
+            )}
+            <a
+              href={posting.source_url}
+              target="_blank"
+              rel="noreferrer noopener"
+              onClick={() => trackProductEvent('job_posting_source_clicked', { productCode: null, properties: { postingId: posting.id } })}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <ExternalLink size={16} />查看原文与报名方式
+            </a>
+          </div>
+          {saveState.message && <p className="text-xs text-red-600">{saveState.message}</p>}
+
+          <div className="space-y-1 border-t border-gray-100 pt-3 text-xs leading-5 text-gray-500">
+            {posting.channel_claim && <p>原文称：{posting.channel_claim}{posting.channel_verified_at ? '（机构自述；平台已按下方依据核验渠道）' : '（机构自述，平台未核实）'}</p>}
+            {posting.channel_verified_at && posting.channel_verification_url && (
+              <p>
+                渠道核验依据：
+                <a href={posting.channel_verification_url} target="_blank" rel="noreferrer noopener" className="text-purple-700 underline underline-offset-2">查看来源</a>
+              </p>
+            )}
+            <p>{FEE_DISCLOSURES[posting.fee_disclosure] || FEE_DISCLOSURES.unspecified}。如被要求先交培训费、押金或“保录取”费用，请提高警惕。</p>
+            <p>本平台整理自公开信息，收录不代表担保或推荐，请以原文和机构的正式说明为准{posting.last_checked_at ? ` · 最后核对 ${posting.last_checked_at.slice(0, 10)}` : ''}。</p>
+          </div>
         </div>
       )}
     </article>
@@ -233,6 +326,26 @@ export default function LatestRecruitment() {
   const [postings, setPostings] = useState([])
   const [status, setStatus] = useState('loading')
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [savedIds, setSavedIds] = useState(() => new Set())
+  // ?posting=<id> comes from the application records page: open and highlight that posting.
+  const focusId = searchParams.get('posting')
+
+  useEffect(() => {
+    let active = true
+    listSavedJobPostingIds()
+      .then((ids) => { if (active) setSavedIds(ids) })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
+
+  const savePosting = useCallback(async (posting, interviewDate) => {
+    const result = await saveJobPostingApplication({ posting, interviewDate })
+    setSavedIds((current) => new Set(current).add(posting.id))
+    trackProductEvent('job_posting_saved', {
+      productCode: null,
+      properties: { postingId: posting.id, persisted: Boolean(result.persisted), duplicate: result.duplicate, hasInterviewDate: Boolean(interviewDate) },
+    })
+  }, [])
   const filters = useMemo(() => parseFilters(searchParams), [searchParams])
   const setFilters = useCallback((next) => setSearchParams(serializeFilters(next), { replace: true }), [setSearchParams])
 
@@ -391,9 +504,27 @@ export default function LatestRecruitment() {
             </div>
           </div>
         )}
+        {status === 'ready' && focusId && !results.some(({ posting }) => posting.id === focusId) && (
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+            <p>你记录的这条招聘已下架、已截止，或不在当前筛选结果里。投递记录里仍保留着它的标题和原文链接。</p>
+            {!filters.showExpired && (
+              <button type="button" onClick={() => setSearchParams({ posting: focusId, expired: '1' }, { replace: true })} className="mt-2 text-xs font-semibold text-purple-700 underline underline-offset-2">
+                包含已截止的招聘再找一次
+              </button>
+            )}
+          </div>
+        )}
         <div className="space-y-3">
           {results.map(({ posting, matchedPositions, matchedSession }) => (
-            <PostingCard key={posting.id} posting={posting} matchedPositions={matchedPositions} matchedSession={matchedSession} />
+            <PostingCard
+              key={posting.id}
+              posting={posting}
+              matchedPositions={matchedPositions}
+              matchedSession={matchedSession}
+              saved={savedIds.has(posting.id)}
+              onSave={savePosting}
+              focused={posting.id === focusId}
+            />
           ))}
         </div>
       </div>

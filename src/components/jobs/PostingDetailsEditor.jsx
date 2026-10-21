@@ -1,5 +1,54 @@
 import { Plus, Trash2 } from 'lucide-react'
-import { EXPERIENCE_LEVELS, INTERVIEW_MODES, MAX_INTERVIEW_SESSIONS, MAX_POSITIONS } from '../../data/jobPostingDetails'
+import { CHANNEL_TYPES, EXPERIENCE_LEVELS, FEE_DISCLOSURES, INTERVIEW_MODES, MAX_INTERVIEW_SESSIONS, MAX_POSITIONS } from '../../data/jobPostingDetails'
+
+// Application channel as stated in the source, plus an admin-only verification that needs evidence.
+export function ChannelEditor({ draft, onChange }) {
+  const verified = Boolean(draft.channel_verified_at)
+  const evidence = draft.channel_verification_url || ''
+  const evidenceValid = /^https:\/\//.test(evidence.trim())
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+      <span className="block text-xs font-semibold text-slate-600">申请渠道与费用</span>
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-xs text-slate-500">渠道类型（按原文）</span>
+          <select className={inputClass} value={draft.channel_type || 'unspecified'} onChange={(event) => onChange({ ...draft, channel_type: event.target.value })}>
+            {Object.entries(CHANNEL_TYPES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs text-slate-500">费用说明</span>
+          <select className={inputClass} value={draft.fee_disclosure || 'unspecified'} onChange={(event) => onChange({ ...draft, fee_disclosure: event.target.value })}>
+            {Object.entries(FEE_DISCLOSURES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+        </label>
+      </div>
+      <label className="block">
+        <span className="mb-1 block text-xs text-slate-500">原文关于渠道的说法（原样摘录，前台显示为“原文称”）</span>
+        <input className={inputClass} value={draft.channel_claim || ''} onChange={(event) => onChange({ ...draft, channel_claim: event.target.value })} maxLength={200} placeholder="如：皇家加勒比中国指定合作伙伴" />
+      </label>
+      <div className="rounded-lg bg-slate-50 p-2.5">
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={verified}
+            disabled={!evidenceValid && !verified}
+            onChange={(event) => onChange({ ...draft, channel_verified_at: event.target.checked ? new Date().toISOString() : null })}
+            className="h-4 w-4 accent-emerald-600"
+          />
+          已核验渠道
+        </label>
+        <input
+          className={`${inputClass} mt-2`}
+          value={evidence}
+          onChange={(event) => onChange({ ...draft, channel_verification_url: event.target.value, ...(/^https:\/\//.test(event.target.value.trim()) ? {} : { channel_verified_at: null }) })}
+          placeholder="证据链接（https），如邮轮公司官网的合作机构名单、海事局外派机构备案查询页"
+        />
+        <p className="mt-1 text-xs text-slate-400">只有拿到证据才勾选。推文里的“官方合作”“一代”不算证据；不要使用“二代”等无法证明的说法。</p>
+      </div>
+    </div>
+  )
+}
 
 const inputClass = 'w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:outline-none'
 

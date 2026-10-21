@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { normalizeCruiseLines } from '../data/jobPostingDetails.js'
 
 const LOCAL_KEY = 'job_applications'
 const VALID_STATUSES = new Set(['未完成', '已申请', '等待回复', '面试中', 'Offer', '拒信'])
@@ -36,6 +37,8 @@ const toClientRecord = (record) => ({
   notes: record.notes || '',
   status: normalizeStatus(record.status),
   sourceType: record.source_type,
+  jobPostingId: record.job_posting_id || null,
+  interviewDate: record.interview_date || null,
   createdAt: record.created_at,
   updatedAt: record.updated_at,
 })
@@ -48,6 +51,8 @@ const toDatabaseRecord = (record, userId, { legacyLocalId = null } = {}) => ({
   notes: record.notes || null,
   status: normalizeStatus(record.status),
   source_type: record.sourceType || 'manual',
+  job_posting_id: record.jobPostingId || null,
+  interview_date: record.interviewDate || null,
   legacy_local_id: legacyLocalId,
   created_at: record.createdAt || record.timestamp || new Date().toISOString(),
   updated_at: record.updatedAt || record.timestamp || new Date().toISOString(),
@@ -63,10 +68,13 @@ export async function migrateLocalJobApplications() {
     legacyLocalId: String(record.id || `legacy-${index}-${record.createdAt || record.timestamp || 'unknown'}`),
   }))
 
-  const { error } = await supabase
+  const upsert = (batch) => supabase
     .from('job_application_records')
-    .upsert(rows, { onConflict: 'user_id,legacy_local_id', ignoreDuplicates: true })
+    .upsert(batch, { onConflict: 'user_id,legacy_local_id', ignoreDuplicates: true })
 
+  let { error } = await upsert(rows)
+  // A posting saved while logged out may have been deleted since; keep the record, unlinked.
+  if (error?.code === '23503') ({ error } = await upsert(rows.map((row) => ({ ...row, job_posting_id: null }))))
   if (error) throw error
 
   localStorage.removeItem(LOCAL_KEY)
@@ -97,6 +105,8 @@ export async function createJobApplication(application) {
     notes: application.notes || '',
     status: normalizeStatus(application.status),
     sourceType: application.sourceType || 'manual',
+    jobPostingId: application.jobPostingId || null,
+    interviewDate: application.interviewDate || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -124,6 +134,7 @@ export async function updateJobApplication(id, changes) {
   const payload = { updated_at: new Date().toISOString() }
   if (changes.status !== undefined) payload.status = normalizeStatus(changes.status)
   if (changes.notes !== undefined) payload.notes = changes.notes || null
+  if (changes.interviewDate !== undefined) payload.interview_date = changes.interviewDate || null
 
   const { data, error } = await supabase
     .from('job_application_records')
@@ -146,6 +157,30 @@ export async function deleteJobApplication(id) {
     .eq('id', id)
 
   if (error) throw error
+}
+
+// Saves a recruitment posting to the user's records once. The record keeps its own copy of
+// the title, cruise lines, and link, so it survives the posting being archived or deleted.
+export async function saveJobPostingApplication({ posting, interviewDate = null }) {
+  const existing = (await listJobApplications({ migrateLocal: false })).find((record) => record.jobPostingId === posting.id)
+  if (existing) return { record: existing, duplicate: true }
+  const cruiseLines = normalizeCruiseLines(posting.cruise_lines).join(' / ')
+  const result = await createJobApplication({
+    companyName: cruiseLines || posting.agency || posting.source_name,
+    jobTitle: posting.title,
+    companyUrl: posting.source_url,
+    notes: `来源：${posting.source_name}`,
+    status: '未完成',
+    sourceType: 'job_posting',
+    jobPostingId: posting.id,
+    interviewDate,
+  })
+  return { ...result, duplicate: false }
+}
+
+export async function listSavedJobPostingIds() {
+  const records = await listJobApplications({ migrateLocal: false })
+  return new Set(records.map((record) => record.jobPostingId).filter(Boolean))
 }
 
 export async function getJobApplicationCount() {

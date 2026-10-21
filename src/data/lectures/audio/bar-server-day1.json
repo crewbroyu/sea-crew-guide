@@ -1,0 +1,468 @@
+{
+  "voice": "Jennifer",
+  "model": "qwen3-tts-flash",
+  "slides": {
+    "10": {
+      "narration": "The answer is B. Tell the guest you will check the recipe and the package rules, then come back with an accurate answer. The problem with A is that you promise first and check later. If you are wrong, it is very hard to take back. C sends the guest to Guest Services. It looks easy, but you are passing on something that is your responsibility. Remember: accuracy matters more than a quick promise. Take responsibility for checking, but never invent package rules.",
+      "durationMs": 33510,
+      "captions": [
+        {
+          "text": "The answer is B.",
+          "startMs": 0,
+          "endMs": 1360
+        },
+        {
+          "text": "Tell the guest you will check the recipe and the package rules, then come back with an accurate answer.",
+          "startMs": 1610,
+          "endMs": 8570
+        },
+        {
+          "text": "The problem with A is that you promise first and check later.",
+          "startMs": 8820,
+          "endMs": 12340
+        },
+        {
+          "text": "If you are wrong, it is very hard to take back.",
+          "startMs": 12590,
+          "endMs": 14750
+        },
+        {
+          "text": "C sends the guest to Guest Services.",
+          "startMs": 15000,
+          "endMs": 18840
+        },
+        {
+          "text": "It looks easy, but you are passing on something that is your responsibility.",
+          "startMs": 19090,
+          "endMs": 24370
+        },
+        {
+          "text": "Remember: accuracy matters more than a quick promise.",
+          "startMs": 24620,
+          "endMs": 28460
+        },
+        {
+          "text": "Take responsibility for checking, but never invent package rules.",
+          "startMs": 28710,
+          "endMs": 33110
+        }
+      ]
+    },
+    "11": {
+      "narration": "Finally, it’s your turn to speak. A guest says to you: I don’t know what I want. Just bring me something good, but I don’t like sweet drinks. Think about what you learned today. First, confirm their preferences. Then recommend one or two different options. Finally, repeat the order back. When you are ready, tap the challenge button and answer the guest in English.",
+      "durationMs": 21110,
+      "captions": [
+        {
+          "text": "Finally, it’s your turn to speak.",
+          "startMs": 0,
+          "endMs": 1840
+        },
+        {
+          "text": "A guest says to you: I don’t know what I want.",
+          "startMs": 2090,
+          "endMs": 4010
+        },
+        {
+          "text": "Just bring me something good, but I don’t like sweet drinks.",
+          "startMs": 4260,
+          "endMs": 8180
+        },
+        {
+          "text": "Think about what you learned today.",
+          "startMs": 8430,
+          "endMs": 9790
+        },
+        {
+          "text": "First, confirm their preferences.",
+          "startMs": 10040,
+          "endMs": 12040
+        },
+        {
+          "text": "Then recommend one or two different options.",
+          "startMs": 12290,
+          "endMs": 14370
+        },
+        {
+          "text": "Finally, repeat the order back.",
+          "startMs": 14620,
+          "endMs": 16380
+        },
+        {
+          "text": "When you are ready, tap the challenge button and answer the guest in English.",
+          "startMs": 16630,
+          "endMs": 20710
+        }
+      ]
+    },
+    "12": {
+      "narration": "Let’s review today’s lesson. One: the Bar Server looks after the guest, and the Bartender makes the drinks. If you are unsure about something, check before you promise. Two: a complete service has seven steps, from the greeting to clearing the table. Three: safety always comes before sales. Use neutral language and inform your supervisor early. Tomorrow, we will meet the six main spirit families and build your own Spirit Map.",
+      "durationMs": 28140,
+      "captions": [
+        {
+          "text": "Let’s review today’s lesson.",
+          "startMs": 0,
+          "endMs": 1360
+        },
+        {
+          "text": "One: the Bar Server looks after the guest, and the Bartender makes the drinks.",
+          "startMs": 1610,
+          "endMs": 6330
+        },
+        {
+          "text": "If you are unsure about something, check before you promise.",
+          "startMs": 6580,
+          "endMs": 10020
+        },
+        {
+          "text": "Two: a complete service has seven steps, from the greeting to clearing the table.",
+          "startMs": 10270,
+          "endMs": 14910
+        },
+        {
+          "text": "Three: safety always comes before sales.",
+          "startMs": 15160,
+          "endMs": 17880
+        },
+        {
+          "text": "Use neutral language and inform your supervisor early.",
+          "startMs": 18130,
+          "endMs": 22690
+        },
+        {
+          "text": "Tomorrow, we will meet the six main spirit families and build your own Spirit Map.",
+          "startMs": 22940,
+          "endMs": 27740
+        }
+      ]
+    },
+    "01": {
+      "narration": "Welcome to Day 1 of the Bar Server foundation course. Picture this. It’s embarkation day, five thirty in the evening, at the Atrium Bar. New guests are arriving, and the bar is filling up fast. This is your first shift. In this lesson, you will learn three things: what a Bar Server is responsible for, how one complete service flows, and why safety always comes before sales.",
+      "durationMs": 23570,
+      "captions": [
+        {
+          "text": "Welcome to Day 1 of the Bar Server foundation course.",
+          "startMs": 0,
+          "endMs": 2720
+        },
+        {
+          "text": "Picture this.",
+          "startMs": 2970,
+          "endMs": 3690
+        },
+        {
+          "text": "It’s embarkation day, five thirty in the evening, at the Atrium Bar.",
+          "startMs": 3940,
+          "endMs": 8500
+        },
+        {
+          "text": "New guests are arriving, and the bar is filling up fast.",
+          "startMs": 8750,
+          "endMs": 12910
+        },
+        {
+          "text": "This is your first shift.",
+          "startMs": 13160,
+          "endMs": 14360
+        },
+        {
+          "text": "In this lesson, you will learn three things: what a Bar Server is responsible for, how one complete service flows, and why safety always comes before sales.",
+          "startMs": 14610,
+          "endMs": 23170
+        }
+      ]
+    },
+    "08": {
+      "narration": "Here are three service lines you can use right away. When a guest is waiting, say: Good evening. I’ll be right with you. Thank you for waiting. When you want to learn their preference, ask: Are you looking for something refreshing, fruity, dry, or spirit-forward? Before you send the order, confirm: That’s one Mojito, less sweet, with no straw. Is that correct? Open the shadowing practice to repeat each line until it feels natural.",
+      "durationMs": 25990,
+      "captions": [
+        {
+          "text": "Here are three service lines you can use right away.",
+          "startMs": 0,
+          "endMs": 2240
+        },
+        {
+          "text": "When a guest is waiting, say: Good evening.",
+          "startMs": 2490,
+          "endMs": 4650
+        },
+        {
+          "text": "I’ll be right with you.",
+          "startMs": 4900,
+          "endMs": 5860
+        },
+        {
+          "text": "Thank you for waiting.",
+          "startMs": 6110,
+          "endMs": 7710
+        },
+        {
+          "text": "When you want to learn their preference, ask: Are you looking for something refreshing, fruity, dry, or spirit-forward?",
+          "startMs": 7960,
+          "endMs": 14840
+        },
+        {
+          "text": "Before you send the order, confirm: That’s one Mojito, less sweet, with no straw.",
+          "startMs": 15090,
+          "endMs": 20450
+        },
+        {
+          "text": "Is that correct?",
+          "startMs": 20700,
+          "endMs": 21580
+        },
+        {
+          "text": "Open the shadowing practice to repeat each line until it feels natural.",
+          "startMs": 21830,
+          "endMs": 25590
+        }
+      ]
+    },
+    "02": {
+      "narration": "Many people mix up the Bar Server and the Bartender, and interviewers want to know if you understand the difference. The Bar Server works on the guest side. You welcome guests, find out what they want, present the menu, enter orders in the POS, deliver drinks, follow up, clear tables, and do basic restocking. The Bartender works behind the bar. They make drinks to the standard recipe, control drink quality, and manage the bar equipment. In short, you take care of the guest, the Bartender takes care of the drink, and you work together through a clear handover.",
+      "durationMs": 33250,
+      "captions": [
+        {
+          "text": "Many people mix up the Bar Server and the Bartender, and interviewers want to know if you understand the difference.",
+          "startMs": 0,
+          "endMs": 6080
+        },
+        {
+          "text": "The Bar Server works on the guest side.",
+          "startMs": 6330,
+          "endMs": 8090
+        },
+        {
+          "text": "You welcome guests, find out what they want, present the menu, enter orders in the POS, deliver drinks, follow up, clear tables, and do basic restocking.",
+          "startMs": 8340,
+          "endMs": 17540
+        },
+        {
+          "text": "The Bartender works behind the bar.",
+          "startMs": 17790,
+          "endMs": 20030
+        },
+        {
+          "text": "They make drinks to the standard recipe, control drink quality, and manage the bar equipment.",
+          "startMs": 20280,
+          "endMs": 26120
+        },
+        {
+          "text": "In short, you take care of the guest, the Bartender takes care of the drink, and you work together through a clear handover.",
+          "startMs": 26370,
+          "endMs": 32850
+        }
+      ]
+    },
+    "03": {
+      "narration": "Here is a rule you must always follow. If you are not sure about a recipe, allergy information, package rules, or what compensation you are allowed to offer, check first, then promise. A common mistake for new crew is to sound confident and say, “Sure, that’s included in your package.” Get it wrong once, and the guest stops trusting you. Saying “Let me check that for you” is completely professional.",
+      "durationMs": 25160,
+      "captions": [
+        {
+          "text": "Here is a rule you must always follow.",
+          "startMs": 0,
+          "endMs": 2400
+        },
+        {
+          "text": "If you are not sure about a recipe, allergy information, package rules, or what compensation you are allowed to offer, check first, then promise.",
+          "startMs": 2650,
+          "endMs": 11850
+        },
+        {
+          "text": "A common mistake for new crew is to sound confident and say, “Sure, that’s included in your package.”",
+          "startMs": 12100,
+          "endMs": 18180
+        },
+        {
+          "text": "Get it wrong once, and the guest stops trusting you.",
+          "startMs": 18430,
+          "endMs": 21150
+        },
+        {
+          "text": "Saying “Let me check that for you” is completely professional.",
+          "startMs": 21400,
+          "endMs": 24760
+        }
+      ]
+    },
+    "04": {
+      "narration": "Now let’s walk through the seven steps of a complete service. The first four happen before the order is placed. Step one: notice the guest and greet them. Even when you are busy, let them know you have seen them. Step two: confirm their key preferences, such as alcohol or no alcohol, base spirit, sweetness, flavor, and budget or beverage package. Step three: recommend one or two genuinely different options, and explain why they suit the guest. Step four: repeat the order back, confirm any special requests, and enter it accurately in the POS.",
+      "durationMs": 33420,
+      "captions": [
+        {
+          "text": "Now let’s walk through the seven steps of a complete service.",
+          "startMs": 0,
+          "endMs": 2560
+        },
+        {
+          "text": "The first four happen before the order is placed.",
+          "startMs": 2810,
+          "endMs": 5210
+        },
+        {
+          "text": "Step one: notice the guest and greet them.",
+          "startMs": 5460,
+          "endMs": 8020
+        },
+        {
+          "text": "Even when you are busy, let them know you have seen them.",
+          "startMs": 8270,
+          "endMs": 10990
+        },
+        {
+          "text": "Step two: confirm their key preferences, such as alcohol or no alcohol, base spirit, sweetness, flavor, and budget or beverage package.",
+          "startMs": 11240,
+          "endMs": 20600
+        },
+        {
+          "text": "Step three: recommend one or two genuinely different options, and explain why they suit the guest.",
+          "startMs": 20850,
+          "endMs": 26210
+        },
+        {
+          "text": "Step four: repeat the order back, confirm any special requests, and enter it accurately in the POS.",
+          "startMs": 26460,
+          "endMs": 33020
+        }
+      ]
+    },
+    "05": {
+      "narration": "The last three steps happen after the order. Step five: hand the order over clearly to the Bartender, and keep an eye on waiting times and the order sequence. Step six: when you deliver, check that the right drink goes to the right guest, and explain the ingredients or garnish if needed. Step seven: come back a little later, fix any problem on the spot, and clear the table. Put these seven steps together, and the guest feels truly looked after.",
+      "durationMs": 25720,
+      "captions": [
+        {
+          "text": "The last three steps happen after the order.",
+          "startMs": 0,
+          "endMs": 2320
+        },
+        {
+          "text": "Step five: hand the order over clearly to the Bartender, and keep an eye on waiting times and the order sequence.",
+          "startMs": 2570,
+          "endMs": 8330
+        },
+        {
+          "text": "Step six: when you deliver, check that the right drink goes to the right guest, and explain the ingredients or garnish if needed.",
+          "startMs": 8580,
+          "endMs": 15460
+        },
+        {
+          "text": "Step seven: come back a little later, fix any problem on the spot, and clear the table.",
+          "startMs": 15710,
+          "endMs": 21470
+        },
+        {
+          "text": "Put these seven steps together, and the guest feels truly looked after.",
+          "startMs": 21720,
+          "endMs": 25320
+        }
+      ]
+    },
+    "06": {
+      "narration": "The last part is the most important: safety always comes before sales. Age checks, stopping alcohol service, drink limits, and incident reporting must follow your cruise line’s official policy, not your personal judgment. Slurred speech, unsteady balance, poor judgment, and clear changes in behavior can be signs that need attention. But never argue with a guest about whether they are drunk. Use neutral language to stop or delay alcohol service, offer water or a non-alcoholic option, and inform your supervisor as early as possible.",
+      "durationMs": 32840,
+      "captions": [
+        {
+          "text": "The last part is the most important: safety always comes before sales.",
+          "startMs": 0,
+          "endMs": 4480
+        },
+        {
+          "text": "Age checks, stopping alcohol service, drink limits, and incident reporting must follow your cruise line’s official policy, not your personal judgment.",
+          "startMs": 4730,
+          "endMs": 13690
+        },
+        {
+          "text": "Slurred speech, unsteady balance, poor judgment, and clear changes in behavior can be signs that need attention.",
+          "startMs": 13940,
+          "endMs": 20580
+        },
+        {
+          "text": "But never argue with a guest about whether they are drunk.",
+          "startMs": 20830,
+          "endMs": 23310
+        },
+        {
+          "text": "Use neutral language to stop or delay alcohol service, offer water or a non-alcoholic option, and inform your supervisor as early as possible.",
+          "startMs": 23560,
+          "endMs": 32440
+        }
+      ]
+    },
+    "07": {
+      "narration": "Here are today’s five key words. Repeat after me. Recommend. Preference. Confirm. Beverage package. Intoxication. You will rarely say that last word to a guest, but you will use it when you talk to your supervisor or write an incident report.",
+      "durationMs": 25860,
+      "captions": [
+        {
+          "text": "Here are today’s five key words.",
+          "startMs": 0,
+          "endMs": 2160
+        },
+        {
+          "text": "Repeat after me.",
+          "startMs": 3660,
+          "endMs": 5180
+        },
+        {
+          "text": "Recommend.",
+          "startMs": 6680,
+          "endMs": 7720
+        },
+        {
+          "text": "Preference.",
+          "startMs": 9220,
+          "endMs": 9940
+        },
+        {
+          "text": "Confirm.",
+          "startMs": 11440,
+          "endMs": 12400
+        },
+        {
+          "text": "Beverage package.",
+          "startMs": 13900,
+          "endMs": 14940
+        },
+        {
+          "text": "Intoxication.",
+          "startMs": 16440,
+          "endMs": 17640
+        },
+        {
+          "text": "You will rarely say that last word to a guest, but you will use it when you talk to your supervisor or write an incident report.",
+          "startMs": 19140,
+          "endMs": 25460
+        }
+      ]
+    },
+    "09": {
+      "narration": "Now it’s your turn to decide. A guest asks whether an unfamiliar cocktail is included in the beverage package. What is the most professional response? Don’t skip ahead. Choose an answer first.",
+      "durationMs": 11640,
+      "captions": [
+        {
+          "text": "Now it’s your turn to decide.",
+          "startMs": 0,
+          "endMs": 1600
+        },
+        {
+          "text": "A guest asks whether an unfamiliar cocktail is included in the beverage package.",
+          "startMs": 1850,
+          "endMs": 5850
+        },
+        {
+          "text": "What is the most professional response?",
+          "startMs": 6100,
+          "endMs": 8180
+        },
+        {
+          "text": "Don’t skip ahead.",
+          "startMs": 8430,
+          "endMs": 9630
+        },
+        {
+          "text": "Choose an answer first.",
+          "startMs": 9880,
+          "endMs": 11240
+        }
+      ]
+    }
+  }
+}

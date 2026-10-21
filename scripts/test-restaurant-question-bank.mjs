@@ -39,9 +39,13 @@ for (const id of ['rs_08', 'rs_16', 'rs_32', 'rs_14', 'rs_20', 'rs_40']) {
 // Fixed rules the review objected to are gone from tips.
 for (const question of questions) assert.doesNotMatch(question.tip, /\b\d+\s*minutes?\b/i, `${question.id} has no fixed waiting time.`)
 
-// Other banks are unchanged by this revision.
+// The revision stays inside the restaurant bank. Other banks may carry their own follow-ups and
+// levels (the Effy jewelry bank does), but never restaurant questions or restaurant level keys.
+const restaurantIds = new Set([...Object.keys(restaurantRevisions), ...restaurantAdditions.map((question) => question.id)])
 for (const [key, bank] of Object.entries(interviewQuestions)) {
-  if (key !== 'restaurant') assert.ok(bank.questions.every((question) => !question.followUps && !question.level), `${key} is untouched.`)
+  if (key === 'restaurant') continue
+  assert.ok(bank.questions.every((question) => !restaurantIds.has(question.id)), `${key} has no restaurant questions.`)
+  assert.ok(bank.questions.every((question) => !question.level || !Object.hasOwn(RESTAURANT_LEVEL_LABELS, question.level)), `${key} uses no restaurant levels.`)
 }
 
 console.log('restaurant question bank: ok')

@@ -13,6 +13,22 @@ export const EXPERIENCE_LEVELS = {
   unspecified: '未说明',
 }
 
+// How a posting is applied for, as stated in the source. "claimed_authorized" is the agency's
+// own claim; only an admin with an evidence link can mark a channel verified. No tier labels
+// ("二代"), which the platform cannot prove.
+export const CHANNEL_TYPES = {
+  official_direct: '官网直接申请',
+  claimed_authorized: '自称授权机构',
+  agency: '招聘机构',
+  unspecified: '渠道未说明',
+}
+
+export const FEE_DISCLOSURES = {
+  fees_stated: '原文写明费用',
+  no_fee_stated: '原文称不收费',
+  unspecified: '费用未说明',
+}
+
 export const INTERVIEW_MODES = {
   offline: '线下',
   online: '线上',

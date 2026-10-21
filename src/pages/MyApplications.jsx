@@ -105,6 +105,17 @@ export default function MyApplications() {
     }
   };
 
+  // 更新面试日期
+  const handleInterviewDateChange = async (id, interviewDate) => {
+    try {
+      const updatedRecord = await updateJobApplication(id, { interviewDate });
+      setApplications((current) => current.map((app) => app.id === id ? updatedRecord : app));
+    } catch (error) {
+      console.error('更新面试日期失败:', error);
+      setErrorMessage(error.message || '面试日期保存失败，请稍后重试。');
+    }
+  };
+
   // 标记为已申请
   const handleMarkAsApplied = (id) => {
     handleStatusChange(id, '已申请');
@@ -158,7 +169,7 @@ export default function MyApplications() {
             <Briefcase size={48} className="text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-gray-800 mb-2">暂无申请记录</h3>
             <p className="text-gray-500 mb-4">
-              去「招聘渠道」浏览邮轮公司官网并申请职位
+              在「最新招聘」里点“记录这条招聘”，或去「招聘渠道」浏览邮轮公司官网并申请职位
             </p>
             <button
               onClick={() => navigate('/jobs/channels')}
@@ -175,8 +186,23 @@ export default function MyApplications() {
                 <div className="p-5 border-b">
                   <div className="flex items-start justify-between">
                     <div>
+                      {application.sourceType === 'job_posting' && (
+                        <span className="mb-1.5 inline-block rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">来自招聘信息</span>
+                      )}
                       <h3 className="font-bold text-gray-800 text-lg">{application.companyName}</h3>
                       <p className="text-gray-600 mt-1">{application.jobTitle}</p>
+                      {application.sourceType === 'job_posting' && (
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                          {application.jobPostingId ? (
+                            <button type="button" onClick={() => navigate(`/jobs/latest?posting=${application.jobPostingId}`)} className="font-semibold text-purple-700 underline underline-offset-2">查看这条招聘</button>
+                          ) : (
+                            <span className="text-gray-500">原招聘已下架，记录仍保留</span>
+                          )}
+                          {application.companyUrl && (
+                            <a href={application.companyUrl} target="_blank" rel="noreferrer noopener" className="text-gray-600 underline underline-offset-2">原文链接</a>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
                         <Calendar size={14} />
                         <span>更新于：{formatDate(application.updatedAt)}</span>
@@ -213,6 +239,20 @@ export default function MyApplications() {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* 面试日期 */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor={`interview-date-${application.id}`}>
+                      面试日期
+                    </label>
+                    <input
+                      id={`interview-date-${application.id}`}
+                      type="date"
+                      value={application.interviewDate || ''}
+                      onChange={(e) => handleInterviewDateChange(application.id, e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
 
                   {/* 备注 */}

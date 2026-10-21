@@ -1,4 +1,4 @@
-import { EXPERIENCE_LEVELS, INTERVIEW_MODES, normalizeCruiseLine } from './jobPostingDetails.js'
+import { CHANNEL_TYPES, EXPERIENCE_LEVELS, INTERVIEW_MODES, normalizeCruiseLine, normalizeCruiseLines } from './jobPostingDetails.js'
 import { classifyPosition, getPostingDepartments } from './jobPositionGroups.js'
 
 // Search and filtering for /jobs/latest. Rules:
@@ -35,11 +35,12 @@ export const FILTER_CATEGORIES = [
   { key: 'cities', param: 'city', label: '面试城市' },
   { key: 'modes', param: 'mode', label: '面试方式' },
   { key: 'cruiseLines', param: 'line', label: '邮轮公司' },
+  { key: 'channels', param: 'channel', label: '申请渠道' },
   { key: 'sources', param: 'src', label: '来源' },
 ]
 
 export const EMPTY_FILTERS = {
-  q: '', departments: [], experience: [], cities: [], modes: [], cruiseLines: [], sources: [],
+  q: '', departments: [], experience: [], cities: [], modes: [], cruiseLines: [], channels: [], sources: [],
   showExpired: false, sort: 'latest',
 }
 
@@ -77,9 +78,14 @@ export const buildFilterOptions = (postings) => {
       sets.modes.add(session.mode)
     }
     getPostingCruiseLines(posting).forEach((value) => sets.cruiseLines.add(value))
+    sets.channels.add(posting.channel_type || 'unspecified')
     if (posting.source_name) sets.sources.add(posting.source_name)
   }
-  const order = { experience: ['none', 'related', 'cruise', 'unspecified'], modes: ['offline', 'online', 'unspecified'] }
+  const order = {
+    experience: ['none', 'related', 'cruise', 'unspecified'],
+    modes: ['offline', 'online', 'unspecified'],
+    channels: ['official_direct', 'claimed_authorized', 'agency', 'unspecified'],
+  }
   return Object.fromEntries(Object.entries(sets).map(([key, set]) => [key, order[key]
     ? order[key].filter((value) => set.has(value))
     : [...set].sort((left, right) => left.localeCompare(right, 'zh-CN'))]))
@@ -108,6 +114,7 @@ export const filterJobPostings = (postings, filters, today = todayInShanghai()) 
     if (!filters.showExpired && isJobPostingExpired(posting, today)) continue
     if (!matchesText(posting, query)) continue
     if (filters.sources.length && !filters.sources.includes(posting.source_name)) continue
+    if (filters.channels.length && !filters.channels.includes(posting.channel_type || 'unspecified')) continue
     if (filters.cruiseLines.length && !getPostingCruiseLines(posting).some((line) => filters.cruiseLines.includes(line))) continue
 
     // With a city or mode filter, only matching sessions count, for display and for sorting.
@@ -158,6 +165,7 @@ export const filterJobPostings = (postings, filters, today = todayInShanghai()) 
 export const filterValueLabel = (key, value) => {
   if (key === 'experience') return EXPERIENCE_LEVELS[value] || value
   if (key === 'modes') return INTERVIEW_MODES[value] || value
+  if (key === 'channels') return CHANNEL_TYPES[value] || value
   return value
 }
 
@@ -169,3 +177,11 @@ export const getVisibleCategories = (options, filters) => FILTER_CATEGORIES
     values: [...new Set([...(options[category.key] || []), ...(filters[category.key] || [])])],
   }))
   .filter((category) => (options[category.key] || []).length > 1 || (filters[category.key] || []).length > 0)
+
+// Link from the official-site directory to job search filtered to that company. Names such as
+// "ROYAL CARIBBEAN & CELEBRITY" become one cruise line filter per brand.
+export const getCompanyPostingsRoute = (companyName) => {
+  const cruiseLines = normalizeCruiseLines(String(companyName || '').split(/\s*[&/、,]\s*/))
+  const query = serializeFilters({ ...EMPTY_FILTERS, cruiseLines }).toString()
+  return query ? `/jobs/latest?${query}` : '/jobs/latest'
+}

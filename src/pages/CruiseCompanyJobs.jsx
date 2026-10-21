@@ -1,9 +1,10 @@
 // src/pages/CruiseCompanyJobs.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ExternalLink, Globe, Star, Briefcase } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, Globe, Star, Briefcase } from 'lucide-react';
 import JobApplicationCard from '../components/JobApplicationCard';
 import { createJobApplication } from '../services/jobApplicationService';
+import { getCompanyPostingsRoute } from '../data/jobPostingSearch';
 
 // 邮轮公司列表
 const cruiseCompanies = [
@@ -175,6 +176,14 @@ export default function CruiseCompanyJobs() {
                   <span className="text-sm text-blue-600">访问官网</span>
                   <ExternalLink size={18} className="text-blue-600" />
                 </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(getCompanyPostingsRoute(company.name))}
+                className="flex w-full items-center justify-between border-t border-gray-100 px-5 py-2.5 text-sm text-purple-700 hover:bg-purple-50"
+              >
+                <span>看这家的最新招聘（含机构招聘）</span>
+                <ChevronRight size={16} />
               </button>
             </div>
           ))}

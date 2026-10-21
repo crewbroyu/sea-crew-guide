@@ -10,7 +10,7 @@ import {
   saveJobPosting,
   setJobPostingStatus,
 } from '../services/jobPostingService'
-import { InterviewSessionsEditor, PositionDetailsEditor } from '../components/jobs/PostingDetailsEditor'
+import { ChannelEditor, InterviewSessionsEditor, PositionDetailsEditor } from '../components/jobs/PostingDetailsEditor'
 import { getPostingPositionDetails } from '../data/jobPostingSearch'
 
 const statusLabels = { draft: '草稿', published: '已发布', archived: '已下架' }
@@ -85,6 +85,7 @@ function DraftEditor({ draft, onChange, onSave, onCancel, saving }) {
         onChange={(position_details) => onChange({ ...draft, position_details, positions: position_details.map((item) => item.title) })}
       />
       <InterviewSessionsEditor value={draft.interview_sessions || []} onChange={(interview_sessions) => onChange({ ...draft, interview_sessions })} />
+      <ChannelEditor draft={draft} onChange={onChange} />
       <Field label="岗位要求">
         <textarea className={inputClass} rows={3} value={draft.requirements || ''} onChange={set('requirements')} maxLength={800} />
       </Field>

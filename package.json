@@ -43,6 +43,7 @@
     "test:job-position-groups": "node scripts/test-job-position-groups.mjs",
     "test:job-posting-search": "node scripts/test-job-posting-search.mjs",
     "test:sql-job-search-details": "node scripts/test-sql-job-search-details.mjs",
+    "test:sql-job-posting-applications": "node scripts/test-sql-job-posting-applications.mjs",
     "test:sql-interview-practice-pack": "node scripts/test-sql-interview-practice-pack.mjs",
     "test:reference-answer-csv": "node scripts/test-reference-answer-csv.mjs",
     "test:restaurant-question-bank": "node scripts/test-restaurant-question-bank.mjs",

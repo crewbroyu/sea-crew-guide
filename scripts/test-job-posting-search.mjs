@@ -11,6 +11,8 @@ import {
   buildFilterOptions,
   countActiveFilters,
   filterJobPostings,
+  filterValueLabel,
+  getCompanyPostingsRoute,
   getUpcomingSession,
   parseFilters,
   serializeFilters,
@@ -142,5 +144,18 @@ assert.deepEqual(filterJobPostings(postings, filters({ q: 'Sous Chef', experienc
 assert.deepEqual(filterJobPostings(postings, filters({ q: '皇家加勒比', experience: ['none'] }), TODAY)[0].matchedPositions.map((item) => item.title), ['Assistant Waiter'])
 // A position search alone lists the matching positions on the card.
 assert.deepEqual(filterJobPostings(postings, filters({ q: 'waiter' }), TODAY)[0].matchedPositions.map((item) => item.title), ['Assistant Waiter'])
+
+// 11. Application channel filter and the official-site directory link.
+const official = { ...msc, id: 'official', channel_type: 'official_direct' }
+const claimed = { ...msc, id: 'claimed', channel_type: 'claimed_authorized', channel_claim: '中国指定合作伙伴' }
+const channelPostings = [official, claimed, msc]
+assert.deepEqual(ids(filterJobPostings(channelPostings, filters({ channels: ['official_direct'] }), TODAY)), ['official'])
+assert.deepEqual(ids(filterJobPostings(channelPostings, filters({ channels: ['unspecified'] }), TODAY)), ['msc'], 'A missing channel counts as unspecified.')
+assert.deepEqual(buildFilterOptions(channelPostings).channels, ['official_direct', 'claimed_authorized', 'unspecified'])
+assert.equal(filterValueLabel('channels', 'claimed_authorized'), '自称授权机构')
+assert.deepEqual(parseFilters('channel=official_direct').channels, ['official_direct'])
+assert.equal(getCompanyPostingsRoute('ROYAL CARIBBEAN & CELEBRITY'), `/jobs/latest?line=${encodeURIComponent('Royal Caribbean International').replace(/%20/g, '+')}&line=Celebrity+Cruises`)
+assert.equal(getCompanyPostingsRoute('MSC'), '/jobs/latest?line=MSC+Cruises')
+assert.equal(getCompanyPostingsRoute(''), '/jobs/latest')
 
 console.log('job posting search: ok')

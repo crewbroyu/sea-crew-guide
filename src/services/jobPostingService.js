@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { normalizeCruiseLines, normalizeInterviewSessions, normalizePositionDetails } from '../data/jobPostingDetails.js'
+import { CHANNEL_TYPES, FEE_DISCLOSURES, normalizeCruiseLines, normalizeInterviewSessions, normalizePositionDetails } from '../data/jobPostingDetails.js'
 import { sortJobPostings } from '../data/jobPostingSearch.js'
 
 export { JOB_DEPARTMENTS } from '../data/jobDepartments.js'
@@ -9,8 +9,9 @@ const EDITABLE_FIELDS = [
   'source_type', 'source_name', 'source_url', 'source_published_on', 'title', 'summary',
   'cruise_lines', 'departments', 'positions', 'position_details', 'interview_sessions', 'agency',
   'locations', 'requirements', 'salary', 'deadline', 'risk_flags', 'status',
+  'channel_type', 'channel_claim', 'channel_verified_at', 'channel_verification_url', 'fee_disclosure',
 ]
-const PUBLIC_FIELDS = 'id, source_name, source_url, source_published_on, title, summary, cruise_lines, departments, positions, position_details, interview_sessions, agency, locations, requirements, salary, deadline, published_at'
+const PUBLIC_FIELDS = 'id, source_name, source_url, source_published_on, title, summary, cruise_lines, departments, positions, position_details, interview_sessions, agency, locations, requirements, salary, deadline, published_at, channel_type, channel_claim, channel_verified_at, channel_verification_url, fee_disclosure, last_checked_at'
 const PAGE_SIZE = 500
 
 export class JobPostingError extends Error {
@@ -75,6 +76,12 @@ export const toJobPostingRow = (draft) => {
     row.positions = row.position_details.map((item) => item.title)
   }
   if ('interview_sessions' in row) row.interview_sessions = normalizeInterviewSessions(row.interview_sessions)
+  if ('channel_type' in row && !Object.hasOwn(CHANNEL_TYPES, row.channel_type)) row.channel_type = 'unspecified'
+  if ('fee_disclosure' in row && !Object.hasOwn(FEE_DISCLOSURES, row.fee_disclosure)) row.fee_disclosure = 'unspecified'
+  if ('channel_claim' in row) row.channel_claim = String(row.channel_claim || '').trim().slice(0, 200) || null
+  // "Verified" requires an https evidence link; without one the verification is cleared.
+  if ('channel_verification_url' in row) row.channel_verification_url = String(row.channel_verification_url || '').trim() || null
+  if ('channel_verified_at' in row && !/^https:\/\//.test(row.channel_verification_url || draft.channel_verification_url || '')) row.channel_verified_at = null
   for (const field of ['agency', 'locations', 'requirements', 'salary', 'deadline', 'source_published_on']) {
     if (field in row) row[field] = String(row[field] || '').trim() || null
   }
@@ -85,7 +92,8 @@ export const toJobPostingRow = (draft) => {
 }
 
 export const saveJobPosting = async (draft) => {
-  const row = toJobPostingRow(draft)
+  // Every admin save is a review of the posting against its source.
+  const row = { ...toJobPostingRow(draft), last_checked_at: new Date().toISOString() }
   if (!row.title || !row.summary || !row.source_name || !row.source_url) {
     throw new JobPostingError('INCOMPLETE', '标题、摘要、来源名称和原文链接都必须填写。')
   }

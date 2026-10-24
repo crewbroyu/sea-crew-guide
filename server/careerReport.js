@@ -11,7 +11,7 @@ import {
 const DEFAULT_TEXT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 const DEFAULT_MODEL = 'qwen3.5-plus'
 const CAREER_REPORT_MAX_COMPLETION_TOKENS = 2500
-const allowedRoles = [
+export const allowedRoles = [
   { id: 'retail', title: 'Retail Sales Associate' },
   { id: 'front_office', title: 'Guest Service Associate' },
   { id: 'bar', title: 'Bar Server' },
@@ -128,7 +128,7 @@ const sanitizeChoiceList = (value, allowedValues, max = 6) => Array.isArray(valu
     .slice(0, max)
   : []
 
-const sanitizeProfile = (profile = {}) => {
+export const sanitizeProfile = (profile = {}) => {
   const hardLimits = sanitizeChoiceList(profile.hardLimits, allowedHardLimitValues)
   return {
     targetRole: trimText(profile.targetRole, 40),
@@ -213,37 +213,57 @@ const normalizeDecisionBasis = (value, profile, assessment) => {
   })
 }
 
+const getEnglishScore = (assessment) => Number(assessment?.practicalAssessment?.englishScore || assessment?.dimensionScores?.english || 0)
+const needsEnglishBeforeBoarding = (profile, assessment) => profile.timeline === 'within_3_months' && getEnglishScore(assessment) < 60
+
+// 只列岗位核心性质与限制直接冲突的情况；班次等因公司而异的条件属于待核实，不在这里判定。
+const directHardLimitConflicts = {
+  sales_targets: { roleIds: ['bar', 'retail', 'beauty_spa'], label: '不能接受强销售指标', risk: '当前方向通常包含推荐销售或业绩要求，与你不能接受强销售指标的限制存在冲突。' },
+  high_intensity: { roleIds: ['bar', 'restaurant', 'housekeeping'], label: '不能接受高体力强度', risk: '当前方向通常工作节奏或体力强度较高，与你的限制存在冲突。' },
+}
+const findHardLimitConflicts = (profile, roleId) => profile.hardLimits
+  .map((limit) => directHardLimitConflicts[limit])
+  .filter((conflict) => conflict?.roleIds.includes(roleId))
+const getRoleTitle = (roleId) => allowedRoles.find((role) => role.id === roleId)?.title || roleId
+
 const deriveDecisionRisks = (profile, positions, assessment) => {
   const primaryId = positions[0]?.id
   const risks = []
   if (profile.targetRole !== 'undecided' && profile.targetRole && primaryId !== profile.targetRole) {
     risks.push('测评优先方向与你当前首选岗位不同，需要确认是调整目标，还是针对首选岗位补齐差距。')
   }
-  if (profile.hardLimits.includes('sales_targets') && ['bar', 'retail', 'beauty_spa'].includes(primaryId)) {
-    risks.push('当前方向通常包含推荐销售或业绩要求，与你不能接受强销售指标的限制存在冲突。')
-  }
-  if (profile.hardLimits.includes('high_intensity') && ['bar', 'restaurant', 'housekeeping'].includes(primaryId)) {
-    risks.push('当前方向通常工作节奏或体力强度较高，与你的限制存在冲突。')
-  }
+  for (const conflict of findHardLimitConflicts(profile, primaryId)) risks.push(conflict.risk)
   if (profile.hardLimits.includes('night_shifts') && ['bar', 'front_office'].includes(primaryId)) {
     risks.push('当前方向可能涉及晚班或轮班，需要在接受岗位前确认实际排班。')
   }
-  if (profile.timeline === 'within_3_months' && Number(assessment?.practicalAssessment?.englishScore || assessment?.dimensionScores?.english || 0) < 60) {
+  if (needsEnglishBeforeBoarding(profile, assessment)) {
     risks.push('尽快申请与补足岗位英语之间存在时间冲突，需要先确认是优先上船还是继续准备。')
   }
   return risks
 }
 
-const normalizeManualCalibration = (value, profile, decisionRisks) => {
-  const topics = normalizeList(value?.topics, [], 5)
-  if (profile.timeline === 'within_3_months' || profile.primaryConcern === 'english') topics.push('先上船还是继续准备')
-  if (profile.targetRole !== 'undecided' && profile.targetRole) topics.push('目标岗位还是测评优先方向')
-  if (decisionRisks.length) topics.push('是否接受短期妥协换取船上经验')
+// 只有存在具体冲突或重大取舍时才建议校准，并写明取舍内容；排名先后本身不构成触发条件。
+// 信息不足应由用户补充回答，不默认转向人工服务。
+const normalizeManualCalibration = (value, profile, positions, assessment) => {
+  const modelRecommended = value?.recommended === true
+  const topics = modelRecommended ? normalizeList(value?.topics, [], 5) : []
+  if (needsEnglishBeforeBoarding(profile, assessment)) topics.push('希望 3 个月内上船，但岗位英语仍需补足：先上船还是继续准备')
+  const hasTarget = profile.targetRole && profile.targetRole !== 'undecided'
+  for (const conflict of hasTarget ? findHardLimitConflicts(profile, profile.targetRole) : []) {
+    topics.push(`首选岗位 ${getRoleTitle(profile.targetRole)} 与“${conflict.label}”冲突：调整首选岗位，还是重新确认这项限制`)
+  }
+  const primaryId = positions[0]?.id
+  for (const conflict of primaryId !== profile.targetRole ? findHardLimitConflicts(profile, primaryId) : []) {
+    topics.push(`当前优先方向 ${getRoleTitle(primaryId)} 与“${conflict.label}”冲突：接受这项条件，还是改为比较其他方向`)
+  }
+  const recommended = topics.length > 0
 
   return {
-    recommended: value?.recommended !== false,
+    recommended,
     topics: [...new Set(topics)].slice(0, 5),
-    message: trimText(value?.message, 360) || '这类选择涉及收入、时间成本和长期职业路径，不建议只依据一次 AI 测评决定，可结合人工咨询进一步校准。',
+    message: recommended
+      ? (modelRecommended && trimText(value?.message, 360)) || '这些取舍会直接影响岗位方向，建议先补充回答相关问题，确认自己的优先级；需要时再结合人工咨询。'
+      : '',
   }
 }
 
@@ -317,8 +337,12 @@ const buildReport = (raw, fallbackRecommendations, profile, assessment = {}) => 
     usedRoleIds.add(normalized.id)
     return normalized
   })
-  const routeId = ['diy', 'guide', 'agent'].includes(raw?.applicationRoute?.id) ? raw.applicationRoute.id : 'guide'
-  const routeTitles = { diy: '低成本 DIY 路线', guide: '指导型 DIY 路线', agent: '渠道协助路线' }
+    // 模型偶尔不按分数排列，展示和风险判断都以分数为准；同分保留模型原顺序。
+    .sort((left, right) => right.matchScore - left.matchScore)
+    .map((position, index) => ({ ...position, rank: index + 1 }))
+  // 路线缺失或无效表示“尚未确定”，不能默认成需要指导。
+  const routeTitles = { diy: '低成本 DIY 路线', guide: '指导型 DIY 路线', agent: '渠道协助路线', undecided: '申请渠道待确定', pause: '暂缓推进申请' }
+  const routeId = Object.hasOwn(routeTitles, raw?.applicationRoute?.id || '') ? raw.applicationRoute.id : 'undecided'
   const derivedRisks = deriveDecisionRisks(profile, positions, assessment)
   const decisionRisks = [...new Set([
     ...normalizeList(raw?.decisionRisks, [], 4),
@@ -333,13 +357,13 @@ const buildReport = (raw, fallbackRecommendations, profile, assessment = {}) => 
     summary: softenDecisionLanguage(raw?.summary) || '你的岗位方向需要结合英语、经历、工作偏好和准备周期逐步确认。',
     decisionBasis: normalizeDecisionBasis(raw?.decisionBasis, profile, assessment),
     decisionRisks: decisionRisks.length ? decisionRisks : ['方向匹配度只反映当前信息；收入、工作强度和长期发展仍需在岗位确认前逐项比较。'],
-    manualCalibration: normalizeManualCalibration(raw?.manualCalibration, profile, decisionRisks),
+    manualCalibration: normalizeManualCalibration(raw?.manualCalibration, profile, positions, assessment),
     recommendedPositions: positions,
     notRecommended: normalizeList(raw?.notRecommended, ['暂不建议只看岗位名称或收入决定方向，应先确认英语和工作强度。'], 3),
     applicationRoute: {
       id: routeId,
       title: routeTitles[routeId],
-      reason: trimText(raw?.applicationRoute?.reason, 360) || '根据目前信息，先完成岗位准备和材料梳理后再选择具体申请渠道。',
+      reason: (routeId === raw?.applicationRoute?.id && trimText(raw?.applicationRoute?.reason, 360)) || '目前信息还不足以判断申请渠道，先补全关键信息并核实可用的官方或合作渠道。',
     },
     next30Days: normalizeList(raw?.next30Days, ['确认主申岗位与备选岗位。', '补齐一个最影响投递的短板。', '整理英文简历所需的真实经历。'], 4),
     advisorSignals: normalizeSignals(raw?.advisorSignals),
@@ -347,6 +371,44 @@ const buildReport = (raw, fallbackRecommendations, profile, assessment = {}) => 
     frameworkVersion: AI_CREW_YUGE_FRAMEWORK_VERSION,
   }
 }
+
+const listOf = (value, max) => Array.isArray(value) ? value.slice(0, max) : []
+
+// 作答摘录与系统推断分成两个字段，摘录在前：推断是另一次 AI 评估的结论，不能和证据混在同一层。
+const buildAssessmentInput = (assessment, fallbackRecommendations) => {
+  const practical = assessment.practicalAssessment
+  const highlights = listOf(practical?.evidenceHighlights, 4)
+  return {
+    assessmentVersion: Number(assessment.assessmentVersion) || null,
+    completedAt: trimText(assessment.completedAt, 80) || null,
+    answerExcerpts: highlights
+      .map((item) => ({ source: trimText(item?.source, 20), quote: trimText(item?.quote, 240) }))
+      .filter((item) => item.quote),
+    systemInferences: {
+      overallScore: Number(assessment.overallScore) || 0,
+      level: trimText(assessment.level, 80),
+      serviceBackground: trimText(assessment.serviceBackground, 80),
+      dimensionScores: assessment.dimensionScores || {},
+      practicalAssessment: practical ? {
+        englishScore: Number(practical.englishScore) || 0,
+        serviceExperienceScore: Number(practical.serviceExperienceScore) || 0,
+        evidenceConfidence: trimText(practical.evidenceConfidence, 40),
+        summary: trimText(practical.summary, 800),
+        priorities: listOf(practical.priorities, 4).map((item) => trimText(item, 220)),
+        integrityFlags: listOf(practical.integrityFlags, 4).map((item) => trimText(item, 220)),
+        excerptFindings: highlights
+          .map((item) => ({ source: trimText(item?.source, 20), finding: trimText(item?.finding, 300) }))
+          .filter((item) => item.finding),
+      } : null,
+    },
+    ruleRecommendations: fallbackRecommendations,
+  }
+}
+
+export const buildCareerReportMessages = ({ profile, assessment, fallbackRecommendations }) => [
+  { role: 'system', content: buildCareerAdvisorSystemPrompt({ roleChoices: allowedRoles.map((role) => `${role.id} (${role.title})`).join('、') }) },
+  { role: 'user', content: JSON.stringify({ profile, assessment: buildAssessmentInput(assessment, fallbackRecommendations) }) },
+]
 
 export const handleCareerReportRequest = async ({ method, headers, body, env = process.env }) => {
   try {
@@ -413,10 +475,7 @@ export const handleCareerReportRequest = async ({ method, headers, body, env = p
               temperature: 0.2,
               max_completion_tokens: CAREER_REPORT_MAX_COMPLETION_TOKENS,
               response_format: { type: 'json_object' },
-              messages: [
-                { role: 'system', content: buildCareerAdvisorSystemPrompt({ roleChoices: allowedRoles.map((role) => `${role.id} (${role.title})`).join('、') }) },
-                { role: 'user', content: JSON.stringify({ profile, assessment: { assessmentVersion: Number(assessment.assessmentVersion) || null, completedAt: trimText(assessment.completedAt, 80) || null, overallScore: Number(assessment.overallScore) || 0, level: trimText(assessment.level, 80), serviceBackground: trimText(assessment.serviceBackground, 80), dimensionScores: assessment.dimensionScores || {}, practicalAssessment: assessment.practicalAssessment ? { englishScore: Number(assessment.practicalAssessment.englishScore) || 0, serviceExperienceScore: Number(assessment.practicalAssessment.serviceExperienceScore) || 0, evidenceConfidence: trimText(assessment.practicalAssessment.evidenceConfidence, 40), summary: trimText(assessment.practicalAssessment.summary, 800), priorities: Array.isArray(assessment.practicalAssessment.priorities) ? assessment.practicalAssessment.priorities.slice(0, 4).map((item) => trimText(item, 220)) : [], integrityFlags: Array.isArray(assessment.practicalAssessment.integrityFlags) ? assessment.practicalAssessment.integrityFlags.slice(0, 4).map((item) => trimText(item, 220)) : [], evidenceHighlights: Array.isArray(assessment.practicalAssessment.evidenceHighlights) ? assessment.practicalAssessment.evidenceHighlights.slice(0, 4).map((item) => ({ source: trimText(item?.source, 20), quote: trimText(item?.quote, 240), finding: trimText(item?.finding, 300) })) : [] } : null, ruleRecommendations: fallbackRecommendations } }) },
-              ],
+              messages: buildCareerReportMessages({ profile, assessment, fallbackRecommendations }),
             }),
             signal: AbortSignal.timeout(60_000),
           })

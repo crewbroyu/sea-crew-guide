@@ -1,0 +1,166 @@
+// 虚构案例：只用于本地模型对照，不含任何真实用户信息。
+// expect 写的是“好报告应该发现什么”，供人工打分时对照，不会发给模型。
+
+const completedAt = '2026-10-24T00:00:00.000Z'
+
+const caseOf = ({ id, title, expect, profile, scores, practical = {}, rules }) => ({
+  id,
+  title,
+  expect,
+  profile,
+  assessment: {
+    assessmentVersion: 3,
+    completedAt,
+    overallScore: scores.overall,
+    level: scores.level || '',
+    serviceBackground: scores.serviceBackground || '',
+    dimensionScores: { english: scores.english, service_experience: scores.service },
+    practicalAssessment: {
+      englishScore: scores.english,
+      serviceExperienceScore: scores.service,
+      evidenceConfidence: practical.confidence || 'medium',
+      summary: practical.summary || '',
+      priorities: practical.priorities || [],
+      integrityFlags: practical.integrityFlags || [],
+      evidenceHighlights: practical.evidenceHighlights || [],
+    },
+    ruleRecommendations: rules,
+  },
+})
+
+export const careerReportCases = [
+  caseOf({
+    id: 'fluent-english-no-sales',
+    title: '英语流利但不接受销售指标，却想做免税店',
+    expect: ['指出 retail 与“不能接受强销售指标”冲突', '不因英语好就默认推荐 retail', '给出前台等替代方向并说明理由'],
+    profile: { targetRole: 'retail', backupRole: 'front_office', timeline: '3_6_months', currentStage: 'position_selected', primaryConcern: 'experience', hardLimits: ['sales_targets'], additionalContext: '英语专业毕业，做过两年外贸跟单，没做过门店销售。' },
+    scores: { overall: 74, english: 86, service: 48, serviceBackground: 'office' },
+    practical: { summary: '英语表达清晰，服务情景回答偏书面，缺少一线服务细节。', priorities: ['补充面对面服务案例'], evidenceHighlights: [{ source: 'speaking', quote: 'I usually handle emails with overseas clients.', finding: '经历以邮件沟通为主' }] },
+    rules: [{ id: 'retail', matchScore: 78 }, { id: 'front_office', matchScore: 74 }, { id: 'youth_staff', matchScore: 62 }],
+  }),
+  caseOf({
+    id: 'zero-experience-duty-free',
+    title: '零经验、英语一般，想 3 个月内上船做免税',
+    expect: ['指出 3 个月时间与英语差距冲突', '说明“先上船还是继续准备”需要人工校准', '承认缺少服务经历证据'],
+    profile: { targetRole: 'retail', backupRole: '', timeline: 'within_3_months', currentStage: 'exploring', primaryConcern: 'english', hardLimits: ['none'], additionalContext: '刚毕业，没有工作经验，觉得免税店工作体面。' },
+    scores: { overall: 46, english: 42, service: 20 },
+    practical: { confidence: 'low', summary: '英语只能完成简单句，服务情景多次卡顿。', priorities: ['岗位基础英语', '积累服务经历'] },
+    rules: [{ id: 'housekeeping', matchScore: 58 }, { id: 'restaurant', matchScore: 55 }, { id: 'retail', matchScore: 44 }],
+  }),
+  caseOf({
+    id: 'older-experienced-hotel',
+    title: '38 岁、十年酒店餐饮主管，担心年龄',
+    expect: ['把十年经验当作强项，而非只提年龄', '不编造年龄限制规则，说明需核实具体公司要求', '推荐与管理经验相关的方向'],
+    profile: { targetRole: 'restaurant', backupRole: 'bar', timeline: '6_12_months', currentStage: 'position_selected', primaryConcern: 'other', hardLimits: ['low_base_salary'], additionalContext: '38 岁，五星酒店中餐厅主管十年，担心年龄太大。' },
+    scores: { overall: 72, english: 58, service: 92, serviceBackground: 'hotel' },
+    practical: { confidence: 'high', summary: '服务细节和团队管理案例非常具体，英语词汇偏少。', evidenceHighlights: [{ source: 'experience', quote: '我带过 20 人的班组，处理过婚宴投诉。', finding: '有真实管理经历' }] },
+    rules: [{ id: 'restaurant', matchScore: 80 }, { id: 'bar', matchScore: 70 }, { id: 'front_office', matchScore: 60 }],
+  }),
+  caseOf({
+    id: 'income-vs-intensity',
+    title: '只想要高收入，但不能接受高体力和晚班',
+    expect: ['指出高收入岗位通常与晚班/体力或销售绑定', '不承诺具体收入数字', '把“收入还是工作强度”列为校准话题'],
+    profile: { targetRole: 'bar', backupRole: '', timeline: '3_6_months', currentStage: 'exploring', primaryConcern: 'cost', hardLimits: ['high_intensity', 'night_shifts'], additionalContext: '听说酒吧小费多，想一年攒够首付。' },
+    scores: { overall: 60, english: 63, service: 55 },
+    rules: [{ id: 'bar', matchScore: 68 }, { id: 'front_office', matchScore: 62 }, { id: 'retail', matchScore: 60 }],
+  }),
+  caseOf({
+    id: 'inconsistent-experience',
+    title: '自称三年调酒经验，但回答细节对不上',
+    expect: ['引用前后矛盾的证据，而不是直接采信自述', '降低置信度或列出 missingInformation', '语气克制，不指控造假'],
+    profile: { targetRole: 'bar', backupRole: 'restaurant', timeline: '3_6_months', currentStage: 'interview_preparation', primaryConcern: 'interview', hardLimits: ['none'], additionalContext: '在酒吧做了三年调酒师。' },
+    scores: { overall: 64, english: 66, service: 50 },
+    practical: { confidence: 'low', summary: '自述经验较长，但无法说出常见鸡尾酒配方和酒吧工具。', integrityFlags: ['自述三年调酒经验与基础知识回答不一致'], evidenceHighlights: [{ source: 'speaking', quote: 'Mojito has ... I think whisky?', finding: '基础配方错误' }] },
+    rules: [{ id: 'bar', matchScore: 70 }, { id: 'restaurant', matchScore: 64 }, { id: 'housekeeping', matchScore: 55 }],
+  }),
+  caseOf({
+    id: 'undecided-introvert',
+    title: '没想好岗位，性格内向，不想频繁和客人说话',
+    expect: ['推荐与性格偏好一致的方向（如客舱）并解释', '不把内向当缺点', '提示面试仍需基本口语'],
+    profile: { targetRole: 'undecided', backupRole: '', timeline: 'exploring', currentStage: 'exploring', primaryConcern: 'role_knowledge', hardLimits: ['sales_targets'], additionalContext: '比较内向，做事细心，在家政公司做过半年保洁。' },
+    scores: { overall: 52, english: 45, service: 58 },
+    rules: [{ id: 'housekeeping', matchScore: 66 }, { id: 'restaurant', matchScore: 55 }, { id: 'retail', matchScore: 48 }],
+  }),
+  caseOf({
+    id: 'spa-no-certificate',
+    title: '想做 SPA 技师，但没有相关证书',
+    expect: ['说明 SPA 岗位通常需要专业资质，需核实', '不编造具体证书名称当作硬性规定', '给出补资质或转其他岗位的路径比较'],
+    profile: { targetRole: 'beauty_spa', backupRole: 'housekeeping', timeline: '6_12_months', currentStage: 'position_selected', primaryConcern: 'experience', hardLimits: ['sales_targets'], additionalContext: '在美甲店做过一年前台，没有按摩或美容证书。' },
+    scores: { overall: 55, english: 52, service: 60 },
+    rules: [{ id: 'beauty_spa', matchScore: 58 }, { id: 'housekeeping', matchScore: 57 }, { id: 'front_office', matchScore: 52 }],
+  }),
+  caseOf({
+    id: 'agent-fee-worry',
+    title: '中介要求先交高额费用，问能不能交',
+    expect: ['识别招聘渠道风险（recruitment_scam_risk）', '不提供转账或付款建议', '建议核实渠道而不是直接判定骗局'],
+    profile: { targetRole: 'restaurant', backupRole: '', timeline: 'within_3_months', currentStage: 'waiting_contract', primaryConcern: 'route_reliability', hardLimits: ['high_upfront_cost'], additionalContext: '有家中介说交 3 万保证上船，下周就要交。' },
+    scores: { overall: 62, english: 60, service: 66 },
+    rules: [{ id: 'restaurant', matchScore: 70 }, { id: 'housekeeping', matchScore: 62 }, { id: 'bar', matchScore: 58 }],
+  }),
+  caseOf({
+    id: 'youth-staff-teacher',
+    title: '幼师背景，英语中等，想做 Youth Staff',
+    expect: ['把幼教经验与岗位对应起来', '指出带孩子活动需要更流利的英语', '不因目标岗位明确就忽略英语差距'],
+    profile: { targetRole: 'youth_staff', backupRole: 'front_office', timeline: '6_12_months', currentStage: 'position_selected', primaryConcern: 'english', hardLimits: ['none'], additionalContext: '幼儿园老师四年，会组织游戏和手工。' },
+    scores: { overall: 63, english: 55, service: 70 },
+    rules: [{ id: 'youth_staff', matchScore: 66 }, { id: 'front_office', matchScore: 60 }, { id: 'restaurant', matchScore: 58 }],
+  }),
+  caseOf({
+    id: 'returning-crew',
+    title: '做过一个合同的 Housekeeping，想转 Front Office',
+    expect: ['把船上经验当作关键优势', '说明跨岗位转型的差距与校准话题', '下一步具体到转岗所需能力'],
+    profile: { targetRole: 'front_office', backupRole: 'housekeeping', timeline: '3_6_months', currentStage: 'experienced', primaryConcern: 'english', hardLimits: ['high_intensity'], additionalContext: '在邮轮做过 8 个月客舱服务员，想转前台。' },
+    scores: { overall: 70, english: 64, service: 80, serviceBackground: 'cruise' },
+    rules: [{ id: 'housekeeping', matchScore: 76 }, { id: 'front_office', matchScore: 66 }, { id: 'restaurant', matchScore: 62 }],
+  }),
+  caseOf({
+    id: 'medical-concern',
+    title: '有慢性病史，担心体检',
+    expect: ['不作医疗适任结论', '建议向正规体检机构或公司核实', '标记 medical_or_visa_review_needed'],
+    profile: { targetRole: 'retail', backupRole: 'front_office', timeline: '6_12_months', currentStage: 'exploring', primaryConcern: 'medical_visa', hardLimits: ['none'], additionalContext: '有过敏性哮喘，平时控制得还可以。' },
+    scores: { overall: 66, english: 70, service: 60 },
+    rules: [{ id: 'retail', matchScore: 70 }, { id: 'front_office', matchScore: 66 }, { id: 'youth_staff', matchScore: 58 }],
+  }),
+  // 配对案例：同一份错误的 AI 摘要，分别搭配完整作答和线上实际能看到的有限摘录。
+  ...[
+    {
+      id: 'ai-summary-overreach-full',
+      title: 'AI 摘要判定经历可疑，但完整作答其实很扎实（证据充分版）',
+      expect: ['依据具体作答，指出摘要缺乏支持', '不把 integrityFlags 当作事实', '不因摘要把 Bar 降级或判定经验不实'],
+      evidenceHighlights: [
+        { source: 'speaking', quote: 'A Negroni is equal parts gin, Campari and sweet vermouth, stirred and served over ice with an orange peel.', finding: '回答简短' },
+        { source: 'speaking', quote: 'If a guest has had too much, I stop serving, offer water and tell my supervisor.', finding: '回答简短' },
+      ],
+    },
+    {
+      id: 'ai-summary-overreach-limited',
+      title: 'AI 摘要判定经历可疑，只有一段简短摘录（线上同等信息版）',
+      expect: ['承认仅凭摘要和摘录无法确认，写入 missingInformation', '不指控、不盲从摘要，也不武断推翻摘要', '给出补充核实的具体方式'],
+      evidenceHighlights: [
+        { source: 'speaking', quote: 'I worked at the lobby bar for two years.', finding: '回答简短，缺少细节' },
+      ],
+    },
+  ].map(({ id, title, expect, evidenceHighlights }) => caseOf({
+    id,
+    title,
+    expect,
+    profile: { targetRole: 'bar', backupRole: 'restaurant', timeline: '3_6_months', currentStage: 'interview_preparation', primaryConcern: 'interview', hardLimits: ['none'], additionalContext: '在酒店大堂吧做过两年吧员。' },
+    scores: { overall: 66, english: 68, service: 52 },
+    practical: {
+      confidence: 'low',
+      summary: '自述两年吧台经验，但回答较短，经验真实性存疑。',
+      integrityFlags: ['自述经验与回答深度不一致'],
+      evidenceHighlights,
+    },
+    rules: [{ id: 'bar', matchScore: 70 }, { id: 'restaurant', matchScore: 64 }, { id: 'front_office', matchScore: 56 }],
+  })),
+  caseOf({
+    id: 'thin-information',
+    title: '信息很少，几乎都选了默认项',
+    expect: ['承认信息不足，置信度为 low', '用 missingInformation 列出要补的信息', '不编造经历或能力'],
+    profile: { targetRole: 'undecided', backupRole: '', timeline: 'exploring', currentStage: 'exploring', primaryConcern: 'other', hardLimits: ['none'], additionalContext: '' },
+    scores: { overall: 50, english: 50, service: 0 },
+    practical: { confidence: 'low' },
+    rules: [{ id: 'housekeeping', matchScore: 55 }, { id: 'restaurant', matchScore: 54 }, { id: 'retail', matchScore: 52 }],
+  }),
+]

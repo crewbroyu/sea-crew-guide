@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { handleCareerReportRequest } from '../server/careerReport.js'
+import { buildCareerReportMessages, handleCareerReportRequest } from '../server/careerReport.js'
 
 const originalFetch = global.fetch
 const calls = []
@@ -288,10 +288,134 @@ try {
     assert.equal(fallbackResult.body.data.generationMode, 'rules_fallback', name)
     assert.equal(fallbackResult.body.data.decisionPrinciple, '测评规则帮你缩小选择范围，但不替你做最终决定。', name)
     assert.deepEqual(fallbackResult.body.data.recommendedPositions.map((item) => item.id), ['bar', 'restaurant', 'retail'], name)
+    assert.equal(fallbackResult.body.data.applicationRoute.id, 'undecided', name)
+    assert.equal(fallbackResult.body.data.manualCalibration.recommended, false, name)
     assert.equal(calls.filter((call) => call.url.includes('/chat/completions')).length - beforeProviderCalls, expectedProviderCalls, name)
     assert.equal(completedReportPayloads.length - beforeSaves, 1, name)
     assert.equal(completedReportPayloads.at(-1).input_model, 'rules-v1', name)
   }
+  providerOverride = () => Response.json({
+    choices: [{ message: { content: JSON.stringify({
+      summary: '你自述有调酒经验，但测评中基础配方回答有误。',
+      recommendedPositions: [
+        { id: 'bar', matchScore: 58, reasons: ['首选岗位'], risks: ['基础知识缺口'], nextSteps: ['补齐配方'] },
+        { id: 'restaurant', matchScore: 64, reasons: ['服务经验可迁移'], risks: ['体力要求高'], nextSteps: ['整理服务案例'] },
+        { id: 'housekeeping', matchScore: 55, reasons: ['门槛较低'], risks: ['与目标偏离'], nextSteps: ['了解客舱工作'] },
+      ],
+    }) } }],
+  })
+  const unsortedResult = await handleCareerReportRequest({
+    method: 'POST',
+    headers: { authorization: 'Bearer mock-token' },
+    body: {
+      clientRequestId: 'career-report-unsorted-scores',
+      profile: {
+        targetRole: 'bar', backupRole: 'restaurant', timeline: '3_6_months',
+        currentStage: 'interview_preparation', primaryConcern: 'interview', hardLimits: ['none'],
+      },
+      assessment: { assessmentVersion: 3, completedAt: '2026-10-07T05:00:00.000Z', overallScore: 64, ruleRecommendations: [{ id: 'bar', matchScore: 70 }, { id: 'restaurant', matchScore: 64 }, { id: 'housekeeping', matchScore: 55 }] },
+    },
+    env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+  })
+  assert.equal(unsortedResult.status, 200)
+  assert.equal(unsortedResult.body.data.generationMode, 'ai')
+  assert.deepEqual(unsortedResult.body.data.recommendedPositions.map((item) => [item.id, item.matchScore, item.rank]), [
+    ['restaurant', 64, 1],
+    ['bar', 58, 2],
+    ['housekeeping', 55, 3],
+  ])
+  assert.ok(unsortedResult.body.data.decisionRisks.some((item) => item.includes('测评优先方向与你当前首选岗位不同')))
+  // 首选岗位没排第一只是线索，没有具体冲突时不触发人工校准。
+  assert.equal(unsortedResult.body.data.manualCalibration.recommended, false)
+
+  const runWithModelReport = async (name, modelReport, profileOverrides = {}) => {
+    providerOverride = () => Response.json({ choices: [{ message: { content: JSON.stringify(modelReport) } }] })
+    const response = await handleCareerReportRequest({
+      method: 'POST',
+      headers: { authorization: 'Bearer mock-token' },
+      body: {
+        clientRequestId: `career-report-${name}`,
+        profile: {
+          targetRole: 'restaurant', backupRole: 'housekeeping', timeline: '6_12_months',
+          currentStage: 'position_selected', primaryConcern: 'experience', hardLimits: ['none'], ...profileOverrides,
+        },
+        assessment: { assessmentVersion: 3, completedAt: `2026-10-07T06:00:0${completedReportPayloads.length % 10}.000Z`, overallScore: 70, ruleRecommendations: [{ id: 'restaurant', matchScore: 72 }, { id: 'housekeeping', matchScore: 66 }, { id: 'bar', matchScore: 60 }] },
+      },
+      env: { DASHSCOPE_API_KEY: 'test-key', SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'test-anon' },
+    })
+    assert.equal(response.status, 200, name)
+    return response.body.data
+  }
+  const plainPositions = [
+    { id: 'restaurant', matchScore: 72, reasons: ['服务经验可迁移'], risks: ['体力要求高'], nextSteps: ['整理服务案例'] },
+    { id: 'housekeeping', matchScore: 66, reasons: ['门槛较低'], risks: ['与目标偏离'], nextSteps: ['了解客舱工作'] },
+    { id: 'bar', matchScore: 60, reasons: ['节奏快'], risks: ['需要酒水知识'], nextSteps: ['学习酒水基础'] },
+  ]
+
+  // 路线缺失或无效时不能被解释成“需要指导”。
+  for (const [name, applicationRoute] of [['route-missing', undefined], ['route-invalid', { id: 'premium_coaching', reason: '建议购买陪跑服务。' }]]) {
+    const report = await runWithModelReport(name, { summary: '方向基本清楚。', recommendedPositions: plainPositions, applicationRoute })
+    assert.equal(report.applicationRoute.id, 'undecided', name)
+    assert.equal(report.applicationRoute.title, '申请渠道待确定', name)
+    assert.ok(!report.applicationRoute.reason.includes('陪跑'), name)
+  }
+  const pausedReport = await runWithModelReport('route-pause', { summary: '先完成体检评估。', recommendedPositions: plainPositions, applicationRoute: { id: 'pause', reason: '体检评估完成前暂缓推进申请。' } })
+  assert.deepEqual([pausedReport.applicationRoute.id, pausedReport.applicationRoute.title], ['pause', '暂缓推进申请'])
+
+  // 没有重大权衡时，不默认建议人工校准；模型只给 topics 而未明确 recommended 也不算。
+  for (const [name, manualCalibration] of [['calibration-missing', undefined], ['calibration-topics-only', { topics: ['是否继续准备'] }]]) {
+    const report = await runWithModelReport(name, { summary: '方向基本清楚。', recommendedPositions: plainPositions, manualCalibration })
+    assert.deepEqual(report.manualCalibration, { recommended: false, topics: [], message: '' }, name)
+  }
+  const tradeOffReport = await runWithModelReport('calibration-trade-off', {
+    summary: '需要在尽快上船和继续准备之间取舍。',
+    recommendedPositions: plainPositions,
+    manualCalibration: { recommended: true, topics: ['先上船还是继续准备'], message: '这是一项重大权衡。' },
+  })
+  assert.deepEqual([tradeOffReport.manualCalibration.recommended, tradeOffReport.manualCalibration.topics], [true, ['先上船还是继续准备']])
+
+  // 首选岗位与硬性限制直接冲突时，即使首选排在第一，也要写明冲突并建议校准。
+  const conflictReport = await runWithModelReport('calibration-hard-limit', {
+    summary: '首选零售，但不接受销售指标。',
+    recommendedPositions: [
+      { id: 'retail', matchScore: 74, reasons: ['英语较好'], risks: ['有销售目标'], nextSteps: ['确认销售考核方式'] },
+      ...plainPositions.slice(0, 2),
+    ],
+  }, { targetRole: 'retail', backupRole: 'front_office', hardLimits: ['sales_targets'] })
+  assert.equal(conflictReport.manualCalibration.recommended, true)
+  assert.deepEqual(conflictReport.manualCalibration.topics, ['首选岗位 Retail Sales Associate 与“不能接受强销售指标”冲突：调整首选岗位，还是重新确认这项限制'])
+  assert.ok(conflictReport.manualCalibration.message.includes('补充回答'))
+
+  // 系统推断（AI 摘要、integrityFlags）只能作为待核实线索交给模型。
+  const advisorPrompt = JSON.parse([...calls].reverse().find((call) => call.url.includes('/chat/completions')).options.body).messages[0].content
+  assert.ok(advisorPrompt.includes('系统推断只是待核实的线索，不是已核实的事实'))
+  assert.ok(advisorPrompt.includes('不自动认定任何一方正确'))
+
+  // 作答摘录与系统推断分层传入：摘录在前，finding 归入推断，不和原话放在同一条里。
+  const evidenceInput = JSON.parse(buildCareerReportMessages({
+    profile: { targetRole: 'bar' },
+    assessment: {
+      overallScore: 66,
+      practicalAssessment: {
+        englishScore: 68,
+        summary: '经验真实性存疑。',
+        integrityFlags: ['自述经验与回答深度不一致'],
+        evidenceHighlights: [
+          { source: 'speaking', quote: 'A Negroni is equal parts gin, Campari and sweet vermouth.', finding: '回答简短' },
+          { source: 'speaking', quote: '', finding: '没有原话的推断' },
+        ],
+      },
+    },
+    fallbackRecommendations: [],
+  })[1].content).assessment
+  assert.deepEqual(Object.keys(evidenceInput).slice(2, 4), ['answerExcerpts', 'systemInferences'])
+  assert.deepEqual(evidenceInput.answerExcerpts, [{ source: 'speaking', quote: 'A Negroni is equal parts gin, Campari and sweet vermouth.' }])
+  assert.deepEqual(evidenceInput.systemInferences.practicalAssessment.excerptFindings, [
+    { source: 'speaking', finding: '回答简短' },
+    { source: 'speaking', finding: '没有原话的推断' },
+  ])
+  assert.equal(evidenceInput.systemInferences.practicalAssessment.summary, '经验真实性存疑。')
+  assert.equal(evidenceInput.practicalAssessment, undefined)
   providerOverride = null
 
   reportLookupFailure = true

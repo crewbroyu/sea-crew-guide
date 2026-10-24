@@ -47,3 +47,6 @@ supabase/.temp/
 
 # Paid reference answers under review: never commit (public repository)
 content/reference-answers/
+
+# Local model comparison output
+scripts/model-compare/results/

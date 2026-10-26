@@ -8,7 +8,9 @@ import RequireActivation from '../../components/RequireActivation'
 import BarServerFoundationTraining from '../../components/training/BarServerFoundationTraining'
 import RetailFoundationTraining from '../../components/training/RetailFoundationTraining'
 import RetailKnowledgeLibrary from '../../components/training/RetailKnowledgeLibrary'
+import LectureSlidePlayer from '../../components/training/LectureSlidePlayer'
 import { getFoundationCourse } from '../../data/foundationCourseCatalog'
+import { getDayLecture, getDayLectureAudio } from '../../data/lectures'
 import { getJobSkills, getScenarioById } from '../../data/jobScenarioCatalog'
 import { getMyScenarioProfile } from '../../services/scenarioTrainingService'
 import { getMyFoundationCourseState, upsertMyFoundationCourseState } from '../../services/jobPreparationService'
@@ -74,6 +76,9 @@ function FoundationCourseContent({ownerId,readOnly}) {
   const [cloudReady, setCloudReady] = useState(false)
   const [completingTask, setCompletingTask] = useState(false)
   const [taskCompletionError, setTaskCompletionError] = useState('')
+  // Lecture buttons jump the practice component below to a lesson step by remounting it there.
+  const [practiceTarget, setPracticeTarget] = useState(null)
+  const practiceRef = useRef(null)
   // Lessons read the newest progress through this ref so a delayed AI result cannot restore an older snapshot,
   // even if the learner has moved to another day while waiting.
   const progressRef = useRef(progress)
@@ -167,6 +172,12 @@ function FoundationCourseContent({ownerId,readOnly}) {
   const selectedDay = course?.days.find((day) => day.id === dayId) || null
   const dayIndex = selectedDay ? course.days.indexOf(selectedDay) : -1
   const nextDay = dayIndex >= 0 ? course.days[dayIndex + 1] : null
+  const lecture = selectedDay ? getDayLecture(course.slug, selectedDay.id) : null
+  const practiceStep = practiceTarget?.dayId === selectedDay?.id ? practiceTarget.step : 0
+  const openPracticeStep = (step) => {
+    setPracticeTarget({ dayId: selectedDay.id, step })
+    window.requestAnimationFrame(() => practiceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
   const weakestSkillLabel = getJobSkills(course?.jobKey).find((skill) => skill.key === scenarioProfile?.weakest_skill)?.label
     || scenarioProfile?.weakest_skill
   const recommendedScenario = getScenarioById(scenarioProfile?.recommended_scenario_id)
@@ -271,11 +282,14 @@ function FoundationCourseContent({ownerId,readOnly}) {
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-5 py-6">
+        {lecture && <LectureSlidePlayer key={lecture.id} lecture={lecture} audio={getDayLectureAudio(lecture.id)} onStartShadowing={() => openPracticeStep(3)} onStartChallenge={() => openPracticeStep(4)} />}
+        <div ref={practiceRef} className="scroll-mt-32">
         {course.jobKey === 'bar_server' ? (
-          <BarServerFoundationTraining key={selectedDay.id} progress={progress} onProgressChange={updateProgress} getLatestProgress={getLatestProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartTask6={finishFoundationCourse} onStartTask7={() => navigate('/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task5')} onStartScenarioTraining={() => navigate(course.simulatorRoute)} />
+          <BarServerFoundationTraining key={`${selectedDay.id}:${practiceStep}`} initialLessonStep={practiceStep} progress={progress} onProgressChange={updateProgress} getLatestProgress={getLatestProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartTask6={finishFoundationCourse} onStartTask7={() => navigate('/tasks/phase2/Task7/voice?mode=knowledge&position=bar_server&source=task5')} onStartScenarioTraining={() => navigate(course.simulatorRoute)} />
         ) : (
           <RetailFoundationTraining key={selectedDay.id} initialProgress={progress} onProgressChange={updateProgress} getLatestProgress={getLatestProgress} onlyDayId={selectedDay.id} showCourseHeader={false} savedLines={savedLines} onToggleSavedLine={toggleSavedLine} onStartQuestions={() => navigate('/academy/interview-questions?position=retail')} onStartSimulation={() => navigate(course.simulatorRoute)} />
         )}
+        </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={() => navigate(`/programs/${course.slug}/foundation`)} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700">返回目录</button>
           {nextDay && <button type="button" disabled={!isFoundationDayFinished(course.jobKey, progress, selectedDay.id)} onClick={() => navigate(`/programs/${course.slug}/foundation/${nextDay.id}`)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300">继续 Day {nextDay.day}<ArrowRight size={16} /></button>}

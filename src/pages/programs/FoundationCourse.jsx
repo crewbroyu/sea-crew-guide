@@ -173,7 +173,7 @@ function FoundationCourseContent({ownerId,readOnly}) {
   const dayIndex = selectedDay ? course.days.indexOf(selectedDay) : -1
   const nextDay = dayIndex >= 0 ? course.days[dayIndex + 1] : null
   const lecture = selectedDay ? getDayLecture(course.slug, selectedDay.id) : null
-  const practiceStep = practiceTarget?.dayId === selectedDay?.id ? practiceTarget.step : 0
+  const practiceStep = practiceTarget && selectedDay && practiceTarget.dayId === selectedDay.id ? practiceTarget.step : 0
   const openPracticeStep = (step) => {
     setPracticeTarget({ dayId: selectedDay.id, step })
     window.requestAnimationFrame(() => practiceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAccessStore } from '../store/accessStore';
 import { getAuthCallbackUrl, supabase } from '../supabase';
 import { trackProductEvent } from '../services/productAnalyticsService';
@@ -6,6 +7,7 @@ import { getCurrentAuthIntentRoute } from '../utils/authIntent';
 
 export default function RegisterModal() {
   const { showRegisterModal, authModalMode, closeRegisterModal, register } = useAccessStore();
+  const { t } = useTranslation('auth');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -70,32 +72,32 @@ export default function RegisterModal() {
     setError('');
     
     if (!email.trim()) {
-      setError('请输入邮箱地址');
+      setError(t('errors.emailRequired'));
       return;
     }
     
     if (!email.includes('@')) {
-      setError('请输入有效的邮箱地址');
+      setError(t('errors.emailInvalid'));
       return;
     }
     
     if (!password) {
-      setError('请输入密码');
+      setError(t('errors.passwordRequired'));
       return;
     }
     
     if (password.length < 6) {
-      setError('密码至少需要6位');
+      setError(t('errors.passwordTooShort'));
       return;
     }
     
     if (mode === 'register' && !name.trim()) {
-      setError('请输入姓名');
+      setError(t('errors.nameRequired'));
       return;
     }
 
     if (mode === 'register' && !acceptedTerms) {
-      setError('请先阅读并同意用户协议和隐私政策');
+      setError(t('errors.termsRequired'));
       return;
     }
     
@@ -133,8 +135,8 @@ export default function RegisterModal() {
       if (!result.data?.session) {
         setConfirmationEmail(email.trim());
         setError(mode === 'register'
-          ? '验证邮件已发送。请点击邮件中的确认按钮，随后会自动回到 CrewPathGuide 完成登录。'
-          : '登录未完成，请重新登录');
+          ? t('errors.confirmationSent')
+          : t('errors.loginIncomplete'));
         return;
       }
       
@@ -150,17 +152,17 @@ export default function RegisterModal() {
       console.error('Auth error:', error);
       const errorMessage = error.message || '';
       if (/failed to fetch|networkerror|load failed|fetch failed/i.test(errorMessage)) {
-        setError('暂时无法连接登录服务，请检查网络后重试。若正在使用微信内置浏览器，请改用系统浏览器打开。');
+        setError(t('errors.network'));
       } else if (/already registered|already been registered/i.test(errorMessage)) {
-        setError('该邮箱已注册，请直接登录');
+        setError(t('errors.alreadyRegistered'));
         setMode('login');
       } else if (errorMessage.includes('Invalid login credentials')) {
-        setError('邮箱或密码错误');
+        setError(t('errors.invalidCredentials'));
       } else if (/email not confirmed/i.test(errorMessage)) {
         setConfirmationEmail(email.trim());
-        setError('该邮箱还未完成验证。请使用最新一封验证邮件，或点击下方重新发送。');
+        setError(t('errors.emailNotConfirmed'));
       } else {
-        setError(errorMessage || '操作失败，请重试');
+        setError(errorMessage || t('errors.generic'));
       }
     } finally {
       setIsProcessing(false);
@@ -182,12 +184,12 @@ export default function RegisterModal() {
       });
       if (resendError) throw resendError;
       setConfirmationEmail(address);
-      setError('新的验证邮件已发送，请使用最新一封邮件里的链接。');
+      setError(t('errors.resent'));
     } catch (resendError) {
       const resendMessage = resendError.message || '';
       setError(/failed to fetch|networkerror|load failed|fetch failed/i.test(resendMessage)
-        ? '暂时无法连接邮件验证服务，请检查网络后重试。'
-        : resendMessage || '验证邮件暂时无法重发，请稍后再试。');
+        ? t('errors.resendNetwork')
+        : resendMessage || t('errors.resendFailed'));
     } finally {
       setIsProcessing(false);
     }
@@ -202,7 +204,7 @@ export default function RegisterModal() {
       <div className="relative my-auto w-full max-w-md rounded-lg bg-white p-5 shadow-2xl sm:p-8">
         <button
           type="button"
-          aria-label="关闭注册或登录窗口"
+          aria-label={t('close')}
           onClick={closeRegisterModal}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
         >
@@ -218,10 +220,10 @@ export default function RegisterModal() {
             </svg>
           </div>
           <h2 className="mb-2 text-xl font-bold text-gray-800 sm:text-2xl">
-            {mode === 'register' ? '创建账户' : '登录账户'}
+            {mode === 'register' ? t('registerTitle') : t('loginTitle')}
           </h2>
           <p className="text-gray-600">
-            {mode === 'register' ? 'Create your account · 注册新账户' : 'Sign in · 继续上次进度'}
+            {mode === 'register' ? t('registerSubtitle') : t('loginSubtitle')}
           </p>
         </div>
 
@@ -229,7 +231,7 @@ export default function RegisterModal() {
           {mode === 'register' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name · 姓名 <span className="text-red-500">*</span>
+                {t('nameLabel')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -238,7 +240,7 @@ export default function RegisterModal() {
                   setName(e.target.value);
                   setError('');
                 }}
-                placeholder="Your name · 您的名字"
+                placeholder={t('namePlaceholder')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               />
             </div>
@@ -246,7 +248,7 @@ export default function RegisterModal() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email · 邮箱 <span className="text-red-500">*</span>
+              {t('emailLabel')} <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
@@ -263,7 +265,7 @@ export default function RegisterModal() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password · 密码 <span className="text-red-500">*</span>
+              {t('passwordLabel')} <span className="text-red-500">*</span>
             </label>
             <input
               type="password"
@@ -273,7 +275,7 @@ export default function RegisterModal() {
                 setPassword(e.target.value);
                 setError('');
               }}
-              placeholder="至少6位 · min 6 characters"
+              placeholder={t('passwordPlaceholder')}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             />
           </div>
@@ -286,7 +288,7 @@ export default function RegisterModal() {
                 onChange={(event) => { setAcceptedTerms(event.target.checked); setError(''); }}
                 className="mt-1 h-4 w-4 shrink-0 accent-blue-600"
               />
-              <span>我已阅读并同意 <a href="/legal/terms" target="_blank" rel="noreferrer" className="font-semibold text-blue-700 underline">用户协议</a> 和 <a href="/legal/privacy" target="_blank" rel="noreferrer" className="font-semibold text-blue-700 underline">隐私政策</a>。</span>
+              <span>{t('termsBefore')}<a href="/legal/terms" target="_blank" rel="noreferrer" className="font-semibold text-blue-700 underline">{t('terms')}</a>{t('termsBetween')}<a href="/legal/privacy" target="_blank" rel="noreferrer" className="font-semibold text-blue-700 underline">{t('privacy')}</a>{t('termsAfter')}</span>
             </label>
           )}
 
@@ -301,7 +303,7 @@ export default function RegisterModal() {
               disabled={isProcessing}
               className="w-full text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
             >
-              重新发送验证邮件
+              {t('resend')}
             </button>
           )}
 
@@ -316,11 +318,11 @@ export default function RegisterModal() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                正在处理...
+                {t('processing')}
               </span>
             ) : (
               <span>
-                {mode === 'register' ? '注册并继续' : '登录并继续'}
+                {mode === 'register' ? t('submitRegister') : t('submitLogin')}
               </span>
             )}
           </button>
@@ -336,8 +338,8 @@ export default function RegisterModal() {
             className="text-blue-600 hover:text-blue-700 text-sm"
           >
             {mode === 'register'
-              ? '已有账户？直接登录'
-              : '还没有账户？立即注册'}
+              ? t('switchToLogin')
+              : t('switchToRegister')}
           </button>
         </div>
       </div>

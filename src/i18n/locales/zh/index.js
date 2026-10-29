@@ -4,5 +4,6 @@ import scenarioLesson from './scenarioLesson.js'
 import phraseShadowing from './phraseShadowing.js'
 import quickFeedback from './quickFeedback.js'
 import trialReport from './trialReport.js'
+import auth from './auth.js'
 
-export default { common, barTrial, scenarioLesson, phraseShadowing, quickFeedback, trialReport }
+export default { common, barTrial, scenarioLesson, phraseShadowing, quickFeedback, trialReport, auth }

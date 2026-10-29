@@ -203,4 +203,27 @@ const AI_ONLY_FIELDS = new Set(['focus', 'interviewerQuestion', 'keywords'])
   assert.equal(english.body.data.questionScores[0].comment, providerEvaluation.questionScores[0].comment)
 }
 
-console.log('i18n pilot passed: route language, key parity, English course content, report copy, assessment labels and English AI prompts.')
+// Client: the trial page's language must reach the request body. Production once dropped it here,
+// so the server above was never asked for English.
+{
+  const { readFile } = await import('node:fs/promises')
+  const serviceSource = (await readFile(new URL('../src/services/interviewAiService.js', import.meta.url), 'utf8'))
+    .replace("import { supabase } from '../supabase'", 'const supabase = globalThis.__i18nSupabase')
+  assert.notEqual(serviceSource.indexOf('globalThis.__i18nSupabase'), -1, 'supabase import must be stubbed')
+  globalThis.__i18nSupabase = { auth: { getSession: async () => ({ data: { session: { access_token: 'token' } }, error: null }) } }
+  globalThis.window = globalThis.window || { setTimeout, clearTimeout }
+  const service = await import(`data:text/javascript;base64,${Buffer.from(serviceSource).toString('base64')}`)
+
+  const sentBodies = []
+  globalThis.fetch = async (url, options) => {
+    sentBodies.push(JSON.parse(options.body))
+    return Response.json({ success: true, data: {} })
+  }
+  const request = { mode: 'scenario_trial', position: 'Bar Server', questions: [], answers: [], scenarioId: 'bar_server_drink_recommendation_01' }
+  await service.evaluateInterviewWithAi({ ...request, language: 'en' })
+  await service.evaluateInterviewWithAi(request)
+  assert.equal(sentBodies[0].language, 'en')
+  assert.equal('language' in sentBodies[1], false, 'Chinese requests must stay unchanged')
+}
+
+console.log('i18n pilot passed: route language, key parity, English course content, report copy, assessment labels, English AI prompts and client language forwarding.')

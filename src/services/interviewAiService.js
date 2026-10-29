@@ -115,6 +115,7 @@ export const evaluateInterviewWithAi = ({
   questions,
   answers,
   scenarioId = '',
+  language,
   requestId,
 }) => requestInterviewAi({
   action: 'evaluate',
@@ -123,6 +124,8 @@ export const evaluateInterviewWithAi = ({
   questions,
   answers,
   scenarioId,
+  // Only bilingual pages pass this; the server answers in Chinese when it is missing.
+  ...(language ? { language } : {}),
 }, requestId)
 
 export const generateMockInterviewFollowUp = ({ position, mainQuestion, answer }) => requestInterviewAi({

@@ -1,5 +1,6 @@
 import { useTrainingInspection } from '../../hooks/useTrainingInspection'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Bookmark, Check, Mic, RotateCcw, Square, Volume2 } from 'lucide-react'
 import EdgeReadAloudHint from '../EdgeReadAloudHint'
 import { speakEnglish as liveSpeakEnglish, stopSpeech } from '../../services/ttsService'
@@ -38,6 +39,7 @@ export default function PhraseShadowingPractice({
   savedLines = [],
   onToggleSavedLine,
 }) {
+  const { t } = useTranslation('phraseShadowing')
   const inspection = useTrainingInspection()
   const speakEnglish = inspection ? async () => {} : liveSpeakEnglish
   const legacyCompletedPhrases = practice.completedPhrases || []
@@ -92,6 +94,21 @@ export default function PhraseShadowingPractice({
   const progress = requiredRecordingCount
     ? Math.round((completedRecordingCount / requiredRecordingCount) * 100)
     : 0
+  const repetitionCounts = {
+    phraseReps: requiredPhraseRepetitions,
+    answerReps: requiredFullAnswerRepetitions,
+  }
+  const defaultDescription = !phrases.length
+    ? t('descriptionAnswer', repetitionCounts)
+    : referenceAnswer
+      ? t('descriptionPhrasesWithAnswer', repetitionCounts)
+      : t('descriptionPhrases', repetitionCounts)
+  const phraseProgress = { done: completedPhraseCount, total: phrases.length, ...repetitionCounts }
+  const defaultIncompleteMessage = !phrases.length
+    ? t('incompleteAnswer', repetitionCounts)
+    : referenceAnswer
+      ? t('incompletePhrasesWithAnswer', phraseProgress)
+      : t('incompletePhrases', phraseProgress)
 
   const emitPracticeChange = (
     nextPhraseRepetitions,
@@ -139,7 +156,7 @@ export default function PhraseShadowingPractice({
     setSpeakingKey(null)
 
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      setErrorMessage('当前浏览器不支持录音，请使用最新版 Chrome 或 Edge。')
+      setErrorMessage(t('recordingUnsupported'))
       return
     }
 
@@ -181,7 +198,7 @@ export default function PhraseShadowingPractice({
         setRecordingKey(null)
 
         if (elapsedSeconds < minimumSeconds) {
-          setErrorMessage(`本次录音少于 ${minimumSeconds} 秒，不计入训练次数。请完整读完后重试。`)
+          setErrorMessage(t('tooShort', { seconds: minimumSeconds }))
           return
         }
 
@@ -208,7 +225,7 @@ export default function PhraseShadowingPractice({
       stream?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
       setRecordingKey(null)
-      setErrorMessage('无法打开麦克风，请检查浏览器权限后重试。')
+      setErrorMessage(t('microphoneUnavailable'))
     }
   }
 
@@ -242,25 +259,25 @@ export default function PhraseShadowingPractice({
             type="button"
             onClick={() => playText(text, key, phrase)}
             disabled={inspection || recordingKey !== null}
-            title="播放示范"
+            title={t('playDemoTitle')}
             className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Volume2 size={15} />{speakingKey === key ? '播放中' : '听示范'}
+            <Volume2 size={15} />{speakingKey === key ? t('playing') : t('listen')}
           </button>
 
           {isRecording ? (
             <button type="button" onClick={stopRecording} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-red-600 px-3 text-xs font-semibold text-white">
-              <Square size={14} />停止录音
+              <Square size={14} />{t('stopRecording')}
             </button>
           ) : (
             <button
               type="button"
               onClick={() => handleStartRecording({ text, key, phrase, isFullAnswer })}
               disabled={inspection || isAnotherRecording || isListenRequired}
-              title={isListenRequired ? '请先听一遍示范' : recordingUrls[key] ? '继续跟读' : '开始跟读录音'}
+              title={isListenRequired ? t('listenFirstTitle') : recordingUrls[key] ? t('continueTitle') : t('startTitle')}
               className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              <Mic size={14} />{isListenRequired ? '先听示范' : recordingUrls[key] ? '再读一次' : '录音跟读'}
+              <Mic size={14} />{isListenRequired ? t('listenFirst') : recordingUrls[key] ? t('again') : t('record')}
             </button>
           )}
         </div>
@@ -276,13 +293,13 @@ export default function PhraseShadowingPractice({
     <section className="rounded-lg border border-slate-200 bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="font-semibold text-slate-950">{title || (phrases.length ? '表达内化训练' : '最终回答跟练')}</h3>
+          <h3 className="font-semibold text-slate-950">{title || (phrases.length ? t('titlePhrases') : t('titleAnswer'))}</h3>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            {description || (phrases.length ? `每条表达读 ${requiredPhraseRepetitions} 次${referenceAnswer ? `，再把完整回答连续练 ${requiredFullAnswerRepetitions} 次` : ''}。` : `把基于最后一次回答生成的修正版至少完整练 ${requiredFullAnswerRepetitions} 次。`)}录音只保留在当前页面。
+            {t('descriptionWithNote', { description: description || defaultDescription })}
           </p>
           <EdgeReadAloudHint />
         </div>
-        <span className="shrink-0 text-sm font-semibold text-blue-700">{completedUnitCount}/{requiredUnitCount} 项</span>
+        <span className="shrink-0 text-sm font-semibold text-blue-700">{t('units', { done: completedUnitCount, total: requiredUnitCount })}</span>
       </div>
 
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100">
@@ -314,7 +331,7 @@ export default function PhraseShadowingPractice({
                       {phraseCues[index] && <p className="mb-1 text-xs font-medium text-slate-500">{phraseCues[index]}</p>}
                       <p className="text-sm font-medium leading-6 text-slate-800">{phrase}</p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2"><span className={`text-xs font-semibold ${isCompleted ? 'text-emerald-700' : 'text-slate-500'}`}>{repetitionCount}/{requiredPhraseRepetitions}</span>{onToggleSavedLine && <button type="button" onClick={() => onToggleSavedLine(phrase, phraseCues[index])} title={isSaved ? '取消收藏' : '收藏表达'} className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${isSaved ? 'bg-blue-50 text-blue-700' : 'text-slate-400 hover:bg-slate-100'}`}><Bookmark size={15} fill={isSaved ? 'currentColor' : 'none'} /></button>}</div>
+                    <div className="flex shrink-0 items-center gap-2"><span className={`text-xs font-semibold ${isCompleted ? 'text-emerald-700' : 'text-slate-500'}`}>{repetitionCount}/{requiredPhraseRepetitions}</span>{onToggleSavedLine && <button type="button" onClick={() => onToggleSavedLine(phrase, phraseCues[index])} title={isSaved ? t('unsave') : t('save')} className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${isSaved ? 'bg-blue-50 text-blue-700' : 'text-slate-400 hover:bg-slate-100'}`}><Bookmark size={15} fill={isSaved ? 'currentColor' : 'none'} /></button>}</div>
                   </div>
                   {renderRecordingControls({ text: phrase, key, phrase })}
                 </div>
@@ -328,8 +345,8 @@ export default function PhraseShadowingPractice({
         <div className={`${phrases.length ? 'mt-5 border-t border-slate-200 pt-5' : 'mt-4'}`}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-slate-950">完整回答跟练</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">先完成 {requiredFullAnswerRepetitions} 次形成完整表达，继续到 {masteryFullAnswerRepetitions} 次作为熟练训练。</p>
+              <p className="text-sm font-semibold text-slate-950">{t('fullAnswerTitle')}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{t('fullAnswerHint', { required: requiredFullAnswerRepetitions, mastery: masteryFullAnswerRepetitions })}</p>
             </div>
             <span className={`shrink-0 text-xs font-semibold ${hasCompletedFullAnswer ? 'text-emerald-700' : 'text-slate-500'}`}>
               {fullAnswerRepetitions}/{masteryFullAnswerRepetitions}
@@ -342,7 +359,7 @@ export default function PhraseShadowingPractice({
             isFullAnswer: true,
           })}
           {fullAnswerRepetitions >= masteryFullAnswerRepetitions && (
-            <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-emerald-700"><Check size={14} />已完成 {masteryFullAnswerRepetitions} 次熟练训练</p>
+            <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-emerald-700"><Check size={14} />{t('mastered', { mastery: masteryFullAnswerRepetitions })}</p>
           )}
         </div>
       )}
@@ -350,12 +367,12 @@ export default function PhraseShadowingPractice({
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
         <p className={`text-xs font-medium ${isPracticeComplete ? 'text-emerald-700' : 'text-slate-500'}`}>
           {isPracticeComplete
-            ? (completeMessage || (phrases.length ? '表达训练已完成，可以开始修正后的第二次回答。' : '最终回答已完成 3 次跟练。'))
-            : (incompleteMessage || (phrases.length ? `已完成 ${completedPhraseCount}/${phrases.length} 条表达${referenceAnswer ? `，完整回答需至少练 ${requiredFullAnswerRepetitions} 次` : ''}。` : `完整回答需至少练 ${requiredFullAnswerRepetitions} 次。`))}
+            ? (completeMessage || (phrases.length ? t('completePhrases') : t('completeAnswer')))
+            : (incompleteMessage || defaultIncompleteMessage)}
         </p>
         {completedRecordingCount > 0 && (
           <button type="button" onClick={resetPractice} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-blue-700">
-            <RotateCcw size={13} />重置
+            <RotateCcw size={13} />{t('reset')}
           </button>
         )}
       </div>

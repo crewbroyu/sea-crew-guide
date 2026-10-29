@@ -1,0 +1,18 @@
+export default {
+  eyebrow: '3 个真实场景 · 两轮回答对比',
+  title: '你的 Bar Server 免费体验报告',
+  disclaimer: '这份结论只使用你刚才的回答证据，不等同于录用结果。',
+  readiness: '当前场景准备度',
+  validationLine: '最低验证线',
+  passed: '{{passed}}/3 类场景达到验证线',
+  primaryGap: '当前最大差距 · {{title}} {{score}}/100',
+  byScenario: '三场分别表现如何',
+  scenarioScores: '第一次 {{first}} · 重练 {{delta}}',
+  proven: '你已经证明的能力',
+  risks: '可能影响实际工作的错误',
+  riskTitle: '{{title}}：',
+  priority: '建议先训练的 3 个项目',
+  roadmap: '你的完整 14 天路线预览',
+  continueWithAccess: '进入我的14天训练',
+  continueToUnlock: '按我的短板开始14天训练',
+}

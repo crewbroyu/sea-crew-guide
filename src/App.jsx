@@ -12,6 +12,7 @@ import RequireAdmin from './components/RequireAdmin'
 import AdminPreviewBar from './components/AdminPreviewBar'
 import DebugPanel from './components/DebugPanel'
 import RouteMetadata from './components/RouteMetadata'
+import LanguageRouteSync from './components/LanguageRouteSync'
 
 // 动态导入大型组件
 const Task2 = lazy(() => import('./pages/tasks/Task2'))
@@ -85,6 +86,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
+        <LanguageRouteSync />
         <RouteMetadata />
         <AccessGate />
         <AdminPreviewBar />

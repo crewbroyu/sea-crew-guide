@@ -1,5 +1,6 @@
 import { useTrainingInspection } from '../../hooks/useTrainingInspection'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,10 +18,10 @@ import PhraseShadowingPractice from './PhraseShadowingPractice'
 import { speakEnglish as liveSpeakEnglish, stopSpeech } from '../../services/ttsService'
 
 const lessonSteps = [
-  { id: 'story', label: '剧情', icon: Headphones },
-  { id: 'knowledge', label: '知识', icon: BookOpen },
-  { id: 'language', label: '表达', icon: Languages },
-  { id: 'decision', label: '判断', icon: ListChecks },
+  { id: 'story', icon: Headphones },
+  { id: 'knowledge', icon: BookOpen },
+  { id: 'language', icon: Languages },
+  { id: 'decision', icon: ListChecks },
 ]
 
 export default function ScenarioLesson({
@@ -30,6 +31,7 @@ export default function ScenarioLesson({
   onComplete,
   requiredPhraseRepetitions = 1,
 }) {
+  const { t } = useTranslation('scenarioLesson')
   const inspection = useTrainingInspection()
   const speakEnglish = inspection ? async () => {} : liveSpeakEnglish
   const lesson = scenario.lesson
@@ -88,7 +90,7 @@ export default function ScenarioLesson({
         return (
           <div key={item.id} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border text-xs font-semibold ${active ? 'border-blue-200 bg-blue-50 text-blue-700' : completed ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-400'}`}>
             {completed ? <Check size={16} /> : <Icon size={16} />}
-            {item.label}
+            {t(`steps.${item.id}`)}
           </div>
         )
       })}
@@ -112,7 +114,7 @@ export default function ScenarioLesson({
         <p className="mt-4 border-l-4 border-blue-500 pl-3 text-sm font-medium leading-6 text-slate-800">{lesson.storyTitle}</p>
 
         <button type="button" onClick={isPlayingDialogue ? stopDialogue : playDialogue} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700">
-          {isPlayingDialogue ? <Square size={15} /> : <Play size={16} />}{isPlayingDialogue ? '停止剧情音频' : '播放剧情音频'}
+          {isPlayingDialogue ? <Square size={15} /> : <Play size={16} />}{isPlayingDialogue ? t('stopAudio') : t('playAudio')}
         </button>
 
         <div className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
@@ -120,22 +122,22 @@ export default function ScenarioLesson({
             <div key={`${line.speaker}-${line.text}`} className="py-4">
               <p className={`text-xs font-semibold ${line.role === 'guest' ? 'text-amber-700' : 'text-blue-700'}`}>{line.speaker}</p>
               <p className="mt-1 text-sm font-medium leading-6 text-slate-900">{line.text}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{line.translation}</p>
+              {line.translation && <p className="mt-1 text-xs leading-5 text-slate-500">{line.translation}</p>}
             </div>
           ))}
         </div>
       </section>
 
-      <button type="button" onClick={() => changeStep('knowledge')} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">理解这个场景 <ArrowRight size={17} /></button>
+      <button type="button" onClick={() => changeStep('knowledge')} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">{t('understand')} <ArrowRight size={17} /></button>
     </div>
   )
 
   const renderKnowledge = () => (
     <div className="space-y-5">
-      <button type="button" onClick={() => changeStep('story')} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-blue-700"><ArrowLeft size={16} />返回剧情</button>
+      <button type="button" onClick={() => changeStep('story')} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-blue-700"><ArrowLeft size={16} />{t('backToStory')}</button>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex items-center gap-2 text-blue-700"><BookOpen size={18} /><p className="text-sm font-semibold">本场基础知识</p></div>
+        <div className="flex items-center gap-2 text-blue-700"><BookOpen size={18} /><p className="text-sm font-semibold">{t('knowledgeTitle')}</p></div>
         <p className="mt-3 text-sm font-medium leading-6 text-slate-900">{lesson.objective}</p>
         <div className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
           {lesson.knowledge.map((item, index) => (
@@ -148,7 +150,7 @@ export default function ScenarioLesson({
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex items-center gap-2 text-blue-700"><GlassWater size={18} /><h3 className="font-semibold text-slate-950">三款饮品怎么判断</h3></div>
+        <div className="flex items-center gap-2 text-blue-700"><GlassWater size={18} /><h3 className="font-semibold text-slate-950">{t('comparisonTitle')}</h3></div>
         <div className="mt-4 space-y-3">
           {lesson.drinkComparison.map((drink) => (
             <div key={drink.name} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
@@ -161,7 +163,7 @@ export default function ScenarioLesson({
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <h3 className="font-semibold text-slate-950">高峰期服务顺序</h3>
+        <h3 className="font-semibold text-slate-950">{t('sequenceTitle')}</h3>
         <ol className="mt-4 space-y-3">
           {lesson.serviceSequence.map((item, index) => (
             <li key={item} className="flex items-start gap-3 text-sm leading-6 text-slate-700"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-700">{index + 1}</span><span>{item}</span></li>
@@ -169,16 +171,16 @@ export default function ScenarioLesson({
         </ol>
       </section>
 
-      <button type="button" onClick={() => changeStep('language')} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">进入表达训练 <ArrowRight size={17} /></button>
+      <button type="button" onClick={() => changeStep('language')} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">{t('toLanguage')} <ArrowRight size={17} /></button>
     </div>
   )
 
   const renderLanguage = () => (
     <div className="space-y-5">
-      <button type="button" onClick={() => changeStep('knowledge')} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-blue-700"><ArrowLeft size={16} />返回基础知识</button>
+      <button type="button" onClick={() => changeStep('knowledge')} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-blue-700"><ArrowLeft size={16} />{t('backToKnowledge')}</button>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex items-center gap-2 text-blue-700"><Languages size={18} /><h2 className="font-semibold text-slate-950">先掌握这四个表达</h2></div>
+        <div className="flex items-center gap-2 text-blue-700"><Languages size={18} /><h2 className="font-semibold text-slate-950">{t('vocabularyTitle')}</h2></div>
         <div className="mt-4 divide-y divide-slate-100 border-y border-slate-100">
           {lesson.vocabulary.map((item) => (
             <div key={item.term} className="py-3">
@@ -194,23 +196,23 @@ export default function ScenarioLesson({
         phrases={lesson.sentencePatterns}
         practice={progress.phrasePractice || {}}
         requiredPhraseRepetitions={requiredPhraseRepetitions}
-        title="场景句型跟读"
+        title={t('shadowingTitle')}
         description={requiredPhraseRepetitions === 1
-          ? '免费体验先把每条完整说一遍；正式课程会用重复跟读巩固表达。'
-          : `每条先听清，再完整录音跟读 ${requiredPhraseRepetitions} 次。`}
+          ? t('shadowingTrial')
+          : t('shadowingRepeat', { times: requiredPhraseRepetitions })}
         onPracticeChange={(phrasePractice) => updateProgress({ phrasePractice })}
       />
 
-      <button type="button" onClick={() => changeStep('decision')} disabled={!inspection && !phrasePracticeComplete} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">{inspection ? '巡检：跳过跟读，进入判断' : phrasePracticeComplete ? '进入场景判断' : '完成四条跟读后继续'} <ArrowRight size={17} /></button>
+      <button type="button" onClick={() => changeStep('decision')} disabled={!inspection && !phrasePracticeComplete} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">{inspection ? t('inspectionSkip') : phrasePracticeComplete ? t('toDecision') : t('finishShadowing')} <ArrowRight size={17} /></button>
     </div>
   )
 
   const renderDecision = () => (
     <div className="space-y-5">
-      <button type="button" onClick={() => changeStep('language')} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-blue-700"><ArrowLeft size={16} />返回表达训练</button>
+      <button type="button" onClick={() => changeStep('language')} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-blue-700"><ArrowLeft size={16} />{t('backToLanguage')}</button>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex items-center gap-2 text-blue-700"><ListChecks size={18} /><p className="text-sm font-semibold">场景判断</p></div>
+        <div className="flex items-center gap-2 text-blue-700"><ListChecks size={18} /><p className="text-sm font-semibold">{t('decisionTitle')}</p></div>
         <h2 className="mt-3 text-lg font-semibold leading-7 text-slate-950">{lesson.decisionCheck.question}</h2>
         <div className="mt-5 space-y-3">
           {lesson.decisionCheck.options.map((option) => {
@@ -226,7 +228,7 @@ export default function ScenarioLesson({
 
         {selectedOption && (
           <div className={`mt-4 rounded-lg border p-4 ${selectedOption.correct ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
-            <p className={`flex items-center gap-2 text-sm font-semibold ${selectedOption.correct ? 'text-emerald-800' : 'text-amber-800'}`}>{selectedOption.correct && <CheckCircle2 size={17} />}{selectedOption.correct ? '判断正确' : '再想一步'}</p>
+            <p className={`flex items-center gap-2 text-sm font-semibold ${selectedOption.correct ? 'text-emerald-800' : 'text-amber-800'}`}>{selectedOption.correct && <CheckCircle2 size={17} />}{selectedOption.correct ? t('correct') : t('thinkAgain')}</p>
             <p className={`mt-1 text-sm leading-6 ${selectedOption.correct ? 'text-emerald-800' : 'text-amber-900'}`}>{selectedOption.explanation}</p>
           </div>
         )}
@@ -234,13 +236,13 @@ export default function ScenarioLesson({
 
       {selectedOption?.correct && (
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5">
-          <p className="text-xs font-semibold text-blue-700">对应面试题</p>
+          <p className="text-xs font-semibold text-blue-700">{t('interviewTransfer')}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-blue-950">{lesson.interviewTransfer.question}</p>
           <p className="mt-2 text-xs leading-5 text-blue-800">{lesson.interviewTransfer.tip}</p>
         </section>
       )}
 
-      <button type="button" onClick={onComplete} disabled={!inspection && !selectedOption?.correct} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">进入独立场景回答 <ArrowRight size={17} /></button>
+      <button type="button" onClick={onComplete} disabled={!inspection && !selectedOption?.correct} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">{t('toAnswer')} <ArrowRight size={17} /></button>
     </div>
   )
 

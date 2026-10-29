@@ -32,3 +32,13 @@ const scenarioKnowledge = {
 }
 
 export const getBarServerScenarioKnowledge = (scenarioId) => scenarioKnowledge[scenarioId] || null
+
+// English fallbacks for when the AI omits strengths on an English-language trial. Kept out of the
+// knowledge object so the reference the model sees is the same in both languages.
+const fallbackStrengthsEn = {
+  bar_server_drink_recommendation_01: ['You replied to the guest directly and named one specific drink instead of a vague suggestion.'],
+  bar_server_complaint_recovery_02: ['You responded to the guest’s complaint and started recovering the service.'],
+  bar_server_responsible_service_03: ['You recognised that this is a refusal situation that needs a safety judgement.'],
+}
+
+export const getBarServerFallbackStrengthsEn = (scenarioId) => fallbackStrengthsEn[scenarioId] || []

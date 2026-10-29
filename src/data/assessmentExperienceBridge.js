@@ -119,7 +119,30 @@ export const buildAssessmentExperience = ({ primaryJob, lowestDimension, careerP
   }
 }
 
-export const readAssessmentTrialContext = (search = '') => {
+// Only the trial page is bilingual, so only the labels it reads back from the link have English copies.
+const englishTrialLabels = {
+  gap: {
+    eligibility: 'basic eligibility',
+    english: 'English for guest service',
+    service_experience: 'service and job background',
+    work_preference: 'clear job direction',
+    ship_adaptability: 'adapting to ship life',
+    application_readiness: 'job application readiness',
+  },
+  defaultGap: 'your main gap',
+  concern: {
+    english: 'English listening and speaking', interview: 'interview performance', experience: 'relevant experience',
+    role_knowledge: 'job knowledge', medical_visa: 'medical and visa', route_reliability: 'application channels',
+    cost: 'upfront costs', onboard_adaptation: 'adapting on board', other: 'other',
+  },
+  stage: {
+    exploring: 'just starting to learn about ship jobs', position_selected: 'target job chosen',
+    interview_preparation: 'preparing for or attending interviews', waiting_contract: 'passed interview, waiting for contract',
+    waiting_onboard: 'contract signed, waiting to join the ship', experienced: 'has worked on board before',
+  },
+}
+
+export const readAssessmentTrialContext = (search = '', language = 'zh') => {
   const params = new URLSearchParams(search)
   if (params.get('source') !== 'assessment') return null
 
@@ -129,14 +152,17 @@ export const readAssessmentTrialContext = (search = '') => {
   const gap = params.get('gap') || ''
   const concern = params.get('concern') || ''
   const stage = params.get('stage') || ''
+  const isEnglish = language === 'en'
 
   return {
     scenarioIndex: scenarioNumber - 1,
     gap,
-    gapLabel: dimensionLabels[gap] || '当前核心短板',
+    gapLabel: isEnglish
+      ? englishTrialLabels.gap[gap] || englishTrialLabels.defaultGap
+      : dimensionLabels[gap] || '当前核心短板',
     concern,
-    concernLabel: concernLabels[concern] || '',
+    concernLabel: (isEnglish ? englishTrialLabels.concern : concernLabels)[concern] || '',
     currentStage: stage,
-    stageLabel: stageLabels[stage] || '',
+    stageLabel: (isEnglish ? englishTrialLabels.stage : stageLabels)[stage] || '',
   }
 }

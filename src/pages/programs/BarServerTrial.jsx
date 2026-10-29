@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,6 +23,7 @@ import { hasProductEntitlement } from '../../services/activationService'
 import PhraseShadowingPractice from '../../components/interview/PhraseShadowingPractice'
 import EdgeReadAloudHint from '../../components/EdgeReadAloudHint'
 import QuickFeedback from '../../components/QuickFeedback'
+import LanguageSwitcher from '../../components/LanguageSwitcher'
 import BarServerTrialCompletionReport from '../../components/programs/BarServerTrialCompletionReport'
 import ScenarioLesson from '../../components/interview/ScenarioLesson'
 import { evaluateInterviewWithAi, transcribeInterviewAudio } from '../../services/interviewAiService'
@@ -29,7 +31,7 @@ import { saveInterviewPracticeRecord } from '../../services/interviewPracticeSer
 import { trackProductEvent } from '../../services/productAnalyticsService'
 import {
   BAR_SERVER_TRIAL_VERSION,
-  barServerTrialScenarios,
+  getBarServerTrialScenarios,
   getBarTrialScenarioEntryStage,
   getNextIncompleteBarTrialScenario,
   getReadinessLabel,
@@ -55,8 +57,9 @@ const buildSavedAttempt = ({ transcript, durationSeconds, evaluation, attemptNum
 // Each account (and guest/preview) gets its own trial state; remounting on owner change re-reads the right record.
 export default function BarServerTrial() {
   const access = useEffectiveAccess()
+  const { t } = useTranslation('barTrial')
   const ownerId = access.isPreviewing ? 'preview' : access.userId || 'guest'
-  if (access.isRegistered && !access.isPreviewing && !access.userId) return <p className="p-6">正在确认账户…</p>
+  if (access.isRegistered && !access.isPreviewing && !access.userId) return <p className="p-6">{t('confirmingAccount')}</p>
   return <BarServerTrialContent key={ownerId} ownerId={ownerId} />
 }
 
@@ -64,14 +67,21 @@ function BarServerTrialContent({ ownerId }) {
   const navigate = useNavigate()
   const location = useLocation()
   const access = useEffectiveAccess()
+  const { t, i18n } = useTranslation('barTrial')
+  const language = i18n.language === 'en' ? 'en' : 'zh'
+  const barServerTrialScenarios = useMemo(() => getBarServerTrialScenarios(language), [language])
   const { isRegistered, openRegisterModal } = access
   const hasBarServerPack = hasProductEntitlement(access, 'bar_server_pack')
-  const assessmentContext = useMemo(() => readAssessmentTrialContext(location.search), [location.search])
+  const assessmentContext = useMemo(() => readAssessmentTrialContext(location.search, language), [language, location.search])
   const returnDestination = assessmentContext
-    ? { route: '/assessment', label: '返回测评结果' }
+    ? { route: '/assessment', label: t('back.assessment') }
     : location.state?.from === 'task5'
-    ? { route: '/programs/bar-server/foundation', label: '返回岗位基础课' }
-    : { route: '/academy/interview-questions?position=bar_server', label: '返回 Bar Server 题库' }
+    ? { route: '/programs/bar-server/foundation', label: t('back.foundation') }
+    : { route: '/academy/interview-questions?position=bar_server', label: t('back.questionBank') }
+  // Chinese pages keep the server's own message; English pages map the error code to English copy.
+  const describeError = (error, fallbackKey) => (language === 'en'
+    ? t(`common:apiErrors.${error?.code}`, { defaultValue: t(fallbackKey) })
+    : error?.message || t(fallbackKey))
   const savedTrial = useMemo(() => readBarServerTrial(localStorage, ownerId), [ownerId])
   const savedScenarioIndex = Number.isInteger(savedTrial?.scenarioIndex)
     && savedTrial.scenarioIndex >= 0
@@ -98,6 +108,8 @@ function BarServerTrialContent({ ownerId }) {
   const audioUrlRef = useRef('')
   const timerRef = useRef(null)
   const recordingSecondsRef = useRef(0)
+  // The view event records the language the page opened in; a later switch is tracked as language_switched.
+  const viewLanguageRef = useRef(language)
 
   const scenario = barServerTrialScenarios[scenarioIndex]
   const attempts = attemptsByScenario[scenario.id] || []
@@ -122,8 +134,9 @@ function BarServerTrialContent({ ownerId }) {
     ? buildBarServerTrialReport({
         attemptsByScenario,
         currentStage: assessmentContext?.currentStage || '',
+        language,
       })
-    : null, [allScenariosCompleted, assessmentContext?.currentStage, attemptsByScenario])
+    : null, [allScenariosCompleted, assessmentContext?.currentStage, attemptsByScenario, language])
   const trialReportDedupeKey = trialReport
     ? barServerTrialScenarios
         .map((item) => (attemptsByScenario[item.id] || [])[1]?.completedAt || item.id)
@@ -140,6 +153,7 @@ function BarServerTrialContent({ ownerId }) {
         gap: assessmentContext?.gap || null,
         primaryConcern: assessmentContext?.concern || null,
         currentStage: assessmentContext?.currentStage || null,
+        language: viewLanguageRef.current,
       },
     })
   }, [assessmentContext, initialScenarioIndex])
@@ -156,9 +170,10 @@ function BarServerTrialContent({ ownerId }) {
         firstScore,
         retryScore,
         scoreDelta,
+        language,
       },
     })
-  }, [completedCount, firstScore, retryAttempt, retryScore, scenario.id, scenarioIndex, scoreDelta, stage])
+  }, [completedCount, firstScore, language, retryAttempt, retryScore, scenario.id, scenarioIndex, scoreDelta, stage])
 
   useEffect(() => {
     if (stage !== 'comparison' || !allScenariosCompleted || !retryAttempt) return
@@ -266,12 +281,12 @@ function BarServerTrialContent({ ownerId }) {
   const startRecording = async () => {
     setErrorMessage('')
     if (!isRegistered) {
-      setErrorMessage('登录后可免费完成 3 个场景的语音转写、AI 反馈和重练。')
+      setErrorMessage(t('errors.loginForRecording'))
       openRegisterModal()
       return
     }
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      setErrorMessage('当前浏览器不支持录音，可以在下方直接输入英文回答。')
+      setErrorMessage(t('errors.recordingUnsupported'))
       return
     }
 
@@ -319,7 +334,7 @@ function BarServerTrialContent({ ownerId }) {
         } catch (error) {
           console.error('Bar Server trial transcription failed:', error)
           setRecordingStatus('ready')
-          setErrorMessage(error.message || '语音转写失败，请重录或手动输入。')
+          setErrorMessage(describeError(error, 'errors.transcriptionFailed'))
           if (error.code === 'LOGIN_REQUIRED') openRegisterModal()
         }
       }
@@ -333,7 +348,7 @@ function BarServerTrialContent({ ownerId }) {
       }, 1000)
     } catch (error) {
       console.error('Bar Server trial recording failed:', error)
-      setErrorMessage('无法打开麦克风，请检查浏览器权限，或先使用文字回答。')
+      setErrorMessage(t('errors.microphoneUnavailable'))
       setRecordingStatus('idle')
     }
   }
@@ -345,11 +360,11 @@ function BarServerTrialContent({ ownerId }) {
   const submitAttempt = async () => {
     const normalizedTranscript = transcript.trim()
     if (!normalizedTranscript) {
-      setErrorMessage('请先录音，或在文本框中输入你的英文回答。')
+      setErrorMessage(t('errors.answerRequired'))
       return
     }
     if (!isRegistered) {
-      setErrorMessage('登录后可免费生成完整的专业 AI 反馈。')
+      setErrorMessage(t('errors.loginForFeedback'))
       openRegisterModal()
       return
     }
@@ -371,6 +386,7 @@ function BarServerTrialContent({ ownerId }) {
         questions: [questionPayload],
         answers: [{ questionId: scenario.id, textAnswer: normalizedTranscript, durationSeconds }],
         scenarioId: scenario.id,
+        language,
       })
       const savedAttempt = buildSavedAttempt({ transcript: normalizedTranscript, durationSeconds, evaluation, attemptNumber })
       setCurrentAttempts(attemptNumber === 1 ? [savedAttempt] : [attempts[0], savedAttempt])
@@ -396,7 +412,7 @@ function BarServerTrialContent({ ownerId }) {
       }
     } catch (error) {
       console.error('Bar Server trial evaluation failed:', error)
-      setErrorMessage(error.message || 'AI 反馈生成失败，请稍后重试。')
+      setErrorMessage(describeError(error, 'errors.feedbackFailed'))
       if (error.code === 'LOGIN_REQUIRED') openRegisterModal()
     } finally {
       setIsEvaluating(false)
@@ -435,22 +451,22 @@ function BarServerTrialContent({ ownerId }) {
         <div className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 ${isLessonComplete ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
           <div className={`flex items-center gap-2 text-sm font-semibold ${isLessonComplete ? 'text-emerald-800' : 'text-amber-900'}`}>
             {isLessonComplete ? <CheckCircle2 size={17} /> : <BookOpen size={17} />}
-            {isLessonComplete ? '基础学习已完成' : '先完成基础学习，再进入独立回答'}
+            {isLessonComplete ? t('briefing.lessonDone') : t('briefing.lessonTodo')}
           </div>
           <button type="button" onClick={() => setStage('lesson')} className={`shrink-0 text-xs font-semibold transition ${isLessonComplete ? 'text-emerald-700 hover:text-emerald-900' : 'text-amber-800 hover:text-amber-950'}`}>
-            {isLessonComplete ? '重新查看' : '开始学习'}
+            {isLessonComplete ? t('briefing.review') : t('briefing.startLesson')}
           </button>
         </div>
       )}
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-blue-700">免费场景 {scenarioIndex + 1}/{barServerTrialScenarios.length} · {scenario.category}</p>
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">完整反馈</span>
+          <p className="text-sm font-medium text-blue-700">{t('briefing.scenarioLabel', { index: scenarioIndex + 1, total: barServerTrialScenarios.length, category: scenario.category })}</p>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">{t('briefing.fullFeedback')}</span>
         </div>
         <h2 className="mt-3 text-xl font-semibold text-slate-950">{scenario.title}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">{scenario.setting}</p>
         <div className="mt-5 border-l-4 border-blue-500 bg-blue-50 px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-blue-700">Guest</p>
+          <p className="text-xs font-semibold uppercase text-blue-700">{t('briefing.guest')}</p>
           <p className="mt-1 text-base font-medium leading-7 text-blue-950">“{scenario.guestLine}”</p>
         </div>
         <EdgeReadAloudHint />
@@ -459,20 +475,20 @@ function BarServerTrialContent({ ownerId }) {
 
       <section className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2"><Target size={18} className="text-blue-600" /><h3 className="font-semibold text-slate-950">岗位动作</h3></div>
+          <div className="flex items-center gap-2"><Target size={18} className="text-blue-600" /><h3 className="font-semibold text-slate-950">{t('briefing.checkpoints')}</h3></div>
           <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">{scenario.checkpoints.map((item) => <li key={item}>• {item}</li>)}</ul>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center gap-2"><Clock3 size={18} className="text-amber-600" /><h3 className="font-semibold text-slate-950">避免踩坑</h3></div>
+          <div className="flex items-center gap-2"><Clock3 size={18} className="text-amber-600" /><h3 className="font-semibold text-slate-950">{t('briefing.watchOuts')}</h3></div>
           <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">{scenario.watchOuts.map((item) => <li key={item}>• {item}</li>)}</ul>
         </div>
       </section>
 
       {!isRegistered && isLessonComplete && (
-        <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">基础课程进度已经保留。登录后再开始回答，避免录音或文字在邮箱验证过程中丢失。</p>
+        <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">{t('briefing.progressSaved')}</p>
       )}
       <button type="button" onClick={() => (isLessonComplete ? beginAttempt(false) : setStage('lesson'))} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
-        {isLessonComplete ? (isRegistered ? `开始第 ${scenarioIndex + 1} 个场景回答` : '登录后开始场景回答') : '先完成基础学习'} <ArrowRight size={18} />
+        {isLessonComplete ? (isRegistered ? t('briefing.start', { index: scenarioIndex + 1 }) : t('briefing.loginToStart')) : t('briefing.finishLessonFirst')} <ArrowRight size={18} />
       </button>
     </div>
   )
@@ -484,45 +500,45 @@ function BarServerTrialContent({ ownerId }) {
 
     return (
       <div className="space-y-5">
-        {!isRetry && <button type="button" onClick={backToBriefing} className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-700"><ArrowLeft size={16} />返回场景说明</button>}
+        {!isRetry && <button type="button" onClick={backToBriefing} className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-700"><ArrowLeft size={16} />{t('practice.backToBriefing')}</button>}
         {isRetry && retryItems?.length > 0 && (
           <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-950">第二次回答只改这些动作</p>
+            <p className="text-sm font-semibold text-amber-950">{t('practice.retryFocus')}</p>
             <ul className="mt-2 space-y-1.5 text-sm leading-6 text-amber-900">{retryItems.slice(0, 4).map((item) => <li key={item}>• {item}</li>)}</ul>
           </section>
         )}
 
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><p className="text-sm font-medium text-blue-700">场景 {scenarioIndex + 1} · {isRetry ? '第 2 次回答' : '第 1 次回答'}</p><h2 className="mt-1 text-xl font-semibold text-slate-950">现在直接回应客人</h2></div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">建议 30-60 秒</span>
+            <div><p className="text-sm font-medium text-blue-700">{t(isRetry ? 'practice.secondAttemptLabel' : 'practice.firstAttemptLabel', { index: scenarioIndex + 1 })}</p><h2 className="mt-1 text-xl font-semibold text-slate-950">{t('practice.title')}</h2></div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{t('practice.suggestedLength')}</span>
           </div>
           <div className="mt-4 rounded-lg bg-slate-50 p-4"><p className="text-sm font-medium leading-6 text-slate-950">“{scenario.guestLine}”</p></div>
           <EdgeReadAloudHint />
-          {errorMessage && <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm leading-6 text-red-700"><p>{errorMessage}</p><button type="button" onClick={() => navigate('/support?category=ai_training&context=bar_server_trial&error=ai_training_error')} className="mt-2 font-semibold underline underline-offset-2">仍无法继续？提交训练问题</button></div>}
+          {errorMessage && <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm leading-6 text-red-700"><p>{errorMessage}</p><button type="button" onClick={() => navigate('/support?category=ai_training&context=bar_server_trial&error=ai_training_error')} className="mt-2 font-semibold underline underline-offset-2">{t('practice.stillStuck')}</button></div>}
 
           <div className="mt-5 rounded-lg border border-slate-200 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><p className="font-semibold text-slate-950">语音回答</p><p className="mt-1 text-xs text-slate-500">录音只用于本次转写，不会作为音频长期保存。</p></div>
+              <div><p className="font-semibold text-slate-950">{t('practice.voiceAnswer')}</p><p className="mt-1 text-xs text-slate-500">{t('practice.recordingPrivacy')}</p></div>
               {recordingStatus === 'recording' ? (
-                <button type="button" onClick={stopRecording} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white"><Square size={16} />停止 {formatTime(recordingSeconds)}</button>
+                <button type="button" onClick={stopRecording} className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white"><Square size={16} />{t('practice.stop', { time: formatTime(recordingSeconds) })}</button>
               ) : (
                 <button type="button" onClick={startRecording} disabled={recordingStatus === 'transcribing'} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:bg-slate-300">
-                  {recordingStatus === 'transcribing' ? <LoaderCircle size={16} className="animate-spin" /> : <Mic size={16} />}{recordingStatus === 'transcribing' ? 'AI 正在转写' : audioUrl ? '重新录音' : '开始录音'}
+                  {recordingStatus === 'transcribing' ? <LoaderCircle size={16} className="animate-spin" /> : <Mic size={16} />}{recordingStatus === 'transcribing' ? t('practice.transcribing') : audioUrl ? t('practice.rerecord') : t('practice.record')}
                 </button>
               )}
             </div>
-            {audioUrl && recordingStatus !== 'recording' && <div className="mt-4"><audio src={audioUrl} controls className="w-full" /><p className="mt-1 text-xs text-slate-500">录音时长 {durationSeconds} 秒</p></div>}
+            {audioUrl && recordingStatus !== 'recording' && <div className="mt-4"><audio src={audioUrl} controls className="w-full" /><p className="mt-1 text-xs text-slate-500">{t('practice.duration', { seconds: durationSeconds })}</p></div>}
           </div>
 
           <label className="mt-5 block">
-            <span className="text-sm font-semibold text-slate-900">AI 转写文本</span><span className="ml-2 text-xs text-slate-500">提交前可以修正识别错误</span>
-            <textarea value={transcript} onChange={(event) => setTranscript(event.target.value)} rows={6} placeholder="录音后会自动显示英文转写；也可以直接输入你的英文回答。" className="mt-3 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+            <span className="text-sm font-semibold text-slate-900">{t('practice.transcriptLabel')}</span><span className="ml-2 text-xs text-slate-500">{t('practice.transcriptHint')}</span>
+            <textarea value={transcript} onChange={(event) => setTranscript(event.target.value)} rows={6} placeholder={t('practice.transcriptPlaceholder')} className="mt-3 w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
           </label>
         </section>
 
         <button type="button" onClick={submitAttempt} disabled={!transcript.trim() || recordingStatus === 'recording' || recordingStatus === 'transcribing' || isEvaluating} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">
-          {isEvaluating ? <LoaderCircle size={18} className="animate-spin" /> : <Sparkles size={18} />}{isEvaluating ? 'AI 正在结合岗位知识分析...' : isRetry ? '提交重练并比较' : '获取完整 AI 反馈'}
+          {isEvaluating ? <LoaderCircle size={18} className="animate-spin" /> : <Sparkles size={18} />}{isEvaluating ? t('practice.evaluating') : isRetry ? t('practice.submitRetry') : t('practice.submitFirst')}
         </button>
       </div>
     )
@@ -532,23 +548,23 @@ function BarServerTrialContent({ ownerId }) {
     <div className="space-y-4">
       {(feedback.strengths?.length > 0 || feedback.improvements?.length > 0) && (
         <section className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4"><h3 className="font-semibold text-emerald-950">具体做对了什么</h3><ul className="mt-2 space-y-1.5 text-sm leading-6 text-emerald-900">{feedback.strengths?.map((item) => <li key={item}>• {item}</li>)}</ul></div>
-          <div className="rounded-lg border border-amber-100 bg-amber-50 p-4"><h3 className="font-semibold text-amber-950">回答缺少什么</h3><ul className="mt-2 space-y-1.5 text-sm leading-6 text-amber-900">{feedback.improvements?.map((item) => <li key={item}>• {item}</li>)}</ul></div>
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4"><h3 className="font-semibold text-emerald-950">{t('feedback.strengths')}</h3><ul className="mt-2 space-y-1.5 text-sm leading-6 text-emerald-900">{feedback.strengths?.map((item) => <li key={item}>• {item}</li>)}</ul></div>
+          <div className="rounded-lg border border-amber-100 bg-amber-50 p-4"><h3 className="font-semibold text-amber-950">{t('feedback.improvements')}</h3><ul className="mt-2 space-y-1.5 text-sm leading-6 text-amber-900">{feedback.improvements?.map((item) => <li key={item}>• {item}</li>)}</ul></div>
         </section>
       )}
 
       {feedback.knowledgeNotes?.length > 0 && (
         <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <div className="flex items-center gap-2"><Lightbulb size={18} className="text-blue-600" /><h3 className="font-semibold text-slate-950">这个场景需要知道的岗位知识</h3></div>
+          <div className="flex items-center gap-2"><Lightbulb size={18} className="text-blue-600" /><h3 className="font-semibold text-slate-950">{t('feedback.knowledge')}</h3></div>
           <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">{feedback.knowledgeNotes.map((item) => <li key={item}>• {item}</li>)}</ul>
         </section>
       )}
 
       {feedback.improvedAnswer && (
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-5">
-          <div className="flex items-center gap-2"><MessageSquareText size={18} className="text-blue-700" /><h3 className="font-semibold text-blue-950">专业参考回答</h3></div>
+          <div className="flex items-center gap-2"><MessageSquareText size={18} className="text-blue-700" /><h3 className="font-semibold text-blue-950">{t('feedback.referenceAnswer')}</h3></div>
           <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-blue-950">{feedback.improvedAnswer}</p>
-          <p className="mt-3 text-xs leading-5 text-blue-700">参考回答用于理解服务顺序，不建议逐字背诵。</p>
+          <p className="mt-3 text-xs leading-5 text-blue-700">{t('feedback.referenceNote')}</p>
         </section>
       )}
 
@@ -574,15 +590,15 @@ function BarServerTrialContent({ ownerId }) {
     return (
       <div className="space-y-5">
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4"><div><p className="flex items-center gap-2 text-sm font-medium text-blue-700"><Sparkles size={16} />场景 {scenarioIndex + 1} · 第一次专业反馈</p><h2 className="mt-2 text-xl font-semibold text-slate-950">{getReadinessLabel(firstScore)}</h2><p className="mt-2 text-sm leading-6 text-slate-600">{feedback.comment}</p></div><div className="shrink-0 rounded-lg bg-blue-50 px-4 py-3 text-center"><p className="text-xs font-medium text-blue-700">准备度</p><p className="mt-1 text-2xl font-bold text-blue-950">{firstScore}</p></div></div>
+          <div className="flex items-start justify-between gap-4"><div><p className="flex items-center gap-2 text-sm font-medium text-blue-700"><Sparkles size={16} />{t('feedback.firstLabel', { index: scenarioIndex + 1 })}</p><h2 className="mt-2 text-xl font-semibold text-slate-950">{getReadinessLabel(firstScore, language)}</h2><p className="mt-2 text-sm leading-6 text-slate-600">{feedback.comment}</p></div><div className="shrink-0 rounded-lg bg-blue-50 px-4 py-3 text-center"><p className="text-xs font-medium text-blue-700">{t('feedback.readiness')}</p><p className="mt-1 text-2xl font-bold text-blue-950">{firstScore}</p></div></div>
         </section>
         {renderExpertFeedback(feedback, firstAttempt)}
-        <details className="rounded-lg border border-slate-200 bg-white p-4"><summary className="cursor-pointer text-sm font-semibold text-slate-900">查看第一次回答文本</summary><p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{firstAttempt.transcript}</p></details>
-        <button type="button" onClick={() => beginAttempt(true)} disabled={!hasCompletedPhrasePractice} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">{hasCompletedPhrasePractice ? '根据反馈再答一次' : '完成表达训练后再答一次'} <RefreshCcw size={17} /></button>
+        <details className="rounded-lg border border-slate-200 bg-white p-4"><summary className="cursor-pointer text-sm font-semibold text-slate-900">{t('feedback.viewFirstTranscript')}</summary><p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{firstAttempt.transcript}</p></details>
+        <button type="button" onClick={() => beginAttempt(true)} disabled={!hasCompletedPhrasePractice} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">{hasCompletedPhrasePractice ? t('feedback.retry') : t('feedback.retryAfterPractice')} <RefreshCcw size={17} /></button>
         {!hasCompletedPhrasePractice && (
-          <button type="button" onClick={() => beginAttempt(true)} className="inline-flex w-full items-center justify-center text-xs font-semibold text-slate-500 transition hover:text-blue-700">暂时跳过跟读，直接重答</button>
+          <button type="button" onClick={() => beginAttempt(true)} className="inline-flex w-full items-center justify-center text-xs font-semibold text-slate-500 transition hover:text-blue-700">{t('feedback.skipShadowing')}</button>
         )}
-        <button type="button" onClick={resetCurrentScenario} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"><RefreshCcw size={17} />重新开始本场景</button>
+        <button type="button" onClick={resetCurrentScenario} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"><RefreshCcw size={17} />{t('feedback.restartScenario')}</button>
       </div>
     )
   }
@@ -593,11 +609,11 @@ function BarServerTrialContent({ ownerId }) {
     return (
       <div className="space-y-5">
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="flex items-center gap-2 text-sm font-medium text-blue-700"><BarChart3 size={16} />场景 {scenarioIndex + 1} · 重练结果</p>
-          <h2 className="mt-2 text-xl font-semibold text-slate-950">{getReadinessLabel(retryScore)}</h2><p className="mt-2 text-sm leading-6 text-slate-600">{getScoreDeltaMessage(scoreDelta)}</p>
-          <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3"><div className="rounded-lg bg-slate-100 p-4 text-center"><p className="text-xs text-slate-500">第一次</p><p className="mt-1 text-2xl font-bold text-slate-800">{firstScore}</p></div><ArrowRight size={20} className="text-slate-400" /><div className="rounded-lg bg-blue-50 p-4 text-center"><p className="text-xs text-blue-700">重练后</p><p className="mt-1 text-2xl font-bold text-blue-950">{retryScore}</p><p className={`mt-1 text-xs font-semibold ${scoreDelta >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{scoreDelta >= 0 ? '+' : ''}{scoreDelta}</p></div></div>
+          <p className="flex items-center gap-2 text-sm font-medium text-blue-700"><BarChart3 size={16} />{t('comparison.label', { index: scenarioIndex + 1 })}</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950">{getReadinessLabel(retryScore, language)}</h2><p className="mt-2 text-sm leading-6 text-slate-600">{getScoreDeltaMessage(scoreDelta, language)}</p>
+          <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3"><div className="rounded-lg bg-slate-100 p-4 text-center"><p className="text-xs text-slate-500">{t('comparison.first')}</p><p className="mt-1 text-2xl font-bold text-slate-800">{firstScore}</p></div><ArrowRight size={20} className="text-slate-400" /><div className="rounded-lg bg-blue-50 p-4 text-center"><p className="text-xs text-blue-700">{t('comparison.retry')}</p><p className="mt-1 text-2xl font-bold text-blue-950">{retryScore}</p><p className={`mt-1 text-xs font-semibold ${scoreDelta >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{scoreDelta >= 0 ? '+' : ''}{scoreDelta}</p></div></div>
         </section>
-        <section className="rounded-lg border border-slate-200 bg-white p-5"><h3 className="font-semibold text-slate-950">AI 对第二次回答的判断</h3><p className="mt-2 text-sm leading-6 text-slate-600">{feedback.comment}</p></section>
+        <section className="rounded-lg border border-slate-200 bg-white p-5"><h3 className="font-semibold text-slate-950">{t('comparison.aiJudgment')}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{feedback.comment}</p></section>
         {feedback.improvedAnswer && (
           <PhraseShadowingPractice
             position="bar_server"
@@ -609,7 +625,7 @@ function BarServerTrialContent({ ownerId }) {
         )}
 
         {!allScenariosCompleted ? (
-          <button type="button" onClick={goToNextScenario} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">继续免费场景 {nextIncompleteScenarioIndex + 1}/{barServerTrialScenarios.length} <ArrowRight size={18} /></button>
+          <button type="button" onClick={goToNextScenario} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">{t('comparison.nextScenario', { index: nextIncompleteScenarioIndex + 1, total: barServerTrialScenarios.length })} <ArrowRight size={18} /></button>
         ) : trialReport && (
           <BarServerTrialCompletionReport
             report={trialReport}
@@ -634,7 +650,7 @@ function BarServerTrialContent({ ownerId }) {
           <QuickFeedback context="Bar Server 免费 3 场景体验完成页" />
         )}
 
-        <button type="button" onClick={resetCurrentScenario} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"><RefreshCcw size={17} />重新体验本场景</button>
+        <button type="button" onClick={resetCurrentScenario} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"><RefreshCcw size={17} />{t('comparison.replayScenario')}</button>
       </div>
     )
   }
@@ -643,17 +659,20 @@ function BarServerTrialContent({ ownerId }) {
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-3xl px-5 pb-7 pt-10">
-          <button type="button" onClick={() => navigate(returnDestination.route)} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-700"><ArrowLeft size={17} />{returnDestination.label}</button>
-          <div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Wine size={24} /></div><div><p className="text-sm font-medium text-blue-700">Bar Server 工作场景体验</p><h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">免费完成 3 个真实场景，再决定是否继续</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">每个免费场景都包含语音回答、岗位知识反馈、专业参考答案、针对性重练和前后对比。课程内容可以先看，提交回答和保留 AI 反馈需要登录。</p></div></div>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <button type="button" onClick={() => navigate(returnDestination.route)} className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-700"><ArrowLeft size={17} />{returnDestination.label}</button>
+            <LanguageSwitcher context="bar_server_trial" />
+          </div>
+          <div className="flex items-start gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Wine size={24} /></div><div><p className="text-sm font-medium text-blue-700">{t('header.eyebrow')}</p><h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-950">{t('header.title')}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{t('header.description')}</p></div></div>
 
           {assessmentContext && (
             <section className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-left">
               <div className="flex items-start gap-3">
                 <Target size={19} className="mt-0.5 shrink-0 text-blue-700" />
                 <div>
-                  <p className="text-xs font-semibold text-blue-700">根据你的测评，先验证最相关的一场</p>
-                  <p className="mt-1 text-sm font-semibold text-blue-950">当前短板：{assessmentContext.gapLabel} · 匹配场景：{initialScenario.shortTitle}</p>
-                  {(assessmentContext.concernLabel || assessmentContext.stageLabel) && <p className="mt-2 text-xs leading-5 text-blue-800">{assessmentContext.concernLabel ? `主要担忧：${assessmentContext.concernLabel}` : ''}{assessmentContext.concernLabel && assessmentContext.stageLabel ? ' · ' : ''}{assessmentContext.stageLabel ? `当前阶段：${assessmentContext.stageLabel}` : ''}</p>}
+                  <p className="text-xs font-semibold text-blue-700">{t('assessment.eyebrow')}</p>
+                  <p className="mt-1 text-sm font-semibold text-blue-950">{t('assessment.match', { gap: assessmentContext.gapLabel, scenario: initialScenario.shortTitle })}</p>
+                  {(assessmentContext.concernLabel || assessmentContext.stageLabel) && <p className="mt-2 text-xs leading-5 text-blue-800">{assessmentContext.concernLabel ? t('assessment.concern', { value: assessmentContext.concernLabel }) : ''}{assessmentContext.concernLabel && assessmentContext.stageLabel ? ' · ' : ''}{assessmentContext.stageLabel ? t('assessment.stage', { value: assessmentContext.stageLabel }) : ''}</p>}
                 </div>
               </div>
             </section>
@@ -669,10 +688,10 @@ function BarServerTrialContent({ ownerId }) {
           <div className="mt-3 flex items-center justify-between gap-3">
             {scenario.lesson ? (
               <button type="button" onClick={() => setStage('lesson')} className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 transition hover:text-blue-900">
-                <BookOpen size={14} />查看场景课程
+                <BookOpen size={14} />{t('header.viewLesson')}
               </button>
             ) : <span />}
-            <p className="text-right text-xs text-slate-500">已完成 {completedCount}/{barServerTrialScenarios.length} 个完整场景</p>
+            <p className="text-right text-xs text-slate-500">{t('header.completed', { done: completedCount, total: barServerTrialScenarios.length })}</p>
           </div>
         </div>
       </header>

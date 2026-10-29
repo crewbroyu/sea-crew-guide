@@ -1,3 +1,5 @@
+import { barServerTrialScenariosEn } from './barServerTrial.en.js'
+
 export const BAR_SERVER_TRIAL_VERSION = 3
 // Legacy unpartitioned key. Trial results now live under `${key}:${ownerId}` because AI attempts are tied to an
 // account and use that account's server-side free quota; they are local only, so they must survive sign-out.
@@ -328,19 +330,68 @@ export const barServerTrialScenarios = [
   },
 ]
 
-export const getReadinessLabel = (score) => {
-  if (score >= 80) return '回答已经接近可面试状态'
-  if (score >= 65) return '基础方向正确，仍需强化'
-  if (score >= 50) return '能开口，但岗位证据不足'
-  return '建议先按反馈重建回答'
+const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+// Overlays translated fields onto the Chinese scenario: objects merge key by key, arrays of objects merge
+// item by item (so ids, correct answers and English lines stay shared), and anything else is replaced.
+export const mergeLocalizedContent = (base, overlay) => {
+  if (overlay === undefined) return base
+  if (Array.isArray(base) && Array.isArray(overlay) && base.every(isPlainObject)) {
+    return base.map((item, index) => mergeLocalizedContent(item, overlay[index]))
+  }
+  if (isPlainObject(base) && isPlainObject(overlay)) {
+    return Object.fromEntries(
+      [...new Set([...Object.keys(base), ...Object.keys(overlay)])]
+        .map((key) => [key, mergeLocalizedContent(base[key], overlay[key])]),
+    )
+  }
+  return overlay
 }
 
-export const getScoreDeltaMessage = (delta) => {
-  if (delta >= 12) return '这次重练出现了明显提升，说明反馈已经转化成回答动作。'
-  if (delta >= 5) return '回答有所提升，再补强具体动作和服务收尾会更稳定。'
-  if (delta > 0) return '方向在改善，但变化还不够明显，建议继续针对最低项练习。'
-  if (delta === 0) return '两次表现基本持平，需要把反馈转化成更具体的句子和动作。'
-  return '第二次分数暂时下降并不代表退步，请放慢速度，先只改一个关键问题。'
+const localizedScenarios = {
+  zh: barServerTrialScenarios,
+  en: barServerTrialScenarios.map((scenario) => mergeLocalizedContent(scenario, barServerTrialScenariosEn[scenario.id])),
+}
+
+export const getBarServerTrialScenarios = (language = 'zh') => localizedScenarios[language] || localizedScenarios.zh
+
+const readinessLabels = {
+  zh: ['回答已经接近可面试状态', '基础方向正确，仍需强化', '能开口，但岗位证据不足', '建议先按反馈重建回答'],
+  en: ['Your answer is close to interview-ready', 'Right direction, but needs more work', 'You can respond, but the job actions are missing', 'Rebuild your answer using the feedback'],
+}
+
+export const getReadinessLabel = (score, language = 'zh') => {
+  const labels = readinessLabels[language] || readinessLabels.zh
+  if (score >= 80) return labels[0]
+  if (score >= 65) return labels[1]
+  if (score >= 50) return labels[2]
+  return labels[3]
+}
+
+const scoreDeltaMessages = {
+  zh: [
+    '这次重练出现了明显提升，说明反馈已经转化成回答动作。',
+    '回答有所提升，再补强具体动作和服务收尾会更稳定。',
+    '方向在改善，但变化还不够明显，建议继续针对最低项练习。',
+    '两次表现基本持平，需要把反馈转化成更具体的句子和动作。',
+    '第二次分数暂时下降并不代表退步，请放慢速度，先只改一个关键问题。',
+  ],
+  en: [
+    'A clear improvement — you turned the feedback into real actions in your answer.',
+    'Your answer improved. Add more specific actions and a clear service close to make it consistent.',
+    'You are moving in the right direction, but the change is small. Keep practising your weakest point.',
+    'Both answers scored about the same. Turn the feedback into more specific sentences and actions.',
+    'A lower second score does not mean you got worse. Slow down and fix just one key problem first.',
+  ],
+}
+
+export const getScoreDeltaMessage = (delta, language = 'zh') => {
+  const messages = scoreDeltaMessages[language] || scoreDeltaMessages.zh
+  if (delta >= 12) return messages[0]
+  if (delta >= 5) return messages[1]
+  if (delta > 0) return messages[2]
+  if (delta === 0) return messages[3]
+  return messages[4]
 }
 
 export const getBarTrialScenarioEntryStage = (savedTrial, scenarioIndex) => {

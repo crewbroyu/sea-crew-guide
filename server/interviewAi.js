@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import process from 'node:process'
-import { getBarServerScenarioKnowledge } from './barServerScenarioKnowledge.js'
+import { getBarServerFallbackStrengthsEn, getBarServerScenarioKnowledge } from './barServerScenarioKnowledge.js'
 import { getBarServerSimulationKnowledge, getTrustedSimulationScenarios } from './barServerSimulationKnowledge.js'
 import { getFoundationTrainingReference } from './foundationTrainingKnowledge.js'
 import {
@@ -661,7 +661,19 @@ const normalizeQuestionsAndAnswers = (body) => {
   })
 }
 
-const getScenarioFallbackComment = (item) => {
+// Feedback is Chinese unless the client asks for English; only bilingual pages send `language: 'en'`.
+const getFeedbackLanguage = (body) => (body?.language === 'en' ? 'en' : 'zh')
+
+const getScenarioFallbackComment = (item, language = 'zh') => {
+  if (language === 'en') {
+    if (item.id === 'bar_server_drink_recommendation_01' && /screw\s*driver/i.test(item.answer)) {
+      return 'You named a specific drink, the Screwdriver, which is a good first step. But it is vodka and orange juice, and the juice can taste sweet, so it may not match “light, citrusy, and not too sweet”. Your answer also needs a preference check, a flavour explanation, a package or price check, and a clear close to the order.'
+    }
+    const missingSteps = item.scenarioReference?.serviceSequence?.slice(0, 3).join(' ')
+    return missingSteps
+      ? `You started to respond to the guest, but your answer does not yet show the full service actions for this scenario: ${missingSteps}`
+      : 'Add the specific judgement, actions and service result that answer this question directly.'
+  }
   if (item.id === 'bar_server_drink_recommendation_01' && /screw\s*driver/i.test(item.answer)) {
     return '你给出了具体饮品 Screwdriver，这是有效的第一步；但它由伏特加和橙汁构成，橙汁可能偏甜，不一定最符合客人“light、citrusy、not too sweet”的要求。回答还缺少偏好确认、风味解释、套餐或价格核实以及点单收尾。'
   }
@@ -696,7 +708,9 @@ const SCENARIO_SCORE_ANCHORS = {
   '90-100': 'Exceptional response with complete judgment and execution; use sparingly when no material gap exists.',
 }
 
-const buildScenarioResponseFormat = (itemCount) => ({
+const getSchemaFeedbackLanguage = (language) => (language === 'en' ? 'in plain, simple English' : 'in Chinese')
+
+const buildScenarioResponseFormat = (itemCount, language = 'zh') => ({
   type: 'json_schema',
   json_schema: {
     name: 'job_scenario_feedback',
@@ -719,10 +733,10 @@ const buildScenarioResponseFormat = (itemCount) => ({
         },
         overallSuggestion: {
           type: 'string',
-          description: 'Specific next action in Simplified Chinese.',
+          description: `Specific next action ${language === 'en' ? 'in plain, simple English' : 'in Simplified Chinese'}.`,
         },
-        strengths: stringArraySchema('Specific strengths evidenced by the candidate answer, in Chinese.'),
-        priorities: stringArraySchema('Highest-priority improvements for the next attempt, in Chinese.'),
+        strengths: stringArraySchema(`Specific strengths evidenced by the candidate answer, ${getSchemaFeedbackLanguage(language)}.`),
+        priorities: stringArraySchema(`Highest-priority improvements for the next attempt, ${getSchemaFeedbackLanguage(language)}.`),
         questionScores: {
           type: 'array',
           minItems: itemCount,
@@ -735,17 +749,17 @@ const buildScenarioResponseFormat = (itemCount) => ({
               score: { type: 'integer', minimum: 0, maximum: 20 },
               comment: {
                 type: 'string',
-                description: 'Evidence-based critique in Chinese that quotes or paraphrases the actual answer.',
+                description: `Evidence-based critique ${getSchemaFeedbackLanguage(language)} that quotes or paraphrases the actual answer.`,
               },
-              strengths: stringArraySchema('What this exact answer did well, in Chinese.'),
-              improvements: stringArraySchema('Missing service actions or knowledge, in Chinese.'),
+              strengths: stringArraySchema(`What this exact answer did well, ${getSchemaFeedbackLanguage(language)}.`),
+              improvements: stringArraySchema(`Missing service actions or knowledge, ${getSchemaFeedbackLanguage(language)}.`),
               improvedAnswer: {
                 type: 'string',
                 description: 'A natural English response for the target job, adapted to this answer and scenario.',
               },
-              knowledgeNotes: stringArraySchema('Relevant professional knowledge for the target job, in Chinese.'),
+              knowledgeNotes: stringArraySchema(`Relevant professional knowledge for the target job, ${getSchemaFeedbackLanguage(language)}.`),
               usefulPhrases: stringArraySchema('Natural English phrases useful in this exact scenario.'),
-              retryChecklist: stringArraySchema('Observable actions for the next attempt, in Chinese.'),
+              retryChecklist: stringArraySchema(`Observable actions for the next attempt, ${getSchemaFeedbackLanguage(language)}.`),
               matchedKeywords: stringArraySchema('Relevant English concepts present in the answer.'),
               missedKeywords: stringArraySchema('Important English concepts missing from the answer.'),
             },
@@ -855,8 +869,9 @@ const getMockInterviewTokenLimit = (itemCount) => Math.min(
   Math.max(OUTPUT_TOKEN_LIMITS.mockInterview, 1_500 + itemCount * 800),
 )
 
-const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, model) => {
+const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, model, language = 'zh') => {
   const hasRichFeedback = isPremium || isScenarioTrial
+  const isEnglish = language === 'en'
   const scoreCandidates = rawEvaluation?.questionScores
     || rawEvaluation?.question_scores
     || rawEvaluation?.perQuestionFeedback
@@ -869,6 +884,8 @@ const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, m
     const fallbackMatched = item.keywords.filter((keyword) =>
       item.answer.toLowerCase().includes(keyword.toLowerCase()),
     )
+    const fallbackStrengths = isEnglish ? getBarServerFallbackStrengthsEn(item.id) : scenarioReference.fallbackStrengthsZh
+    const fallbackRetryChecklist = isEnglish ? scenarioReference.serviceSequence : scenarioReference.retryChecklistZh
 
     return {
       question: item.question,
@@ -877,22 +894,24 @@ const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, m
       maxScore: 20,
       durationSeconds: item.durationSeconds,
       comment: trimText(raw.comment || raw.feedback || raw.analysis, 700)
-        || (isScenarioTrial ? getScenarioFallbackComment(item) : '请补充与问题直接相关的具体判断、行动和结果。'),
+        || (isScenarioTrial
+          ? getScenarioFallbackComment(item, language)
+          : isEnglish ? 'Add the specific judgement, actions and results that answer this question directly.' : '请补充与问题直接相关的具体判断、行动和结果。'),
       strengths: hasRichFeedback
-        ? preferStringList(raw.strengths, isScenarioTrial ? scenarioReference.fallbackStrengthsZh : [], 3, 160)
+        ? preferStringList(raw.strengths, isScenarioTrial ? fallbackStrengths : [], 3, 160)
         : [],
-      improvements: preferStringList(raw.improvements, isScenarioTrial ? scenarioReference.retryChecklistZh : [], 4, 180),
+      improvements: preferStringList(raw.improvements, isScenarioTrial ? fallbackRetryChecklist : [], 4, 180),
       improvedAnswer: hasRichFeedback
         ? trimText(raw.improvedAnswer || raw.modelAnswer, 2500) || (isScenarioTrial ? scenarioReference.referenceAnswer || '' : '')
         : '',
       knowledgeNotes: isScenarioTrial
-        ? preferStringList(raw.knowledgeNotes, scenarioReference.knowledgeNotesZh, 5, 260)
+        ? preferStringList(raw.knowledgeNotes, isEnglish ? scenarioReference.knowledgeNotes : scenarioReference.knowledgeNotesZh, 5, 260)
         : [],
       usefulPhrases: isScenarioTrial
         ? preferStringList(raw.usefulPhrases, scenarioReference.usefulPhrases, 5, 220)
         : [],
       retryChecklist: isScenarioTrial
-        ? preferStringList(raw.retryChecklist, scenarioReference.retryChecklistZh, 4, 180)
+        ? preferStringList(raw.retryChecklist, fallbackRetryChecklist, 4, 180)
         : [],
       matchedKeywords: normalizeStringList(raw.matchedKeywords, 8, 80).length
         ? normalizeStringList(raw.matchedKeywords, 8, 80)
@@ -923,7 +942,9 @@ const normalizeEvaluation = (rawEvaluation, items, isPremium, isScenarioTrial, m
     rating: Math.round(clamp(Math.ceil(overallScore / 20), 1, 5)),
     overallSuggestion:
       trimText(rawEvaluation?.overallSuggestion, 1200)
-      || '优先重练低分题，并补充与目标岗位直接相关的具体案例。',
+      || (isEnglish
+        ? 'Practise your lowest-scoring answer again and add specific examples that relate directly to the target job.'
+        : '优先重练低分题，并补充与目标岗位直接相关的具体案例。'),
     strengths: hasRichFeedback ? normalizeStringList(rawEvaluation?.strengths, 5, 220) : [],
     priorities: hasRichFeedback ? normalizeStringList(rawEvaluation?.priorities, 5, 220) : [],
     ...(dimensionScores ? { dimensionScores } : {}),
@@ -940,6 +961,8 @@ const evaluateInterview = async ({ body, config }) => {
   const isPremium = [PREMIUM_PRACTICE_MODE, PREMIUM_MOCK_MODE].includes(body.mode)
   const isScenarioTrial = isFoundationChallenge || [SCENARIO_TRIAL_MODE, PREMIUM_SCENARIO_MODE].includes(body.mode)
   const hasRichFeedback = isPremium || isScenarioTrial
+  const feedbackLanguage = getFeedbackLanguage(body)
+  const feedbackIn = feedbackLanguage === 'en' ? 'Plain English' : 'Chinese'
   const mode = isFoundationChallenge ? '岗位基础课 Guest Challenge' : isPremium ? '完整模拟面试' : isScenarioTrial ? '岗位场景完整试练' : '单题语音练习'
   const evaluationModel = isScenarioTrial
     ? config.scenarioEvaluationModel
@@ -947,10 +970,10 @@ const evaluateInterview = async ({ body, config }) => {
   const questionOutput = items.map((item) => ({
     question: item.question,
     score: '0-20 integer',
-    comment: 'Chinese evidence-based feedback',
-    improvements: ['Chinese'],
+    comment: `${feedbackIn} evidence-based feedback`,
+    improvements: [feedbackIn],
     ...(hasRichFeedback ? {
-      strengths: ['Chinese'],
+      strengths: [feedbackIn],
       improvedAnswer: isScenarioTrial
         ? 'Natural English response grounded in scenarioReference and realistic role authority'
         : 'English model answer based only on supplied experience',
@@ -958,9 +981,9 @@ const evaluateInterview = async ({ body, config }) => {
       missedKeywords: ['English'],
     } : {}),
     ...(isScenarioTrial ? {
-      knowledgeNotes: ['Chinese explanation of role knowledge directly relevant to this answer'],
+      knowledgeNotes: [`${feedbackIn} explanation of role knowledge directly relevant to this answer`],
       usefulPhrases: ['Natural English phrases for this exact service scenario'],
-      retryChecklist: ['Chinese, observable action for the second attempt'],
+      retryChecklist: [`${feedbackIn}, observable action for the second attempt`],
     } : {}),
   }))
 
@@ -981,7 +1004,9 @@ const evaluateInterview = async ({ body, config }) => {
             '即使候选人只说一句话，也必须解释这句话具体对在哪里、错在哪里，并提供可直接重练的完整回答。',
             '严格按提供的分数锚点评分；17 分以上必须有清楚、具体、可核验的高质量证据，19-20 分应极少使用。',
             body.mode === PREMIUM_MOCK_MODE ? 'dimensionScores 中，speakingClarity 和 interviewStructure 必须评分；其余维度只有在题目或回答确实考察到时才评分，否则返回 null，不要猜测或补分。' : '',
-            '点评和总体建议用简体中文，improvedAnswer 用自然、适合面试口语的英文。',
+            feedbackLanguage === 'en'
+              ? '所有点评、优势、改进、岗位知识、重练清单和总体建议都用简单清楚的英文（CEFR B1，适合英语非母语的船员阅读），不要出现中文；improvedAnswer 用自然、适合面试口语的英文。'
+              : '点评和总体建议用简体中文，improvedAnswer 用自然、适合面试口语的英文。',
             '每题满分 20 分。严格返回 JSON，不要使用 Markdown。',
           ].join('\n'),
         },
@@ -1007,10 +1032,10 @@ const evaluateInterview = async ({ body, config }) => {
             requiredOutput: {
               overallScore: '0-100 integer',
               rating: '1-5 integer',
-              overallSuggestion: 'Chinese, concrete next action',
+              overallSuggestion: `${feedbackIn}, concrete next action`,
               ...(hasRichFeedback ? {
-                strengths: ['Chinese'],
-                priorities: ['Chinese'],
+                strengths: [feedbackIn],
+                priorities: [feedbackIn],
               } : {}),
               ...(body.mode === PREMIUM_MOCK_MODE ? {
                 dimensionScores: {
@@ -1035,7 +1060,7 @@ const evaluateInterview = async ({ body, config }) => {
       model: evaluationModel,
       messages,
       response_format: isScenarioTrial
-        ? buildScenarioResponseFormat(items.length)
+        ? buildScenarioResponseFormat(items.length, feedbackLanguage)
         : { type: 'json_object' },
       enable_thinking: false,
       temperature: 0.2,
@@ -1094,7 +1119,7 @@ const evaluateInterview = async ({ body, config }) => {
     }
   }
 
-  return normalizeEvaluation(rawEvaluation, items, isPremium, isScenarioTrial, evaluationModel)
+  return normalizeEvaluation(rawEvaluation, items, isPremium, isScenarioTrial, evaluationModel, feedbackLanguage)
 }
 
 const normalizePracticalHistory = (history) => (

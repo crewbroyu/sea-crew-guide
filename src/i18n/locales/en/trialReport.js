@@ -1,0 +1,18 @@
+export default {
+  eyebrow: '3 real scenarios · Two answers compared',
+  title: 'Your Bar Server free trial report',
+  disclaimer: 'This report is based only on the answers you just gave. It is not a hiring decision.',
+  readiness: 'Scenario readiness',
+  validationLine: 'Minimum pass line',
+  passed: '{{passed}}/3 scenarios reached the pass line',
+  primaryGap: 'Biggest gap · {{title}} {{score}}/100',
+  byScenario: 'How you did in each scenario',
+  scenarioScores: 'First {{first}} · Retry {{delta}}',
+  proven: 'What you have already shown',
+  risks: 'Mistakes that could affect real work',
+  riskTitle: '{{title}}: ',
+  priority: '3 things to train first',
+  roadmap: 'Preview of your full 14-day plan',
+  continueWithAccess: 'Go to my 14-day training',
+  continueToUnlock: 'Start 14-day training on my weak areas',
+}

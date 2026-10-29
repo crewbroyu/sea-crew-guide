@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 const metadata = [
   [/^\/$/, 'CrewPathGuide · 海乘求职路径与岗位训练', '从职业评估到岗位训练、面试和登船准备的海乘求职任务系统。'],
@@ -22,11 +23,19 @@ const metadata = [
   [/^\/legal\/purchase/, '岗位包交付与退款规则 · CrewPathGuide', '了解岗位包价格、有效期、AI 额度、人工交付与异常处理规则。'],
 ]
 
+// English titles exist only for translated pages; see BILINGUAL_ROUTES.
+const englishMetadata = [
+  [/^\/programs\/bar-server\/trial/, 'Bar Server Free Scenario Trial · CrewPathGuide', 'Practise three real cruise bar scenarios for free: drink recommendation, complaint recovery and responsible alcohol service.'],
+]
+
 export default function RouteMetadata() {
   const { pathname } = useLocation()
+  const { i18n } = useTranslation()
+  const language = i18n.language
 
   useEffect(() => {
-    const match = metadata.find(([pattern]) => pattern.test(pathname))
+    const match = (language === 'en' && englishMetadata.find(([pattern]) => pattern.test(pathname)))
+      || metadata.find(([pattern]) => pattern.test(pathname))
     const title = match?.[1] || 'CrewPathGuide'
     const description = match?.[2] || '海乘求职路径、岗位课程与面试训练工具。'
     document.title = title
@@ -38,7 +47,7 @@ export default function RouteMetadata() {
       document.head.appendChild(descriptionTag)
     }
     descriptionTag.setAttribute('content', description)
-  }, [pathname])
+  }, [language, pathname])
 
   return null
 }
